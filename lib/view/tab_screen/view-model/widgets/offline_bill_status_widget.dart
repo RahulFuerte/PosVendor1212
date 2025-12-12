@@ -1,0 +1,374 @@
+import 'package:flutter/material.dart';
+import 'dart:async';
+import 'package:provider/provider.dart';
+import '../backend/database_service.dart';
+import '../backend/unified_database_service.dart';
+import '../backend/offline_bill_manager.dart';
+
+/// Widget that displays offline bill sync status and provides manual sync functionality
+class OfflineBillStatusWidget extends StatefulWidget {
+  final String adminUid;
+  final VoidCallback? onSyncCompleted;
+
+  const OfflineBillStatusWidget({
+    Key? key,
+    required this.adminUid,
+    this.onSyncCompleted,
+  }) : super(key: key);
+
+  @override
+  State<OfflineBillStatusWidget> createState() => _OfflineBillStatusWidgetState();
+}
+
+class _OfflineBillStatusWidgetState extends State<OfflineBillStatusWidget> {
+  late final UnifiedDatabaseService _databaseService;
+  
+  StreamSubscription<OfflineBillSyncStatus>? _syncStatusSubscription;
+  StreamSubscription<OfflineBillSyncResult>? _syncResultSubscription;
+  StreamSubscription<bool>? _connectivitySubscription;
+  
+  int _offlineBillsCount = 0;
+  bool _isConnected = false;
+  bool _isSyncing = false;
+  OfflineBillSyncStatus? _currentSyncStatus;
+  String? _lastSyncError;
+  DateTime? _lastSyncTime;
+
+  @override
+  void initState() {
+    super.initState();
+    // Get the DatabaseService from Provider and cast to UnifiedDatabaseService
+    // This is safe because we know the Provider provides UnifiedDatabaseService
+    _databaseService = Provider.of<DatabaseService>(context, listen: false) as UnifiedDatabaseService;
+    _initializeService();
+    _setupListeners();
+    _loadInitialData();
+  }
+
+  @override
+  void dispose() {
+    _syncStatusSubscription?.cancel();
+    _syncResultSubscription?.cancel();
+    _connectivitySubscription?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _initializeService() async {
+    try {
+      await _databaseService.initialize();
+    } catch (e) {
+      print('Failed to initialize database service: $e');
+    }
+  }
+
+  void _setupListeners() {
+    // Listen to offline bill sync status changes
+    _syncStatusSubscription = _databaseService.offlineBillSyncStatusStream.listen(
+      (status) {
+        if (mounted) {
+          setState(() {
+            _currentSyncStatus = status;
+            _isSyncing = status == OfflineBillSyncStatus.syncing || 
+                         status == OfflineBillSyncStatus.manualSyncStarted;
+          });
+        }
+      },
+    );
+
+    // Listen to offline bill sync results
+    _syncResultSubscription = _databaseService.offlineBillSyncResultStream.listen(
+      (result) {
+        if (mounted) {
+          setState(() {
+            _isSyncing = false;
+            _lastSyncTime = result.timestamp;
+            
+            if (result.success) {
+              _lastSyncError = null;
+              _loadOfflineBillsCount(); // Refresh count after successful sync
+              widget.onSyncCompleted?.call();
+            } else {
+              _lastSyncError = result.errorMessage;
+            }
+          });
+          
+          // Show snackbar for sync results
+          _showSyncResultSnackBar(result);
+        }
+      },
+    );
+
+    // Listen to connectivity changes
+    _connectivitySubscription = _databaseService.connectivityStream.listen(
+      (isConnected) {
+        if (mounted) {
+          setState(() {
+            _isConnected = isConnected;
+          });
+        }
+      },
+    );
+  }
+
+  Future<void> _loadInitialData() async {
+    await _loadOfflineBillsCount();
+    await _loadConnectivityStatus();
+  }
+
+  Future<void> _loadOfflineBillsCount() async {
+    try {
+      final count = await _databaseService.getOfflineBillsCount(widget.adminUid);
+      if (mounted) {
+        setState(() {
+          _offlineBillsCount = count;
+        });
+      }
+    } catch (e) {
+      print('Failed to load offline bills count: $e');
+    }
+  }
+
+  Future<void> _loadConnectivityStatus() async {
+    try {
+      final isConnected = await _databaseService.isOnline();
+      if (mounted) {
+        setState(() {
+          _isConnected = isConnected;
+        });
+      }
+    } catch (e) {
+      print('Failed to load connectivity status: $e');
+    }
+  }
+
+  Future<void> _manualSync() async {
+    if (_isSyncing || !_isConnected) return;
+
+    try {
+      await _databaseService.manualSyncOfflineBills(widget.adminUid);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Manual sync failed: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _showSyncResultSnackBar(OfflineBillSyncResult result) {
+    if (!mounted) return;
+
+    final String message = result.success
+        ? 'Successfully synced ${result.billsSynced} offline bills'
+        : 'Sync failed: ${result.errorMessage}';
+
+    final Color backgroundColor = result.success ? Colors.green : Colors.red;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: backgroundColor,
+        duration: Duration(seconds: result.success ? 2 : 4),
+      ),
+    );
+  }
+
+  Widget _buildSyncStatusIndicator() {
+    if (_isSyncing) {
+      return const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+            ),
+          ),
+          SizedBox(width: 8),
+          Text(
+            'Syncing...',
+            style: TextStyle(
+              color: Colors.blue,
+              fontSize: 12,
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (!_isConnected) {
+      return const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.cloud_off,
+            size: 16,
+            color: Colors.orange,
+          ),
+          SizedBox(width: 4),
+          Text(
+            'Offline',
+            style: TextStyle(
+              color: Colors.orange,
+              fontSize: 12,
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (_offlineBillsCount > 0) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.sync_problem,
+            size: 16,
+            color: Colors.amber,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            '$_offlineBillsCount pending',
+            style: const TextStyle(
+              color: Colors.amber,
+              fontSize: 12,
+            ),
+          ),
+        ],
+      );
+    }
+
+    return const Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          Icons.cloud_done,
+          size: 16,
+          color: Colors.green,
+        ),
+        SizedBox(width: 4),
+        Text(
+          'Synced',
+          style: TextStyle(
+            color: Colors.green,
+            fontSize: 12,
+          ),
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.all(8),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Offline Bills Status',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+                _buildSyncStatusIndicator(),
+              ],
+            ),
+            
+            if (_offlineBillsCount > 0) ...[
+              const SizedBox(height: 8),
+              Text(
+                '$_offlineBillsCount bills pending sync',
+                style: TextStyle(
+                  color: Colors.grey[600],
+                  fontSize: 14,
+                ),
+              ),
+            ],
+            
+            if (_lastSyncError != null) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.red[50],
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: Colors.red[200]!),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.error_outline, color: Colors.red, size: 16),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Last sync error: $_lastSyncError',
+                        style: TextStyle(
+                          color: Colors.red[700],
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            
+            if (_lastSyncTime != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Last sync: ${_formatDateTime(_lastSyncTime!)}',
+                style: TextStyle(
+                  color: Colors.grey[500],
+                  fontSize: 12,
+                ),
+              ),
+            ],
+            
+            if (_offlineBillsCount > 0 && _isConnected && !_isSyncing) ...[
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _manualSync,
+                  icon: const Icon(Icons.sync, size: 18),
+                  label: const Text('Sync Now'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatDateTime(DateTime dateTime) {
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+    
+    if (difference.inMinutes < 1) {
+      return 'Just now';
+    } else if (difference.inHours < 1) {
+      return '${difference.inMinutes}m ago';
+    } else if (difference.inDays < 1) {
+      return '${difference.inHours}h ago';
+    } else {
+      return '${dateTime.day}/${dateTime.month} ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}';
+    }
+  }
+}
