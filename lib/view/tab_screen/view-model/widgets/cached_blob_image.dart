@@ -1,4 +1,6 @@
 import 'dart:typed_data';
+import 'dart:io';
+import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
@@ -43,14 +45,28 @@ class _CachedBlobImageState extends State<CachedBlobImage> {
     _loadImage();
   }
 
+  /// Retry loading the image (useful when connectivity is restored)
+  Future<void> retryLoad() async {
+    if (!mounted) return;
+    
+    setState(() {
+      _isLoading = true;
+      _hasError = false;
+      _blobData = null;
+    });
+    
+    await _loadImage();
+  }
+
   Future<void> _loadImage() async {
     try {
       final DatabaseService databaseService = Provider.of<DatabaseService>(context, listen: false);
       
-      // First try to get image from BLOB cache
+      // First try to get image from BLOB cache (offline-first approach)
       final blobData = await databaseService.getImageBlob(widget.tableName, widget.recordId);
       
       if (blobData != null && blobData.isNotEmpty) {
+        developer.log('Image loaded from BLOB cache for ${widget.tableName}:${widget.recordId}', name: 'CachedBlobImage');
         setState(() {
           _blobData = blobData;
           _isLoading = false;
@@ -58,10 +74,11 @@ class _CachedBlobImageState extends State<CachedBlobImage> {
         return;
       }
       
-      // If BLOB not available and online, try to download and cache
+      // If BLOB not available, check connectivity and try to download
       final isOnline = await databaseService.isOnline();
       if (isOnline && widget.imageUrl.isNotEmpty && widget.imageUrl != 'N/A') {
         try {
+          developer.log('Attempting to download and cache image: ${widget.imageUrl}', name: 'CachedBlobImage');
           final downloadedData = await databaseService.downloadAndCacheImage(
             widget.imageUrl,
             tableName: widget.tableName,
@@ -69,6 +86,7 @@ class _CachedBlobImageState extends State<CachedBlobImage> {
           );
           
           if (downloadedData != null && downloadedData.isNotEmpty) {
+            developer.log('Image downloaded and cached successfully for ${widget.tableName}:${widget.recordId}', name: 'CachedBlobImage');
             setState(() {
               _blobData = downloadedData;
               _isLoading = false;
@@ -76,17 +94,25 @@ class _CachedBlobImageState extends State<CachedBlobImage> {
             return;
           }
         } catch (e) {
-          print('Failed to download and cache image: $e');
+          // Handle specific network errors gracefully
+          if (e is SocketException) {
+            developer.log('Network error downloading image: ${e.message}. Falling back to network image widget.', name: 'CachedBlobImage');
+          } else {
+            developer.log('Failed to download and cache image: $e', name: 'CachedBlobImage');
+          }
+          // Don't set error state here, let CachedNetworkImage handle it
         }
+      } else {
+        developer.log('Offline mode or invalid URL, skipping download for ${widget.tableName}:${widget.recordId}', name: 'CachedBlobImage');
       }
       
-      // If all else fails, show network image or error
+      // Continue to network image fallback or show appropriate state
       setState(() {
         _isLoading = false;
       });
       
     } catch (e) {
-      print('Error loading image: $e');
+      developer.log('Error in _loadImage: $e', name: 'CachedBlobImage');
       setState(() {
         _hasError = true;
         _isLoading = false;
@@ -153,13 +179,56 @@ class _CachedBlobImageState extends State<CachedBlobImage> {
               child: CircularProgressIndicator(),
             ),
           ),
-        errorWidget: (context, url, error) => widget.errorWidget ?? 
-          Container(
-            width: widget.width,
-            height: widget.height,
-            color: Colors.grey[200],
-            child: const Icon(Icons.error),
-          ),
+        errorWidget: (context, url, error) {
+          // Log network errors for debugging
+          if (error is SocketException) {
+            developer.log('Network image failed to load due to connectivity: ${error.message}', name: 'CachedBlobImage');
+          } else {
+            developer.log('Network image failed to load: $error', name: 'CachedBlobImage');
+          }
+          
+          return widget.errorWidget ?? 
+            GestureDetector(
+              onTap: error is SocketException ? retryLoad : null,
+              child: Container(
+                width: widget.width,
+                height: widget.height,
+                color: Colors.grey[200],
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      error is SocketException ? Icons.wifi_off : Icons.error,
+                      color: Colors.grey[400],
+                      size: 24,
+                    ),
+                    if (error is SocketException) ...[
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          'Offline',
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 10,
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          'Tap to retry',
+                          style: TextStyle(
+                            color: Colors.grey[500],
+                            fontSize: 8,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            );
+        },
       );
     }
 

@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'dart:developer' as developer;
 import 'package:audioplayers/audioplayers.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -13,9 +15,12 @@ import 'package:pos/view/home/printer_connectionDialog.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:pos/view/tab_screen/view-model/frontend/menuItems.dart';
 import 'package:pos/view/tab_screen/view-model/backend/database_service.dart';
+import 'package:pos/view/tab_screen/view-model/backend/network_error_handler.dart';
+import 'package:pos/view/tab_screen/view-model/backend/price_utils.dart';
 import 'package:pos/view/tab_screen/view-model/widgets/cached_blob_image.dart';
 import 'package:pos/view/tab_screen/view-model/widgets/printers/printer.dart';
 import 'package:provider/provider.dart';
+
 
 class RestaurantScreen extends StatefulWidget {
   final String phoneNo;
@@ -69,17 +74,13 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
         });
       }
     } catch (e) {
-      print('Error initializing food items: $e');
+      developer.log('Error initializing food items: $e', name: 'RestaurantScreen');
     }
   }
 
   Future<String> fetchAdminUid() async {
     try {
-      DocumentSnapshot<Map<String, dynamic>> snapshot = await FirebaseFirestore
-          .instance
-          .collection('AllCustomer')
-          .doc(widget.phoneNo)
-          .get();
+      DocumentSnapshot<Map<String, dynamic>> snapshot = await FirebaseFirestore.instance.collection('AllCustomer').doc(widget.phoneNo).get();
 
       final String? adminUid = snapshot.data()?['adminUid'];
 
@@ -89,8 +90,31 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
 
       return adminUid ?? 'Admin UID not found';
     } catch (e) {
-      print('Error fetching adminUid: $e');
-      return 'Error fetching adminUid';
+      if (e is SocketException) {
+        developer.log('Network error fetching adminUid: ${e.message}', name: 'RestaurantScreen');
+        // Try to get cached adminUid from local storage if available
+        try {
+          final box = await Hive.openBox('userCache');
+          final cachedAdminUid = box.get('adminUid_${widget.phoneNo}');
+          if (cachedAdminUid != null) {
+            developer.log('Using cached adminUid: $cachedAdminUid', name: 'RestaurantScreen');
+            setState(() {
+              this.adminUid = cachedAdminUid;
+            });
+            return cachedAdminUid;
+          }
+        } catch (cacheError) {
+          developer.log('Error accessing cache: $cacheError', name: 'RestaurantScreen');
+        }
+        
+        setState(() {
+          this.adminUid = 'Offline - Admin UID unavailable';
+        });
+        return 'Offline - Admin UID unavailable';
+      } else {
+        developer.log('Error fetching adminUid: $e', name: 'RestaurantScreen');
+        return 'Error fetching adminUid';
+      }
     }
   }
 
@@ -98,7 +122,7 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
     try {
       final String adminUid = await fetchAdminUid();
       final DatabaseService databaseService = Provider.of<DatabaseService>(context, listen: false);
-      
+
       // Get all departments using DatabaseService
       List<Map<String, dynamic>> allDepartments = await databaseService.getDepartments(adminUid);
 
@@ -112,12 +136,12 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
               })
           .toList();
 
-      // Print for debugging
-      print('Fetched departments: $departments');
+      // Log for debugging
+      developer.log('Fetched departments: $departments', name: 'RestaurantScreen');
 
       return departments;
     } catch (e) {
-      print('Error fetching departments: $e');
+      NetworkErrorHandler.logNetworkError(e, 'RestaurantScreen', 'fetchFoodDepartment');
       return [];
     }
   }
@@ -126,33 +150,30 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
     try {
       final String adminUid = await fetchAdminUid();
       final DatabaseService databaseService = Provider.of<DatabaseService>(context, listen: false);
-      
+
       // Get food items for specific department using DatabaseService
-      List<Map<String, dynamic>> allItems = await databaseService.getFoodItems(
-        adminUid, 
-        department: selectedDepartment.isEmpty ? 'Pizza' : selectedDepartment
-      );
+      List<Map<String, dynamic>> allItems = await databaseService.getFoodItems(adminUid, department: selectedDepartment.isEmpty ? 'Pizza' : selectedDepartment);
 
       List<Map<String, dynamic>> items = allItems
           .map((item) => {
                 'id': item['id'] ?? item['name'], // Include ID for BLOB caching
                 'name': item['name'] ?? 'N/A',
-                'price': item['price']?.toString() ?? '0.0',
+                'price': PriceUtils.safePriceToString(item['price']),
                 'imagePath': item['image_path'] ?? item['imagePath'] ?? 'N/A', // Support both formats
-                'foodCode': item['food_code'] ?? item['foodCode'] ?? 'N/A', // Support both formats
+                'foodCode': PriceUtils.safePriceToString(item['food_code'] ?? item['foodCode'], defaultValue: 'N/A'), // Ensure string type
                 'department': item['department'] ?? 'N/A',
-                'stocks': item['stocks'] ?? 'N/A'
+                'stocks': PriceUtils.safePriceToString(item['stocks'], defaultValue: '0') // Ensure string type
               })
           .toList();
       setState(() {
         isLoading = false;
       });
-      // Print for debugging
-      print('Fetched food items for $department: $items');
+      // Log for debugging
+      developer.log('Fetched food items for $department: $items', name: 'RestaurantScreen');
 
       return items;
     } catch (e) {
-      print('Error fetching food items: $e');
+      NetworkErrorHandler.logNetworkError(e, 'RestaurantScreen', 'fetchFoodItems');
       setState(() {
         isLoading = false;
       });
@@ -185,9 +206,7 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
       onWillPop: () async {
         // Handle double back press to exit the app
         DateTime now = DateTime.now();
-        if (currentBackPressTime == null ||
-            now.difference(currentBackPressTime!) >
-                const Duration(seconds: 2)) {
+        if (currentBackPressTime == null || now.difference(currentBackPressTime!) > const Duration(seconds: 2)) {
           currentBackPressTime = now;
           Fluttertoast.showToast(
             msg: "Press back again to exit",
@@ -207,15 +226,12 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
           actions: [
             IconButton(
                 onPressed: () {
-                  Navigator.push(context,
-                      MaterialPageRoute(builder: (context) => UsersScreen()));
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => UsersScreen()));
                 },
                 icon: const Icon(Icons.save))
           ],
           leading: IconButton(
-            icon: isContainerVisible
-                ? Icon(MdiIcons.fullscreen)
-                : Icon(MdiIcons.fullscreenExit),
+            icon: isContainerVisible ? Icon(MdiIcons.fullscreen) : Icon(MdiIcons.fullscreenExit),
             onPressed: () {
               setState(() {
                 isContainerVisible = !isContainerVisible;
@@ -227,8 +243,7 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
           backgroundColor: Colors.white,
           title: const Text(
             'Restaurants',
-            style: TextStyle(
-                color: Colors.black, fontFamily: 'tabfont', fontSize: 19),
+            style: TextStyle(color: Colors.black, fontFamily: 'tabfont', fontSize: 19),
           ),
         ),
         body: isLoading
@@ -245,9 +260,7 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                   children: [
                     AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
-                      width: isContainerVisible
-                          ? MediaQuery.of(context).size.width * 0.21
-                          : 0,
+                      width: isContainerVisible ? MediaQuery.of(context).size.width * 0.21 : 0,
                       child: Container(
                         decoration: const BoxDecoration(
                           color: white,
@@ -256,23 +269,19 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                           future: foodDepartmentsFuture,
                           builder: (context, snapshot) {
                             if (snapshot.hasError) {
-                              return Center(
-                                  child: Text('Error: ${snapshot.error}'));
+                              return Center(child: Text('Error: ${snapshot.error}'));
                             } else {
-                              List<Map<String, dynamic>> departments =
-                                  snapshot.data ?? [];
+                              List<Map<String, dynamic>> departments = snapshot.data ?? [];
                               return ListView.builder(
                                 itemCount: departments.length,
                                 itemBuilder: (context, index) {
                                   return Padding(
-                                    padding:
-                                        const EdgeInsets.symmetric(vertical: 7),
+                                    padding: const EdgeInsets.symmetric(vertical: 7),
                                     child: GestureDetector(
                                       onTap: () {
                                         setState(() {
                                           currentCategoryIndex = index;
-                                          selectedDepartment =
-                                              departments[index]['name'] ?? '';
+                                          selectedDepartment = departments[index]['name'] ?? '';
                                           departments[index]['imageUrl'] ?? '';
                                           // _listScrollController.jumpTo(
                                           //   _listScrollController
@@ -280,36 +289,23 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                                           // );
                                         });
 
-                                        foodItemsFuture =
-                                            fetchFoodItems(selectedDepartment);
+                                        foodItemsFuture = fetchFoodItems(selectedDepartment);
                                       },
                                       child: Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                         children: [
                                           Column(
                                             children: [
                                               Stack(
                                                 children: [
                                                   AnimatedContainer(
-                                                    duration: const Duration(
-                                                        milliseconds: 300),
-                                                    margin:
-                                                        const EdgeInsets.all(5),
+                                                    duration: const Duration(milliseconds: 300),
+                                                    margin: const EdgeInsets.all(5),
                                                     height: 60,
                                                     width: 60,
                                                     decoration: BoxDecoration(
-                                                      color:
-                                                          currentCategoryIndex ==
-                                                                  index
-                                                              ? const Color
-                                                                  .fromARGB(106,
-                                                                  133, 238, 187)
-                                                              : Colors.blueGrey
-                                                                  .shade50,
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              30),
+                                                      color: currentCategoryIndex == index ? const Color.fromARGB(106, 133, 238, 187) : Colors.blueGrey.shade50,
+                                                      borderRadius: BorderRadius.circular(30),
                                                     ),
                                                   ),
                                                   Positioned(
@@ -318,45 +314,27 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                                                     right: 4,
                                                     child: AnimatedContainer(
                                                       // curve: Curves.easeInCubic,
-                                                      height:
-                                                          currentCategoryIndex ==
-                                                                  index
-                                                              ? 65
-                                                              : 55,
+                                                      height: currentCategoryIndex == index ? 65 : 55,
                                                       // width:
                                                       //     currentCategoryIndex ==
                                                       //             index
                                                       //         ? 77
                                                       //         : 50,
                                                       decoration: BoxDecoration(
-                                                        borderRadius:
-                                                            BorderRadius
-                                                                .circular(55),
+                                                        borderRadius: BorderRadius.circular(55),
                                                       ),
-                                                      duration: const Duration(
-                                                          milliseconds: 400),
+                                                      duration: const Duration(milliseconds: 400),
                                                       child: GestureDetector(
                                                         onTap: () {
                                                           setState(() {
-                                                            currentCategoryIndex =
-                                                                index;
-                                                            selectedDepartment =
-                                                                departments[index]
-                                                                        [
-                                                                        'name'] ??
-                                                                    '';
-                                                            departments[index][
-                                                                    'imageUrl'] ??
-                                                                '';
+                                                            currentCategoryIndex = index;
+                                                            selectedDepartment = departments[index]['name'] ?? '';
+                                                            departments[index]['imageUrl'] ?? '';
                                                           });
-                                                          foodItemsFuture =
-                                                              fetchFoodItems(
-                                                                  selectedDepartment);
+                                                          foodItemsFuture = fetchFoodItems(selectedDepartment);
                                                         },
                                                         child: ClipRRect(
-                                                          borderRadius:
-                                                              BorderRadius
-                                                                  .circular(100),
+                                                          borderRadius: BorderRadius.circular(100),
                                                           child: CachedBlobImage(
                                                             imageUrl: departments[index]['imageUrl'],
                                                             tableName: 'departments',
@@ -372,21 +350,13 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                                                 ],
                                               ),
                                               Text(
-                                                departments[index]['name'] ??
-                                                    'N/A',
+                                                departments[index]['name'] ?? 'N/A',
                                                 textAlign: TextAlign.center,
                                                 style: TextStyle(
                                                   fontSize: 14,
                                                   fontFamily: 'fontmain',
-                                                  fontWeight:
-                                                      currentCategoryIndex ==
-                                                              index
-                                                          ? FontWeight.bold
-                                                          : FontWeight.w400,
-                                                  color: currentCategoryIndex ==
-                                                          index
-                                                      ? Colors.black
-                                                      : Colors.grey,
+                                                  fontWeight: currentCategoryIndex == index ? FontWeight.bold : FontWeight.w400,
+                                                  color: currentCategoryIndex == index ? Colors.black : Colors.grey,
                                                 ),
                                               ),
                                             ],
@@ -395,17 +365,8 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                                             height: 100,
                                             width: 5,
                                             decoration: BoxDecoration(
-                                                color: currentCategoryIndex ==
-                                                        index
-                                                    ? appbar1
-                                                    : Colors.white,
-                                                borderRadius:
-                                                    const BorderRadius.only(
-                                                        topLeft:
-                                                            Radius.circular(21),
-                                                        bottomLeft:
-                                                            Radius.circular(
-                                                                21))),
+                                                color: currentCategoryIndex == index ? appbar1 : Colors.white,
+                                                borderRadius: const BorderRadius.only(topLeft: Radius.circular(21), bottomLeft: Radius.circular(21))),
                                           )
                                         ],
                                       ),
@@ -423,18 +384,13 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                     Expanded(
                       child: Column(
                         children: [
-                          printprovider.posts.isNotEmpty
-                              ? billCountContainer()
-                              : SizedBox(),
+                          printprovider.posts.isNotEmpty ? billCountContainer() : SizedBox(),
                           Expanded(
                             child: Container(
                               child: FutureBuilder(
                                 future: foodItemsFuture,
-                                builder: (context,
-                                    AsyncSnapshot<List<Map<String, dynamic>>>
-                                        snapshot) {
-                                  if (snapshot.connectionState ==
-                                      ConnectionState.waiting) {
+                                builder: (context, AsyncSnapshot<List<Map<String, dynamic>>> snapshot) {
+                                  if (snapshot.connectionState == ConnectionState.waiting) {
                                     return const Center(
                                       child: CircularProgressIndicator(
                                         color: primaryColor,
@@ -445,47 +401,33 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                                       child: Text('Error: ${snapshot.error}'),
                                     );
                                   } else {
-                                    List<Map<String, dynamic>> foodItemsList =
-                                        snapshot.data ?? [];
+                                    List<Map<String, dynamic>> foodItemsList = snapshot.data ?? [];
 
                                     return GridView.builder(
                                       controller: _gridViewController,
-                                      gridDelegate:
-                                          SliverGridDelegateWithFixedCrossAxisCount(
-                                        crossAxisCount:
-                                            isContainerVisible ? 2 : 3,
-                                        childAspectRatio: 0.75,
+                                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                        crossAxisCount: isContainerVisible ? 2 : 3,
+                                        childAspectRatio: 0.78, // Slightly taller to prevent overflow
                                       ),
                                       itemCount: foodItemsList.length,
                                       itemBuilder: (context, index) {
                                         final item = foodItemsList[index];
                                         return GestureDetector(
                                           onTap: () {
-                                            audioPlayer.play(
-                                                AssetSource('sounds/beep.mp3'));
+                                            audioPlayer.play(AssetSource('sounds/beep.mp3'));
                                             setState(() {
                                               isTapped = true;
-                                              selectedItemName =
-                                                  item['name'] ?? '';
-                                              selectedItemPrice = int.parse(
-                                                  item['price'] ?? '0.0');
+                                              selectedItemName = item['name'] ?? '';
+                                              selectedItemPrice = PriceUtils.safeParseInt(item['price']);
 
                                               // Check if the item is already in the list
-                                              int existingIndex =
-                                                  selectedItemsDetails
-                                                      .indexWhere(
-                                                (element) =>
-                                                    element['name'] ==
-                                                        selectedItemName &&
-                                                    element['price'] ==
-                                                        selectedItemPrice,
+                                              int existingIndex = selectedItemsDetails.indexWhere(
+                                                (element) => element['name'] == selectedItemName && element['price'] == selectedItemPrice,
                                               );
 
                                               if (existingIndex != -1) {
                                                 // If the item already exists, increase its quantity by 1
-                                                selectedItemsDetails[
-                                                        existingIndex]
-                                                    ['quantity'] += 1;
+                                                selectedItemsDetails[existingIndex]['quantity'] += 1;
                                               } else {
                                                 // If the item is not in the list, add it with quantity 1
                                                 selectedItemsDetails.add({
@@ -498,14 +440,11 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
 
                                               subtotal += selectedItemPrice;
 
-                                              printprovider.additem(
-                                                  selectedItemsDetails,
-                                                  subtotal);
+                                              printprovider.additem(selectedItemsDetails, subtotal);
 
                                               setState(() {
                                                 _listScrollController.jumpTo(
-                                                  _listScrollController
-                                                      .position.maxScrollExtent,
+                                                  _listScrollController.position.maxScrollExtent,
                                                 );
                                               });
                                             });
@@ -514,9 +453,9 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                                             context: context,
                                             imagePath: item['imagePath'] ?? '',
                                             text: item['name'] ?? '',
-                                            code: item['foodCode'],
-                                            price: item['price'],
-                                            stocks: item['stocks'],
+                                            code: PriceUtils.safePriceToString(item['foodCode'], defaultValue: 'N/A'),
+                                            price: PriceUtils.safePriceToString(item['price']),
+                                            stocks: PriceUtils.safePriceToString(item['stocks'], defaultValue: '0'),
                                           ),
                                         );
                                       },
@@ -687,22 +626,18 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                             InkWell(
                               onTap: () {
                                 setState(() {
-                                  if (selectedItemsDetails[index]['quantity'] >
-                                      1) {
+                                  if (selectedItemsDetails[index]['quantity'] > 1) {
                                     // Just decrease quantity
                                     selectedItemsDetails[index]['quantity']--;
-                                    subtotal -=
-                                        selectedItemsDetails[index]['price'];
+                                    subtotal -= selectedItemsDetails[index]['price'];
                                   } else {
                                     // Quantity is 1 → remove item entirely
-                                    subtotal -=
-                                        selectedItemsDetails[index]['price'];
+                                    subtotal -= selectedItemsDetails[index]['price'];
                                     selectedItemsDetails.removeAt(index);
                                   }
 
                                   // Update provider
-                                  printprovider.additem(
-                                      selectedItemsDetails, subtotal);
+                                  printprovider.additem(selectedItemsDetails, subtotal);
                                 });
                               },
                               child: Container(
@@ -715,8 +650,7 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                               ),
                             ),
                             Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 8),
+                              padding: const EdgeInsets.symmetric(horizontal: 8),
                               child: Text(
                                 "${selectedItemsDetails[index]['quantity']}",
                                 style: const TextStyle(
@@ -730,8 +664,7 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                               onTap: () {
                                 setState(() {
                                   selectedItemsDetails[index]['quantity']++;
-                                  subtotal +=
-                                      selectedItemsDetails[index]['price'];
+                                  subtotal += selectedItemsDetails[index]['price'];
                                   printprovider.additem(
                                     selectedItemsDetails,
                                     subtotal,
@@ -755,11 +688,9 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                       InkWell(
                         onTap: () {
                           setState(() {
-                            subtotal -= selectedItemsDetails[index]['price'] *
-                                selectedItemsDetails[index]['quantity'];
+                            subtotal -= selectedItemsDetails[index]['price'] * selectedItemsDetails[index]['quantity'];
                             selectedItemsDetails.removeAt(index);
-                            printprovider.additem(
-                                selectedItemsDetails, subtotal);
+                            printprovider.additem(selectedItemsDetails, subtotal);
                           });
                         },
                         child: Container(
@@ -861,27 +792,22 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                           return IconButton(
                             icon: Icon(
                               Icons.print,
-                              color: printProvider.isConnected
-                                  ? Colors.green
-                                  : Colors.white,
+                              color: printProvider.isConnected ? Colors.green : Colors.white,
                               size: 24,
                             ),
                             onPressed: () async {
                               // Check if printer is connected
-                              if (!printProvider.isConnected ||
-                                  printProvider.selectedPrinter == null) {
+                              if (!printProvider.isConnected || printProvider.selectedPrinter == null) {
                                 // Show connection dialog
                                 showDialog(
                                   context: context,
-                                  builder: (context) =>
-                                      const PrinterConnectionDialog(),
+                                  builder: (context) => const PrinterConnectionDialog(),
                                 );
 
                                 // Show info message
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
-                                    content:
-                                        Text('Please connect a printer first'),
+                                    content: Text('Please connect a printer first'),
                                     backgroundColor: Colors.orange,
                                     duration: Duration(seconds: 2),
                                   ),
@@ -911,13 +837,14 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                               );
 
                               try {
-                                // Fetch shop data
-                                final doc = await FirebaseFirestore.instance
-                                    .collection('AllAdmins')
-                                    .doc(adminUid)
-                                    .collection('customer')
-                                    .doc(widget.phoneNo)
-                                    .get();
+                                // Fetch shop data with network error handling
+                                final doc = await NetworkErrorHandler.executeWithNetworkHandling<DocumentSnapshot<Map<String, dynamic>>>(
+                                  operation: () => FirebaseFirestore.instance.collection('AllAdmins').doc(adminUid).collection('customer').doc(widget.phoneNo).get(),
+                                  context: context,
+                                  operationName: 'fetchShopData',
+                                  component: 'RestaurantScreen',
+                                  showUserMessage: false,
+                                ) ?? await FirebaseFirestore.instance.collection('AllAdmins').doc(adminUid).collection('customer').doc(widget.phoneNo).get();
 
                                 String shopName = 'N/A';
                                 String contact = 'N/A';

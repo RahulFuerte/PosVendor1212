@@ -1,7 +1,10 @@
+import 'dart:io';
+import 'dart:developer' as developer;
 import 'package:audioplayers/audioplayers.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_pos_printer_platform_image_3/flutter_pos_printer_platform_image_3.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:hive/hive.dart';
@@ -16,11 +19,15 @@ import 'package:pos/view/home/sales_reportScreen.dart';
 import 'package:pos/view/login/inception.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:pos/view/tab_screen/view-model/backend/database_service.dart';
+import 'package:pos/view/tab_screen/view-model/backend/network_error_handler.dart';
+import 'package:pos/view/tab_screen/view-model/backend/price_utils.dart';
 import 'package:pos/view/tab_screen/view-model/widgets/cached_blob_image.dart';
 
 import 'package:pos/view/tab_screen/view-model/widgets/printers/printer.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../tab_screen/view-model/widgets/show_save_order_bottom_sheet.dart';
 
 class ProductDashBoard extends StatefulWidget {
   final String phoneNo;
@@ -35,6 +42,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
   TextEditingController search = TextEditingController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   TextEditingController userNameController = TextEditingController();
+  TextEditingController mobileController = TextEditingController();
   String search1 = '';
   final ScrollController _listScrollController = ScrollController();
   AudioPlayer audioPlayer = AudioPlayer();
@@ -57,11 +65,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
 
   Future<String> fetchAdminUid() async {
     try {
-      DocumentSnapshot<Map<String, dynamic>> snapshot = await FirebaseFirestore
-          .instance
-          .collection('AllCustomer')
-          .doc(widget.phoneNo)
-          .get();
+      DocumentSnapshot<Map<String, dynamic>> snapshot = await FirebaseFirestore.instance.collection('AllCustomer').doc(widget.phoneNo).get();
 
       final String? adminUid = snapshot.data()?['adminUid'];
 
@@ -71,8 +75,31 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
 
       return adminUid ?? 'Admin UID not found';
     } catch (e) {
-      print('Error fetching adminUid: $e');
-      return 'Error fetching adminUid';
+      if (e is SocketException) {
+        developer.log('Network error fetching adminUid: ${e.message}', name: 'ProductDashBoard');
+        // Try to get cached adminUid from local storage if available
+        try {
+          final box = await Hive.openBox('userCache');
+          final cachedAdminUid = box.get('adminUid_${widget.phoneNo}');
+          if (cachedAdminUid != null) {
+            developer.log('Using cached adminUid: $cachedAdminUid', name: 'ProductDashBoard');
+            setState(() {
+              this.adminUid = cachedAdminUid;
+            });
+            return cachedAdminUid;
+          }
+        } catch (cacheError) {
+          developer.log('Error accessing cache: $cacheError', name: 'ProductDashBoard');
+        }
+        
+        setState(() {
+          this.adminUid = 'Offline - Admin UID unavailable';
+        });
+        return 'Offline - Admin UID unavailable';
+      } else {
+        developer.log('Error fetching adminUid: $e', name: 'ProductDashBoard');
+        return 'Error fetching adminUid';
+      }
     }
   }
 
@@ -80,14 +107,14 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
   //   try {
   //     final String adminUid = await fetchAdminUid();
   //     final DatabaseService databaseService = Provider.of<DatabaseService>(context, listen: false);
-      
+
   //     // Get all food items using DatabaseService
   //     List<Map<String, dynamic>> allItems = await databaseService.getFoodItems(adminUid);
 
   //     // Filter for hot food items
   //     List<Map<String, dynamic>> hotItems = allItems
-  //         .where((item) => 
-  //         // item['is_hot'] == true || 
+  //         .where((item) =>
+  //         // item['is_hot'] == true ||
   //         item['isHot'] == false) // Check for isHot field (both formats)
   //         .map((item) => {
   //               'id': item['id'] ?? item['name'], // Include ID for BLOB caching
@@ -103,7 +130,6 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
   //     print('adminNO: $adminUid');
   //     // Print all items for debugging
   //     print('All food items (unfiltered): $allItems');
- 
 
   //     return hotItems;
   //   } catch (e) {
@@ -112,62 +138,62 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
   //   }
   // }
   Future<List<Map<String, dynamic>>> fetchFoodItems() async {
-  try {
-    final String adminUid = await fetchAdminUid();
-    final DatabaseService databaseService = Provider.of<DatabaseService>(context, listen: false);
+    try {
+      final String adminUid = await fetchAdminUid();
+      final DatabaseService databaseService = Provider.of<DatabaseService>(context, listen: false);
 
-    // Get all food items using DatabaseService
-    final List<Map<String, dynamic>> allItems = await databaseService.getFoodItems(adminUid);
+      // Get all food items using DatabaseService
+      final List<Map<String, dynamic>> allItems = await databaseService.getFoodItems(adminUid);
 
-    // Debug: show count and sample types
-    print('All items count: ${allItems.length}');
-    if (allItems.isNotEmpty) {
-      print('First item keys: ${allItems.first.keys.toList()}');
-      print('First item sample: ${allItems.first}');
-    }
-
-    bool isHotValue(dynamic v) {
-      if (v == null) return false;
-      if (v is bool) return v;
-      if (v is int) return v == 1;
-      if (v is String) {
-        final lower = v.toLowerCase();
-        return lower == 'true' || lower == '1' || lower == 'yes' || lower == 'y';
+      // Debug: show count and sample types
+      developer.log('All items count: ${allItems.length}', name: 'ProductDashBoard');
+      if (allItems.isNotEmpty) {
+        developer.log('First item keys: ${allItems.first.keys.toList()}', name: 'ProductDashBoard');
+        developer.log('First item sample: ${allItems.first}', name: 'ProductDashBoard');
       }
-      return false;
+
+      bool isHotValue(dynamic v) {
+        if (v == null) return false;
+        if (v is bool) return v;
+        if (v is int) return v == 1;
+        if (v is String) {
+          final lower = v.toLowerCase();
+          return lower == 'true' || lower == '1' || lower == 'yes' || lower == 'y';
+        }
+        return false;
+      }
+
+      // Filter for hot food items (supporting multiple key names & types)
+      final List<Map<String, dynamic>> hotItems = allItems.where((item) {
+        final dynamic raw = item['is_hot'] ?? item['isHot'];
+        final bool isHot = isHotValue(raw);
+
+        // Debug each item decision (you can remove or comment out this line later)
+        developer.log('Checking item "${item['name'] ?? item['id'] ?? 'unknown'}": raw=$raw (${raw?.runtimeType}), isHot=$isHot', name: 'ProductDashBoard');
+
+        return isHot;
+      }).map((item) {
+        return {
+          'id': item['id'] ?? item['name'],
+          'name': item['name'] ?? 'N/A',
+          'price': PriceUtils.safePriceToString(item['price']),
+          'imagePath': item['image_path'] ?? item['imagePath'] ?? 'N/A',
+          'description': item['description'] ?? 'N/A',
+        };
+      }).toList();
+
+      // Log for debugging
+      developer.log('Fetched hot food items (count ${hotItems.length}): $hotItems', name: 'ProductDashBoard');
+      developer.log('adminNO: $adminUid', name: 'ProductDashBoard');
+      developer.log('All food items (unfiltered): $allItems', name: 'ProductDashBoard');
+
+      return hotItems;
+    } catch (e, st) {
+      NetworkErrorHandler.logNetworkError(e, 'ProductDashBoard', 'fetchFoodItems');
+      developer.log('Stack trace: $st', name: 'ProductDashBoard');
+      return [];
     }
-
-    // Filter for hot food items (supporting multiple key names & types)
-    final List<Map<String, dynamic>> hotItems = allItems.where((item) {
-      final dynamic raw = item['is_hot'] ?? item['isHot'];
-      final bool isHot = isHotValue(raw);
-
-      // Debug each item decision (you can remove or comment out this line later)
-      print('Checking item "${item['name'] ?? item['id'] ?? 'unknown'}": raw=$raw (${raw?.runtimeType}), isHot=$isHot');
-
-      return isHot;
-    }).map((item) {
-      return {
-        'id': item['id'] ?? item['name'],
-        'name': item['name'] ?? 'N/A',
-        'price': item['price']?.toString() ?? '0.0',
-        'imagePath': item['image_path'] ?? item['imagePath'] ?? 'N/A',
-        'description': item['description'] ?? 'N/A',
-      };
-    }).toList();
-
-    // Print for debugging
-    print('Fetched hot food items (count ${hotItems.length}): $hotItems');
-    print('adminNO: $adminUid');
-    print('All food items (unfiltered): $allItems');
-
-    return hotItems;
-  } catch (e, st) {
-    print('Error fetching food items: $e\n$st');
-    return [];
   }
-}
-
 
   Future<void> fetchUserData() async {
     final phoneNo = widget.phoneNo;
@@ -175,23 +201,73 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
       isLoading = true; // Set isLoading to true before fetching data.
     });
     try {
-      final DocumentSnapshot doc =
-          await firestore.collection('AllCustomer').doc(phoneNo).get();
-      print('Fetched Data: ${doc.data()}');
-      print('Phone Number: $phoneNo');
+      final DocumentSnapshot doc = await firestore.collection('AllCustomer').doc(phoneNo).get();
+      developer.log('Fetched Data: ${doc.data()}', name: 'ProductDashBoard');
+      developer.log('Phone Number: $phoneNo', name: 'ProductDashBoard');
       if (doc.exists) {
+        final data = doc.data() as Map<String, dynamic>;
         setState(() {
-          userData = doc.data() as Map<String, dynamic>;
+          userData = data;
         });
+        
+        // Cache the adminUid for offline use
+        try {
+          final box = await Hive.openBox('userCache');
+          if (data['adminUid'] != null) {
+            await box.put('adminUid_$phoneNo', data['adminUid']);
+          }
+          await box.put('userData_$phoneNo', data);
+        } catch (cacheError) {
+          developer.log('Error caching user data: $cacheError', name: 'ProductDashBoard');
+        }
       } else {
-        print('Vendor document not found');
+        developer.log('Vendor document not found', name: 'ProductDashBoard');
+        // Try to load cached data
+        await _loadCachedUserData(phoneNo);
       }
     } catch (e) {
-      print('Error fetching vendor data: $e');
+      NetworkErrorHandler.logNetworkError(e, 'ProductDashBoard', 'fetchUserData');
+      
+      // Load cached data when offline
+      await _loadCachedUserData(phoneNo);
+      
+      // Show user-friendly message for network errors
+      if (mounted && NetworkErrorHandler.isNetworkError(e)) {
+        NetworkErrorHandler.showNetworkErrorSnackBar(context, e);
+      }
     } finally {
       setState(() {
-        isLoading =
-            false; // Set isLoading to false after fetching data.9664866143
+        isLoading = false; // Set isLoading to false after fetching data.
+      });
+    }
+  }
+
+  Future<void> _loadCachedUserData(String phoneNo) async {
+    try {
+      final box = await Hive.openBox('userCache');
+      final cachedUserData = box.get('userData_$phoneNo');
+      if (cachedUserData != null) {
+        developer.log('Loading cached user data', name: 'ProductDashBoard');
+        setState(() {
+          userData = Map<String, dynamic>.from(cachedUserData);
+        });
+      } else {
+        // Set default values if no cache available
+        setState(() {
+          userData = {
+            'name': 'User',
+            'phoneNumber': phoneNo,
+          };
+        });
+      }
+    } catch (e) {
+      developer.log('Error loading cached user data: $e', name: 'ProductDashBoard');
+      // Set minimal default values
+      setState(() {
+        userData = {
+          'name': 'User',
+          'phoneNumber': phoneNo,
+        };
       });
     }
   }
@@ -211,9 +287,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
       onWillPop: () async {
         // Handle double back press to exit the app
         DateTime now = DateTime.now();
-        if (currentBackPressTime == null ||
-            now.difference(currentBackPressTime!) >
-                const Duration(seconds: 2)) {
+        if (currentBackPressTime == null || now.difference(currentBackPressTime!) > const Duration(seconds: 2)) {
           currentBackPressTime = now;
           Fluttertoast.showToast(
             msg: "Press back again to exit",
@@ -237,9 +311,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
               padding: const EdgeInsets.only(right: 10),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 300),
-                width: isSearchExpanded
-                    ? MediaQuery.of(context).size.width * 0.75
-                    : 50,
+                width: isSearchExpanded ? MediaQuery.of(context).size.width * 0.75 : 50,
                 height: 45,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(25),
@@ -325,11 +397,40 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                       decoration: BoxDecoration(
                         color: primaryColor,
                         borderRadius: BorderRadius.circular(75),
-                        image: const DecorationImage(
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(75),
+                        child: Image.network(
+                          'https://img.freepik.com/premium-vector/businessman-avatar-cartoon-character-profile_18591-50585.jpg?w=360',
                           fit: BoxFit.cover,
-                          image: NetworkImage(
-                            'https://img.freepik.com/premium-vector/businessman-avatar-cartoon-character-profile_18591-50585.jpg?w=360',
-                          ),
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return Container(
+                              color: primaryColor,
+                              child: const Center(
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            );
+                          },
+                          errorBuilder: (context, error, stackTrace) {
+                            // Handle network errors gracefully
+                            if (error is SocketException) {
+                              developer.log('Network error loading avatar: ${error.message}', name: 'ProductDashBoard');
+                            } else {
+                              developer.log('Error loading avatar: $error', name: 'ProductDashBoard');
+                            }
+                            return Container(
+                              color: primaryColor,
+                              child: const Icon(
+                                Icons.person,
+                                color: Colors.white,
+                                size: 40,
+                              ),
+                            );
+                          },
                         ),
                       ),
                     ),
@@ -369,29 +470,20 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
               Consumer<PrintProvider>(
                 builder: (context, printProvider, child) {
                   return Container(
-                    margin:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: printProvider.isConnected
-                          ? Colors.green.shade50
-                          : Colors.orange.shade50,
+                      color: printProvider.isConnected ? Colors.green.shade50 : Colors.orange.shade50,
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
-                        color: printProvider.isConnected
-                            ? Colors.green
-                            : Colors.orange,
+                        color: printProvider.isConnected ? Colors.green : Colors.orange,
                       ),
                     ),
                     child: Row(
                       children: [
                         Icon(
-                          printProvider.isConnected
-                              ? Icons.check_circle
-                              : Icons.print_disabled,
-                          color: printProvider.isConnected
-                              ? Colors.green
-                              : Colors.orange,
+                          printProvider.isConnected ? Icons.check_circle : Icons.print_disabled,
+                          color: printProvider.isConnected ? Colors.green : Colors.orange,
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -399,21 +491,15 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                printProvider.isConnected
-                                    ? 'Printer Connected'
-                                    : 'Printer Not Connected',
+                                printProvider.isConnected ? 'Printer Connected' : 'Printer Not Connected',
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  color: printProvider.isConnected
-                                      ? Colors.green.shade900
-                                      : Colors.orange.shade900,
+                                  color: printProvider.isConnected ? Colors.green.shade900 : Colors.orange.shade900,
                                 ),
                               ),
-                              if (printProvider.isConnected &&
-                                  printProvider.selectedPrinter != null)
+                              if (printProvider.isConnected && printProvider.selectedPrinter != null)
                                 Text(
-                                  printProvider.selectedPrinter!.deviceName ??
-                                      'Unknown',
+                                  printProvider.selectedPrinter!.deviceName ?? 'Unknown',
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: Colors.grey.shade700,
@@ -433,13 +519,10 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                   return ListTile(
                     leading: Icon(
                       printProvider.isConnected ? Icons.link_off : Icons.link,
-                      color:
-                          printProvider.isConnected ? Colors.red : Colors.blue,
+                      color: printProvider.isConnected ? Colors.red : Colors.blue,
                     ),
                     title: Text(
-                      printProvider.isConnected
-                          ? 'Disconnect Printer'
-                          : 'Connect Printer',
+                      printProvider.isConnected ? 'Disconnect Printer' : 'Connect Printer',
                     ),
                     onTap: () async {
                       if (printProvider.isConnected) {
@@ -507,55 +590,41 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                     builder: (BuildContext) {
                       return Dialog(
                           // backgroundColor: Colors.amber.shade100,
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(
-                                  50.0)), //this right here
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(50.0)), //this right here
                           child: SizedBox(
                             height: 200,
                             child: Center(
                               child: Column(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceEvenly,
+                                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                                 children: [
                                   const Text(
                                     "Are you sure ?",
-                                    style: TextStyle(
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.w500),
+                                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w500),
                                   ),
                                   Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceAround,
+                                    mainAxisAlignment: MainAxisAlignment.spaceAround,
                                     children: [
                                       ElevatedButton(
-                                        style: ElevatedButton.styleFrom(
-                                            backgroundColor: primaryColor),
-                                        child: const Text("Cancel",
-                                            style:
-                                                TextStyle(color: Colors.white)),
+                                        style: ElevatedButton.styleFrom(backgroundColor: primaryColor),
+                                        child: const Text("Cancel", style: TextStyle(color: Colors.white)),
                                         onPressed: () {
                                           Navigator.pop(context);
                                         },
                                       ),
                                       ElevatedButton(
-                                        style: ElevatedButton.styleFrom(
-                                            backgroundColor: Colors.red),
+                                        style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
                                         child: const Text(
                                           "Logout",
                                           style: TextStyle(color: Colors.white),
                                         ),
                                         onPressed: () async {
-                                          SharedPreferences prefs =
-                                              await SharedPreferences
-                                                  .getInstance();
-                                          await prefs.setBool(
-                                              'isLogged', false);
+                                          SharedPreferences prefs = await SharedPreferences.getInstance();
+                                          await prefs.setBool('isLogged', false);
                                           FirebaseAuth.instance.signOut();
                                           Navigator.pushReplacement(
                                               context,
                                               MaterialPageRoute(
-                                                builder: (context) =>
-                                                    const Inception(),
+                                                builder: (context) => const Inception(),
                                               ));
                                         },
                                       )
@@ -569,6 +638,9 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                   );
                 },
               ),
+         
+
+
             ],
           ),
         ),
@@ -577,8 +649,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
           children: [
             FutureBuilder(
               future: foodItemsFuture,
-              builder: (context,
-                  AsyncSnapshot<List<Map<String, dynamic>>> snapshot) {
+              builder: (context, AsyncSnapshot<List<Map<String, dynamic>>> snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return Center(
                     child: CircularProgressIndicator(
@@ -590,35 +661,25 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                     child: Text('Error: ${snapshot.error}'),
                   );
                 } else {
-                  List<Map<String, dynamic>> foodItemsList =
-                      snapshot.data ?? [];
+                  List<Map<String, dynamic>> foodItemsList = snapshot.data ?? [];
 
                   // Filter items based on search
-                  List<Map<String, dynamic>> filteredItems = foodItemsList
-                      .where((item) => item['name']
-                          .toString()
-                          .toLowerCase()
-                          .contains(search1.toLowerCase()))
-                      .toList();
+                  List<Map<String, dynamic>> filteredItems = foodItemsList.where((item) => item['name'].toString().toLowerCase().contains(search1.toLowerCase())).toList();
 
                   return Container(
                     height: double.infinity,
                     width: double.infinity,
-                    color: Colors.grey[50],
+                    color: Colors.green[50],
                     child: Column(
                       children: [
-                        printprovider.posts.isEmpty
-                            ? const SizedBox()
-                            : billCountContainer(),
+                        printprovider.posts.isEmpty ? const SizedBox() : billCountContainer(),
                         Expanded(
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 8),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                             child: GridView.builder(
-                              gridDelegate:
-                                  const SliverGridDelegateWithFixedCrossAxisCount(
+                              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                                 crossAxisCount: 2,
-                                childAspectRatio: 0.75,
+                                childAspectRatio: 0.78, // Slightly taller to prevent overflow
                                 crossAxisSpacing: 12,
                                 mainAxisSpacing: 12,
                               ),
@@ -627,26 +688,18 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                                 final item = filteredItems[index];
                                 return GestureDetector(
                                   onTap: () {
-                                    audioPlayer
-                                        .play(AssetSource('sounds/beep.mp3'));
+                                    audioPlayer.play(AssetSource('sounds/beep.mp3'));
                                     setState(() {
                                       isTapped = true;
                                       selectedItemName = item['name'] ?? '';
-                                      selectedItemPrice =
-                                          int.parse(item['price'] ?? '0');
+                                      selectedItemPrice = PriceUtils.safeParseInt(item['price']);
 
-                                      int existingIndex =
-                                          selectedItemsDetails.indexWhere(
-                                        (element) =>
-                                            element['name'] ==
-                                                selectedItemName &&
-                                            element['price'] ==
-                                                selectedItemPrice,
+                                      int existingIndex = selectedItemsDetails.indexWhere(
+                                        (element) => element['name'] == selectedItemName && element['price'] == selectedItemPrice,
                                       );
 
                                       if (existingIndex != -1) {
-                                        selectedItemsDetails[existingIndex]
-                                            ['quantity'] += 1;
+                                        selectedItemsDetails[existingIndex]['quantity'] += 1;
                                       } else {
                                         selectedItemsDetails.add({
                                           'name': selectedItemName,
@@ -655,13 +708,19 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                                         });
                                       }
                                       subtotal += selectedItemPrice;
-                                      printprovider.additem(
-                                          selectedItemsDetails, subtotal);
+                                      printprovider.additem(selectedItemsDetails, subtotal);
 
-                                      _listScrollController.jumpTo(
-                                        _listScrollController
-                                            .position.maxScrollExtent,
-                                      );
+                                      // Safely scroll to bottom with proper checks
+                                      if (_listScrollController.hasClients && 
+                                          _listScrollController.position.hasContentDimensions) {
+                                        try {
+                                          _listScrollController.jumpTo(
+                                            _listScrollController.position.maxScrollExtent,
+                                          );
+                                        } catch (e) {
+                                          developer.log('ScrollController error: $e', name: 'ProductDashBoard');
+                                        }
+                                      }
                                     });
                                   },
                                   child: Container(
@@ -678,128 +737,123 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                                       ],
                                     ),
                                     child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
+                                      crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        Stack(
-                                          children: [
-                                            ClipRRect(
-                                              borderRadius:
-                                                  const BorderRadius.only(
-                                                topLeft: Radius.circular(16),
-                                                topRight: Radius.circular(16),
-                                              ),
-                                              child: CachedBlobImage(
-                                                imageUrl: item['imagePath'],
-                                                tableName: 'food_items',
-                                                recordId: item['id'] ?? item['name'] ?? 'unknown', // Use ID or fallback to name
-                                                height: 140,
-                                                width: double.infinity,
-                                                fit: BoxFit.cover,
-                                                placeholder: Container(
-                                                  height: 140,
-                                                  color: Colors.grey[200],
-                                                  child: const Center(
-                                                    child:
-                                                        CircularProgressIndicator(
-                                                      color: primaryColor,
-                                                    ),
-                                                  ),
-                                                ),
-                                                errorWidget: Container(
-                                                  height: 140,
-                                                  color: Colors.grey[200],
-                                                  child:
-                                                      const Icon(Icons.error),
-                                                ),
-                                              ),
-                                            ),
-                                            Positioned(
-                                              top: 8,
-                                              right: 8,
-                                              child: Container(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                  horizontal: 8,
-                                                  vertical: 4,
-                                                ),
-                                                decoration: BoxDecoration(
-                                                  color: Colors.white,
-                                                  borderRadius:
-                                                      BorderRadius.circular(12),
-                                                  boxShadow: [
-                                                    BoxShadow(
-                                                      color: Colors.black
-                                                          .withOpacity(0.1),
-                                                      blurRadius: 4,
-                                                    )
-                                                  ],
-                                                ),
-                                                child: Text(
-                                                  "₹${item['price']}",
-                                                  style: const TextStyle(
-                                                    color: primaryColor,
-                                                    fontWeight: FontWeight.bold,
-                                                    fontSize: 18,
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                        Padding(
-                                          padding: const EdgeInsets.all(12),
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
+                                        // Image section - flexible height
+                                        Expanded(
+                                          flex: 3,
+                                          child: Stack(
                                             children: [
-                                              Text(
-                                                item['name'],
-                                                maxLines: 2,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: const TextStyle(
-                                                  fontFamily: 'fontmain',
-                                                  color: Colors.black87,
-                                                  fontWeight: FontWeight.w600,
-                                                  fontSize: 14,
+                                              ClipRRect(
+                                                borderRadius: const BorderRadius.only(
+                                                  topLeft: Radius.circular(16),
+                                                  topRight: Radius.circular(16),
                                                 ),
-                                              ),
-                                              const SizedBox(height: 8),
-                                              Container(
-                                                width: double.infinity,
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                  vertical: 6,
-                                                ),
-                                                decoration: BoxDecoration(
-                                                  border: Border.all(
-                                                      color: appbar1),
-                                                  borderRadius:
-                                                      BorderRadius.circular(8),
-                                                ),
-                                                child: Row(
-                                                  mainAxisAlignment:
-                                                      MainAxisAlignment.center,
-                                                  children: [
-                                                    Icon(
-                                                      Icons.shopping_cart,
-                                                      color: appbar1,
-                                                      size: 18,
-                                                    ),
-                                                    Text(
-                                                      " Add to cart",
-                                                      style: TextStyle(
-                                                        fontFamily: 'tabfont',
-                                                        color: appbar1,
-                                                        fontWeight:
-                                                            FontWeight.w600,
-                                                        fontSize: 13,
+                                                child: CachedBlobImage(
+                                                  imageUrl: item['imagePath'],
+                                                  tableName: 'food_items',
+                                                  recordId: item['id'] ?? item['name'] ?? 'unknown',
+                                                  height: double.infinity,
+                                                  width: double.infinity,
+                                                  fit: BoxFit.cover,
+                                                  placeholder: Container(
+                                                    color: Colors.grey[200],
+                                                    child: const Center(
+                                                      child: CircularProgressIndicator(
+                                                        color: primaryColor,
                                                       ),
                                                     ),
-                                                  ],
+                                                  ),
+                                                  errorWidget: Container(
+                                                    color: Colors.grey[200],
+                                                    child: const Icon(Icons.error),
+                                                  ),
+                                                ),
+                                              ),
+                                              Positioned(
+                                                top: 8,
+                                                right: 8,
+                                                child: Container(
+                                                  padding: const EdgeInsets.symmetric(
+                                                    horizontal: 6,
+                                                    vertical: 3,
+                                                  ),
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.white,
+                                                    borderRadius: BorderRadius.circular(10),
+                                                    boxShadow: [
+                                                      BoxShadow(
+                                                        color: Colors.black.withOpacity(0.1),
+                                                        blurRadius: 4,
+                                                      )
+                                                    ],
+                                                  ),
+                                                  child: Text(
+                                                    "₹${item['price']}",
+                                                    style: const TextStyle(
+                                                      color: primaryColor,
+                                                      fontWeight: FontWeight.bold,
+                                                      fontSize: 16,
+                                                    ),
+                                                  ),
                                                 ),
                                               ),
                                             ],
+                                          ),
+                                        ),
+                                        // Content section - flexible height
+                                        Expanded(
+                                          flex: 2,
+                                          child: Padding(
+                                            padding: const EdgeInsets.all(8),
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                              children: [
+                                                Text(
+                                                  item['name'],
+                                                  maxLines: 2,
+                                                  overflow: TextOverflow.ellipsis,
+                                                  style: const TextStyle(
+                                                    fontFamily: 'fontmain',
+                                                    color: Colors.black87,
+                                                    fontWeight: FontWeight.w600,
+                                                    fontSize: 14,
+                                                    height: 1.2,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 4),
+                                                Container(
+                                                  width: double.infinity,
+                                                  padding: const EdgeInsets.symmetric(
+                                                    vertical: 4,
+                                                  ),
+                                                  decoration: BoxDecoration(
+                                                    border: Border.all(color: appbar1),
+                                                    borderRadius: BorderRadius.circular(6),
+                                                  ),
+                                                  child: Row(
+                                                    mainAxisAlignment: MainAxisAlignment.center,
+                                                    children: [
+                                                      Icon(
+                                                        Icons.shopping_cart,
+                                                        color: appbar1,
+                                                        size: 16,
+                                                      ),
+                                                      Text(
+                                                        " Add to cart",
+                                                        style: TextStyle(
+                                                          fontFamily: 'tabfont',
+                                                          color: appbar1,
+                                                          fontWeight: FontWeight.w600,
+                                                          fontSize: 12,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
                                           ),
                                         ),
                                       ],
@@ -860,14 +914,14 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
+                const Row(
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.shopping_cart_outlined,
                       color: primaryColor,
                       size: 20,
                     ),
-                    const Text(
+                    Text(
                       ' My Cart',
                       style: TextStyle(
                         fontSize: 14,
@@ -972,22 +1026,18 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                             InkWell(
                               onTap: () {
                                 setState(() {
-                                  if (selectedItemsDetails[index]['quantity'] >
-                                      1) {
+                                  if (selectedItemsDetails[index]['quantity'] > 1) {
                                     // Just decrease quantity
                                     selectedItemsDetails[index]['quantity']--;
-                                    subtotal -=
-                                        selectedItemsDetails[index]['price'];
+                                    subtotal -= selectedItemsDetails[index]['price'];
                                   } else {
                                     // Quantity is 1 → remove item entirely
-                                    subtotal -=
-                                        selectedItemsDetails[index]['price'];
+                                    subtotal -= selectedItemsDetails[index]['price'];
                                     selectedItemsDetails.removeAt(index);
                                   }
 
                                   // Update provider
-                                  printprovider.additem(
-                                      selectedItemsDetails, subtotal);
+                                  printprovider.additem(selectedItemsDetails, subtotal);
                                 });
                               },
                               child: Container(
@@ -1000,8 +1050,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                               ),
                             ),
                             Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 8),
+                              padding: const EdgeInsets.symmetric(horizontal: 8),
                               child: Text(
                                 "${selectedItemsDetails[index]['quantity']}",
                                 style: const TextStyle(
@@ -1015,8 +1064,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                               onTap: () {
                                 setState(() {
                                   selectedItemsDetails[index]['quantity']++;
-                                  subtotal +=
-                                      selectedItemsDetails[index]['price'];
+                                  subtotal += selectedItemsDetails[index]['price'];
                                   printprovider.additem(
                                     selectedItemsDetails,
                                     subtotal,
@@ -1040,11 +1088,9 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                       InkWell(
                         onTap: () {
                           setState(() {
-                            subtotal -= selectedItemsDetails[index]['price'] *
-                                selectedItemsDetails[index]['quantity'];
+                            subtotal -= selectedItemsDetails[index]['price'] * selectedItemsDetails[index]['quantity'];
                             selectedItemsDetails.removeAt(index);
-                            printprovider.additem(
-                                selectedItemsDetails, subtotal);
+                            printprovider.additem(selectedItemsDetails, subtotal);
                           });
                         },
                         child: Container(
@@ -1130,10 +1176,17 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                         icon: Icon(
                           Icons.bookmark_outline,
                           color: appbar1,
-                          size: 24,
+                          size: 25,
                         ),
                         onPressed: () async {
-                          await _showSaveBottomSheet();
+                          showSaveOrderBottomSheet(context: context, formKey: _formKey, nameController: userNameController, mobileController: mobileController, itemCount:selectedItemsDetails.length, totalAmount: subtotal, primaryColor: primaryColor, onSave: () {
+                            
+                              _saveDataAndNavigate();
+                              printprovider.clearCart();
+                              userNameController.clear();
+                            
+                            } ,);
+                          // await _showSaveBottomSheet();
                         },
                       ),
                     ),
@@ -1157,27 +1210,22 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                           return IconButton(
                             icon: Icon(
                               Icons.print,
-                              color: printProvider.isConnected
-                                  ? Colors.green
-                                  : Colors.white,
+                              color: printProvider.isConnected ? Colors.green : Colors.white,
                               size: 24,
                             ),
                             onPressed: () async {
                               // Check if printer is connected
-                              if (!printProvider.isConnected ||
-                                  printProvider.selectedPrinter == null) {
+                              if (!printProvider.isConnected || printProvider.selectedPrinter == null) {
                                 // Show connection dialog
                                 showDialog(
                                   context: context,
-                                  builder: (context) =>
-                                      const PrinterConnectionDialog(),
+                                  builder: (context) => const PrinterConnectionDialog(),
                                 );
 
                                 // Show info message
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
-                                    content:
-                                        Text('Please connect a printer first'),
+                                    content: Text('Please connect a printer first'),
                                     backgroundColor: Colors.orange,
                                     duration: Duration(seconds: 2),
                                   ),
@@ -1208,12 +1256,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
 
                               try {
                                 // Fetch shop data
-                                final doc = await FirebaseFirestore.instance
-                                    .collection('AllAdmins')
-                                    .doc(adminUid)
-                                    .collection('customer')
-                                    .doc(widget.phoneNo)
-                                    .get();
+                                final doc = await FirebaseFirestore.instance.collection('AllAdmins').doc(adminUid).collection('customer').doc(widget.phoneNo).get();
 
                                 String shopName = 'N/A';
                                 String contact = 'N/A';
@@ -1288,36 +1331,251 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
 
     return showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (BuildContext context) {
         return Container(
-          padding: const EdgeInsets.all(16),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
-                  controller: userNameController,
-                  decoration: const InputDecoration(labelText: 'User Name'),
-                  validator: (value) {
-                    if (value!.isEmpty) {
-                      return 'Please enter a user name';
-                    }
-                    return null;
-                  },
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
                 ),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: () {
-                    if (_formKey.currentState!.validate()) {
-                      _saveDataAndNavigate();
-                      printprovider.clearCart(); // Now this will work
-                      userNameController.clear();
-                    }
-                  },
-                  child: const Text('Submit'),
+          child: Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(25),
+                topRight: Radius.circular(25),
                 ),
-              ],
+            ),
+            padding: const EdgeInsets.all(24),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header
+                  Center(
+                    child: Container(
+                      width: 50,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[300],
+                        borderRadius: BorderRadius.circular(10),
+          ),
+      ),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Save Order',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Enter customer details to save this order',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  
+                  // User Name Field
+                  TextFormField(
+                    controller: userNameController,
+                    decoration: InputDecoration(
+                      labelText: 'Customer Name',
+                      hintText: 'Enter customer name',
+                      prefixIcon: const Icon(Icons.person_outline, color: primaryColor),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey[300]!),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: primaryColor, width: 2),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey[300]!),
+                      ),
+                      filled: true,
+                      fillColor: Colors.grey[50],
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter customer name';
+  }
+                      if (value.length < 2) {
+                        return 'Name must be at least 2 characters';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Mobile Number Field
+                  TextFormField(
+                    controller: mobileController,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    maxLength: 10,
+                    keyboardType: TextInputType.phone,
+                    decoration: InputDecoration(
+                      
+                      labelText: 'Mobile Number',
+                      hintText: 'Enter mobile number',
+                      prefixIcon: const Icon(Icons.phone_outlined, color: primaryColor),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey[300]!),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: primaryColor, width: 2),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey[300]!),
+                      ),
+                      filled: true,
+                      fillColor: Colors.grey[50],
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter mobile number';
+                      }
+                      if (value.length != 10) {
+                        return 'Mobile number must be 10 digits';
+                      }
+                      if (!RegExp(r'^[0-9]+$').hasMatch(value)) {
+                        return 'Please enter valid mobile number';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 24),
+                  
+                  // Order Summary
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: primaryColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: primaryColor.withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Order Summary',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey[600],
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${selectedItemsDetails.length} items',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black87,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              'Total Amount',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey[600],
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '₹$subtotal',
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: primaryColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  
+                  // Action Buttons
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () {
+                            Navigator.pop(context);
+                          },
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            side: const BorderSide(color: Colors.grey),
+                          ),
+                          child: const Text(
+                            'Cancel',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () {
+                            if (_formKey.currentState!.validate()) {
+                              _saveDataAndNavigate();
+                              printprovider.clearCart();
+                              userNameController.clear();
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: primaryColor,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 2,
+                          ),
+                          child: const Text(
+                            'Save Order',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                ],
+              ),
             ),
           ),
         );
@@ -1325,28 +1583,32 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
     );
   }
 
+  
+
   void _saveDataAndNavigate() async {
     final userMap = {
       'userName': userNameController.text,
+      'mobileNo': mobileController.text,
       'details': _encodeDetails(selectedItemsDetails),
       'totalAmount': subtotal,
-    };
+      'timestamp': DateTime.now().toIso8601String(),
+      };
 
     // Save data to Hive
     final box = await Hive.openBox('userBox');
     box.add(userMap);
     userNameController.clear();
+    mobileController.clear();
 
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => UsersScreen(),
+        builder: (context) => const UsersScreen(),
       ),
     );
   }
 
-  List<Map<String, dynamic>> _encodeDetails(
-      List<Map<String, dynamic>> details) {
+  List<Map<String, dynamic>> _encodeDetails(List<Map<String, dynamic>> details) {
     return details.map((item) {
       return {
         'name': item['name'],
@@ -1354,5 +1616,15 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
         'quantity': item['quantity'],
       };
     }).toList();
+  }
+
+  @override
+  void dispose() {
+    search.dispose();
+    userNameController.dispose();
+    mobileController.dispose();
+    _listScrollController.dispose();
+    audioPlayer.dispose();
+    super.dispose();
   }
 }

@@ -11,7 +11,6 @@ import 'database_migration_service.dart';
 import 'sqlite_helper.dart';
 import 'comprehensive_error_handler.dart';
 import 'user_error_service.dart';
-import 'user_error_service.dart';
 
 /// Exception class for database service errors with meaningful messages
 class DatabaseServiceException implements Exception {
@@ -694,7 +693,7 @@ class UnifiedDatabaseService implements DatabaseService {
     await _ensureInitialized();
     
     try {
-      _validateInput({'id': recordId}, 'markAsSynced');
+      _validateInput({'id': recordId}, 'markAsSynced', requireAdminUid: false);
       
       if (tableName.isEmpty) {
         throw DatabaseServiceException(
@@ -725,7 +724,7 @@ class UnifiedDatabaseService implements DatabaseService {
     await _ensureInitialized();
     
     try {
-      _validateInput({'id': recordId}, 'markAsPending');
+      _validateInput({'id': recordId}, 'markAsPending', requireAdminUid: false);
       
       if (tableName.isEmpty) {
         throw DatabaseServiceException(
@@ -757,11 +756,18 @@ class UnifiedDatabaseService implements DatabaseService {
     await _ensureInitialized();
     
     try {
-      _validateInput({'id': recordId}, 'getImageBlob');
-      
+      // Validate input parameters specific to image operations
       if (tableName.isEmpty) {
         throw DatabaseServiceException(
           'Table name is required for image operations',
+          operation: 'getImageBlob',
+          isRecoverable: false,
+        );
+      }
+      
+      if (recordId.isEmpty) {
+        throw DatabaseServiceException(
+          'Record ID is required for image operations',
           operation: 'getImageBlob',
           isRecoverable: false,
         );
@@ -784,11 +790,26 @@ class UnifiedDatabaseService implements DatabaseService {
     await _ensureInitialized();
     
     try {
-      _validateInput({'id': recordId}, 'saveImageBlob');
-      
-      if (tableName.isEmpty || imageUrl.isEmpty) {
+      // Validate input parameters specific to image operations
+      if (tableName.isEmpty) {
         throw DatabaseServiceException(
-          'Table name and image URL are required for image operations',
+          'Table name is required for image operations',
+          operation: 'saveImageBlob',
+          isRecoverable: false,
+        );
+      }
+      
+      if (recordId.isEmpty) {
+        throw DatabaseServiceException(
+          'Record ID is required for image operations',
+          operation: 'saveImageBlob',
+          isRecoverable: false,
+        );
+      }
+      
+      if (imageUrl.isEmpty) {
+        throw DatabaseServiceException(
+          'Image URL is required for image operations',
           operation: 'saveImageBlob',
           isRecoverable: false,
         );
@@ -912,8 +933,8 @@ class UnifiedDatabaseService implements DatabaseService {
   }
 
   /// Validates input parameters to provide meaningful error messages
-  void _validateInput(Map<String, dynamic> params, String operation) {
-    if (params['adminUid'] == null || params['adminUid'].toString().isEmpty) {
+  void _validateInput(Map<String, dynamic> params, String operation, {bool requireAdminUid = true}) {
+    if (requireAdminUid && (params['adminUid'] == null || params['adminUid'].toString().isEmpty)) {
       throw DatabaseServiceException(
         'Admin UID is required for this operation',
         operation: operation,

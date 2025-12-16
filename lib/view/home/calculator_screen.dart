@@ -1,3 +1,4 @@
+import 'dart:developer' as developer;
 import 'package:audioplayers/audioplayers.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -9,8 +10,11 @@ import 'package:pos/view/home/print_provider.dart';
 import 'package:pos/view/home/printer_connectionDialog.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:pos/view/tab_screen/view-model/backend/database_service.dart';
+import 'package:pos/view/tab_screen/view-model/backend/price_utils.dart';
 import 'package:pos/view/tab_screen/view-model/widgets/printers/printer.dart';
 import 'package:provider/provider.dart';
+
+import '../tab_screen/view-model/widgets/show_save_order_bottom_sheet.dart';
 
 class PLUCalculatorScreen extends StatefulWidget {
   final String phoneNumber;
@@ -22,6 +26,9 @@ class PLUCalculatorScreen extends StatefulWidget {
 }
 
 class _PLUPageState extends State<PLUCalculatorScreen> {
+    TextEditingController userNameController = TextEditingController();
+  TextEditingController mobileController = TextEditingController();
+
   AudioPlayer audioPlayer = AudioPlayer();
   bool isTapped = false;
   String adminUid = '';
@@ -52,6 +59,14 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
         totalSum = printprovider.total;
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _textEditingController.dispose();
+    userNameController.dispose();
+    audioPlayer.dispose();
+    super.dispose();
   }
 
   double totalSum = 0.0;
@@ -145,7 +160,7 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
 
       return adminUid ?? 'Admin UID not found';
     } catch (e) {
-      print('Error fetching adminUid: $e');
+      developer.log('Error fetching adminUid: $e', name: 'CalculatorScreen');
       return 'Error fetching adminUid';
     }
   }
@@ -160,39 +175,58 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
 
       List<Map<String, dynamic>> items = allItems
           .map((item) => {
-                'name': item['name'],
-                'price': item['price']?.toString(),
-                'foodCode': item['food_code']?.toString() ?? item['foodCode']?.toString() // Support both formats
+                'name': PriceUtils.safeStringConversion(item['name']),
+                'price': PriceUtils.safeStringConversion(item['price']),
+                'foodCode': PriceUtils.safeStringConversion(
+                  item['food_code'] ?? item['foodCode']
+                ) // Support both formats
               })
           .toList();
 
-      print('Fetched food items: $items');
+      developer.log('Fetched food items of cs: $items', name: 'CalculatorScreen');
 
       return items;
     } catch (e) {
-      print('Error fetching food items: $e');
+      developer.log('Error fetching food items: $e', name: 'CalculatorScreen');
       return [];
     }
   }
 
   void checkFoodItem(String foodCode) async {
+    developer.log('cs foodcode: $foodCode', name: 'CalculatorScreen');
     try {
       List<Map<String, dynamic>> foodItems = await foodItemsFuture;
 
       for (var item in foodItems) {
         if (item['foodCode'] == foodCode) {
-          setState(() {
-            isTapped = true;
-            previousItemName = item['name'];
-            previousItemPrice = int.parse(item['price']);
-          });
-          addToCart(previousItemName, previousItemPrice);
-          _textEditingController.clear(); // Clear input after adding
-          return;
+          // Use safe price conversion
+          int parsedPrice = PriceUtils.safePriceConversion(item['price']);
+          String itemName = PriceUtils.safeStringConversion(item['name']);
+          
+          if (parsedPrice > 0 && itemName.isNotEmpty) {
+            setState(() {
+              isTapped = true;
+              previousItemName = itemName;
+              previousItemPrice = parsedPrice;
+            });
+            addToCart(previousItemName, previousItemPrice);
+            _textEditingController.clear(); // Clear input after adding
+            return;
+          } else {
+            developer.log('Invalid item data: name=$itemName, price=${item['price']}', name: 'CalculatorScreen');
+            Fluttertoast.showToast(
+              msg: "Invalid item data for code: $foodCode",
+              toastLength: Toast.LENGTH_SHORT,
+              gravity: ToastGravity.CENTER,
+              backgroundColor: Colors.red,
+              textColor: Colors.white,
+            );
+            return;
+          }
         }
       }
 
-      print('Food Item not found for code: $foodCode');
+      developer.log('Food Item not found for code: $foodCode', name: 'CalculatorScreen');
       Fluttertoast.showToast(
         msg: "No item exists with code: $foodCode",
         toastLength: Toast.LENGTH_SHORT,
@@ -201,7 +235,14 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
         textColor: Colors.white,
       );
     } catch (e) {
-      print('Error fetching food items: $e');
+      developer.log('Error fetching food items: $e', name: 'CalculatorScreen');
+      Fluttertoast.showToast(
+        msg: "Error loading items. Please try again.",
+        toastLength: Toast.LENGTH_SHORT,
+        gravity: ToastGravity.CENTER,
+        backgroundColor: Colors.red,
+        textColor: Colors.white,
+      );
     }
   }
 
@@ -242,23 +283,25 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
         body: SingleChildScrollView(
           child: SizedBox(
             height: MediaQuery.of(context).size.height - 60,
-            child: Column(
+              child: Column(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                const Text(
-                  'Enter Food Code:',
-                  style: TextStyle(
-                      fontSize: 18, fontFamily: "tabfont", letterSpacing: 2),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(3.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: <Widget>[
-                      SizedBox(
-                        height: MediaQuery.of(context).size.height * 0.09,
-                        width: MediaQuery.of(context).size.width * 0.9,
-                        child: TextField(
+                children: [
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Enter Food Code:',
+                    style: TextStyle(
+                        fontSize: 18, fontFamily: "tabfont", letterSpacing: 2),
+                  ),
+                  const SizedBox(height: 16),
+                  Padding(
+                    padding: const EdgeInsets.all(3.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: <Widget>[
+                        SizedBox(
+                          height: MediaQuery.of(context).size.height * 0.09,
+                          width: MediaQuery.of(context).size.width * 0.9,
+                          child: TextField(
                           style: const TextStyle(
                             fontSize: 28,
                             fontFamily: "tabfont",
@@ -312,6 +355,7 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
                     ],
                   ),
                 ),
+                const SizedBox(height: 16),
                 GridView.count(
                   childAspectRatio: 1.3,
                   crossAxisCount: 3,
@@ -364,10 +408,13 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
                       ),
                   ],
                 ),
-                printprovider.posts.isNotEmpty
-                    ? billCountContainer()
-                    : const SizedBox(),
-                const SizedBox(height: 30)
+                const SizedBox(height: 16),
+                // Use Flexible to allow the cart container to take available space
+                if (printprovider.posts.isNotEmpty)
+                  Flexible(fit: FlexFit.tight,
+                    child: billCountContainer(),
+                  ),
+                const SizedBox(height: 20),
               ],
             ),
           ),
@@ -380,6 +427,7 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
     final printprovider = Provider.of<PrintProvider>(context, listen: false);
 
     return Container(
+      // height: 50,
       margin: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
@@ -412,14 +460,14 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
+                const Row(
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.shopping_cart_outlined,
                       color: primaryColor,
                       size: 20,
                     ),
-                    const Text(
+                    Text(
                       ' My Cart',
                       style: TextStyle(
                         fontSize: 14,
@@ -453,10 +501,14 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
           ),
 
           // Items List
-          Container(
-            height: MediaQuery.of(context).size.height * 0.15,
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: ListView.builder(
+          Flexible(
+            child: Container(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.50,
+                minHeight: 200,
+              ),
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: ListView.builder(
               itemCount: printprovider.posts.length,
               itemBuilder: (context, index) {
                 final item = printprovider.posts[index];
@@ -477,7 +529,7 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
                     children: [
                       Container(
                         width: 4,
-                        height: 40,
+                        height: 50,
                         decoration: BoxDecoration(
                           color: appbar1,
                           borderRadius: BorderRadius.circular(2),
@@ -633,6 +685,7 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
               },
             ),
           ),
+        ),
 
           // Footer with Total and Actions
           Container(
@@ -689,7 +742,9 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
                           size: 24,
                         ),
                         onPressed: () async {
+                        
                           await _showSaveBottomSheet();
+                          // SaveOrderBottomSheet(formKey: _formKey, nameController: userNameController,mobileController: mobileController,onSave: () => ,);
                         },
                       ),
                     ),
@@ -832,7 +887,7 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
   }
 
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-  TextEditingController userNameController = TextEditingController();
+  // TextEditingController userNameController = TextEditingController();
   Future<void> _showSaveBottomSheet() async {
     return showModalBottomSheet(
       context: context,
@@ -888,7 +943,7 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => UsersScreen(),
+        builder: (context) => const UsersScreen(),
       ),
     );
   }
