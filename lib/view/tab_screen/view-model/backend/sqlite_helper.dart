@@ -3,18 +3,31 @@ import 'package:path/path.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'firebase_dao.dart';
 import 'shared_preferences.dart';
+import 'database_maintenance_service.dart';
 
 class SQLiteHelper {
   static final SQLiteHelper _instance = SQLiteHelper._internal();
   static Database? _database;
   static const int _currentVersion = 1; // Force recreation for tax column addition
   static const String _migrationCompleteKey = 'initial_migration_complete';
+  
+  // Database maintenance service (lazy initialization to avoid circular dependency)
+  DatabaseMaintenanceService? _maintenanceService;
 
   factory SQLiteHelper() {
     return _instance;
   }
 
   SQLiteHelper._internal();
+  
+  /// Get or create the maintenance service instance
+  DatabaseMaintenanceService get _getMaintenanceService {
+    if (_maintenanceService == null) {
+      _maintenanceService = DatabaseMaintenanceService();
+      _maintenanceService!.initialize(this);
+    }
+    return _maintenanceService!;
+  }
 
   Future<Database> get database async {
     if (_database != null) return _database!;
@@ -115,12 +128,8 @@ class SQLiteHelper {
       )
     ''');
 
-    // Create indexes for better performance
-    await db.execute('CREATE INDEX idx_food_items_admin_uid ON food_items(admin_uid)');
-    await db.execute('CREATE INDEX idx_departments_admin_uid ON departments(admin_uid)');
-    await db.execute('CREATE INDEX idx_bills_admin_uid ON bills(admin_uid)');
-    await db.execute('CREATE INDEX idx_sync_log_table_record ON sync_log(table_name, record_id)');
-    await db.execute('CREATE INDEX idx_image_cache_record ON image_cache(table_name, record_id)');
+    // Create comprehensive indexes for better performance
+    await _createPerformanceIndexes(db);
   }
 
   Future<void> _migrateTables(Database db, int oldVersion, int newVersion) async {
@@ -352,6 +361,9 @@ class SQLiteHelper {
   Future<void> initializeDatabase() async {
     await database;
     await _checkAndPerformInitialMigration();
+    
+    // Schedule automatic maintenance after initialization
+    await _getMaintenanceService.scheduleAutomaticMaintenance();
   }
 
   // Check if initial migration from Firebase is needed
@@ -570,6 +582,118 @@ await prefs.setString('uid', adminUid);
     return await database;
   }
 
+  // Create comprehensive performance indexes
+  Future<void> _createPerformanceIndexes(Database db) async {
+    try {
+      // Basic admin_uid indexes
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_food_items_admin_uid ON food_items(admin_uid)');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_departments_admin_uid ON departments(admin_uid)');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_bills_admin_uid ON bills(admin_uid)');
+      
+      // Performance indexes for frequently queried columns
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_food_items_name ON food_items(name)');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_food_items_department ON food_items(department)');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_food_items_price ON food_items(price)');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_food_items_food_code ON food_items(food_code)');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_food_items_stocks ON food_items(stocks)');
+      
+      // Composite indexes for common query patterns
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_food_items_admin_dept ON food_items(admin_uid, department)');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_food_items_admin_name ON food_items(admin_uid, name)');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_food_items_admin_price ON food_items(admin_uid, price)');
+      
+      // Sync status indexes for performance
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_food_items_sync_status ON food_items(sync_status)');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_departments_sync_status ON departments(sync_status)');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_bills_sync_status ON bills(sync_status)');
+      
+      // Date-based indexes for bills
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_bills_date ON bills(bill_date)');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_bills_admin_date ON bills(admin_uid, bill_date)');
+      
+      // Sync log indexes
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_sync_log_table_record ON sync_log(table_name, record_id)');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_sync_log_status ON sync_log(sync_status)');
+      
+      // Image cache indexes
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_image_cache_record ON image_cache(table_name, record_id)');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_image_cache_accessed ON image_cache(last_accessed)');
+      
+      // Full-text search indexes for better search performance
+      try {
+        await db.execute('''
+          CREATE VIRTUAL TABLE IF NOT EXISTS food_items_fts USING fts5(
+            id, name, description, food_code, department,
+            content='food_items',
+            content_rowid='rowid'
+          )
+        ''');
+        
+        // Populate FTS table
+        await db.execute('''
+          INSERT OR REPLACE INTO food_items_fts(id, name, description, food_code, department)
+          SELECT id, name, description, food_code, department FROM food_items
+        ''');
+        
+        print('FTS5 search indexes created successfully');
+      } catch (ftsError) {
+        print('FTS5 not available, skipping full-text search indexes: $ftsError');
+        // Create fallback search indexes
+        await db.execute('CREATE INDEX IF NOT EXISTS idx_food_items_name_search ON food_items(name COLLATE NOCASE)');
+        await db.execute('CREATE INDEX IF NOT EXISTS idx_food_items_description_search ON food_items(description COLLATE NOCASE)');
+        print('Fallback search indexes created');
+      }
+      
+      print('Performance indexes created successfully');
+    } catch (e) {
+      print('Error creating performance indexes: $e');
+      // Don't fail database creation if indexes fail
+    }
+  }
+
+  // Create database index manager for runtime optimization
+  Future<void> createPerformanceIndexes() async {
+    final db = await database;
+    await _createPerformanceIndexes(db);
+  }
+
+  // Analyze query performance and suggest optimizations
+  Future<Map<String, dynamic>> analyzeQueryPerformance() async {
+    final db = await database;
+    final analysis = <String, dynamic>{};
+    
+    try {
+      // Check if indexes are being used
+      final explainQueries = [
+        'EXPLAIN QUERY PLAN SELECT * FROM food_items WHERE admin_uid = ?',
+        'EXPLAIN QUERY PLAN SELECT * FROM food_items WHERE department = ?',
+        'EXPLAIN QUERY PLAN SELECT * FROM food_items WHERE name LIKE ?',
+        'EXPLAIN QUERY PLAN SELECT * FROM bills WHERE admin_uid = ? AND bill_date > ?',
+      ];
+      
+      for (final query in explainQueries) {
+        final result = await db.rawQuery(query, ['test']);
+        analysis[query] = result;
+      }
+      
+      // Get table statistics
+      final foodItemsCount = await db.rawQuery('SELECT COUNT(*) as count FROM food_items');
+      final departmentsCount = await db.rawQuery('SELECT COUNT(*) as count FROM departments');
+      final billsCount = await db.rawQuery('SELECT COUNT(*) as count FROM bills');
+      
+      analysis['tableStats'] = {
+        'food_items': foodItemsCount.first['count'],
+        'departments': departmentsCount.first['count'],
+        'bills': billsCount.first['count'],
+      };
+      
+      return analysis;
+    } catch (e) {
+      print('Error analyzing query performance: $e');
+      return {'error': e.toString()};
+    }
+  }
+
   // Force database recreation (for fixing schema issues)
   Future<void> recreateDatabase() async {
     try {
@@ -593,5 +717,57 @@ await prefs.setString('uid', adminUid);
       print('Error recreating database: $e');
       rethrow;
     }
+  }
+
+  // Database Maintenance Operations
+  
+  /// Perform comprehensive database maintenance
+  Future<MaintenanceResult> performDatabaseMaintenance({
+    bool forceVacuum = false,
+    bool forceIntegrityCheck = false,
+    bool cleanupOldData = true,
+    bool optimizeIndexes = true,
+  }) async {
+    return await _getMaintenanceService.performMaintenance(
+      forceVacuum: forceVacuum,
+      forceIntegrityCheck: forceIntegrityCheck,
+      cleanupOldData: cleanupOldData,
+      optimizeIndexes: optimizeIndexes,
+    );
+  }
+  
+  /// Perform automatic database vacuum operation
+  Future<VacuumResult> performDatabaseVacuum() async {
+    return await _getMaintenanceService.performVacuum();
+  }
+  
+  /// Perform database integrity check
+  Future<IntegrityCheckResult> performDatabaseIntegrityCheck() async {
+    return await _getMaintenanceService.performIntegrityCheck();
+  }
+  
+  /// Get database size information and monitoring data
+  Future<DatabaseSizeInfo> getDatabaseSizeInformation() async {
+    return await _getMaintenanceService.getDatabaseSizeInfo();
+  }
+  
+  /// Perform data cleanup operations
+  Future<DataCleanupResult> performDatabaseCleanup() async {
+    return await _getMaintenanceService.performDataCleanup();
+  }
+  
+  /// Optimize database indexes
+  Future<IndexOptimizationResult> optimizeDatabaseIndexes() async {
+    return await _getMaintenanceService.optimizeIndexes();
+  }
+  
+  /// Get maintenance history
+  Future<List<Map<String, dynamic>>> getMaintenanceHistory({int limit = 50}) async {
+    return await _getMaintenanceService.getMaintenanceHistory(limit: limit);
+  }
+  
+  /// Schedule automatic maintenance (called during initialization)
+  Future<void> scheduleAutomaticMaintenance() async {
+    await _getMaintenanceService.scheduleAutomaticMaintenance();
   }
 }

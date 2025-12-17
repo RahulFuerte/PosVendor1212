@@ -168,6 +168,81 @@ void main() {
           expect(searchResults.isNotEmpty, isTrue, reason: 'Search should return results');
         }
       });
+
+      test('should demonstrate improved performance with database indexes', () async {
+        const adminUid = 'test_admin';
+        const itemCount = 1000;
+        
+        // Insert test data with varied departments and names for index testing
+        for (int i = 0; i < itemCount; i++) {
+          final foodItem = {
+            'id': 'item_$i',
+            'name': 'Food Item ${i.toString().padLeft(4, '0')}',
+            'price': 10.0 + (i % 100),
+            'department': 'Department ${i % 20}', // 20 different departments
+            'food_code': 'CODE${i.toString().padLeft(4, '0')}',
+            'description': 'Description for item $i with searchable content',
+            'stocks': 100 - (i % 100),
+            'is_hot': i % 2 == 0,
+          };
+          
+          await sqliteDAO.saveFoodItem(adminUid, foodItem);
+        }
+        
+        // Test department-based queries (should use composite index)
+        final stopwatch = Stopwatch()..start();
+        
+        final deptItems = await sqliteDAO.getFoodItems(adminUid, department: 'Department 5');
+        
+        stopwatch.stop();
+        final deptQueryTime = stopwatch.elapsedMilliseconds;
+        print('Department query returned ${deptItems.length} items in ${deptQueryTime}ms');
+        
+        // Should be very fast with proper indexing
+        expect(deptQueryTime, lessThan(50), reason: 'Department queries should be under 50ms with proper indexing');
+        expect(deptItems.length, equals(50), reason: 'Should return correct number of items for department');
+        
+        // Test search queries (should use FTS index if available)
+        stopwatch.reset();
+        stopwatch.start();
+        
+        final searchResults = await sqliteDAO.searchFoodItems(adminUid, 'Item 0001');
+        
+        stopwatch.stop();
+        final searchTime = stopwatch.elapsedMilliseconds;
+        print('FTS search returned ${searchResults.length} results in ${searchTime}ms');
+        
+        // FTS should be faster than LIKE queries
+        expect(searchTime, lessThan(100), reason: 'FTS search should be under 100ms');
+        expect(searchResults.isNotEmpty, isTrue, reason: 'Search should find matching items');
+        
+        // Test paginated queries with ordering (should use indexes)
+        stopwatch.reset();
+        stopwatch.start();
+        
+        final paginatedItems = await sqliteDAO.getFoodItemsPaginated(
+          adminUid,
+          offset: 0,
+          limit: 50,
+          orderBy: 'price ASC',
+        );
+        
+        stopwatch.stop();
+        final paginatedTime = stopwatch.elapsedMilliseconds;
+        print('Paginated query with ordering returned ${paginatedItems.length} items in ${paginatedTime}ms');
+        
+        // Pagination with ordering should be fast with proper indexes
+        expect(paginatedTime, lessThan(30), reason: 'Paginated queries should be under 30ms with proper indexing');
+        expect(paginatedItems.length, equals(50), reason: 'Should return correct page size');
+        
+        // Verify items are properly ordered by price
+        for (int i = 1; i < paginatedItems.length; i++) {
+          final prevPrice = paginatedItems[i - 1]['price'] as double;
+          final currentPrice = paginatedItems[i]['price'] as double;
+          expect(currentPrice, greaterThanOrEqualTo(prevPrice), 
+                 reason: 'Items should be ordered by price ascending');
+        }
+      });
     });
 
     group('Memory Usage Tests', () {

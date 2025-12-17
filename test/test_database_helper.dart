@@ -194,4 +194,133 @@ class TestDatabaseHelper {
       _testDbPath = null;
     }
   }
+
+  /// Create a test database for testing
+  static Future<Database> createTestDatabase() async {
+    return await getTestDatabase();
+  }
+
+  /// Insert test food items for testing
+  static Future<void> insertTestFoodItems(Database db, String adminUid) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    
+    final testItems = [
+      {
+        'id': 'food_1',
+        'admin_uid': adminUid,
+        'name': 'Margherita Pizza',
+        'price': 12.99,
+        'image_path': 'https://example.com/pizza.jpg',
+        'description': 'Classic pizza with tomato and mozzarella',
+        'food_code': 'P001',
+        'department': 'Pizza',
+        'stocks': 10,
+        'is_hot': 1,
+        'created_at': now,
+        'updated_at': now,
+        'sync_status': 0,
+      },
+      {
+        'id': 'food_2',
+        'admin_uid': adminUid,
+        'name': 'Pepperoni Pizza',
+        'price': 15.99,
+        'image_path': 'https://example.com/pepperoni.jpg',
+        'description': 'Pizza with pepperoni and cheese',
+        'food_code': 'P002',
+        'department': 'Pizza',
+        'stocks': 8,
+        'is_hot': 1,
+        'created_at': now,
+        'updated_at': now,
+        'sync_status': 0,
+      },
+      {
+        'id': 'food_3',
+        'admin_uid': adminUid,
+        'name': 'Coca Cola',
+        'price': 2.99,
+        'image_path': 'https://example.com/coke.jpg',
+        'description': 'Refreshing cola drink',
+        'food_code': 'B001',
+        'department': 'Beverages',
+        'stocks': 20,
+        'is_hot': 0,
+        'created_at': now,
+        'updated_at': now,
+        'sync_status': 0,
+      },
+    ];
+
+    for (final item in testItems) {
+      await db.insert('food_items', item);
+    }
+  }
+
+  /// Insert test departments for testing
+  static Future<void> insertTestDepartments(Database db, String adminUid) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    
+    final testDepartments = [
+      {
+        'id': 'dept_1',
+        'admin_uid': adminUid,
+        'name': 'Pizza',
+        'image_url': 'https://example.com/pizza_dept.jpg',
+        'status': 'Active',
+        'created_at': now,
+        'updated_at': now,
+        'sync_status': 0,
+      },
+      {
+        'id': 'dept_2',
+        'admin_uid': adminUid,
+        'name': 'Beverages',
+        'image_url': 'https://example.com/beverages_dept.jpg',
+        'status': 'Active',
+        'created_at': now,
+        'updated_at': now,
+        'sync_status': 0,
+      },
+    ];
+
+    for (final dept in testDepartments) {
+      await db.insert('departments', dept);
+    }
+  }
+
+  /// Insert test bills for testing
+  static Future<void> insertTestBills(Database db, String adminUid) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final yesterday = now - (24 * 60 * 60 * 1000);
+    
+    final testBills = [
+      {
+        'id': 'bill_1',
+        'admin_uid': adminUid,
+        'customer_phone': '+1234567890',
+        'items': '[{"name": "Margherita Pizza", "price": 12.99, "quantity": 2}]',
+        'total_amount': 25.98,
+        'bill_date': now,
+        'created_at': now,
+        'updated_at': now,
+        'sync_status': 0,
+      },
+      {
+        'id': 'bill_2',
+        'admin_uid': adminUid,
+        'customer_phone': '+0987654321',
+        'items': '[{"name": "Pepperoni Pizza", "price": 15.99, "quantity": 1}, {"name": "Coca Cola", "price": 2.99, "quantity": 2}]',
+        'total_amount': 21.97,
+        'bill_date': yesterday,
+        'created_at': yesterday,
+        'updated_at': yesterday,
+        'sync_status': 1,
+      },
+    ];
+
+    for (final bill in testBills) {
+      await db.insert('bills', bill);
+    }
+  }
 }

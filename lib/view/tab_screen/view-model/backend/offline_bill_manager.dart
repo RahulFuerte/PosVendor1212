@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 import 'database_service.dart';
 import 'sqlite_dao.dart';
 import 'firebase_dao.dart';
@@ -77,7 +78,7 @@ class OfflineBillManager {
     }
   }
 
-  /// Store bill offline with pending sync status
+  /// Store bill offline with pending sync status and unique local ID
   Future<void> storeBillOffline(String adminUid, Map<String, dynamic> billData) async {
     if (!_isInitialized) {
       await initialize();
@@ -88,13 +89,25 @@ class OfflineBillManager {
     }
 
     try {
+      final now = DateTime.now().millisecondsSinceEpoch;
+      
+      // Generate unique local ID if not provided or if ID conflicts
+      String billId = billData['id']?.toString() ?? '';
+      if (billId.isEmpty || await _checkBillIdConflict(adminUid, billId)) {
+        billId = _generateUniqueLocalBillId(adminUid);
+      }
+
       // Ensure bill has required fields for offline storage
       final Map<String, dynamic> offlineBill = {
         ...billData,
+        'id': billId,
         'admin_uid': adminUid,
         'sync_status': SyncStatus.pending.value,
-        'created_at': DateTime.now().millisecondsSinceEpoch,
-        'updated_at': DateTime.now().millisecondsSinceEpoch,
+        'created_at': now,
+        'updated_at': now,
+        'offline_created': true, // Mark as offline-created for conflict resolution
+        'local_timestamp': now, // Local creation timestamp for conflict resolution
+        'original_id': billData['id'], // Store original ID if it was changed
       };
 
       // Ensure items are stored as JSON string
@@ -105,14 +118,35 @@ class OfflineBillManager {
       // Store bill in SQLite with pending sync status
       await _sqliteDAO!.saveBill(adminUid, offlineBill);
       
-      print('Bill ${billData['id']} stored offline with pending sync status');
+      print('Bill $billId stored offline with pending sync status');
       
-      // Emit status update
+      // Emit status update with bill details
       _syncStatusController.add(OfflineBillSyncStatus.stored);
       
     } catch (e) {
       print('Failed to store bill offline: $e');
       throw Exception('Failed to store bill offline: $e');
+    }
+  }
+
+  /// Generate unique local bill ID to prevent conflicts
+  String _generateUniqueLocalBillId(String adminUid) {
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final random = Random();
+    final randomSuffix = random.nextInt(9999).toString().padLeft(4, '0');
+    
+    // Create a unique local ID with prefix to distinguish from server IDs
+    return 'LOCAL_${timestamp}_$randomSuffix';
+  }
+
+  /// Check if bill ID already exists to prevent conflicts
+  Future<bool> _checkBillIdConflict(String adminUid, String billId) async {
+    try {
+      final existingBill = await _sqliteDAO!.getBill(adminUid, billId);
+      return existingBill != null;
+    } catch (e) {
+      print('Error checking bill ID conflict: $e');
+      return false;
     }
   }
 
@@ -222,24 +256,41 @@ class OfflineBillManager {
 
       print('Starting sync of ${offlineBills.length} offline bills');
 
+      int totalBillsSkipped = 0;
+      int totalConflictsResolved = 0;
+      List<String> syncedBillIds = [];
+      List<String> failedBillIds = [];
+
       // Sync bills in batches for better performance
       const int batchSize = 5;
       for (int i = 0; i < offlineBills.length; i += batchSize) {
         final end = (i + batchSize < offlineBills.length) ? i + batchSize : offlineBills.length;
         final batch = offlineBills.sublist(i, end);
         
-        final List<Future<bool>> batchOperations = [];
+        final List<Future<Map<String, dynamic>>> batchOperations = [];
         
         for (final bill in batch) {
-          batchOperations.add(_syncSingleOfflineBill(bill));
+          batchOperations.add(_syncSingleOfflineBillWithDetails(bill));
         }
         
         try {
           final results = await Future.wait(batchOperations);
-          final successCount = results.where((success) => success).length;
-          totalBillsSynced += successCount;
           
-          print('Synced batch: $successCount/${batch.length} bills successful');
+          for (final result in results) {
+            if (result['success'] == true) {
+              totalBillsSynced++;
+              syncedBillIds.add(result['billId']);
+              if (result['conflictResolved'] == true) {
+                totalConflictsResolved++;
+              }
+            } else if (result['skipped'] == true) {
+              totalBillsSkipped++;
+            } else {
+              failedBillIds.add(result['billId']);
+            }
+          }
+          
+          print('Synced batch: ${results.where((r) => r['success'] == true).length}/${batch.length} bills successful');
           
         } catch (e) {
           print('Batch sync failed, trying individual bills: $e');
@@ -247,12 +298,21 @@ class OfflineBillManager {
           // Try individual bills if batch fails
           for (final bill in batch) {
             try {
-              final success = await _syncSingleOfflineBill(bill);
-              if (success) {
+              final result = await _syncSingleOfflineBillWithDetails(bill);
+              if (result['success'] == true) {
                 totalBillsSynced++;
+                syncedBillIds.add(result['billId']);
+                if (result['conflictResolved'] == true) {
+                  totalConflictsResolved++;
+                }
+              } else if (result['skipped'] == true) {
+                totalBillsSkipped++;
+              } else {
+                failedBillIds.add(result['billId']);
               }
             } catch (individualError) {
               print('Failed to sync individual bill ${bill['id']}: $individualError');
+              failedBillIds.add(bill['id']);
             }
           }
         }
@@ -261,6 +321,10 @@ class OfflineBillManager {
       final result = OfflineBillSyncResult(
         success: true,
         billsSynced: totalBillsSynced,
+        billsSkipped: totalBillsSkipped,
+        conflictsResolved: totalConflictsResolved,
+        syncedBillIds: syncedBillIds,
+        failedBillIds: failedBillIds,
       );
 
       _syncStatusController.add(OfflineBillSyncStatus.completed);
@@ -287,18 +351,44 @@ class OfflineBillManager {
     }
   }
 
-  /// Sync a single offline bill to Firebase
+  /// Sync a single offline bill to Firebase with conflict resolution
   Future<bool> _syncSingleOfflineBill(Map<String, dynamic> bill) async {
     try {
       final String adminUid = bill['admin_uid'];
       final String billId = bill['id'];
       
+      // Check for conflicts before syncing
+      final conflictResolution = await _resolveBillConflicts(adminUid, bill);
+      if (!conflictResolution['canSync']) {
+        print('Bill $billId sync skipped due to conflicts: ${conflictResolution['reason']}');
+        return false;
+      }
+      
+      // Use resolved bill data
+      final Map<String, dynamic> resolvedBill = conflictResolution['resolvedBill'];
+      
       // Prepare bill data for Firebase (remove SQLite-specific fields)
-      final Map<String, dynamic> firebaseBillData = Map.from(bill);
+      final Map<String, dynamic> firebaseBillData = Map.from(resolvedBill);
       firebaseBillData.remove('admin_uid');
       firebaseBillData.remove('sync_status');
       firebaseBillData.remove('created_at');
       firebaseBillData.remove('updated_at');
+      firebaseBillData.remove('offline_created');
+      firebaseBillData.remove('local_timestamp');
+      firebaseBillData.remove('original_id');
+      
+      // Handle local ID mapping for Firebase
+      if (billId.startsWith('LOCAL_')) {
+        // Generate a proper server ID for local bills
+        final serverBillId = _generateServerBillId();
+        firebaseBillData['id'] = serverBillId;
+        
+        // Update local bill with server ID
+        await _sqliteDAO!.updateBill(adminUid, billId, {
+          'server_id': serverBillId,
+          'sync_status': SyncStatus.synced.value,
+        });
+      }
       
       // Ensure items are properly formatted for Firebase
       if (firebaseBillData['items'] is String) {
@@ -322,6 +412,176 @@ class OfflineBillManager {
       print('Failed to sync offline bill ${bill['id']}: $e');
       return false;
     }
+  }
+
+  /// Resolve bill conflicts during sync using timestamp-based resolution
+  Future<Map<String, dynamic>> _resolveBillConflicts(String adminUid, Map<String, dynamic> localBill) async {
+    try {
+      final String billId = localBill['id'];
+      
+      // Check if this is a local bill or has conflicts
+      if (!billId.startsWith('LOCAL_')) {
+        // Check if bill exists on Firebase
+        try {
+          final firebaseBill = await _firebaseDAO!.getBill(adminUid, billId);
+          if (firebaseBill != null) {
+            // Conflict detected - use timestamp-based resolution
+            final localTimestamp = localBill['local_timestamp'] ?? localBill['updated_at'] ?? 0;
+            final firebaseTimestamp = firebaseBill['updated_at'] ?? firebaseBill['created_at'] ?? 0;
+            
+            if (firebaseTimestamp > localTimestamp) {
+              // Firebase version is newer, skip local sync
+              return {
+                'canSync': false,
+                'reason': 'Firebase version is newer',
+                'resolvedBill': firebaseBill,
+              };
+            }
+          }
+        } catch (e) {
+          // Firebase check failed, proceed with local version
+          print('Could not check Firebase for conflicts, proceeding with local version: $e');
+        }
+      }
+      
+      return {
+        'canSync': true,
+        'reason': 'No conflicts detected',
+        'resolvedBill': localBill,
+      };
+      
+    } catch (e) {
+      print('Error resolving bill conflicts: $e');
+      return {
+        'canSync': true,
+        'reason': 'Conflict resolution failed, proceeding with local version',
+        'resolvedBill': localBill,
+      };
+    }
+  }
+
+  /// Generate server-compatible bill ID
+  String _generateServerBillId() {
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final random = Random();
+    final randomSuffix = random.nextInt(99999).toString().padLeft(5, '0');
+    return '${timestamp}_$randomSuffix';
+  }
+
+  /// Sync single bill with detailed result tracking
+  Future<Map<String, dynamic>> _syncSingleOfflineBillWithDetails(Map<String, dynamic> bill) async {
+    final String billId = bill['id'];
+    
+    try {
+      final success = await _syncSingleOfflineBill(bill);
+      return {
+        'success': success,
+        'billId': billId,
+        'skipped': false,
+        'conflictResolved': false,
+      };
+    } catch (e) {
+      if (e.toString().contains('conflict') || e.toString().contains('newer')) {
+        return {
+          'success': false,
+          'billId': billId,
+          'skipped': true,
+          'conflictResolved': false,
+          'error': e.toString(),
+        };
+      }
+      
+      return {
+        'success': false,
+        'billId': billId,
+        'skipped': false,
+        'conflictResolved': false,
+        'error': e.toString(),
+      };
+    }
+  }
+
+  /// Create a robust offline bill with all required fields
+  Future<Map<String, dynamic>> createRobustOfflineBill({
+    required String adminUid,
+    required List<Map<String, dynamic>> items,
+    required double totalAmount,
+    String? customerName,
+    String? customerPhone,
+    String? paymentMethod,
+    double? taxAmount,
+    double? discountAmount,
+  }) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final billId = _generateUniqueLocalBillId(adminUid);
+    
+    return {
+      'id': billId,
+      'admin_uid': adminUid,
+      'customer_name': customerName ?? 'Walk-in Customer',
+      'customer_phone': customerPhone ?? '',
+      'items': jsonEncode(items),
+      'total_amount': totalAmount,
+      'tax_amount': taxAmount ?? 0.0,
+      'discount_amount': discountAmount ?? 0.0,
+      'payment_method': paymentMethod ?? 'Cash',
+      'bill_date': now,
+      'created_at': now,
+      'updated_at': now,
+      'sync_status': SyncStatus.pending.value,
+      'offline_created': true,
+      'local_timestamp': now,
+    };
+  }
+
+  /// Get detailed offline bill statistics
+  Future<Map<String, dynamic>> getDetailedOfflineBillStatistics(String adminUid) async {
+    try {
+      final offlineBills = await getOfflineBills(adminUid);
+      final allBills = await _sqliteDAO?.getBills(adminUid) ?? [];
+      
+      final syncedBills = allBills.where((bill) => 
+        bill['sync_status'] == SyncStatus.synced.value
+      ).toList();
+      
+      final localBills = offlineBills.where((bill) => 
+        bill['id'].toString().startsWith('LOCAL_')
+      ).toList();
+      
+      final conflictBills = allBills.where((bill) => 
+        bill['sync_status'] == SyncStatus.conflict.value
+      ).toList();
+      
+      return {
+        'offlineBillsCount': offlineBills.length,
+        'syncedBillsCount': syncedBills.length,
+        'totalBillsCount': allBills.length,
+        'localBillsCount': localBills.length,
+        'conflictBillsCount': conflictBills.length,
+        'isConnected': _connectionMonitor?.isConnected ?? false,
+        'isSyncing': _isSyncing,
+        'lastSyncTime': _getLastSyncTime(),
+        'syncProgress': _isSyncing ? _getSyncProgress() : null,
+      };
+    } catch (e) {
+      return {
+        'error': 'Failed to get detailed sync statistics: $e',
+      };
+    }
+  }
+
+  /// Get last sync time from local storage
+  DateTime? _getLastSyncTime() {
+    // This would typically be stored in SharedPreferences or similar
+    // For now, return null - can be enhanced later
+    return null;
+  }
+
+  /// Get current sync progress (for progress indicators)
+  Map<String, dynamic>? _getSyncProgress() {
+    // This would track current sync progress
+    // For now, return null - can be enhanced later
+    return null;
   }
 
   /// Manual sync functionality for immediate upload of offline bills
@@ -456,7 +716,7 @@ class OfflineBillManager {
   }
 }
 
-/// Enum for offline bill sync status
+/// Enum for offline bill sync status with enhanced feedback
 enum OfflineBillSyncStatus {
   stored,
   syncing,
@@ -465,24 +725,35 @@ enum OfflineBillSyncStatus {
   manualSyncStarted,
   manualSyncCompleted,
   manualSyncFailed,
+  conflictDetected,
+  conflictResolved,
+  partialSync,
 }
 
-/// Result of offline bill sync operation
+/// Result of offline bill sync operation with enhanced details
 class OfflineBillSyncResult {
   final bool success;
   final String? errorMessage;
   final int billsSynced;
+  final int billsSkipped;
+  final int conflictsResolved;
+  final List<String> syncedBillIds;
+  final List<String> failedBillIds;
   final DateTime timestamp;
 
   OfflineBillSyncResult({
     required this.success,
     this.errorMessage,
     required this.billsSynced,
+    this.billsSkipped = 0,
+    this.conflictsResolved = 0,
+    this.syncedBillIds = const [],
+    this.failedBillIds = const [],
     DateTime? timestamp,
   }) : timestamp = timestamp ?? DateTime.now();
 
   @override
   String toString() {
-    return 'OfflineBillSyncResult(success: $success, billsSynced: $billsSynced, error: $errorMessage)';
+    return 'OfflineBillSyncResult(success: $success, synced: $billsSynced, skipped: $billsSkipped, conflicts: $conflictsResolved, error: $errorMessage)';
   }
 }

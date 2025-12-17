@@ -30,7 +30,7 @@ void main() {
         details: [
           {'name': 'Pizza', 'price': 299, 'quantity': 1},
         ],
-        totalAmount: 299.0,
+        totalAmount: 299.0, mobileNo: '+918888888888',
       );
 
       expect(userModel.userName, 'Jane Doe');

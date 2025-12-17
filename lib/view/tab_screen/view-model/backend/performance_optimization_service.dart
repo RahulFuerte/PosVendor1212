@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:developer' as developer;
 import 'performance_monitor.dart';
+import 'performance_analytics_dashboard.dart';
 import 'lazy_loading_service.dart';
 import 'image_cache_service.dart';
 import 'sqlite_dao.dart';
@@ -15,6 +16,7 @@ class PerformanceOptimizationService {
   PerformanceOptimizationService._internal();
 
   final PerformanceMonitor _performanceMonitor = PerformanceMonitor();
+  final PerformanceAnalyticsDashboard _analyticsDashboard = PerformanceAnalyticsDashboard();
   final LazyLoadingService _lazyLoadingService = LazyLoadingService();
   final ImageCacheService _imageCacheService = ImageCacheService();
   
@@ -27,6 +29,9 @@ class PerformanceOptimizationService {
     
     // Start performance monitoring
     _performanceMonitor.startMonitoring();
+    
+    // Initialize analytics dashboard
+    await _analyticsDashboard.initialize();
     
     // Schedule periodic optimization
     _schedulePeriodicOptimization();
@@ -217,6 +222,60 @@ class PerformanceOptimizationService {
     }
   }
 
+  /// Get comprehensive analytics dashboard data
+  Future<Map<String, dynamic>> getAnalyticsDashboard() async {
+    try {
+      return await _analyticsDashboard.getDashboardData();
+    } catch (e) {
+      developer.log('Error getting analytics dashboard: $e', name: 'PerformanceOptimization');
+      return {
+        'error': 'Failed to get analytics dashboard: $e',
+        'timestamp': DateTime.now().toIso8601String(),
+      };
+    }
+  }
+
+  /// Get real-time performance metrics
+  Map<String, dynamic> getRealTimeMetrics() {
+    return _analyticsDashboard.getRealTimeMetrics();
+  }
+
+  /// Get performance trends
+  Map<String, dynamic> getPerformanceTrends({int days = 7}) {
+    return _analyticsDashboard.getPerformanceTrends(days: days);
+  }
+
+  /// Get detailed query analysis
+  Future<Map<String, dynamic>> getQueryAnalysis() async {
+    return await _analyticsDashboard.getQueryAnalysis();
+  }
+
+  /// Get memory analysis
+  Future<Map<String, dynamic>> getMemoryAnalysis() async {
+    return await _analyticsDashboard.getMemoryAnalysis();
+  }
+
+  /// Get alert analysis
+  Map<String, dynamic> getAlertAnalysis({int days = 30}) {
+    return _analyticsDashboard.getAlertAnalysis(days: days);
+  }
+
+  /// Get system health assessment
+  Map<String, dynamic> getSystemHealthAssessment() {
+    return _analyticsDashboard.getSystemHealthAssessment();
+  }
+
+  /// Export comprehensive performance report
+  Future<Map<String, dynamic>> exportPerformanceReport({
+    bool includeRawData = false,
+    int days = 30,
+  }) async {
+    return await _analyticsDashboard.exportPerformanceReport(
+      includeRawData: includeRawData,
+      days: days,
+    );
+  }
+
   /// Assess overall system health based on performance metrics
   Map<String, dynamic> _assessOverallHealth(Map<String, dynamic> analysis) {
     final issues = <String>[];
@@ -374,6 +433,7 @@ class PerformanceOptimizationService {
   void dispose() {
     _optimizationTimer?.cancel();
     _performanceMonitor.dispose();
+    _analyticsDashboard.dispose();
     _lazyLoadingService.clearAllCaches();
     developer.log('Performance Optimization Service disposed', name: 'PerformanceOptimization');
   }

@@ -100,29 +100,7 @@ class OfflineBillDemo {
     
     // Listen to sync status changes
     _databaseService.offlineBillSyncStatusStream.listen((status) {
-      switch (status) {
-        case OfflineBillSyncStatus.stored:
-          print('📦 Bill stored offline');
-          break;
-        case OfflineBillSyncStatus.syncing:
-          print('🔄 Automatic sync in progress...');
-          break;
-        case OfflineBillSyncStatus.completed:
-          print('✅ Automatic sync completed');
-          break;
-        case OfflineBillSyncStatus.failed:
-          print('❌ Automatic sync failed');
-          break;
-        case OfflineBillSyncStatus.manualSyncStarted:
-          print('🔄 Manual sync started');
-          break;
-        case OfflineBillSyncStatus.manualSyncCompleted:
-          print('✅ Manual sync completed');
-          break;
-        case OfflineBillSyncStatus.manualSyncFailed:
-          print('❌ Manual sync failed');
-          break;
-      }
+      print('📊 Sync status changed: $status');
     });
 
     // Listen to sync results

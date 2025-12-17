@@ -161,27 +161,114 @@ class _OfflineBillStatusWidgetState extends State<OfflineBillStatusWidget> {
   void _showSyncResultSnackBar(OfflineBillSyncResult result) {
     if (!mounted) return;
 
-    final String message = result.success
-        ? 'Successfully synced ${result.billsSynced} offline bills'
-        : 'Sync failed: ${result.errorMessage}';
+    String message;
+    Color backgroundColor;
+    IconData icon;
 
-    final Color backgroundColor = result.success ? Colors.green : Colors.red;
+    if (result.success) {
+      if (result.billsSynced > 0) {
+        message = 'Successfully synced ${result.billsSynced} bills';
+        if (result.billsSkipped > 0) {
+          message += ' (${result.billsSkipped} skipped)';
+        }
+        if (result.conflictsResolved > 0) {
+          message += ' (${result.conflictsResolved} conflicts resolved)';
+        }
+      } else {
+        message = 'No bills to sync';
+      }
+      backgroundColor = Colors.green;
+      icon = Icons.check_circle;
+    } else {
+      message = 'Sync failed: ${result.errorMessage}';
+      if (result.failedBillIds.isNotEmpty) {
+        message += ' (${result.failedBillIds.length} bills failed)';
+      }
+      backgroundColor = Colors.red;
+      icon = Icons.error;
+    }
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message),
+        content: Row(
+          children: [
+            Icon(icon, color: Colors.white, size: 20),
+            const SizedBox(width: 8),
+            Expanded(child: Text(message)),
+          ],
+        ),
         backgroundColor: backgroundColor,
-        duration: Duration(seconds: result.success ? 2 : 4),
+        duration: Duration(seconds: result.success ? 3 : 5),
+        action: result.success && result.billsSynced > 0
+            ? SnackBarAction(
+                label: 'Details',
+                textColor: Colors.white,
+                onPressed: () => _showSyncDetails(result),
+              )
+            : null,
+      ),
+    );
+  }
+
+  void _showSyncDetails(OfflineBillSyncResult result) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Sync Details'),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildDetailRow('Bills Synced', result.billsSynced.toString()),
+              _buildDetailRow('Bills Skipped', result.billsSkipped.toString()),
+              _buildDetailRow('Conflicts Resolved', result.conflictsResolved.toString()),
+              if (result.syncedBillIds.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                const Text('Synced Bills:', style: TextStyle(fontWeight: FontWeight.bold)),
+                ...result.syncedBillIds.take(5).map((id) => Text('• ${id.length > 20 ? id.substring(0, 20) + '...' : id}')),
+                if (result.syncedBillIds.length > 5)
+                  Text('• ... and ${result.syncedBillIds.length - 5} more'),
+              ],
+              if (result.failedBillIds.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                const Text('Failed Bills:', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red)),
+                ...result.failedBillIds.take(3).map((id) => Text('• ${id.length > 20 ? id.substring(0, 20) + '...' : id}', style: const TextStyle(color: Colors.red))),
+                if (result.failedBillIds.length > 3)
+                  Text('• ... and ${result.failedBillIds.length - 3} more', style: const TextStyle(color: Colors.red)),
+              ],
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
+        ],
       ),
     );
   }
 
   Widget _buildSyncStatusIndicator() {
     if (_isSyncing) {
-      return const Row(
+      return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          SizedBox(
+          const SizedBox(
             width: 16,
             height: 16,
             child: CircularProgressIndicator(
@@ -189,12 +276,13 @@ class _OfflineBillStatusWidgetState extends State<OfflineBillStatusWidget> {
               valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
             ),
           ),
-          SizedBox(width: 8),
+          const SizedBox(width: 8),
           Text(
-            'Syncing...',
-            style: TextStyle(
+            _getSyncingStatusText(),
+            style: const TextStyle(
               color: Colors.blue,
               fontSize: 12,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ],
@@ -212,10 +300,11 @@ class _OfflineBillStatusWidgetState extends State<OfflineBillStatusWidget> {
           ),
           SizedBox(width: 4),
           Text(
-            'Offline',
+            'Offline Mode',
             style: TextStyle(
               color: Colors.orange,
               fontSize: 12,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ],
@@ -233,10 +322,11 @@ class _OfflineBillStatusWidgetState extends State<OfflineBillStatusWidget> {
           ),
           const SizedBox(width: 4),
           Text(
-            '$_offlineBillsCount pending',
+            '$_offlineBillsCount pending sync',
             style: const TextStyle(
               color: Colors.amber,
               fontSize: 12,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ],
@@ -253,14 +343,28 @@ class _OfflineBillStatusWidgetState extends State<OfflineBillStatusWidget> {
         ),
         SizedBox(width: 4),
         Text(
-          'Synced',
+          'All Synced',
           style: TextStyle(
             color: Colors.green,
             fontSize: 12,
+            fontWeight: FontWeight.w500,
           ),
         ),
       ],
     );
+  }
+
+  String _getSyncingStatusText() {
+    switch (_currentSyncStatus) {
+      case OfflineBillSyncStatus.manualSyncStarted:
+        return 'Manual sync...';
+      case OfflineBillSyncStatus.conflictDetected:
+        return 'Resolving conflicts...';
+      case OfflineBillSyncStatus.partialSync:
+        return 'Partial sync...';
+      default:
+        return 'Syncing...';
+    }
   }
 
   @override

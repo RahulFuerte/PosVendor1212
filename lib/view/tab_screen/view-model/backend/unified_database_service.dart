@@ -11,6 +11,9 @@ import 'database_migration_service.dart';
 import 'sqlite_helper.dart';
 import 'comprehensive_error_handler.dart';
 import 'user_error_service.dart';
+import 'database_index_manager.dart';
+import 'enhanced_offline_manager.dart';
+import 'query_optimization_service.dart';
 
 /// Exception class for database service errors with meaningful messages
 class DatabaseServiceException implements Exception {
@@ -45,6 +48,9 @@ class UnifiedDatabaseService implements DatabaseService {
   final DatabaseMigrationService _migrationService = DatabaseMigrationService();
   final SQLiteHelper _sqliteHelper = SQLiteHelper();
   final ComprehensiveErrorHandler _errorHandler = ComprehensiveErrorHandler();
+  final DatabaseIndexManager _indexManager = DatabaseIndexManager();
+  final EnhancedOfflineManager _offlineManager = EnhancedOfflineManager();
+  final QueryOptimizationService _queryOptimizer = QueryOptimizationService();
   
   bool _isInitialized = false;
   bool _initializationFailed = false;
@@ -101,9 +107,25 @@ class UnifiedDatabaseService implements DatabaseService {
       await _imageCacheService.initialize();
       await _syncManager.initialize();
       await _offlineBillManager.initialize();
+      await _offlineManager.initialize();
       
       // Check and perform any pending migrations
       await _migrationService.checkAndPerformMigrations();
+      
+      // Create and optimize database indexes for performance
+      await _indexManager.createPerformanceIndexes();
+      await _indexManager.optimizeQueryPaths();
+      await _errorHandler.handleInfo(
+        component: 'UnifiedDatabaseService',
+        message: 'Database performance indexes created and optimized',
+      );
+      
+      // Initialize query optimization service
+      await _queryOptimizer.initialize();
+      await _errorHandler.handleInfo(
+        component: 'UnifiedDatabaseService',
+        message: 'Query optimization service initialized',
+      );
       
       _isInitialized = true;
       await _errorHandler.handleInfo(
@@ -169,16 +191,29 @@ class UnifiedDatabaseService implements DatabaseService {
     await _ensureInitialized();
     
     try {
+      // Ensure offline data persistence is working
+      await _offlineManager.ensureOfflineDataPersistence();
+      
       // Always return from SQLite for immediate response (offline-first approach)
       List<Map<String, dynamic>> localItems = await _sqliteDAO.getFoodItems(adminUid, department: department);
       
-      // If online and local data is empty, try to fetch from Firebase and cache locally
-      if (localItems.isEmpty && await isOnline()) {
+      // Check if we're offline
+      final bool isOfflineMode = !await isOnline();
+      
+      if (isOfflineMode) {
+        // Offline mode: Display offline indicator and return local data
+        await _offlineManager.displayOfflineIndicator();
+        developer.log('Offline mode: Returning ${localItems.length} food items from local database', name: 'DatabaseService');
+        return localItems;
+      }
+      
+      // Online mode: If local data is empty, try to fetch from Firebase and cache locally
+      if (localItems.isEmpty) {
         try {
           developer.log('Fetching food items from Firebase (local cache empty)', name: 'DatabaseService');
           List<Map<String, dynamic>> firebaseItems = await _firebaseDAO.getFoodItems(adminUid, department: department);
           
-          // Cache Firebase data locally
+          // Cache Firebase data locally for offline access
           for (Map<String, dynamic> item in firebaseItems) {
             try {
               await _sqliteDAO.saveFoodItem(adminUid, item);
@@ -194,29 +229,46 @@ class UnifiedDatabaseService implements DatabaseService {
             developer.log('Failed to preload images: $e', name: 'DatabaseService');
           });
           
+          // Update offline manager with fresh data
+          await _offlineManager.refreshOfflineStatus();
+          
           return firebaseItems;
         } catch (e) {
           developer.log('Failed to fetch food items from Firebase: $e', name: 'DatabaseService');
           // Fallback to local data (graceful degradation)
+          await _errorHandler.handleWarning(
+            component: 'UnifiedDatabaseService',
+            message: 'Firebase fetch failed, using local data',
+            context: {'error': e.toString()},
+            userMessage: 'Using offline data. Some items may not be up to date.',
+          );
           return localItems;
         }
       }
       
+      // Return local data (we have data and we're online)
       return localItems;
     } catch (e) {
       await _errorHandler.handleRecoverableError(
         component: 'UnifiedDatabaseService',
         message: 'Failed to retrieve food items',
         error: e,
-        userMessage: 'Unable to load food items. Please check your connection and try again.',
+        userMessage: 'Unable to load food items. Using offline data if available.',
         errorType: UserErrorType.databaseError,
       );
       
-      throw DatabaseServiceException(
-        'Failed to retrieve food items. Please check your connection and try again.',
-        operation: 'getFoodItems',
-        originalError: e,
-      );
+      // Try to return local data as fallback
+      try {
+        final fallbackItems = await _sqliteDAO.getFoodItems(adminUid, department: department);
+        developer.log('Returning ${fallbackItems.length} items from fallback local data', name: 'DatabaseService');
+        return fallbackItems;
+      } catch (fallbackError) {
+        throw DatabaseServiceException(
+          'Failed to retrieve food items from both online and offline sources.',
+          operation: 'getFoodItems',
+          originalError: e,
+        );
+      }
     }
   }
 
@@ -579,7 +631,7 @@ class UnifiedDatabaseService implements DatabaseService {
           // Will be synced later by offline bill manager - this is critical for POS operations
         }
       } else {
-        // Offline: Use offline bill manager for proper offline bill storage
+        // Offline: Use enhanced offline bill manager for robust offline bill storage
         developer.log('Offline mode: Storing bill ${billData['id']} for later sync', name: 'DatabaseService');
         await _offlineBillManager.storeBillOffline(adminUid, billData);
       }
@@ -1124,6 +1176,36 @@ class UnifiedDatabaseService implements DatabaseService {
   /// Get offline bill sync result stream
   Stream<OfflineBillSyncResult> get offlineBillSyncResultStream => _offlineBillManager.syncResultStream;
 
+  /// Create a robust offline bill with enhanced conflict resolution
+  Future<Map<String, dynamic>> createRobustOfflineBill({
+    required String adminUid,
+    required List<Map<String, dynamic>> items,
+    required double totalAmount,
+    String? customerName,
+    String? customerPhone,
+    String? paymentMethod,
+    double? taxAmount,
+    double? discountAmount,
+  }) async {
+    await _ensureInitialized();
+    return await _offlineBillManager.createRobustOfflineBill(
+      adminUid: adminUid,
+      items: items,
+      totalAmount: totalAmount,
+      customerName: customerName,
+      customerPhone: customerPhone,
+      paymentMethod: paymentMethod,
+      taxAmount: taxAmount,
+      discountAmount: discountAmount,
+    );
+  }
+
+  /// Get detailed offline bill statistics with enhanced metrics
+  Future<Map<String, dynamic>> getDetailedOfflineBillStatistics(String adminUid) async {
+    await _ensureInitialized();
+    return await _offlineBillManager.getDetailedOfflineBillStatistics(adminUid);
+  }
+
   // Health check and diagnostics methods
 
   /// Perform a health check on the database service
@@ -1426,5 +1508,149 @@ class UnifiedDatabaseService implements DatabaseService {
       developer.log('Error recreating database: $e', name: 'DatabaseService');
       // Don't fail initialization for this, let normal migration handle it
     }
+  }
+
+  // Database Performance Optimization Methods
+
+  /// Analyze query performance and get optimization recommendations
+  Future<Map<String, dynamic>> analyzeQueryPerformance() async {
+    await _ensureInitialized();
+    
+    try {
+      return await _indexManager.getIndexStatistics();
+    } catch (e) {
+      developer.log('Error analyzing query performance: $e', name: 'DatabaseService');
+      throw DatabaseServiceException(
+        'Failed to analyze query performance',
+        operation: 'analyzeQueryPerformance',
+        originalError: e,
+      );
+    }
+  }
+
+  /// Perform database maintenance for optimal performance
+  Future<void> performDatabaseMaintenance() async {
+    await _ensureInitialized();
+    
+    try {
+      await _indexManager.performDatabaseMaintenance();
+      developer.log('Database maintenance completed successfully', name: 'DatabaseService');
+    } catch (e) {
+      developer.log('Error during database maintenance: $e', name: 'DatabaseService');
+      throw DatabaseServiceException(
+        'Failed to perform database maintenance',
+        operation: 'performDatabaseMaintenance',
+        originalError: e,
+      );
+    }
+  }
+
+  /// Update search indexes when data changes
+  Future<void> updateSearchIndexes() async {
+    await _ensureInitialized();
+    
+    try {
+      await _indexManager.updateSearchIndexes();
+      developer.log('Search indexes updated successfully', name: 'DatabaseService');
+    } catch (e) {
+      developer.log('Error updating search indexes: $e', name: 'DatabaseService');
+      // Don't throw here as this is a maintenance operation
+    }
+  }
+
+  /// Get database index statistics for monitoring
+  Future<Map<String, dynamic>> getDatabaseIndexStatistics() async {
+    await _ensureInitialized();
+    
+    try {
+      return await _indexManager.getIndexStatistics();
+    } catch (e) {
+      developer.log('Error getting index statistics: $e', name: 'DatabaseService');
+      return {'error': e.toString()};
+    }
+  }
+
+  /// Optimize database query paths for better performance
+  Future<void> optimizeDatabaseQueries() async {
+    await _ensureInitialized();
+    
+    try {
+      await _indexManager.optimizeQueryPaths();
+      developer.log('Database query optimization completed', name: 'DatabaseService');
+    } catch (e) {
+      developer.log('Error optimizing database queries: $e', name: 'DatabaseService');
+      throw DatabaseServiceException(
+        'Failed to optimize database queries',
+        operation: 'optimizeDatabaseQueries',
+        originalError: e,
+      );
+    }
+  }
+
+  // Enhanced Offline Management Methods
+
+  /// Get offline status stream
+  Stream<OfflineStatus> get offlineStatusStream => _offlineManager.offlineStatusStream;
+
+  /// Get current offline status
+  OfflineStatus get currentOfflineStatus => _offlineManager.currentStatus;
+
+  /// Check if specific data is available offline
+  Future<bool> isDataAvailableOffline(String dataType, String adminUid) async {
+    await _ensureInitialized();
+    return await _offlineManager.isDataAvailableOffline(dataType, adminUid);
+  }
+
+  /// Load all offline data for immediate access
+  Future<Map<String, dynamic>> loadAllOfflineData(String adminUid) async {
+    await _ensureInitialized();
+    return await _offlineManager.loadAllOfflineData(adminUid);
+  }
+
+  /// Get offline data statistics
+  Future<Map<String, dynamic>> getOfflineDataStatistics(String adminUid) async {
+    await _ensureInitialized();
+    return await _offlineManager.getOfflineDataStatistics(adminUid);
+  }
+
+  /// Ensure all CRUD operations work seamlessly when offline
+  Future<void> ensureOfflineOperationsWork(String adminUid) async {
+    await _ensureInitialized();
+    
+    try {
+      // Test basic CRUD operations in offline mode
+      await _offlineManager.ensureOfflineDataPersistence();
+      
+      // Verify we can read data
+      await _sqliteDAO.getFoodItems(adminUid);
+      await _sqliteDAO.getDepartments(adminUid);
+      await _sqliteDAO.getBills(adminUid);
+      
+      developer.log('Offline CRUD operations verified successfully', name: 'DatabaseService');
+    } catch (e) {
+      await _errorHandler.handleCriticalError(
+        component: 'UnifiedDatabaseService',
+        message: 'Offline CRUD operations verification failed',
+        error: e,
+        userMessage: 'There was a problem with offline functionality. Please restart the app.',
+      );
+      throw DatabaseServiceException(
+        'Failed to ensure offline operations work properly',
+        operation: 'ensureOfflineOperationsWork',
+        originalError: e,
+      );
+    }
+  }
+
+  /// Display offline status indicator
+  Future<void> displayOfflineStatusIndicator() async {
+    await _ensureInitialized();
+    await _offlineManager.displayOfflineIndicator();
+  }
+
+  /// Refresh offline status
+  Future<void> refreshOfflineStatus() async {
+    await _ensureInitialized();
+    await _offlineManager.refreshOfflineStatus();
   }
 }

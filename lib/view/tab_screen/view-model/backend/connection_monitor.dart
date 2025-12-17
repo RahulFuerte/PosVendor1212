@@ -10,7 +10,7 @@ class ConnectionMonitor {
 
   final Connectivity _connectivity = Connectivity();
   final ErrorHandlingService _errorService = ErrorHandlingService();
-  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
+  StreamSubscription<ConnectivityResult>? _connectivitySubscription;
   
   final StreamController<bool> _connectivityController = StreamController<bool>.broadcast();
   
@@ -35,7 +35,7 @@ class ConnectionMonitor {
 
       // Listen for connectivity changes
       _connectivitySubscription = _connectivity.onConnectivityChanged.listen(
-        _onConnectivityChanged,
+        (ConnectivityResult result) => _onConnectivityChanged(result),
         onError: (error) {
           _errorService.logError(
             'ConnectionMonitor',
@@ -63,8 +63,8 @@ class ConnectionMonitor {
   /// Check initial connectivity status
   Future<void> _checkInitialConnectivity() async {
     try {
-      final List<ConnectivityResult> connectivityResults = await _connectivity.checkConnectivity();
-      _updateConnectivityStatus(connectivityResults);
+      final ConnectivityResult connectivityResult = await _connectivity.checkConnectivity();
+      _updateConnectivityStatus(connectivityResult);
     } catch (e) {
       await _errorService.logError(
         'ConnectionMonitor',
@@ -77,21 +77,19 @@ class ConnectionMonitor {
   }
 
   /// Handle connectivity changes
-  void _onConnectivityChanged(List<ConnectivityResult> results) {
-    _updateConnectivityStatus(results);
+  void _onConnectivityChanged(ConnectivityResult result) {
+    _updateConnectivityStatus(result);
   }
 
-  /// Update connectivity status based on connectivity results
-  void _updateConnectivityStatus(List<ConnectivityResult> results) {
+  /// Update connectivity status based on connectivity result
+  void _updateConnectivityStatus(ConnectivityResult result) {
     final bool wasConnected = _isConnected;
     
-    // Check if any of the connectivity results indicate a connection
-    _isConnected = results.any((result) => 
-      result == ConnectivityResult.mobile ||
-      result == ConnectivityResult.wifi ||
-      result == ConnectivityResult.ethernet ||
-      result == ConnectivityResult.vpn
-    );
+    // Check if the connectivity result indicates a connection
+    _isConnected = result == ConnectivityResult.mobile ||
+                   result == ConnectivityResult.wifi ||
+                   result == ConnectivityResult.ethernet ||
+                   result == ConnectivityResult.vpn;
 
     // Only emit if connectivity status changed
     if (wasConnected != _isConnected) {
@@ -101,7 +99,7 @@ class ConnectionMonitor {
         context: {
           'isConnected': _isConnected,
           'previousState': wasConnected,
-          'connectionTypes': results.map((r) => r.name).toList(),
+          'connectionType': result.name,
         },
       );
       _connectivityController.add(_isConnected);
@@ -111,8 +109,8 @@ class ConnectionMonitor {
   /// Manually check connectivity status
   Future<bool> checkConnectivity() async {
     try {
-      final List<ConnectivityResult> results = await _connectivity.checkConnectivity();
-      _updateConnectivityStatus(results);
+      final ConnectivityResult result = await _connectivity.checkConnectivity();
+      _updateConnectivityStatus(result);
       return _isConnected;
     } catch (e) {
       await _errorService.logError(
