@@ -15,6 +15,7 @@ class CachedBlobImage extends StatefulWidget {
   final double? width;
   final double? height;
   final BoxFit fit;
+  final BorderRadius? borderRadius;
   final Widget? placeholder;
   final Widget? errorWidget;
 
@@ -26,6 +27,7 @@ class CachedBlobImage extends StatefulWidget {
     this.width,
     this.height,
     this.fit = BoxFit.cover,
+    this.borderRadius,
     this.placeholder,
     this.errorWidget,
   }) : super(key: key);
@@ -67,10 +69,12 @@ class _CachedBlobImageState extends State<CachedBlobImage> {
       
       if (blobData != null && blobData.isNotEmpty) {
         developer.log('Image loaded from BLOB cache for ${widget.tableName}:${widget.recordId}', name: 'CachedBlobImage');
-        setState(() {
-          _blobData = blobData;
-          _isLoading = false;
-        });
+        if (mounted) {
+          setState(() {
+            _blobData = blobData;
+            _isLoading = false;
+          });
+        }
         return;
       }
       
@@ -87,10 +91,12 @@ class _CachedBlobImageState extends State<CachedBlobImage> {
           
           if (downloadedData != null && downloadedData.isNotEmpty) {
             developer.log('Image downloaded and cached successfully for ${widget.tableName}:${widget.recordId}', name: 'CachedBlobImage');
-            setState(() {
-              _blobData = downloadedData;
-              _isLoading = false;
-            });
+            if (mounted) {
+              setState(() {
+                _blobData = downloadedData;
+                _isLoading = false;
+              });
+            }
             return;
           }
         } catch (e) {
@@ -107,16 +113,20 @@ class _CachedBlobImageState extends State<CachedBlobImage> {
       }
       
       // Continue to network image fallback or show appropriate state
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
       
     } catch (e) {
       developer.log('Error in _loadImage: $e', name: 'CachedBlobImage');
-      setState(() {
-        _hasError = true;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _hasError = true;
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -146,7 +156,7 @@ class _CachedBlobImageState extends State<CachedBlobImage> {
 
     // If we have BLOB data, use it
     if (_blobData != null) {
-      return Image.memory(
+      Widget imageWidget = Image.memory(
         _blobData!,
         width: widget.width,
         height: widget.height,
@@ -161,6 +171,14 @@ class _CachedBlobImageState extends State<CachedBlobImage> {
             );
         },
       );
+      
+      if (widget.borderRadius != null) {
+        return ClipRRect(
+          borderRadius: widget.borderRadius!,
+          child: imageWidget,
+        );
+      }
+      return imageWidget;
     }
 
     // Fallback to network image if BLOB not available
@@ -170,6 +188,19 @@ class _CachedBlobImageState extends State<CachedBlobImage> {
         width: widget.width,
         height: widget.height,
         fit: widget.fit,
+        imageBuilder: widget.borderRadius != null
+            ? (context, imageProvider) => Container(
+                width: widget.width,
+                height: widget.height,
+                decoration: BoxDecoration(
+                  borderRadius: widget.borderRadius,
+                  image: DecorationImage(
+                    image: imageProvider,
+                    fit: widget.fit,
+                  ),
+                ),
+              )
+            : null,
         placeholder: (context, url) => widget.placeholder ?? 
           Container(
             width: widget.width,

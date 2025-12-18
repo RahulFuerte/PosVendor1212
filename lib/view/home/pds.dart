@@ -11,7 +11,7 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:hive/hive.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:pos/view/home/edit_billReceipt.dart';
-import 'package:pos/view/home/hiveScreen.dart';
+import 'package:pos/view/home/usersDataScreen.dart';
 import 'package:pos/view/home/navigation.dart';
 import 'package:pos/view/home/print_provider.dart';
 import 'package:pos/view/home/printer_connectionDialog.dart';
@@ -65,42 +65,28 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
   }
 
   Future<String> fetchAdminUid() async {
+    // Try Firebase with short timeout - DatabaseService handles offline data
     try {
-      DocumentSnapshot<Map<String, dynamic>> snapshot = await FirebaseFirestore.instance.collection('AllCustomer').doc(widget.phoneNo).get();
+      DocumentSnapshot<Map<String, dynamic>> snapshot = await FirebaseFirestore
+          .instance
+          .collection('AllCustomer')
+          .doc(widget.phoneNo)
+          .get()
+          .timeout(const Duration(seconds: 3));
 
-      final String? adminUid = snapshot.data()?['adminUid'];
+      final String? fetchedAdminUid = snapshot.data()?['adminUid'];
 
       setState(() {
-        this.adminUid = adminUid ?? 'Admin UID not found';
+        this.adminUid = fetchedAdminUid ?? 'Admin UID not found';
       });
 
-      return adminUid ?? 'Admin UID not found';
+      return fetchedAdminUid ?? 'Admin UID not found';
     } catch (e) {
-      if (e is SocketException) {
-        developer.log('Network error fetching adminUid: ${e.message}', name: 'ProductDashBoard');
-        // Try to get cached adminUid from local storage if available
-        try {
-          final box = await Hive.openBox('userCache');
-          final cachedAdminUid = box.get('adminUid_${widget.phoneNo}');
-          if (cachedAdminUid != null) {
-            developer.log('Using cached adminUid: $cachedAdminUid', name: 'ProductDashBoard');
-            setState(() {
-              this.adminUid = cachedAdminUid;
-            });
-            return cachedAdminUid;
-          }
-        } catch (cacheError) {
-          developer.log('Error accessing cache: $cacheError', name: 'ProductDashBoard');
-        }
-        
-        setState(() {
-          this.adminUid = 'Offline - Admin UID unavailable';
-        });
-        return 'Offline - Admin UID unavailable';
-      } else {
-        developer.log('Error fetching adminUid: $e', name: 'ProductDashBoard');
-        return 'Error fetching adminUid';
-      }
+      developer.log('Error fetching adminUid: $e', name: 'ProductDashBoard');
+      setState(() {
+        this.adminUid = 'Offline - using local data';
+      });
+      return 'Offline - using local data';
     }
   }
 

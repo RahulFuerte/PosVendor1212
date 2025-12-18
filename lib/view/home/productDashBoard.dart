@@ -11,11 +11,19 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:hive/hive.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:pos/view/home/edit_billReceipt.dart';
-import 'package:pos/view/home/hiveScreen.dart';
+import 'package:pos/view/home/usersDataScreen.dart';
+import 'package:pos/view/home/reports/billWise_report.dart';
+import 'package:pos/view/home/reports/itemWise_report.dart';
+import 'package:pos/view/home/reports/dateWise_report.dart';
 import 'package:pos/view/home/navigation.dart';
 import 'package:pos/view/home/print_provider.dart';
 import 'package:pos/view/home/printer_connectionDialog.dart';
 import 'package:pos/view/home/sales_reportScreen.dart';
+import 'package:pos/view/home/customer_listScreen.dart';
+import 'package:pos/view/home/offline_bill_status_screen.dart';
+import 'package:pos/view/home/error_notification_screen.dart';
+import 'package:pos/view/tab_screen/view-model/widgets/sync_status_page.dart';
+import 'package:pos/view/home/performance_dashboard_screen.dart';
 import 'package:pos/view/login/inception.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:pos/view/tab_screen/view-model/backend/database_service.dart';
@@ -23,7 +31,8 @@ import 'package:pos/view/tab_screen/view-model/backend/network_error_handler.dar
 import 'package:pos/view/tab_screen/view-model/backend/price_utils.dart';
 import 'package:pos/view/tab_screen/view-model/widgets/cached_blob_image.dart';
 import 'package:pos/view/tab_screen/view-model/widgets/offline_status_indicator.dart';
-import 'package:pos/view/tab_screen/view-model/widgets/offline_status_banner.dart' as banner;
+import 'package:pos/view/tab_screen/view-model/widgets/offline_status_banner.dart'
+    as banner;
 import 'package:pos/view/tab_screen/view-model/widgets/printers/printer.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -65,58 +74,53 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
   }
 
   Future<String> fetchAdminUid() async {
+    // Try Firebase with short timeout - DatabaseService handles offline data
     try {
-      DocumentSnapshot<Map<String, dynamic>> snapshot = await FirebaseFirestore.instance.collection('AllCustomer').doc(widget.phoneNo).get();
+      DocumentSnapshot<Map<String, dynamic>> snapshot = await FirebaseFirestore
+          .instance
+          .collection('AllCustomer')
+          .doc(widget.phoneNo)
+          .get()
+          .timeout(const Duration(seconds: 3));
 
-      final String? adminUid = snapshot.data()?['adminUid'];
+      final String? fetchedAdminUid = snapshot.data()?['adminUid'];
 
-      setState(() {
-        this.adminUid = adminUid ?? 'Admin UID not found';
-      });
-
-      return adminUid ?? 'Admin UID not found';
-    } catch (e) {
-      if (e is SocketException) {
-        developer.log('Network error fetching adminUid: ${e.message}', name: 'ProductDashBoard');
-        // Try to get cached adminUid from local storage if available
-        try {
-          final box = await Hive.openBox('userCache');
-          final cachedAdminUid = box.get('adminUid_${widget.phoneNo}');
-          if (cachedAdminUid != null) {
-            developer.log('Using cached adminUid: $cachedAdminUid', name: 'ProductDashBoard');
-            setState(() {
-              this.adminUid = cachedAdminUid;
-            });
-            return cachedAdminUid;
-          }
-        } catch (cacheError) {
-          developer.log('Error accessing cache: $cacheError', name: 'ProductDashBoard');
-        }
-        
+      if (mounted) {
         setState(() {
-          this.adminUid = 'Offline - Admin UID unavailable';
+          this.adminUid = fetchedAdminUid ?? 'Admin UID not found';
         });
-        return 'Offline - Admin UID unavailable';
-      } else {
-        developer.log('Error fetching adminUid: $e', name: 'ProductDashBoard');
-        return 'Error fetching adminUid';
       }
+
+      return fetchedAdminUid ?? 'Admin UID not found';
+    } catch (e) {
+      developer.log('Error fetching adminUid: $e', name: 'ProductDashBoard');
+      if (mounted) {
+        setState(() {
+          this.adminUid = 'Offline - using local data';
+        });
+      }
+      return 'Offline - using local data';
     }
   }
 
   Future<List<Map<String, dynamic>>> fetchFoodItems() async {
     try {
       final String adminUid = await fetchAdminUid();
-      final DatabaseService databaseService = Provider.of<DatabaseService>(context, listen: false);
+      final DatabaseService databaseService =
+          Provider.of<DatabaseService>(context, listen: false);
 
       // Get all food items using DatabaseService
-      final List<Map<String, dynamic>> allItems = await databaseService.getFoodItems(adminUid);
+      final List<Map<String, dynamic>> allItems =
+          await databaseService.getFoodItems(adminUid);
 
       // Debug: show count and sample types
-      developer.log('All items count: ${allItems.length}', name: 'ProductDashBoard');
+      developer.log('All items count: ${allItems.length}',
+          name: 'ProductDashBoard');
       if (allItems.isNotEmpty) {
-        developer.log('First item keys: ${allItems.first.keys.toList()}', name: 'ProductDashBoard');
-        developer.log('First item sample: ${allItems.first}', name: 'ProductDashBoard');
+        developer.log('First item keys: ${allItems.first.keys.toList()}',
+            name: 'ProductDashBoard');
+        developer.log('First item sample: ${allItems.first}',
+            name: 'ProductDashBoard');
       }
 
       bool isHotValue(dynamic v) {
@@ -125,7 +129,10 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
         if (v is int) return v == 1;
         if (v is String) {
           final lower = v.toLowerCase();
-          return lower == 'true' || lower == '1' || lower == 'yes' || lower == 'y';
+          return lower == 'true' ||
+              lower == '1' ||
+              lower == 'yes' ||
+              lower == 'y';
         }
         return false;
       }
@@ -135,7 +142,9 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
         final dynamic raw = item['is_hot'] ?? item['isHot'];
         final bool isHot = isHotValue(raw);
         // Debug each item decision (you can remove or comment out this line later)
-        developer.log('Checking item "${item['name'] ?? item['id'] ?? 'unknown'}": raw=$raw (${raw?.runtimeType}), isHot=$isHot', name: 'ProductDashBoard');
+        developer.log(
+            'Checking item "${item['name'] ?? item['id'] ?? 'unknown'}": raw=$raw (${raw?.runtimeType}), isHot=$isHot',
+            name: 'ProductDashBoard');
         return isHot;
       }).map((item) {
         return {
@@ -148,13 +157,17 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
       }).toList();
 
       // Log for debugging
-      developer.log('Fetched hot food items (count ${hotItems.length}): $hotItems', name: 'ProductDashBoard');
+      developer.log(
+          'Fetched hot food items (count ${hotItems.length}): $hotItems',
+          name: 'ProductDashBoard');
       developer.log('adminNO: $adminUid', name: 'ProductDashBoard');
-      developer.log('All food items (unfiltered): $allItems', name: 'ProductDashBoard');
+      developer.log('All food items (unfiltered): $allItems',
+          name: 'ProductDashBoard');
 
       return hotItems;
     } catch (e, st) {
-      NetworkErrorHandler.logNetworkError(e, 'ProductDashBoard', 'fetchFoodItems');
+      NetworkErrorHandler.logNetworkError(
+          e, 'ProductDashBoard', 'fetchFoodItems');
       developer.log('Stack trace: $st', name: 'ProductDashBoard');
       return [];
     }
@@ -162,20 +175,25 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
 
   Future<void> fetchUserData() async {
     final phoneNo = widget.phoneNo;
-    setState(() {
-      isLoading = true; // Set isLoading to true before fetching data.
-    });
+    if (mounted) {
+      setState(() {
+        isLoading = true; // Set isLoading to true before fetching data.
+      });
+    }
 
     try {
-      final DocumentSnapshot doc = await firestore.collection('AllCustomer').doc(phoneNo).get();
+      final DocumentSnapshot doc =
+          await firestore.collection('AllCustomer').doc(phoneNo).get();
       developer.log('Fetched Data: ${doc.data()}', name: 'ProductDashBoard');
       developer.log('Phone Number: $phoneNo', name: 'ProductDashBoard');
 
       if (doc.exists) {
         final data = doc.data() as Map<String, dynamic>;
-        setState(() {
-          userData = data;
-        });
+        if (mounted) {
+          setState(() {
+            userData = data;
+          });
+        }
 
         // Cache the adminUid for offline use
         try {
@@ -185,7 +203,8 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
           }
           await box.put('userData_$phoneNo', data);
         } catch (cacheError) {
-          developer.log('Error caching user data: $cacheError', name: 'ProductDashBoard');
+          developer.log('Error caching user data: $cacheError',
+              name: 'ProductDashBoard');
         }
       } else {
         developer.log('Vendor document not found', name: 'ProductDashBoard');
@@ -193,7 +212,8 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
         await _loadCachedUserData(phoneNo);
       }
     } catch (e) {
-      NetworkErrorHandler.logNetworkError(e, 'ProductDashBoard', 'fetchUserData');
+      NetworkErrorHandler.logNetworkError(
+          e, 'ProductDashBoard', 'fetchUserData');
       // Load cached data when offline
       await _loadCachedUserData(phoneNo);
       // Show user-friendly message for network errors
@@ -201,9 +221,11 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
         NetworkErrorHandler.showNetworkErrorSnackBar(context, e);
       }
     } finally {
-      setState(() {
-        isLoading = false; // Set isLoading to false after fetching data.
-      });
+      if (mounted) {
+        setState(() {
+          isLoading = false; // Set isLoading to false after fetching data.
+        });
+      }
     }
   }
 
@@ -213,11 +235,27 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
       final cachedUserData = box.get('userData_$phoneNo');
       if (cachedUserData != null) {
         developer.log('Loading cached user data', name: 'ProductDashBoard');
-        setState(() {
-          userData = Map<String, dynamic>.from(cachedUserData);
-        });
+        if (mounted) {
+          setState(() {
+            userData = Map<String, dynamic>.from(cachedUserData);
+          });
+        }
       } else {
         // Set default values if no cache available
+        if (mounted) {
+          setState(() {
+            userData = {
+              'name': 'User',
+              'phoneNumber': phoneNo,
+            };
+          });
+        }
+      }
+    } catch (e) {
+      developer.log('Error loading cached user data: $e',
+          name: 'ProductDashBoard');
+      // Set minimal default values
+      if (mounted) {
         setState(() {
           userData = {
             'name': 'User',
@@ -225,16 +263,41 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
           };
         });
       }
-    } catch (e) {
-      developer.log('Error loading cached user data: $e', name: 'ProductDashBoard');
-      // Set minimal default values
-      setState(() {
-        userData = {
-          'name': 'User',
-          'phoneNumber': phoneNo,
-        };
-      });
     }
+  }
+
+  Future<void> showSaveOrderBottomSheet({
+    required BuildContext context,
+    required GlobalKey<FormState> formKey,
+    required TextEditingController nameController,
+    required TextEditingController mobileController,
+    required int itemCount,
+    required double totalAmount,
+    required VoidCallback onSave,
+    required Color primaryColor,
+  }) {
+    return showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) {
+        return SaveOrderBottomSheet(
+          formKey: formKey,
+          nameController: nameController,
+          mobileController: mobileController,
+          itemCount: itemCount,
+          totalAmount: totalAmount,
+          primaryColor: primaryColor,
+          onCancel: () => Navigator.pop(context),
+          onSave: () {
+            if (formKey.currentState!.validate()) {
+              onSave();
+              Navigator.pop(context);
+            }
+          },
+        );
+      },
+    );
   }
 
   bool isSearchExpanded = false;
@@ -252,7 +315,9 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
       onWillPop: () async {
         // Handle double back press to exit the app
         DateTime now = DateTime.now();
-        if (currentBackPressTime == null || now.difference(currentBackPressTime!) > const Duration(seconds: 2)) {
+        if (currentBackPressTime == null ||
+            now.difference(currentBackPressTime!) >
+                const Duration(seconds: 2)) {
           currentBackPressTime = now;
           Fluttertoast.showToast(
             msg: "Press back again to exit",
@@ -282,7 +347,9 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
               padding: const EdgeInsets.only(right: 10),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 300),
-                width: isSearchExpanded ? MediaQuery.of(context).size.width * 0.75 : 50,
+                width: isSearchExpanded
+                    ? MediaQuery.of(context).size.width * 0.75
+                    : 50,
                 height: 45,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(25),
@@ -388,9 +455,12 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                           errorBuilder: (context, error, stackTrace) {
                             // Handle network errors gracefully
                             if (error is SocketException) {
-                              developer.log('Network error loading avatar: ${error.message}', name: 'ProductDashBoard');
+                              developer.log(
+                                  'Network error loading avatar: ${error.message}',
+                                  name: 'ProductDashBoard');
                             } else {
-                              developer.log('Error loading avatar: $error', name: 'ProductDashBoard');
+                              developer.log('Error loading avatar: $error',
+                                  name: 'ProductDashBoard');
                             }
                             return Container(
                               color: primaryColor,
@@ -440,20 +510,29 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
               Consumer<PrintProvider>(
                 builder: (context, printProvider, child) {
                   return Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    margin:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: printProvider.isConnected ? Colors.green.shade50 : Colors.orange.shade50,
+                      color: printProvider.isConnected
+                          ? Colors.green.shade50
+                          : Colors.orange.shade50,
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
-                        color: printProvider.isConnected ? Colors.green : Colors.orange,
+                        color: printProvider.isConnected
+                            ? Colors.green
+                            : Colors.orange,
                       ),
                     ),
                     child: Row(
                       children: [
                         Icon(
-                          printProvider.isConnected ? Icons.check_circle : Icons.print_disabled,
-                          color: printProvider.isConnected ? Colors.green : Colors.orange,
+                          printProvider.isConnected
+                              ? Icons.check_circle
+                              : Icons.print_disabled,
+                          color: printProvider.isConnected
+                              ? Colors.green
+                              : Colors.orange,
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -461,15 +540,21 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                printProvider.isConnected ? 'Printer Connected' : 'Printer Not Connected',
+                                printProvider.isConnected
+                                    ? 'Printer Connected'
+                                    : 'Printer Not Connected',
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  color: printProvider.isConnected ? Colors.green.shade900 : Colors.orange.shade900,
+                                  color: printProvider.isConnected
+                                      ? Colors.green.shade900
+                                      : Colors.orange.shade900,
                                 ),
                               ),
-                              if (printProvider.isConnected && printProvider.selectedPrinter != null)
+                              if (printProvider.isConnected &&
+                                  printProvider.selectedPrinter != null)
                                 Text(
-                                  printProvider.selectedPrinter!.deviceName ?? 'Unknown',
+                                  printProvider.selectedPrinter!.deviceName ??
+                                      'Unknown',
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: Colors.grey.shade700,
@@ -489,10 +574,13 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                   return ListTile(
                     leading: Icon(
                       printProvider.isConnected ? Icons.link_off : Icons.link,
-                      color: printProvider.isConnected ? Colors.red : Colors.blue,
+                      color:
+                          printProvider.isConnected ? Colors.red : Colors.blue,
                     ),
                     title: Text(
-                      printProvider.isConnected ? 'Disconnect Printer' : 'Connect Printer',
+                      printProvider.isConnected
+                          ? 'Disconnect Printer'
+                          : 'Connect Printer',
                     ),
                     onTap: () async {
                       if (printProvider.isConnected) {
@@ -523,6 +611,85 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
               ),
               const Divider(),
               ListTile(
+                leading: const Icon(Icons.people),
+                title: const Text('My Customers'),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => CustomersListScreen(
+                        adminUid: adminUid,
+                        phoneNo: widget.phoneNo,
+                      ),
+                    ),
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.save_as),
+                title: const Text('Saved Orders'),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const UsersScreen(),
+                    ),
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.sync),
+                title: const Text('Offline Status & Bills'),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => OfflineBillStatusScreen(
+                        adminUid: adminUid,
+                      ),
+                    ),
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.sync_problem),
+                title: const Text('Sync Diagnostics'),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => SyncStatusPage(
+                        adminUid: adminUid,
+                      ),
+                    ),
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.speed),
+                title: const Text('Performance Dashboard'),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const PerformanceDashboardScreen(),
+                    ),
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.notifications_active),
+                title: const Text('System Notifications'),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ErrorNotificationScreen(),
+                    ),
+                  );
+                },
+              ),
+              ListTile(
                 leading: Icon(MdiIcons.chartBar),
                 title: const Text('Sales Report'),
                 onTap: () {
@@ -531,6 +698,60 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                     MaterialPageRoute(
                       builder: (context) => SalesReportScreen(
                         adminUid: widget.phoneNo,
+                      ),
+                    ),
+                  );
+                },
+              ),
+              ListTile(
+                leading: Icon(
+                  MdiIcons.circle,
+                  size: 12,
+                ),
+                title: const Text('Billwise Report'),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => BillwiseReportScreen(
+                        adminUid: adminUid,
+                        uid: widget.phoneNo,
+                      ),
+                    ),
+                  );
+                },
+              ),
+              ListTile(
+                leading: Icon(
+                  MdiIcons.circle,
+                  size: 12,
+                ),
+                title: const Text('Itemwise Report'),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ItemwiseReportScreen(
+                        uid: widget.phoneNo,
+                        adminUid: adminUid,
+                      ),
+                    ),
+                  );
+                },
+              ),
+              ListTile(
+                leading: Icon(
+                  MdiIcons.circle,
+                  size: 12,
+                ),
+                title: const Text('Datewise Report'),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => DatewiseReportScreen(
+                        adminUid: adminUid,
+                        uid: widget.phoneNo,
                       ),
                     ),
                   );
@@ -560,41 +781,55 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                     builder: (BuildContext) {
                       return Dialog(
                           // backgroundColor: Colors.amber.shade100,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(50.0)), //this right here
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(
+                                  50.0)), //this right here
                           child: SizedBox(
                             height: 200,
                             child: Center(
                               child: Column(
-                                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceEvenly,
                                 children: [
                                   const Text(
                                     "Are you sure ?",
-                                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w500),
+                                    style: TextStyle(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.w500),
                                   ),
                                   Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceAround,
                                     children: [
                                       ElevatedButton(
-                                        style: ElevatedButton.styleFrom(backgroundColor: primaryColor),
-                                        child: const Text("Cancel", style: TextStyle(color: Colors.white)),
+                                        style: ElevatedButton.styleFrom(
+                                            backgroundColor: primaryColor),
+                                        child: const Text("Cancel",
+                                            style:
+                                                TextStyle(color: Colors.white)),
                                         onPressed: () {
                                           Navigator.pop(context);
                                         },
                                       ),
                                       ElevatedButton(
-                                        style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                                        style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.red),
                                         child: const Text(
                                           "Logout",
                                           style: TextStyle(color: Colors.white),
                                         ),
                                         onPressed: () async {
-                                          SharedPreferences prefs = await SharedPreferences.getInstance();
-                                          await prefs.setBool('isLogged', false);
+                                          SharedPreferences prefs =
+                                              await SharedPreferences
+                                                  .getInstance();
+                                          await prefs.setBool(
+                                              'isLogged', false);
                                           FirebaseAuth.instance.signOut();
                                           Navigator.pushReplacement(
                                               context,
                                               MaterialPageRoute(
-                                                builder: (context) => const Inception(),
+                                                builder: (context) =>
+                                                    const Inception(),
                                               ));
                                         },
                                       )
@@ -620,7 +855,8 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                 children: [
                   FutureBuilder(
                     future: foodItemsFuture,
-                    builder: (context, AsyncSnapshot<List<Map<String, dynamic>>> snapshot) {
+                    builder: (context,
+                        AsyncSnapshot<List<Map<String, dynamic>>> snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
                         return Center(
                           child: CircularProgressIndicator(
@@ -632,9 +868,15 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                           child: Text('Error: ${snapshot.error}'),
                         );
                       } else {
-                        List<Map<String, dynamic>> foodItemsList = snapshot.data ?? [];
+                        List<Map<String, dynamic>> foodItemsList =
+                            snapshot.data ?? [];
                         // Filter items based on search
-                        List<Map<String, dynamic>> filteredItems = foodItemsList.where((item) => item['name'].toString().toLowerCase().contains(search1.toLowerCase())).toList();
+                        List<Map<String, dynamic>> filteredItems = foodItemsList
+                            .where((item) => item['name']
+                                .toString()
+                                .toLowerCase()
+                                .contains(search1.toLowerCase()))
+                            .toList();
 
                         return Container(
                           height: double.infinity,
@@ -642,14 +884,19 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                           color: Colors.green[50],
                           child: Column(
                             children: [
-                              printprovider.posts.isEmpty ? const SizedBox() : billCountContainer(),
+                              printprovider.posts.isEmpty
+                                  ? const SizedBox()
+                                  : billCountContainer(),
                               Expanded(
                                 child: Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 8),
                                   child: GridView.builder(
-                                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                    gridDelegate:
+                                        const SliverGridDelegateWithFixedCrossAxisCount(
                                       crossAxisCount: 2,
-                                      childAspectRatio: 0.78, // Slightly taller to prevent overflow
+                                      childAspectRatio:
+                                          0.78, // Slightly taller to prevent overflow
                                       crossAxisSpacing: 12,
                                       mainAxisSpacing: 12,
                                     ),
@@ -658,18 +905,29 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                                       final item = filteredItems[index];
                                       return GestureDetector(
                                         onTap: () {
-                                          audioPlayer.play(AssetSource('sounds/beep.mp3'));
+                                          audioPlayer.play(
+                                              AssetSource('sounds/beep.mp3'));
                                           setState(() {
                                             isTapped = true;
-                                            selectedItemName = item['name'] ?? '';
-                                            selectedItemPrice = PriceUtils.safeParseInt(item['price']);
+                                            selectedItemName =
+                                                item['name'] ?? '';
+                                            selectedItemPrice =
+                                                PriceUtils.safeParseInt(
+                                                    item['price']);
 
-                                            int existingIndex = selectedItemsDetails.indexWhere(
-                                              (element) => element['name'] == selectedItemName && element['price'] == selectedItemPrice,
+                                            int existingIndex =
+                                                selectedItemsDetails.indexWhere(
+                                              (element) =>
+                                                  element['name'] ==
+                                                      selectedItemName &&
+                                                  element['price'] ==
+                                                      selectedItemPrice,
                                             );
 
                                             if (existingIndex != -1) {
-                                              selectedItemsDetails[existingIndex]['quantity'] += 1;
+                                              selectedItemsDetails[
+                                                      existingIndex]
+                                                  ['quantity'] += 1;
                                             } else {
                                               selectedItemsDetails.add({
                                                 'name': selectedItemName,
@@ -678,16 +936,23 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                                               });
                                             }
                                             subtotal += selectedItemPrice;
-                                            printprovider.additem(selectedItemsDetails, subtotal);
+                                            printprovider.additem(
+                                                selectedItemsDetails, subtotal);
 
                                             // Safely scroll to bottom with proper checks
-                                            if (_listScrollController.hasClients && _listScrollController.position.hasContentDimensions) {
+                                            if (_listScrollController
+                                                    .hasClients &&
+                                                _listScrollController.position
+                                                    .hasContentDimensions) {
                                               try {
                                                 _listScrollController.jumpTo(
-                                                  _listScrollController.position.maxScrollExtent,
+                                                  _listScrollController
+                                                      .position.maxScrollExtent,
                                                 );
                                               } catch (e) {
-                                                developer.log('ScrollController error: $e', name: 'ProductDashBoard');
+                                                developer.log(
+                                                    'ScrollController error: $e',
+                                                    name: 'ProductDashBoard');
                                               }
                                             }
                                           });
@@ -695,10 +960,12 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                                         child: Container(
                                           decoration: BoxDecoration(
                                             color: Colors.white,
-                                            borderRadius: BorderRadius.circular(16),
+                                            borderRadius:
+                                                BorderRadius.circular(16),
                                             boxShadow: [
                                               BoxShadow(
-                                                color: Colors.grey.withOpacity(0.2),
+                                                color: Colors.grey
+                                                    .withOpacity(0.2),
                                                 spreadRadius: 1,
                                                 blurRadius: 8,
                                                 offset: const Offset(0, 3),
@@ -706,7 +973,8 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                                             ],
                                           ),
                                           child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
                                             children: [
                                               // Image section - flexible height
                                               Expanded(
@@ -714,28 +982,40 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                                                 child: Stack(
                                                   children: [
                                                     ClipRRect(
-                                                      borderRadius: const BorderRadius.only(
-                                                        topLeft: Radius.circular(16),
-                                                        topRight: Radius.circular(16),
+                                                      borderRadius:
+                                                          const BorderRadius
+                                                              .only(
+                                                        topLeft:
+                                                            Radius.circular(16),
+                                                        topRight:
+                                                            Radius.circular(16),
                                                       ),
                                                       child: CachedBlobImage(
-                                                        imageUrl: item['imagePath'],
+                                                        imageUrl:
+                                                            item['imagePath'],
                                                         tableName: 'food_items',
-                                                        recordId: item['id'] ?? item['name'] ?? 'unknown',
+                                                        recordId: item['id'] ??
+                                                            item['name'] ??
+                                                            'unknown',
                                                         height: double.infinity,
                                                         width: double.infinity,
                                                         fit: BoxFit.cover,
                                                         placeholder: Container(
-                                                          color: Colors.grey[200],
+                                                          color:
+                                                              Colors.grey[200],
                                                           child: const Center(
-                                                            child: CircularProgressIndicator(
-                                                              color: primaryColor,
+                                                            child:
+                                                                CircularProgressIndicator(
+                                                              color:
+                                                                  primaryColor,
                                                             ),
                                                           ),
                                                         ),
                                                         errorWidget: Container(
-                                                          color: Colors.grey[200],
-                                                          child: const Icon(Icons.error),
+                                                          color:
+                                                              Colors.grey[200],
+                                                          child: const Icon(
+                                                              Icons.error),
                                                         ),
                                                       ),
                                                     ),
@@ -743,25 +1023,35 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                                                       top: 8,
                                                       right: 8,
                                                       child: Container(
-                                                        padding: const EdgeInsets.symmetric(
+                                                        padding:
+                                                            const EdgeInsets
+                                                                .symmetric(
                                                           horizontal: 6,
                                                           vertical: 3,
                                                         ),
-                                                        decoration: BoxDecoration(
+                                                        decoration:
+                                                            BoxDecoration(
                                                           color: Colors.white,
-                                                          borderRadius: BorderRadius.circular(10),
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(10),
                                                           boxShadow: [
                                                             BoxShadow(
-                                                              color: Colors.black.withOpacity(0.1),
+                                                              color: Colors
+                                                                  .black
+                                                                  .withOpacity(
+                                                                      0.1),
                                                               blurRadius: 4,
                                                             )
                                                           ],
                                                         ),
                                                         child: Text(
                                                           "₹${item['price']}",
-                                                          style: const TextStyle(
+                                                          style:
+                                                              const TextStyle(
                                                             color: primaryColor,
-                                                            fontWeight: FontWeight.bold,
+                                                            fontWeight:
+                                                                FontWeight.bold,
                                                             fontSize: 16,
                                                           ),
                                                         ),
@@ -774,19 +1064,27 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                                               Expanded(
                                                 flex: 2,
                                                 child: Padding(
-                                                  padding: const EdgeInsets.all(8),
+                                                  padding:
+                                                      const EdgeInsets.all(8),
                                                   child: Column(
-                                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
+                                                    mainAxisAlignment:
+                                                        MainAxisAlignment
+                                                            .spaceBetween,
                                                     children: [
                                                       Text(
                                                         item['name'],
                                                         maxLines: 2,
-                                                        overflow: TextOverflow.ellipsis,
+                                                        overflow: TextOverflow
+                                                            .ellipsis,
                                                         style: const TextStyle(
-                                                          fontFamily: 'fontmain',
+                                                          fontFamily:
+                                                              'fontmain',
                                                           color: Colors.black87,
-                                                          fontWeight: FontWeight.w600,
+                                                          fontWeight:
+                                                              FontWeight.w600,
                                                           fontSize: 14,
                                                           height: 1.2,
                                                         ),
@@ -794,27 +1092,39 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                                                       const SizedBox(height: 4),
                                                       Container(
                                                         width: double.infinity,
-                                                        padding: const EdgeInsets.symmetric(
+                                                        padding:
+                                                            const EdgeInsets
+                                                                .symmetric(
                                                           vertical: 4,
                                                         ),
-                                                        decoration: BoxDecoration(
-                                                          border: Border.all(color: appbar1),
-                                                          borderRadius: BorderRadius.circular(6),
+                                                        decoration:
+                                                            BoxDecoration(
+                                                          border: Border.all(
+                                                              color: appbar1),
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(6),
                                                         ),
                                                         child: Row(
-                                                          mainAxisAlignment: MainAxisAlignment.center,
+                                                          mainAxisAlignment:
+                                                              MainAxisAlignment
+                                                                  .center,
                                                           children: [
                                                             Icon(
-                                                              Icons.shopping_cart,
+                                                              Icons
+                                                                  .shopping_cart,
                                                               color: appbar1,
                                                               size: 16,
                                                             ),
                                                             Text(
                                                               " Add to cart",
                                                               style: TextStyle(
-                                                                fontFamily: 'tabfont',
+                                                                fontFamily:
+                                                                    'tabfont',
                                                                 color: appbar1,
-                                                                fontWeight: FontWeight.w600,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w600,
                                                                 fontSize: 12,
                                                               ),
                                                             ),
@@ -847,6 +1157,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
       ),
     );
   }
+
   Widget billCountContainer() {
     final printprovider = Provider.of<PrintProvider>(
       context,
@@ -997,17 +1308,21 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                             InkWell(
                               onTap: () {
                                 setState(() {
-                                  if (selectedItemsDetails[index]['quantity'] > 1) {
+                                  if (selectedItemsDetails[index]['quantity'] >
+                                      1) {
                                     // Just decrease quantity
                                     selectedItemsDetails[index]['quantity']--;
-                                    subtotal -= selectedItemsDetails[index]['price'];
+                                    subtotal -=
+                                        selectedItemsDetails[index]['price'];
                                   } else {
                                     // Quantity is 1 → remove item entirely
-                                    subtotal -= selectedItemsDetails[index]['price'];
+                                    subtotal -=
+                                        selectedItemsDetails[index]['price'];
                                     selectedItemsDetails.removeAt(index);
                                   }
                                   // Update provider
-                                  printprovider.additem(selectedItemsDetails, subtotal);
+                                  printprovider.additem(
+                                      selectedItemsDetails, subtotal);
                                 });
                               },
                               child: Container(
@@ -1020,7 +1335,8 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                               ),
                             ),
                             Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 8),
                               child: Text(
                                 "${selectedItemsDetails[index]['quantity']}",
                                 style: const TextStyle(
@@ -1034,7 +1350,8 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                               onTap: () {
                                 setState(() {
                                   selectedItemsDetails[index]['quantity']++;
-                                  subtotal += selectedItemsDetails[index]['price'];
+                                  subtotal +=
+                                      selectedItemsDetails[index]['price'];
                                   printprovider.additem(
                                     selectedItemsDetails,
                                     subtotal,
@@ -1058,9 +1375,11 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                       InkWell(
                         onTap: () {
                           setState(() {
-                            subtotal -= selectedItemsDetails[index]['price'] * selectedItemsDetails[index]['quantity'];
+                            subtotal -= selectedItemsDetails[index]['price'] *
+                                selectedItemsDetails[index]['quantity'];
                             selectedItemsDetails.removeAt(index);
-                            printprovider.additem(selectedItemsDetails, subtotal);
+                            printprovider.additem(
+                                selectedItemsDetails, subtotal);
                           });
                         },
                         child: Container(
@@ -1139,6 +1458,20 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                           size: 25,
                         ),
                         onPressed: () async {
+                          // showSaveOrderBottomSheet(
+                          //   context: context,
+                          //   formKey: _formKey,
+                          //   nameController: userNameController,
+                          //   mobileController: mobileController,
+                          //   itemCount: selectedItemsDetails.length,
+                          //   totalAmount: subtotal,
+                          //   primaryColor: primaryColor,
+                          //   onSave: () {
+                          //     _saveDataAndNavigate();
+                          //     printprovider.clearCart();
+                          //     userNameController.clear();
+                          //   },
+                          // );
                           showSaveOrderBottomSheet(
                             context: context,
                             formKey: _formKey,
@@ -1176,22 +1509,27 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                           return IconButton(
                             icon: Icon(
                               Icons.print,
-                              color: printProvider.isConnected ? Colors.green : Colors.white,
+                              color: printProvider.isConnected
+                                  ? Colors.green
+                                  : Colors.white,
                               size: 24,
                             ),
                             onPressed: () async {
                               // Check if printer is connected
-                              if (!printProvider.isConnected || printProvider.selectedPrinter == null) {
+                              if (!printProvider.isConnected ||
+                                  printProvider.selectedPrinter == null) {
                                 // Show connection dialog
                                 showDialog(
                                   context: context,
-                                  builder: (context) => const PrinterConnectionDialog(),
+                                  builder: (context) =>
+                                      const PrinterConnectionDialog(),
                                 );
 
                                 // Show info message
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
-                                    content: Text('Please connect a printer first'),
+                                    content:
+                                        Text('Please connect a printer first'),
                                     backgroundColor: Colors.orange,
                                     duration: Duration(seconds: 2),
                                   ),
@@ -1222,7 +1560,12 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
 
                               try {
                                 // Fetch shop data
-                                final doc = await FirebaseFirestore.instance.collection('AllAdmins').doc(adminUid).collection('customer').doc(widget.phoneNo).get();
+                                final doc = await FirebaseFirestore.instance
+                                    .collection('AllAdmins')
+                                    .doc(adminUid)
+                                    .collection('customer')
+                                    .doc(widget.phoneNo)
+                                    .get();
 
                                 String shopName = 'N/A';
                                 String contact = 'N/A';
@@ -1311,7 +1654,8 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
     );
   }
 
-  List<Map<String, dynamic>> _encodeDetails(List<Map<String, dynamic>> details) {
+  List<Map<String, dynamic>> _encodeDetails(
+      List<Map<String, dynamic>> details) {
     return details.map((item) {
       return {
         'name': item['name'],

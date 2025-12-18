@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 
 Future<void> showSaveOrderBottomSheet({
   required BuildContext context,
@@ -50,17 +51,13 @@ Future<void> showSaveOrderBottomSheet({
                 const SizedBox(height: 8),
                 Text('Enter customer details to save this order',
                     style: TextStyle(color: Colors.grey[600])),
-
                 const SizedBox(height: 24),
-
                 TextFormField(
                   controller: nameController,
                   validator: (v) =>
                       v == null || v.length < 2 ? 'Invalid name' : null,
                 ),
-
                 const SizedBox(height: 16),
-
                 TextFormField(
                   controller: mobileController,
                   maxLength: 10,
@@ -69,19 +66,14 @@ Future<void> showSaveOrderBottomSheet({
                   validator: (v) =>
                       v == null || v.length != 10 ? 'Invalid mobile' : null,
                 ),
-
                 const SizedBox(height: 24),
-
                 Text('$itemCount items • ₹$totalAmount'),
-
                 const SizedBox(height: 24),
-
                 Row(
                   children: [
                     Expanded(
                       child: OutlinedButton(
-                        onPressed:
-                            onCancel ?? () => Navigator.pop(context),
+                        onPressed: onCancel ?? () => Navigator.pop(context),
                         child: const Text('Cancel'),
                       ),
                     ),
@@ -109,8 +101,6 @@ Future<void> showSaveOrderBottomSheet({
     },
   );
 }
-
-
 
 class SaveOrderBottomSheet extends StatelessWidget {
   const SaveOrderBottomSheet({
@@ -163,24 +153,18 @@ class SaveOrderBottomSheet extends StatelessWidget {
             children: [
               _dragHandle(),
               const SizedBox(height: 20),
-
               Text(title,
                   style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold)),
+                      fontSize: 24, fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
               Text(subtitle,
                   style: TextStyle(fontSize: 14, color: Colors.grey[600])),
-
               const SizedBox(height: 24),
-
               _nameField(),
               const SizedBox(height: 16),
               _mobileField(),
-
               const SizedBox(height: 24),
               _orderSummary(),
-
               const SizedBox(height: 24),
               _actionButtons(context),
             ],
@@ -256,16 +240,14 @@ class SaveOrderBottomSheet extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Order Summary',
-                style: TextStyle(color: Colors.grey[600])),
+            Text('Order Summary', style: TextStyle(color: Colors.grey[600])),
             const SizedBox(height: 4),
             Text('$itemCount items',
-                style: const TextStyle(
-                    fontSize: 16, fontWeight: FontWeight.w600)),
+                style:
+                    const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
           ]),
           Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-            Text('Total Amount',
-                style: TextStyle(color: Colors.grey[600])),
+            Text('Total Amount', style: TextStyle(color: Colors.grey[600])),
             const SizedBox(height: 4),
             Text('₹$totalAmount',
                 style: TextStyle(
@@ -291,9 +273,11 @@ class SaveOrderBottomSheet extends StatelessWidget {
         Expanded(
           child: ElevatedButton(
             onPressed: onSave,
-            style:
-                ElevatedButton.styleFrom(backgroundColor: primaryColor),
-            child: Text(saveButtonText),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: primaryColor,
+                // textStyle: const TextStyle(color: Colors.white)
+                ),
+            child: Text(saveButtonText,style: const TextStyle(color: Colors.white),),
           ),
         ),
       ],

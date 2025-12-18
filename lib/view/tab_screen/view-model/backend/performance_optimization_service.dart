@@ -16,9 +16,15 @@ class PerformanceOptimizationService {
   PerformanceOptimizationService._internal();
 
   final PerformanceMonitor _performanceMonitor = PerformanceMonitor();
-  final PerformanceAnalyticsDashboard _analyticsDashboard = PerformanceAnalyticsDashboard();
   final LazyLoadingService _lazyLoadingService = LazyLoadingService();
   final ImageCacheService _imageCacheService = ImageCacheService();
+  
+  // Lazy initialization to avoid circular dependency with PerformanceAnalyticsDashboard
+  PerformanceAnalyticsDashboard? _analyticsDashboard;
+  PerformanceAnalyticsDashboard get _dashboard {
+    _analyticsDashboard ??= PerformanceAnalyticsDashboard();
+    return _analyticsDashboard!;
+  }
   
   Timer? _optimizationTimer;
   bool _isOptimizing = false;
@@ -30,8 +36,7 @@ class PerformanceOptimizationService {
     // Start performance monitoring
     _performanceMonitor.startMonitoring();
     
-    // Initialize analytics dashboard
-    await _analyticsDashboard.initialize();
+    // Note: Analytics dashboard is lazily initialized to avoid circular dependency
     
     // Schedule periodic optimization
     _schedulePeriodicOptimization();
@@ -225,7 +230,7 @@ class PerformanceOptimizationService {
   /// Get comprehensive analytics dashboard data
   Future<Map<String, dynamic>> getAnalyticsDashboard() async {
     try {
-      return await _analyticsDashboard.getDashboardData();
+      return await _dashboard.getDashboardData();
     } catch (e) {
       developer.log('Error getting analytics dashboard: $e', name: 'PerformanceOptimization');
       return {
@@ -237,32 +242,32 @@ class PerformanceOptimizationService {
 
   /// Get real-time performance metrics
   Map<String, dynamic> getRealTimeMetrics() {
-    return _analyticsDashboard.getRealTimeMetrics();
+    return _dashboard.getRealTimeMetrics();
   }
 
   /// Get performance trends
   Map<String, dynamic> getPerformanceTrends({int days = 7}) {
-    return _analyticsDashboard.getPerformanceTrends(days: days);
+    return _dashboard.getPerformanceTrends(days: days);
   }
 
   /// Get detailed query analysis
   Future<Map<String, dynamic>> getQueryAnalysis() async {
-    return await _analyticsDashboard.getQueryAnalysis();
+    return await _dashboard.getQueryAnalysis();
   }
 
   /// Get memory analysis
   Future<Map<String, dynamic>> getMemoryAnalysis() async {
-    return await _analyticsDashboard.getMemoryAnalysis();
+    return await _dashboard.getMemoryAnalysis();
   }
 
   /// Get alert analysis
   Map<String, dynamic> getAlertAnalysis({int days = 30}) {
-    return _analyticsDashboard.getAlertAnalysis(days: days);
+    return _dashboard.getAlertAnalysis(days: days);
   }
 
   /// Get system health assessment
   Map<String, dynamic> getSystemHealthAssessment() {
-    return _analyticsDashboard.getSystemHealthAssessment();
+    return _dashboard.getSystemHealthAssessment();
   }
 
   /// Export comprehensive performance report
@@ -270,7 +275,7 @@ class PerformanceOptimizationService {
     bool includeRawData = false,
     int days = 30,
   }) async {
-    return await _analyticsDashboard.exportPerformanceReport(
+    return await _dashboard.exportPerformanceReport(
       includeRawData: includeRawData,
       days: days,
     );
@@ -433,7 +438,7 @@ class PerformanceOptimizationService {
   void dispose() {
     _optimizationTimer?.cancel();
     _performanceMonitor.dispose();
-    _analyticsDashboard.dispose();
+    _analyticsDashboard?.dispose();
     _lazyLoadingService.clearAllCaches();
     developer.log('Performance Optimization Service disposed', name: 'PerformanceOptimization');
   }

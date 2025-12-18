@@ -1498,16 +1498,12 @@ class UnifiedDatabaseService implements DatabaseService {
   }
 
   /// Check if database recreation is needed and perform it if necessary
+  /// NOTE: Only recreate if there's an actual schema issue, not on every init
   Future<void> _checkAndRecreateDatabase() async {
-    try {
-      // Force database recreation to fix schema issues
-      developer.log('Forcing database recreation to fix schema issues...', name: 'DatabaseService');
-      await _sqliteHelper.recreateDatabase();
-      developer.log('Database recreated successfully', name: 'DatabaseService');
-    } catch (e) {
-      developer.log('Error recreating database: $e', name: 'DatabaseService');
-      // Don't fail initialization for this, let normal migration handle it
-    }
+    // DISABLED: Do not recreate database on every initialization
+    // The database should persist and only be recreated if there's a real schema issue
+    // This was causing the "database_closed" errors
+    developer.log('Database recreation check skipped - using existing database', name: 'DatabaseService');
   }
 
   // Database Performance Optimization Methods

@@ -4,10 +4,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:hive/hive.dart';
-import 'package:pos/view/home/hiveScreen.dart';
+import 'package:pos/view/home/usersDataScreen.dart';
 import 'package:pos/view/home/navigation.dart';
 import 'package:pos/view/home/print_provider.dart';
 import 'package:pos/view/home/printer_connectionDialog.dart';
+import 'package:pos/view/home/receipt_preview.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:pos/view/tab_screen/view-model/backend/database_service.dart';
 import 'package:pos/view/tab_screen/view-model/backend/price_utils.dart';
@@ -26,7 +27,7 @@ class PLUCalculatorScreen extends StatefulWidget {
 }
 
 class _PLUPageState extends State<PLUCalculatorScreen> {
-    TextEditingController userNameController = TextEditingController();
+  TextEditingController userNameController = TextEditingController();
   TextEditingController mobileController = TextEditingController();
 
   AudioPlayer audioPlayer = AudioPlayer();
@@ -168,22 +169,24 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
   Future<List<Map<String, dynamic>>> fetchFoodItems() async {
     try {
       final String adminUid = await fetchAdminUid();
-      final DatabaseService databaseService = Provider.of<DatabaseService>(context, listen: false);
-      
+      final DatabaseService databaseService =
+          Provider.of<DatabaseService>(context, listen: false);
+
       // Get all food items using DatabaseService
-      List<Map<String, dynamic>> allItems = await databaseService.getFoodItems(adminUid);
+      List<Map<String, dynamic>> allItems =
+          await databaseService.getFoodItems(adminUid);
 
       List<Map<String, dynamic>> items = allItems
           .map((item) => {
                 'name': PriceUtils.safeStringConversion(item['name']),
                 'price': PriceUtils.safeStringConversion(item['price']),
-                'foodCode': PriceUtils.safeStringConversion(
-                  item['food_code'] ?? item['foodCode']
-                ) // Support both formats
+                'foodCode': PriceUtils.safeStringConversion(item['food_code'] ??
+                    item['foodCode']) // Support both formats
               })
           .toList();
 
-      developer.log('Fetched food items of cs: $items', name: 'CalculatorScreen');
+      developer.log('Fetched food items of cs: $items',
+          name: 'CalculatorScreen');
 
       return items;
     } catch (e) {
@@ -202,7 +205,7 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
           // Use safe price conversion
           int parsedPrice = PriceUtils.safePriceConversion(item['price']);
           String itemName = PriceUtils.safeStringConversion(item['name']);
-          
+
           if (parsedPrice > 0 && itemName.isNotEmpty) {
             setState(() {
               isTapped = true;
@@ -213,7 +216,9 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
             _textEditingController.clear(); // Clear input after adding
             return;
           } else {
-            developer.log('Invalid item data: name=$itemName, price=${item['price']}', name: 'CalculatorScreen');
+            developer.log(
+                'Invalid item data: name=$itemName, price=${item['price']}',
+                name: 'CalculatorScreen');
             Fluttertoast.showToast(
               msg: "Invalid item data for code: $foodCode",
               toastLength: Toast.LENGTH_SHORT,
@@ -226,7 +231,8 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
         }
       }
 
-      developer.log('Food Item not found for code: $foodCode', name: 'CalculatorScreen');
+      developer.log('Food Item not found for code: $foodCode',
+          name: 'CalculatorScreen');
       Fluttertoast.showToast(
         msg: "No item exists with code: $foodCode",
         toastLength: Toast.LENGTH_SHORT,
@@ -283,25 +289,25 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
         body: SingleChildScrollView(
           child: SizedBox(
             height: MediaQuery.of(context).size.height - 60,
-              child: Column(
+            child: Column(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  const SizedBox(height: 20),
-                  const Text(
-                    'Enter Food Code:',
-                    style: TextStyle(
-                        fontSize: 18, fontFamily: "tabfont", letterSpacing: 2),
-                  ),
-                  const SizedBox(height: 16),
-                  Padding(
-                    padding: const EdgeInsets.all(3.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: <Widget>[
-                        SizedBox(
-                          height: MediaQuery.of(context).size.height * 0.09,
-                          width: MediaQuery.of(context).size.width * 0.9,
-                          child: TextField(
+              children: [
+                const SizedBox(height: 20),
+                const Text(
+                  'Enter Food Code:',
+                  style: TextStyle(
+                      fontSize: 18, fontFamily: "tabfont", letterSpacing: 2),
+                ),
+                const SizedBox(height: 16),
+                Padding(
+                  padding: const EdgeInsets.all(3.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: <Widget>[
+                      SizedBox(
+                        height: MediaQuery.of(context).size.height * 0.09,
+                        width: MediaQuery.of(context).size.width * 0.9,
+                        child: TextField(
                           style: const TextStyle(
                             fontSize: 28,
                             fontFamily: "tabfont",
@@ -411,7 +417,8 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
                 const SizedBox(height: 16),
                 // Use Flexible to allow the cart container to take available space
                 if (printprovider.posts.isNotEmpty)
-                  Flexible(fit: FlexFit.tight,
+                  Flexible(
+                    fit: FlexFit.tight,
                     child: billCountContainer(),
                   ),
                 const SizedBox(height: 20),
@@ -509,183 +516,186 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
               ),
               padding: const EdgeInsets.symmetric(vertical: 8),
               child: ListView.builder(
-              itemCount: printprovider.posts.length,
-              itemBuilder: (context, index) {
-                final item = printprovider.posts[index];
-                return Container(
-                  margin: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 4,
-                  ),
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: Colors.grey.withOpacity(0.2),
+                itemCount: printprovider.posts.length,
+                itemBuilder: (context, index) {
+                  final item = printprovider.posts[index];
+                  return Container(
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 4,
                     ),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 4,
-                        height: 50,
-                        decoration: BoxDecoration(
-                          color: appbar1,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Colors.grey.withOpacity(0.2),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              item['name'],
-                              style: const TextStyle(
-                                overflow: TextOverflow.ellipsis,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.black87,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              '₹${item['price']} × ${item['quantity']}',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey[600],
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      // Quantity Controls
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 4,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.grey[100],
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Row(
-                          children: [
-                            InkWell(
-                              onTap: () {
-                                setState(() {
-                                  // Find the item in cartItems
-                                  int cartIndex = cartItems.indexWhere(
-                                      (cartItem) =>
-                                          cartItem['name'] == item['name']);
-
-                                  if (cartIndex != -1) {
-                                    if (item['quantity'] > 1) {
-                                      // Decrease quantity
-                                      cartItems[cartIndex]['quantity']--;
-                                      totalSum -= cartItems[cartIndex]['price'];
-                                    } else {
-                                      // Remove item when quantity is 1
-                                      totalSum -= cartItems[cartIndex]
-                                              ['price'] *
-                                          cartItems[cartIndex]['quantity'];
-                                      cartItems.removeAt(cartIndex);
-                                    }
-                                    printprovider.additem(cartItems, totalSum);
-                                  }
-                                });
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.all(4),
-                                child: Icon(
-                                  Icons.remove,
-                                  color: appbar1,
-                                  size: 18,
-                                ),
-                              ),
-                            ),
-                            Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 8),
-                              child: Text(
-                                "${item['quantity']}",
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black,
-                                ),
-                              ),
-                            ),
-                            InkWell(
-                              onTap: () {
-                                setState(() {
-                                  // Find the item in cartItems
-                                  int cartIndex = cartItems.indexWhere(
-                                      (cartItem) =>
-                                          cartItem['name'] == item['name']);
-                                  if (cartIndex != -1) {
-                                    cartItems[cartIndex]['quantity']++;
-                                    totalSum += cartItems[cartIndex]['price'];
-                                    printprovider.additem(cartItems, totalSum);
-                                  }
-                                });
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.all(4),
-                                child: Icon(
-                                  Icons.add,
-                                  color: appbar1,
-                                  size: 18,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      // Delete Button
-                      InkWell(
-                        onTap: () {
-                          setState(() {
-                            // Find the item in cartItems by name
-                            int cartIndex = cartItems.indexWhere(
-                                (cartItem) => cartItem['name'] == item['name']);
-
-                            if (cartIndex != -1) {
-                              // Subtract the total price of this item from totalSum
-                              totalSum -= cartItems[cartIndex]['price'] *
-                                  cartItems[cartIndex]['quantity'];
-
-                              // Remove the item from cartItems
-                              cartItems.removeAt(cartIndex);
-
-                              // Update the provider
-                              printprovider.additem(cartItems, totalSum);
-                            }
-                          });
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(6),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 4,
+                          height: 50,
                           decoration: BoxDecoration(
-                            color: Colors.red.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(
-                            Icons.delete_outline,
-                            color: Colors.red,
-                            size: 20,
+                            color: appbar1,
+                            borderRadius: BorderRadius.circular(2),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                );
-              },
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                item['name'],
+                                style: const TextStyle(
+                                  overflow: TextOverflow.ellipsis,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '₹${item['price']} × ${item['quantity']}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey[600],
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        // Quantity Controls
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[100],
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Row(
+                            children: [
+                              InkWell(
+                                onTap: () {
+                                  setState(() {
+                                    // Find the item in cartItems
+                                    int cartIndex = cartItems.indexWhere(
+                                        (cartItem) =>
+                                            cartItem['name'] == item['name']);
+
+                                    if (cartIndex != -1) {
+                                      if (item['quantity'] > 1) {
+                                        // Decrease quantity
+                                        cartItems[cartIndex]['quantity']--;
+                                        totalSum -=
+                                            cartItems[cartIndex]['price'];
+                                      } else {
+                                        // Remove item when quantity is 1
+                                        totalSum -= cartItems[cartIndex]
+                                                ['price'] *
+                                            cartItems[cartIndex]['quantity'];
+                                        cartItems.removeAt(cartIndex);
+                                      }
+                                      printprovider.additem(
+                                          cartItems, totalSum);
+                                    }
+                                  });
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  child: Icon(
+                                    Icons.remove,
+                                    color: appbar1,
+                                    size: 18,
+                                  ),
+                                ),
+                              ),
+                              Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 8),
+                                child: Text(
+                                  "${item['quantity']}",
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black,
+                                  ),
+                                ),
+                              ),
+                              InkWell(
+                                onTap: () {
+                                  setState(() {
+                                    // Find the item in cartItems
+                                    int cartIndex = cartItems.indexWhere(
+                                        (cartItem) =>
+                                            cartItem['name'] == item['name']);
+                                    if (cartIndex != -1) {
+                                      cartItems[cartIndex]['quantity']++;
+                                      totalSum += cartItems[cartIndex]['price'];
+                                      printprovider.additem(
+                                          cartItems, totalSum);
+                                    }
+                                  });
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  child: Icon(
+                                    Icons.add,
+                                    color: appbar1,
+                                    size: 18,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        // Delete Button
+                        InkWell(
+                          onTap: () {
+                            setState(() {
+                              // Find the item in cartItems by name
+                              int cartIndex = cartItems.indexWhere((cartItem) =>
+                                  cartItem['name'] == item['name']);
+
+                              if (cartIndex != -1) {
+                                // Subtract the total price of this item from totalSum
+                                totalSum -= cartItems[cartIndex]['price'] *
+                                    cartItems[cartIndex]['quantity'];
+
+                                // Remove the item from cartItems
+                                cartItems.removeAt(cartIndex);
+
+                                // Update the provider
+                                printprovider.additem(cartItems, totalSum);
+                              }
+                            });
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: Colors.red.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(
+                              Icons.delete_outline,
+                              color: Colors.red,
+                              size: 20,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
             ),
           ),
-        ),
 
           // Footer with Total and Actions
           Container(
@@ -737,12 +747,91 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
                       ),
                       child: IconButton(
                         icon: Icon(
+                          Icons.receipt_long_outlined,
+                          color: appbar1,
+                          size: 24,
+                        ),
+                        onPressed: () async {
+                          if (cartItems.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('No items in cart'),
+                                backgroundColor: Colors.orange,
+                                duration: Duration(seconds: 2),
+                              ),
+                            );
+                            return;
+                          }
+
+                          // Fetch shop data
+                          final doc = await FirebaseFirestore.instance
+                              .collection('AllAdmins')
+                              .doc(adminUid)
+                              .collection('customer')
+                              .doc(widget.phoneNumber)
+                              .get();
+
+                          String shopName = 'N/A';
+                          String contact = 'N/A';
+                          String address = 'N/A';
+
+                          if (doc.exists) {
+                            final data = doc.data();
+                            if (data != null) {
+                              shopName = data['shopName'] ?? 'N/A';
+                              contact = data['contact'] ?? 'N/A';
+                              address = data['address'] ?? 'N/A';
+                            }
+                          }
+
+                          // Navigate to preview screen
+                          final result = await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ReceiptPreviewScreen(
+                                adminUid: adminUid,
+                                shopName: shopName,
+                                contact: contact,
+                                address: address,
+                                phoneNo: widget.phoneNumber,
+                              ),
+                            ),
+                          );
+
+                          // If cart was updated in preview, refresh
+                          if (result != null) {
+                            setState(() {
+                              cartItems = result['items'];
+                              totalSum = result['subtotal'];
+                              final printprovider = Provider.of<PrintProvider>(
+                                  context,
+                                  listen: false);
+                              printprovider.additem(cartItems, totalSum);
+                            });
+                          }
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.grey.withOpacity(0.3),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          )
+                        ],
+                      ),
+                      child: IconButton(
+                        icon: Icon(
                           Icons.bookmark_outline,
                           color: appbar1,
                           size: 24,
                         ),
                         onPressed: () async {
-                        
                           await _showSaveBottomSheet();
                           // SaveOrderBottomSheet(formKey: _formKey, nameController: userNameController,mobileController: mobileController,onSave: () => ,);
                         },

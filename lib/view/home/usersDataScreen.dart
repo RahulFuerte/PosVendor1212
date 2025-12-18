@@ -4,7 +4,7 @@ import 'package:material_design_icons_flutter/material_design_icons_flutter.dart
 import 'package:pos/view/home/print_provider.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:provider/provider.dart';
-import 'userModel.dart';
+import 'UserModel.dart';
 
 class UsersScreen extends StatefulWidget {
   const UsersScreen({super.key});
@@ -68,7 +68,7 @@ class _UsersScreenState extends State<UsersScreen> {
                               bottomLeft: Radius.circular(40),
                             ),
                           ),
-                          height: MediaQuery.of(context).size.height / 8.5,
+                          height: MediaQuery.of(context).size.height / 9,
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceAround,
                             children: [
@@ -78,56 +78,61 @@ class _UsersScreenState extends State<UsersScreen> {
                                 decoration: BoxDecoration(
                                   color: primaryColor,
                                   borderRadius: BorderRadius.circular(75),
-                                ),
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(75),
-                                  child: Image.network(
-                                    'https://img.freepik.com/premium-vector/businessman-avatar-cartoon-character-profile_18591-50585.jpg?w=360',
+                                  image: const DecorationImage(
                                     fit: BoxFit.cover,
-                                    loadingBuilder: (context, child, loadingProgress) {
-                                      if (loadingProgress == null) return child;
-                                      return Container(
-                                        color: primaryColor,
-                                        child: const Center(
-                                          child: CircularProgressIndicator(
-                                            color: Colors.white,
-                                            strokeWidth: 2,
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                    errorBuilder: (context, error, stackTrace) {
-                                      return Container(
-                                        color: primaryColor,
-                                        child: const Icon(
-                                          Icons.person,
-                                          color: Colors.white,
-                                          size: 30,
-                                        ),
-                                      );
-                                    },
+                                    image: NetworkImage(
+                                        'https://img.freepik.com/premium-vector/businessman-avatar-cartoon-character-profile_18591-50585.jpg?w=360'),
                                   ),
                                 ),
                               ),
-                              Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    'Name: ${user.userName}',
-                                    style:
-                                        const TextStyle(fontFamily: 'tabfont'),
+                              Expanded(
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 12),
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        user.userName,
+                                        style: const TextStyle(
+                                          fontFamily: 'tabfont',
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Row(
+                                        children: [
+                                          const Icon(Icons.phone,
+                                              size: 14, color: Colors.black54),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            user.phoneNumber,
+                                            style: const TextStyle(
+                                              fontFamily: 'fontmain',
+                                              fontSize: 13,
+                                              color: Colors.black87,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'Total: ₹${user.totalAmount}',
+                                        style: TextStyle(
+                                          fontFamily: 'fontmain',
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.green.shade800,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  Text(
-                                    'Mobile: ${user.mobileNo}',
-                                    style:
-                                        const TextStyle(fontFamily: 'fontmain'),
-                                  ),
-                                  Text(
-                                    'Total Amount: ₹ ${user.totalAmount}',
-                                    style:
-                                        const TextStyle(fontFamily: 'fontmain'),
-                                  ),
-                                ],
+                                ),
                               ),
                               Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
@@ -200,21 +205,46 @@ class _UsersScreenState extends State<UsersScreen> {
       final userMap = box.getAt(i);
 
       if (userMap != null) {
-        try {
-          final userModel = UserModel.fromMap(userMap);
-          if (userModel.isValid) {
-            usersData.add(userModel);
-          }
-        } catch (e) {
-          print('Error parsing user data at index $i: $e');
-          // Skip invalid user data instead of crashing
-        }
+        final List<Map<String, dynamic>> details =
+            _decodeDetails(userMap['details']);
+
+        final userModel = UserModel(
+          phoneNumber: userMap['phoneNumber'] ?? 'N/A',
+          userName: userMap['userName'],
+          details: details,
+          totalAmount: userMap['totalAmount'],
+        );
+
+        usersData.add(userModel);
       }
     }
     return usersData;
   }
 
+  List<Map<String, dynamic>> _decodeDetails(dynamic details) {
+    if (details is List && details.isNotEmpty) {
+      List<Map<String, dynamic>> decodedList = [];
 
+      for (var item in details) {
+        if (item is Map<dynamic, dynamic>) {
+          // Convert the inner map to Map<String, dynamic>
+          Map<String, dynamic> convertedItem = {};
+          item.forEach((key, value) {
+            convertedItem[key.toString()] = value;
+          });
+
+          decodedList.add(convertedItem);
+        } else {
+          print('Unexpected format for detail item: $item');
+        }
+      }
+
+      return decodedList;
+    } else {
+      print('Unexpected format for details: $details');
+      return [];
+    }
+  }
 
   Future<void> _deleteUserData(BuildContext context, int index) async {
     final box = await Hive.openBox('userBox');

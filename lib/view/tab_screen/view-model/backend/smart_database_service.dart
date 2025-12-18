@@ -31,23 +31,28 @@ class SmartDatabaseService {
     try {
       developer.log('Initializing SmartDatabaseService', name: 'SmartDatabaseService');
 
-      // Initialize SQLite helper first
+      // Initialize connection monitor FIRST to know online/offline status
+      _connectionMonitor = ConnectionMonitor();
+      await _connectionMonitor!.initialize();
+      
+      // Initialize SQLite helper (fast, always needed)
       _sqliteHelper = SQLiteHelper();
       await _sqliteHelper!.database; // Ensure database is created
 
-      // Initialize connection manager
+      // Initialize connection manager (optimized for offline-first)
       _connectionManager = DatabaseConnectionManager();
       await _connectionManager!.initialize();
 
-      // Initialize connection monitor
-      _connectionMonitor = ConnectionMonitor();
-      await _connectionMonitor!.initialize();
-
-      // Initialize index manager with FTS5 fallback handling
-      _indexManager = DatabaseIndexManager();
-      await _initializeIndexesWithFallback();
-
+      // Mark as initialized early so queries can proceed
       _isInitialized = true;
+      developer.log('SmartDatabaseService core initialized', name: 'SmartDatabaseService');
+
+      // Initialize index manager in background (non-blocking)
+      _indexManager = DatabaseIndexManager();
+      _initializeIndexesWithFallback().catchError((e) {
+        developer.log('Index initialization failed (non-critical): $e', name: 'SmartDatabaseService');
+      });
+
       developer.log('SmartDatabaseService initialized successfully', name: 'SmartDatabaseService');
     } catch (e) {
       developer.log('Failed to initialize SmartDatabaseService: $e', name: 'SmartDatabaseService');

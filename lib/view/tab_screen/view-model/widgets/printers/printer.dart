@@ -740,20 +740,15 @@
 //   }
 // }
 
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/material.dart';
-
-import 'package:flutter_pos_printer_platform_image_3/flutter_pos_printer_platform_image_3.dart';
-import 'package:intl/intl.dart';
-
-import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
-
-import 'package:pos/view/home/print_provider.dart';
-
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_pos_printer_platform_image_3/flutter_pos_printer_platform_image_3.dart';
 import 'package:intl/intl.dart';
+import 'package:pos/view/home/print_provider.dart';
+import 'package:pos/view/tab_screen/view-model/backend/offline_bill_manager.dart';
+import 'package:pos/view/tab_screen/view-model/backend/connection_monitor.dart';
 
 class DirectPrintHelper {
   // Generate 8-digit random receipt number
@@ -890,7 +885,10 @@ class DirectPrintHelper {
         bytes: bytes,
       );
 
-      // Save bill data to Firebase
+      // Check if online before saving
+      final isConnected = await isOnline();
+
+      // Save bill data to Firebase (or offline)
       await saveBillToFirebase(
         adminUid: adminUid,
         receiptNo: receiptNo,
@@ -899,11 +897,15 @@ class DirectPrintHelper {
       );
 
       if (context.mounted) {
+        final message = isConnected
+            ? 'Receipt printed & saved online! Receipt No: $receiptNo'
+            : 'Receipt printed & saved offline! Will sync when online. Receipt No: $receiptNo';
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content:
-                Text('Receipt printed successfully! Receipt No: $receiptNo'),
-            backgroundColor: Colors.green,
+            content: Text(message),
+            backgroundColor: isConnected ? Colors.green : Colors.orange,
+            duration: const Duration(seconds: 4),
           ),
         );
       }
@@ -927,6 +929,11 @@ class DirectPrintHelper {
     required double subTotal,
   }) async {
     try {
+      // Check connectivity
+      final connectionMonitor = ConnectionMonitor();
+      await connectionMonitor.initialize();
+      final isConnected = connectionMonitor.isConnected;
+
       final now = DateTime.now();
       final monthDoc = DateFormat('yyyyMM').format(now); // e.g., "202512"
       final dateDoc = DateFormat('yyyyMMdd').format(now); // e.g., "20251209"
@@ -942,27 +949,87 @@ class DirectPrintHelper {
         };
       }).toList();
 
-      // Save to Firebase
-      await FirebaseFirestore.instance
-          .collection('AllBills')
-          .doc(adminUid)
-          .collection('myBills')
-          .doc(monthDoc)
-          .collection(dateDoc)
-          .doc(receiptNo)
-          .set({
+      // Prepare bill data
+      final billData = {
+        'id': receiptNo,
         'adminId': adminUid,
-        'createdAt': FieldValue.serverTimestamp(),
         'date': dateString,
         'items': itemsData,
         'receiptNo': receiptNo,
         'subTotal': subTotal,
-      });
+        'monthDoc': monthDoc,
+        'dateDoc': dateDoc,
+        'createdAt': now.millisecondsSinceEpoch,
+      };
 
-      debugPrint('Bill saved to Firebase successfully');
+      if (isConnected) {
+        // Save to Firebase online
+        await FirebaseFirestore.instance
+            .collection('AllBills')
+            .doc(adminUid)
+            .collection('myBills')
+            .doc(monthDoc)
+            .collection(dateDoc)
+            .doc(receiptNo)
+            .set({
+          'adminId': adminUid,
+          'createdAt': FieldValue.serverTimestamp(),
+          'date': dateString,
+          'items': itemsData,
+          'receiptNo': receiptNo,
+          'subTotal': subTotal,
+        });
+
+        debugPrint('Bill saved to Firebase successfully (online)');
+      } else {
+        // Save offline using OfflineBillManager
+        final offlineBillManager = OfflineBillManager();
+        await offlineBillManager.initialize();
+        await offlineBillManager.storeBillOffline(adminUid, billData);
+
+        debugPrint('Bill saved offline successfully - will sync when online');
+      }
+
+      connectionMonitor.dispose();
     } catch (e) {
-      debugPrint('Error saving bill to Firebase: $e');
-      rethrow;
+      debugPrint('Error saving bill: $e');
+      
+      // Fallback to offline storage if online save fails
+      try {
+        final now = DateTime.now();
+        final dateString = DateFormat('MMM dd, yyyy').format(now);
+        final monthDoc = DateFormat('yyyyMM').format(now);
+        final dateDoc = DateFormat('yyyyMMdd').format(now);
+
+        final itemsData = items.map((item) {
+          return {
+            'name': item['name'] ?? '',
+            'price': double.tryParse(item['price'].toString()) ?? 0.0,
+            'quantity': int.tryParse(item['quantity'].toString()) ?? 1,
+          };
+        }).toList();
+
+        final billData = {
+          'id': receiptNo,
+          'adminId': adminUid,
+          'date': dateString,
+          'items': itemsData,
+          'receiptNo': receiptNo,
+          'subTotal': subTotal,
+          'monthDoc': monthDoc,
+          'dateDoc': dateDoc,
+          'createdAt': now.millisecondsSinceEpoch,
+        };
+
+        final offlineBillManager = OfflineBillManager();
+        await offlineBillManager.initialize();
+        await offlineBillManager.storeBillOffline(adminUid, billData);
+
+        debugPrint('Bill saved offline as fallback after online failure');
+      } catch (offlineError) {
+        debugPrint('Failed to save bill offline: $offlineError');
+        rethrow;
+      }
     }
   }
 
@@ -1041,6 +1108,51 @@ class DirectPrintHelper {
           ),
         );
       }
+    }
+  }
+
+  /// Get offline bill statistics for display
+  static Future<Map<String, dynamic>> getOfflineBillStats(String adminUid) async {
+    try {
+      final offlineBillManager = OfflineBillManager();
+      await offlineBillManager.initialize();
+      return await offlineBillManager.getDetailedOfflineBillStatistics(adminUid);
+    } catch (e) {
+      debugPrint('Error getting offline bill stats: $e');
+      return {
+        'error': e.toString(),
+        'offlineBillsCount': 0,
+      };
+    }
+  }
+
+  /// Manually trigger sync of offline bills
+  static Future<OfflineBillSyncResult> syncOfflineBills(String adminUid) async {
+    try {
+      final offlineBillManager = OfflineBillManager();
+      await offlineBillManager.initialize();
+      return await offlineBillManager.manualSyncOfflineBills(adminUid);
+    } catch (e) {
+      debugPrint('Error syncing offline bills: $e');
+      return OfflineBillSyncResult(
+        success: false,
+        errorMessage: e.toString(),
+        billsSynced: 0,
+      );
+    }
+  }
+
+  /// Check if device is currently online
+  static Future<bool> isOnline() async {
+    try {
+      final connectionMonitor = ConnectionMonitor();
+      await connectionMonitor.initialize();
+      final isConnected = connectionMonitor.isConnected;
+      connectionMonitor.dispose();
+      return isConnected;
+    } catch (e) {
+      debugPrint('Error checking online status: $e');
+      return false;
     }
   }
 }

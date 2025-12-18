@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:pos/view/home/navigation.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
+import 'package:pos/view/tab_screen/view-model/widgets/cached_blob_image.dart';
 
 class MenuItem extends StatelessWidget {
   const MenuItem({
@@ -52,17 +53,31 @@ class MenuItem extends StatelessWidget {
                           //color: primaryColor.withOpacity(0.2),
                           borderRadius: BorderRadius.circular(65),
                         ),
-                        child: CachedNetworkImage(
+                        child: 
+
+                        CachedBlobImage(
                           imageUrl: imagePath,
-                          placeholder: (BuildContext context, String url) =>
-                              const Center(
-                                  child: CircularProgressIndicator(
+                          tableName: 'food_items',
+                          recordId: code,
+                          placeholder: 
+                                const CircularProgressIndicator(
                             color: primaryColor,
-                          )),
-                          errorWidget: (BuildContext context, String url,
-                                  dynamic error) =>
+                          ),
+                          errorWidget: 
                               const Icon(Icons.error),
                         ),
+                        
+                        // CachedNetworkImage(
+                        //   imageUrl: imagePath,
+                        //   placeholder: (BuildContext context, String url) =>
+                        //       const Center(
+                        //           child: CircularProgressIndicator(
+                        //     color: primaryColor,
+                        //   )),
+                        //   errorWidget: (BuildContext context, String url,
+                        //           dynamic error) =>
+                        //       const Icon(Icons.error),
+                        // ),
                       ),
                     ),
                     Row(

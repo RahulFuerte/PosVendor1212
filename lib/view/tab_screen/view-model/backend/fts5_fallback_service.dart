@@ -12,33 +12,18 @@ class FTS5FallbackService {
   bool _fallbackIndexesCreated = false;
 
   /// Check if FTS5 module is available in the current SQLite installation
+  /// NOTE: FTS5 is disabled to prevent errors and improve performance
   Future<bool> isFTS5Available(Database db) async {
-    if (_fts5Available != null) return _fts5Available!;
-
-    try {
-      // Try to create a temporary FTS5 table to test availability
-      await db.execute('CREATE VIRTUAL TABLE IF NOT EXISTS fts5_test USING fts5(test_column)');
-      await db.execute('DROP TABLE IF EXISTS fts5_test');
-      
-      _fts5Available = true;
-      developer.log('FTS5 module is available', name: 'FTS5FallbackService');
-      return true;
-    } catch (e) {
-      _fts5Available = false;
-      developer.log('FTS5 module not available: $e', name: 'FTS5FallbackService');
-      return false;
-    }
+    // FTS5 is disabled - always return false to use fallback indexes
+    // This prevents the "no such module: fts5" errors
+    _fts5Available = false;
+    return false;
   }
 
-  /// Create FTS5 tables if available, otherwise create fallback indexes
+  /// Create fallback indexes (FTS5 is disabled)
   Future<void> setupSearchInfrastructure(Database db) async {
-    final fts5Available = await isFTS5Available(db);
-    
-    if (fts5Available) {
-      await _createFTS5Tables(db);
-    } else {
-      await _createFallbackSearchIndexes(db);
-    }
+    // Always use fallback indexes - FTS5 is disabled
+    await _createFallbackSearchIndexes(db);
   }
 
   /// Create FTS5 virtual tables for full-text search

@@ -30,29 +30,46 @@ class DatabaseConnectionManager {
     try {
       developer.log('Initializing DatabaseConnectionManager', name: 'DatabaseConnectionManager');
       
-      // Initialize error handler first
-      _errorHandler = ComprehensiveErrorHandler();
-      await _errorHandler!.initialize();
-      
-      // Initialize connection monitor
+      // Initialize connection monitor FIRST to know online/offline status
       _connectionMonitor = ConnectionMonitor();
       await _connectionMonitor!.initialize();
       
-      // Initialize SQLite DAO (always needed for offline functionality)
+      final bool isCurrentlyOnline = _connectionMonitor!.isConnected;
+      developer.log('Connection status: ${isCurrentlyOnline ? "online" : "offline"}', name: 'DatabaseConnectionManager');
+      
+      // Initialize SQLite DAO FIRST (always needed, fast initialization)
       _sqliteDAO = SQLiteDAO();
       await _sqliteDAO!.initialize();
+      developer.log('SQLite DAO initialized', name: 'DatabaseConnectionManager');
       
-      // Initialize Firebase DAO (may fail if offline, that's okay)
-      _firebaseDAO = FirebaseDAO();
-      try {
-        await _firebaseDAO!.initialize();
-      } catch (e) {
-        developer.log('Firebase initialization failed (offline mode): $e', name: 'DatabaseConnectionManager');
+      // Mark as initialized early so offline queries can proceed
+      _isInitialized = true;
+      _isDatabaseClosed = false;
+      
+      // Initialize error handler (non-blocking for offline)
+      _errorHandler = ComprehensiveErrorHandler();
+      unawaited(_errorHandler!.initialize().catchError((e) {
+        developer.log('Error handler init failed: $e', name: 'DatabaseConnectionManager');
+      }));
+      
+      // Only initialize Firebase and unified service if online
+      if (isCurrentlyOnline) {
+        _firebaseDAO = FirebaseDAO();
+        try {
+          await _firebaseDAO!.initialize().timeout(const Duration(seconds: 5));
+        } catch (e) {
+          developer.log('Firebase initialization failed: $e', name: 'DatabaseConnectionManager');
+        }
+        
+        _unifiedService = UnifiedDatabaseService();
+        try {
+          await _unifiedService!.initialize().timeout(const Duration(seconds: 5));
+        } catch (e) {
+          developer.log('Unified service initialization failed: $e', name: 'DatabaseConnectionManager');
+        }
+      } else {
+        developer.log('Offline mode - skipping Firebase/UnifiedService init', name: 'DatabaseConnectionManager');
       }
-      
-      // Initialize unified service
-      _unifiedService = UnifiedDatabaseService();
-      await _unifiedService!.initialize();
       
       // Listen for connectivity changes
       _connectivitySubscription = _connectionMonitor!.connectivityStream.listen(
@@ -61,9 +78,6 @@ class DatabaseConnectionManager {
           developer.log('Connectivity monitoring error: $error', name: 'DatabaseConnectionManager');
         },
       );
-      
-      _isInitialized = true;
-      _isDatabaseClosed = false;
       
       developer.log('DatabaseConnectionManager initialized successfully', name: 'DatabaseConnectionManager');
     } catch (e) {
@@ -76,7 +90,27 @@ class DatabaseConnectionManager {
   void _onConnectivityChanged(bool isConnected) async {
     try {
       if (isConnected) {
-        developer.log('Connection restored - syncing data from Firebase to local', name: 'DatabaseConnectionManager');
+        developer.log('Connection restored - initializing online services', name: 'DatabaseConnectionManager');
+        
+        // Initialize Firebase and unified service if not already done
+        if (_firebaseDAO == null) {
+          _firebaseDAO = FirebaseDAO();
+          try {
+            await _firebaseDAO!.initialize().timeout(const Duration(seconds: 5));
+          } catch (e) {
+            developer.log('Firebase initialization failed on reconnect: $e', name: 'DatabaseConnectionManager');
+          }
+        }
+        
+        if (_unifiedService == null) {
+          _unifiedService = UnifiedDatabaseService();
+          try {
+            await _unifiedService!.initialize().timeout(const Duration(seconds: 5));
+          } catch (e) {
+            developer.log('Unified service initialization failed on reconnect: $e', name: 'DatabaseConnectionManager');
+          }
+        }
+        
         await _syncFromFirebaseToLocal();
       } else {
         developer.log('Connection lost - switching to offline mode', name: 'DatabaseConnectionManager');

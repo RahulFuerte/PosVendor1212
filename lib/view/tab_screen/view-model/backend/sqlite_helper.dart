@@ -128,6 +128,33 @@ class SQLiteHelper {
       )
     ''');
 
+    // Create user_data table for caching customer information
+    await db.execute('''
+      CREATE TABLE user_data (
+        id TEXT PRIMARY KEY,
+        phone_number TEXT NOT NULL UNIQUE,
+        name TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      )
+    ''');
+
+    // Create admin_data table for storing shop/receipt information
+    await db.execute('''
+      CREATE TABLE admin_data (
+        id TEXT PRIMARY KEY,
+        phone_number TEXT NOT NULL UNIQUE,
+        name TEXT,
+        shop_name TEXT,
+        shop_logo_url TEXT,
+        shop_logo_blob BLOB,
+        shop_contact TEXT,
+        address TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      )
+    ''');
+
     // Create comprehensive indexes for better performance
     await _createPerformanceIndexes(db);
   }
@@ -355,6 +382,8 @@ class SQLiteHelper {
     await db.execute('DROP TABLE IF EXISTS bills');
     await db.execute('DROP TABLE IF EXISTS sync_log');
     await db.execute('DROP TABLE IF EXISTS image_cache');
+    await db.execute('DROP TABLE IF EXISTS user_data');
+    await db.execute('DROP TABLE IF EXISTS admin_data');
   }
 
   // Database initialization method
@@ -619,30 +648,16 @@ await prefs.setString('uid', adminUid);
       await db.execute('CREATE INDEX IF NOT EXISTS idx_image_cache_record ON image_cache(table_name, record_id)');
       await db.execute('CREATE INDEX IF NOT EXISTS idx_image_cache_accessed ON image_cache(last_accessed)');
       
-      // Full-text search indexes for better search performance
-      try {
-        await db.execute('''
-          CREATE VIRTUAL TABLE IF NOT EXISTS food_items_fts USING fts5(
-            id, name, description, food_code, department,
-            content='food_items',
-            content_rowid='rowid'
-          )
-        ''');
-        
-        // Populate FTS table
-        await db.execute('''
-          INSERT OR REPLACE INTO food_items_fts(id, name, description, food_code, department)
-          SELECT id, name, description, food_code, department FROM food_items
-        ''');
-        
-        print('FTS5 search indexes created successfully');
-      } catch (ftsError) {
-        print('FTS5 not available, skipping full-text search indexes: $ftsError');
-        // Create fallback search indexes
-        await db.execute('CREATE INDEX IF NOT EXISTS idx_food_items_name_search ON food_items(name COLLATE NOCASE)');
-        await db.execute('CREATE INDEX IF NOT EXISTS idx_food_items_description_search ON food_items(description COLLATE NOCASE)');
-        print('Fallback search indexes created');
-      }
+      // User data indexes
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_user_data_phone ON user_data(phone_number)');
+      
+      // Admin data indexes
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_admin_data_phone ON admin_data(phone_number)');
+      
+      // Fallback search indexes (FTS5 is disabled to prevent errors)
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_food_items_name_search ON food_items(name COLLATE NOCASE)');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_food_items_description_search ON food_items(description COLLATE NOCASE)');
+      print('Search indexes created successfully');
       
       print('Performance indexes created successfully');
     } catch (e) {
@@ -769,5 +784,181 @@ await prefs.setString('uid', adminUid);
   /// Schedule automatic maintenance (called during initialization)
   Future<void> scheduleAutomaticMaintenance() async {
     await _getMaintenanceService.scheduleAutomaticMaintenance();
+  }
+
+  // ==================== User Data CRUD Operations ====================
+
+  /// Save or update user data (customer) in local cache
+  Future<void> saveUserData(Map<String, dynamic> userData) async {
+    try {
+      final db = await database;
+      final phoneNumber = userData['phoneNumber'] ?? userData['phone_number'];
+      
+      if (phoneNumber == null || phoneNumber.toString().isEmpty) {
+        print('Cannot save user data: phone number is required');
+        return;
+      }
+
+      final now = DateTime.now().millisecondsSinceEpoch;
+      
+      await db.insert(
+        'user_data',
+        {
+          'id': phoneNumber.toString(),
+          'phone_number': phoneNumber.toString(),
+          'name': userData['name'],
+          'created_at': now,
+          'updated_at': now,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+      
+      print('User data saved for: $phoneNumber');
+    } catch (e) {
+      print('Error saving user data: $e');
+    }
+  }
+
+  /// Get cached user data by phone number
+  Future<Map<String, dynamic>?> getUserData(String phoneNumber) async {
+    try {
+      final db = await database;
+      final results = await db.query(
+        'user_data',
+        where: 'phone_number = ?',
+        whereArgs: [phoneNumber],
+        limit: 1,
+      );
+      
+      if (results.isNotEmpty) {
+        final row = results.first;
+        return {
+          'phoneNumber': row['phone_number'],
+          'name': row['name'],
+        };
+      }
+      return null;
+    } catch (e) {
+      print('Error getting user data: $e');
+      return null;
+    }
+  }
+
+  /// Delete cached user data
+  Future<void> deleteUserData(String phoneNumber) async {
+    try {
+      final db = await database;
+      await db.delete(
+        'user_data',
+        where: 'phone_number = ?',
+        whereArgs: [phoneNumber],
+      );
+      print('User data deleted for: $phoneNumber');
+    } catch (e) {
+      print('Error deleting user data: $e');
+    }
+  }
+
+  /// Clear all cached user data
+  Future<void> clearAllUserData() async {
+    try {
+      final db = await database;
+      await db.delete('user_data');
+      print('All user data cleared');
+    } catch (e) {
+      print('Error clearing user data: $e');
+    }
+  }
+
+  // ==================== Admin Data CRUD Operations ====================
+
+  /// Save or update admin/shop data for receipt
+  Future<void> saveAdminData(Map<String, dynamic> adminData) async {
+    try {
+      final db = await database;
+      final phoneNumber = adminData['phoneNumber'] ?? adminData['phone_number'];
+      
+      if (phoneNumber == null || phoneNumber.toString().isEmpty) {
+        print('Cannot save admin data: phone number is required');
+        return;
+      }
+
+      final now = DateTime.now().millisecondsSinceEpoch;
+      
+      await db.insert(
+        'admin_data',
+        {
+          'id': phoneNumber.toString(),
+          'phone_number': phoneNumber.toString(),
+          'name': adminData['name'],
+          'shop_name': adminData['shopName'] ?? adminData['shop_name'],
+          'shop_logo_url': adminData['shopLogoUrl'] ?? adminData['shop_logo_url'],
+          'shop_contact': adminData['shopContact'] ?? adminData['shop_contact'],
+          'address': adminData['address'],
+          'created_at': now,
+          'updated_at': now,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+      
+      print('Admin data saved for: $phoneNumber');
+    } catch (e) {
+      print('Error saving admin data: $e');
+    }
+  }
+
+  /// Get cached admin data by phone number
+  Future<Map<String, dynamic>?> getAdminData(String phoneNumber) async {
+    try {
+      final db = await database;
+      final results = await db.query(
+        'admin_data',
+        where: 'phone_number = ?',
+        whereArgs: [phoneNumber],
+        limit: 1,
+      );
+      
+      if (results.isNotEmpty) {
+        final row = results.first;
+        return {
+          'phoneNumber': row['phone_number'],
+          'name': row['name'],
+          'shopName': row['shop_name'],
+          'shopLogoUrl': row['shop_logo_url'],
+          'shopContact': row['shop_contact'],
+          'address': row['address'],
+        };
+      }
+      return null;
+    } catch (e) {
+      print('Error getting admin data: $e');
+      return null;
+    }
+  }
+
+  /// Delete cached admin data
+  Future<void> deleteAdminData(String phoneNumber) async {
+    try {
+      final db = await database;
+      await db.delete(
+        'admin_data',
+        where: 'phone_number = ?',
+        whereArgs: [phoneNumber],
+      );
+      print('Admin data deleted for: $phoneNumber');
+    } catch (e) {
+      print('Error deleting admin data: $e');
+    }
+  }
+
+  /// Clear all cached admin data
+  Future<void> clearAllAdminData() async {
+    try {
+      final db = await database;
+      await db.delete('admin_data');
+      print('All admin data cleared');
+    } catch (e) {
+      print('Error clearing admin data: $e');
+    }
   }
 }
