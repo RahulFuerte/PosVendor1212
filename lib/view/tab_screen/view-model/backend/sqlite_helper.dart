@@ -8,7 +8,7 @@ import 'database_maintenance_service.dart';
 class SQLiteHelper {
   static final SQLiteHelper _instance = SQLiteHelper._internal();
   static Database? _database;
-  static const int _currentVersion = 1; // Force recreation for tax column addition
+  static const int _currentVersion = 1; // Testing phase - fresh database each install
   static const String _migrationCompleteKey = 'initial_migration_complete';
   
   // Database maintenance service (lazy initialization to avoid circular dependency)
@@ -128,30 +128,47 @@ class SQLiteHelper {
       )
     ''');
 
-    // Create user_data table for caching customer information
+    // Create user_data table for storing shop/admin information
     await db.execute('''
       CREATE TABLE user_data (
         id TEXT PRIMARY KEY,
+        admin_uid TEXT NOT NULL,
         phone_number TEXT NOT NULL UNIQUE,
         name TEXT,
-        created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL
-      )
-    ''');
-
-    // Create admin_data table for storing shop/receipt information
-    await db.execute('''
-      CREATE TABLE admin_data (
-        id TEXT PRIMARY KEY,
-        phone_number TEXT NOT NULL UNIQUE,
-        name TEXT,
+        email TEXT,
         shop_name TEXT,
         shop_logo_url TEXT,
         shop_logo_blob BLOB,
         shop_contact TEXT,
         address TEXT,
+        customer_code TEXT,
+        gst_number TEXT,
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL
+      )
+    ''');
+
+    // Create admin_data table for storing admin info with adminUid for offline use
+    await db.execute('''
+      CREATE TABLE admin_data (
+        id TEXT PRIMARY KEY,
+        admin_uid TEXT NOT NULL,
+        name TEXT,
+        email TEXT,
+        mobile_no TEXT NOT NULL UNIQUE,
+        customer_code TEXT,
+        created_at INTEGER
+      )
+    ''');
+
+    // Create customer_data table for storing customer information
+    await db.execute('''
+      CREATE TABLE customer_data (
+        id TEXT PRIMARY KEY,
+        gst_no TEXT,
+        name TEXT,
+        mobile_no TEXT NOT NULL UNIQUE,
+        created_at INTEGER NOT NULL
       )
     ''');
 
@@ -180,6 +197,12 @@ class SQLiteHelper {
         break;
       case 4:
         await _migrateToVersion4(db);
+        break;
+      case 5:
+        await _migrateToVersion5(db);
+        break;
+      case 6:
+        await _migrateToVersion6(db);
         break;
       // Add future migration cases here
       default:
@@ -376,6 +399,193 @@ class SQLiteHelper {
     }
   }
 
+  Future<void> _migrateToVersion5(Database db) async {
+    // Migration to version 5: Add new columns to admin_data and user_data tables
+    try {
+      print('Migrating to version 5: Adding new columns to admin_data and user_data...');
+      
+      // Add new columns to admin_data table
+      final adminColumns = [
+        'ALTER TABLE admin_data ADD COLUMN admin_uid TEXT',
+        'ALTER TABLE admin_data ADD COLUMN email TEXT',
+        'ALTER TABLE admin_data ADD COLUMN customer_code TEXT',
+        'ALTER TABLE admin_data ADD COLUMN gst_number TEXT',
+      ];
+      
+      for (final sql in adminColumns) {
+        try {
+          await db.execute(sql);
+          print('Executed: $sql');
+        } catch (e) {
+          if (e.toString().contains('duplicate column name')) {
+            print('Column already exists, skipping: $sql');
+          } else {
+            print('Error executing $sql: $e');
+          }
+        }
+      }
+      
+      // Add new columns to user_data table
+      final userColumns = [
+        'ALTER TABLE user_data ADD COLUMN gst_number TEXT',
+      ];
+      
+      for (final sql in userColumns) {
+        try {
+          await db.execute(sql);
+          print('Executed: $sql');
+        } catch (e) {
+          if (e.toString().contains('duplicate column name')) {
+            print('Column already exists, skipping: $sql');
+          } else {
+            print('Error executing $sql: $e');
+          }
+        }
+      }
+      
+      // Log this migration
+      await db.insert('migration_log', {
+        'version': 5,
+        'migration_name': 'add_admin_user_data_columns',
+        'executed_at': DateTime.now().millisecondsSinceEpoch,
+        'success': 1,
+      });
+      
+      print('Successfully migrated to version 5');
+    } catch (e) {
+      print('Error migrating to version 5: $e');
+      // Log failed migration
+      try {
+        await db.insert('migration_log', {
+          'version': 5,
+          'migration_name': 'add_admin_user_data_columns',
+          'executed_at': DateTime.now().millisecondsSinceEpoch,
+          'success': 0,
+        });
+      } catch (logError) {
+        print('Error logging failed migration: $logError');
+      }
+      rethrow;
+    }
+  }
+
+  Future<void> _migrateToVersion6(Database db) async {
+    // Migration to version 6: Restructure admin_data, user_data, and add customer_data
+    try {
+      print('Migrating to version 6: Restructuring tables...');
+      
+      // Backup existing admin_data
+      List<Map<String, dynamic>> adminBackup = [];
+      try {
+        adminBackup = await db.query('admin_data');
+      } catch (e) {
+        print('No existing admin_data to backup: $e');
+      }
+      
+      // Note: Old user_data will be dropped and recreated with new schema
+      // Data from old admin_data will be migrated to new user_data
+      
+      // Drop old tables
+      await db.execute('DROP TABLE IF EXISTS admin_data');
+      await db.execute('DROP TABLE IF EXISTS user_data');
+      
+      // Create new user_data table (shop/admin info)
+      await db.execute('''
+        CREATE TABLE user_data (
+          id TEXT PRIMARY KEY,
+          admin_uid TEXT NOT NULL,
+          phone_number TEXT NOT NULL UNIQUE,
+          name TEXT,
+          email TEXT,
+          shop_name TEXT,
+          shop_logo_url TEXT,
+          shop_logo_blob BLOB,
+          shop_contact TEXT,
+          address TEXT,
+          customer_code TEXT,
+          gst_number TEXT,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL
+        )
+      ''');
+      
+      // Create new admin_data table (simple: email, name, mobile)
+      await db.execute('''
+        CREATE TABLE admin_data (
+          id TEXT PRIMARY KEY,
+          name TEXT,
+          email TEXT,
+          mobile_no TEXT NOT NULL UNIQUE
+        )
+      ''');
+      
+      // Create customer_data table
+      await db.execute('''
+        CREATE TABLE customer_data (
+          id TEXT PRIMARY KEY,
+          gst_no TEXT,
+          name TEXT,
+          mobile_no TEXT NOT NULL UNIQUE,
+          created_at INTEGER NOT NULL
+        )
+      ''');
+      
+      // Migrate old admin_data to new user_data (if had shop info)
+      for (final row in adminBackup) {
+        try {
+          final now = DateTime.now().millisecondsSinceEpoch;
+          await db.insert('user_data', {
+            'id': row['id'] ?? row['phone_number']?.toString(),
+            'admin_uid': row['admin_uid'] ?? row['phone_number']?.toString() ?? '',
+            'phone_number': row['phone_number']?.toString() ?? '',
+            'name': row['name'],
+            'email': row['email'],
+            'shop_name': row['shop_name'],
+            'shop_logo_url': row['shop_logo_url'],
+            'shop_contact': row['shop_contact'],
+            'address': row['address'],
+            'customer_code': row['customer_code'],
+            'gst_number': row['gst_number'],
+            'created_at': row['created_at'] ?? now,
+            'updated_at': row['updated_at'] ?? now,
+          }, conflictAlgorithm: ConflictAlgorithm.replace);
+        } catch (e) {
+          print('Error migrating admin row: $e');
+        }
+      }
+      
+      // Create indexes
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_user_data_phone ON user_data(phone_number)');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_user_data_admin_uid ON user_data(admin_uid)');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_admin_data_mobile ON admin_data(mobile_no)');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_customer_data_mobile ON customer_data(mobile_no)');
+      
+      // Log this migration
+      await db.insert('migration_log', {
+        'version': 6,
+        'migration_name': 'restructure_admin_user_customer_tables',
+        'executed_at': DateTime.now().millisecondsSinceEpoch,
+        'success': 1,
+      });
+      
+      print('Successfully migrated to version 6');
+    } catch (e) {
+      print('Error migrating to version 6: $e');
+      // Log failed migration
+      try {
+        await db.insert('migration_log', {
+          'version': 6,
+          'migration_name': 'restructure_admin_user_customer_tables',
+          'executed_at': DateTime.now().millisecondsSinceEpoch,
+          'success': 0,
+        });
+      } catch (logError) {
+        print('Error logging failed migration: $logError');
+      }
+      rethrow;
+    }
+  }
+
   Future<void> _dropAllTables(Database db) async {
     await db.execute('DROP TABLE IF EXISTS food_items');
     await db.execute('DROP TABLE IF EXISTS departments');
@@ -384,6 +594,7 @@ class SQLiteHelper {
     await db.execute('DROP TABLE IF EXISTS image_cache');
     await db.execute('DROP TABLE IF EXISTS user_data');
     await db.execute('DROP TABLE IF EXISTS admin_data');
+    await db.execute('DROP TABLE IF EXISTS customer_data');
   }
 
   // Database initialization method
@@ -786,13 +997,14 @@ await prefs.setString('uid', adminUid);
     await _getMaintenanceService.scheduleAutomaticMaintenance();
   }
 
-  // ==================== User Data CRUD Operations ====================
+  // ==================== User Data CRUD Operations (Shop/Admin Info) ====================
 
-  /// Save or update user data (customer) in local cache
+  /// Save or update user data (shop/admin info) in local cache
   Future<void> saveUserData(Map<String, dynamic> userData) async {
     try {
       final db = await database;
-      final phoneNumber = userData['phoneNumber'] ?? userData['phone_number'];
+      final phoneNumber = userData['phoneNumber'] ?? userData['phone_number'] ?? userData['phone'];
+      final adminUid = userData['adminUid'] ?? userData['admin_uid'] ?? phoneNumber;
       
       if (phoneNumber == null || phoneNumber.toString().isEmpty) {
         print('Cannot save user data: phone number is required');
@@ -805,9 +1017,17 @@ await prefs.setString('uid', adminUid);
         'user_data',
         {
           'id': phoneNumber.toString(),
+          'admin_uid': adminUid?.toString() ?? phoneNumber.toString(),
           'phone_number': phoneNumber.toString(),
           'name': userData['name'],
-          'created_at': now,
+          'email': userData['email'],
+          'shop_name': userData['shopName'] ?? userData['shop_name'],
+          'shop_logo_url': userData['shopLogoUrl'] ?? userData['shop_logo_url'] ?? userData['logoUrl'] ?? userData['logo_url'],
+          'shop_contact': userData['shopContact'] ?? userData['shop_contact'] ?? userData['contact'],
+          'address': userData['address'],
+          'customer_code': userData['customerCode'] ?? userData['customer_code'],
+          'gst_number': userData['gstNumber'] ?? userData['gst_number'],
+          'created_at': userData['createdAt'] ?? userData['created_at'] ?? now,
           'updated_at': now,
         },
         conflictAlgorithm: ConflictAlgorithm.replace,
@@ -833,13 +1053,58 @@ await prefs.setString('uid', adminUid);
       if (results.isNotEmpty) {
         final row = results.first;
         return {
+          'adminUid': row['admin_uid'],
           'phoneNumber': row['phone_number'],
           'name': row['name'],
+          'email': row['email'],
+          'shopName': row['shop_name'],
+          'shopLogoUrl': row['shop_logo_url'],
+          'shopContact': row['shop_contact'],
+          'address': row['address'],
+          'customerCode': row['customer_code'],
+          'gstNumber': row['gst_number'],
+          'createdAt': row['created_at'],
+          'updatedAt': row['updated_at'],
         };
       }
       return null;
     } catch (e) {
       print('Error getting user data: $e');
+      return null;
+    }
+  }
+
+  /// Get cached user data by admin UID
+  Future<Map<String, dynamic>?> getUserDataByUid(String adminUid) async {
+    try {
+      final db = await database;
+      final results = await db.query(
+        'user_data',
+        where: 'admin_uid = ?',
+        whereArgs: [adminUid],
+        limit: 1,
+      );
+      
+      if (results.isNotEmpty) {
+        final row = results.first;
+        return {
+          'adminUid': row['admin_uid'],
+          'phoneNumber': row['phone_number'],
+          'name': row['name'],
+          'email': row['email'],
+          'shopName': row['shop_name'],
+          'shopLogoUrl': row['shop_logo_url'],
+          'shopContact': row['shop_contact'],
+          'address': row['address'],
+          'customerCode': row['customer_code'],
+          'gstNumber': row['gst_number'],
+          'createdAt': row['created_at'],
+          'updatedAt': row['updated_at'],
+        };
+      }
+      return null;
+    } catch (e) {
+      print('Error getting user data by UID: $e');
       return null;
     }
   }
@@ -872,80 +1137,91 @@ await prefs.setString('uid', adminUid);
 
   // ==================== Admin Data CRUD Operations ====================
 
-  /// Save or update admin/shop data for receipt
+  /// Save or update admin data with all fields including adminUid
   Future<void> saveAdminData(Map<String, dynamic> adminData) async {
     try {
       final db = await database;
-      final phoneNumber = adminData['phoneNumber'] ?? adminData['phone_number'];
+      final mobileNo = adminData['mobileNo'] ?? adminData['mobile_no'] ?? adminData['phoneNumber'] ?? adminData['phone_number'];
+      final adminUid = adminData['adminUid'] ?? adminData['admin_uid'] ?? mobileNo;
       
-      if (phoneNumber == null || phoneNumber.toString().isEmpty) {
-        print('Cannot save admin data: phone number is required');
+      if (mobileNo == null || mobileNo.toString().isEmpty) {
+        print('Cannot save admin data: mobile number is required');
         return;
       }
-
-      final now = DateTime.now().millisecondsSinceEpoch;
       
       await db.insert(
         'admin_data',
         {
-          'id': phoneNumber.toString(),
-          'phone_number': phoneNumber.toString(),
+          'id': mobileNo.toString(),
+          'admin_uid': adminUid?.toString() ?? mobileNo.toString(),
           'name': adminData['name'],
-          'shop_name': adminData['shopName'] ?? adminData['shop_name'],
-          'shop_logo_url': adminData['shopLogoUrl'] ?? adminData['shop_logo_url'],
-          'shop_contact': adminData['shopContact'] ?? adminData['shop_contact'],
-          'address': adminData['address'],
-          'created_at': now,
-          'updated_at': now,
+          'email': adminData['email'],
+          'mobile_no': mobileNo.toString(),
+          'customer_code': adminData['customerCode'] ?? adminData['customer_code'],
+          'created_at': adminData['createdAt'] ?? adminData['created_at'] ?? DateTime.now().millisecondsSinceEpoch,
         },
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
       
-      print('Admin data saved for: $phoneNumber');
+      print('[SQLiteHelper] Admin data saved for: $mobileNo with adminUid: $adminUid');
     } catch (e) {
-      print('Error saving admin data: $e');
+      print('[SQLiteHelper] Error saving admin data: $e');
     }
   }
 
-  /// Get cached admin data by phone number
-  Future<Map<String, dynamic>?> getAdminData(String phoneNumber) async {
+  /// Get cached admin data by mobile number - returns all fields including adminUid
+  Future<Map<String, dynamic>?> getAdminData(String mobileNo) async {
     try {
       final db = await database;
       final results = await db.query(
         'admin_data',
-        where: 'phone_number = ?',
-        whereArgs: [phoneNumber],
+        where: 'mobile_no = ?',
+        whereArgs: [mobileNo],
         limit: 1,
       );
       
       if (results.isNotEmpty) {
         final row = results.first;
+        print('[SQLiteHelper] Found cached admin data for: $mobileNo');
         return {
-          'phoneNumber': row['phone_number'],
+          'adminUid': row['admin_uid'],
           'name': row['name'],
-          'shopName': row['shop_name'],
-          'shopLogoUrl': row['shop_logo_url'],
-          'shopContact': row['shop_contact'],
-          'address': row['address'],
+          'email': row['email'],
+          'phoneNumber': row['mobile_no'],
+          'mobileNo': row['mobile_no'],
+          'customerCode': row['customer_code'],
+          'createdAt': row['created_at'],
         };
       }
+      print('[SQLiteHelper] No cached admin data found for: $mobileNo');
       return null;
     } catch (e) {
-      print('Error getting admin data: $e');
+      print('[SQLiteHelper] Error getting admin data: $e');
+      return null;
+    }
+  }
+
+  /// Get adminUid by mobile number - convenience method for offline use
+  Future<String?> getAdminUid(String mobileNo) async {
+    try {
+      final adminData = await getAdminData(mobileNo);
+      return adminData?['adminUid']?.toString();
+    } catch (e) {
+      print('[SQLiteHelper] Error getting adminUid: $e');
       return null;
     }
   }
 
   /// Delete cached admin data
-  Future<void> deleteAdminData(String phoneNumber) async {
+  Future<void> deleteAdminData(String mobileNo) async {
     try {
       final db = await database;
       await db.delete(
         'admin_data',
-        where: 'phone_number = ?',
-        whereArgs: [phoneNumber],
+        where: 'mobile_no = ?',
+        whereArgs: [mobileNo],
       );
-      print('Admin data deleted for: $phoneNumber');
+      print('Admin data deleted for: $mobileNo');
     } catch (e) {
       print('Error deleting admin data: $e');
     }
@@ -959,6 +1235,110 @@ await prefs.setString('uid', adminUid);
       print('All admin data cleared');
     } catch (e) {
       print('Error clearing admin data: $e');
+    }
+  }
+
+  // ==================== Customer Data CRUD Operations ====================
+
+  /// Save or update customer data
+  Future<void> saveCustomerData(Map<String, dynamic> customerData) async {
+    try {
+      final db = await database;
+      final mobileNo = customerData['mobileNo'] ?? customerData['mobile_no'] ?? customerData['phone'];
+      
+      if (mobileNo == null || mobileNo.toString().isEmpty) {
+        print('Cannot save customer data: mobile number is required');
+        return;
+      }
+
+      final now = DateTime.now().millisecondsSinceEpoch;
+      
+      await db.insert(
+        'customer_data',
+        {
+          'id': mobileNo.toString(),
+          'gst_no': customerData['gstNo'] ?? customerData['gst_no'] ?? customerData['gstNumber'],
+          'name': customerData['name'],
+          'mobile_no': mobileNo.toString(),
+          'created_at': customerData['createdAt'] ?? customerData['created_at'] ?? now,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+      
+      print('Customer data saved for: $mobileNo');
+    } catch (e) {
+      print('Error saving customer data: $e');
+    }
+  }
+
+  /// Get cached customer data by mobile number
+  Future<Map<String, dynamic>?> getCustomerData(String mobileNo) async {
+    try {
+      final db = await database;
+      final results = await db.query(
+        'customer_data',
+        where: 'mobile_no = ?',
+        whereArgs: [mobileNo],
+        limit: 1,
+      );
+      
+      if (results.isNotEmpty) {
+        final row = results.first;
+        return {
+          'gstNo': row['gst_no'],
+          'name': row['name'],
+          'mobileNo': row['mobile_no'],
+          'createdAt': row['created_at'],
+        };
+      }
+      return null;
+    } catch (e) {
+      print('Error getting customer data: $e');
+      return null;
+    }
+  }
+
+  /// Get all customers
+  Future<List<Map<String, dynamic>>> getAllCustomers() async {
+    try {
+      final db = await database;
+      final results = await db.query('customer_data', orderBy: 'created_at DESC');
+      
+      return results.map((row) => {
+        'gstNo': row['gst_no'],
+        'name': row['name'],
+        'mobileNo': row['mobile_no'],
+        'createdAt': row['created_at'],
+      }).toList();
+    } catch (e) {
+      print('Error getting all customers: $e');
+      return [];
+    }
+  }
+
+  /// Delete cached customer data
+  Future<void> deleteCustomerData(String mobileNo) async {
+    try {
+      final db = await database;
+      await db.delete(
+        'customer_data',
+        where: 'mobile_no = ?',
+        whereArgs: [mobileNo],
+      );
+      print('Customer data deleted for: $mobileNo');
+    } catch (e) {
+      print('Error deleting customer data: $e');
+    }
+  }
+
+  /// Clear all cached customer data
+  Future<void> clearAllCustomerData() async {
+    try {
+      final db = await database;
+      await db.delete('customer_data');
+      print('All customer data cleared');
+    } catch (e) {
+      print('Error clearing customer data: $e');
     }
   }
 }

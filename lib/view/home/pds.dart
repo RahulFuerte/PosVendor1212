@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_pos_printer_platform_image_3/flutter_pos_printer_platform_image_3.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:hive/hive.dart';
+import 'package:pos/view/tab_screen/view-model/backend/sqlite_helper.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:pos/view/home/edit_billReceipt.dart';
 import 'package:pos/view/home/usersDataScreen.dart';
@@ -74,19 +75,67 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
           .get()
           .timeout(const Duration(seconds: 3));
 
-      final String? fetchedAdminUid = snapshot.data()?['adminUid'];
+      final data = snapshot.data();
+      final String? fetchedAdminUid = data?['adminUid'];
 
-      setState(() {
-        this.adminUid = fetchedAdminUid ?? 'Admin UID not found';
-      });
-
-      return fetchedAdminUid ?? 'Admin UID not found';
+      if (fetchedAdminUid != null && fetchedAdminUid.isNotEmpty) {
+        // Cache the admin data in SQLite for offline use
+        try {
+          final sqliteHelper = SQLiteHelper();
+          await sqliteHelper.saveAdminData({
+            'adminUid': fetchedAdminUid,
+            'phoneNumber': widget.phoneNo,
+            'name': data?['name'],
+            'email': data?['email'],
+            'customerCode': data?['customerCode'],
+            'createdAt': data?['createdAt'],
+          });
+        } catch (cacheError) {
+          developer.log('Error caching adminUid in SQLite: $cacheError', name: 'ProductDashBoard');
+        }
+        
+        setState(() {
+          this.adminUid = fetchedAdminUid;
+        });
+        return fetchedAdminUid;
+      }
+      
+      // If Firebase returned null, try SQLite cache
+      return await _getCachedAdminUid();
     } catch (e) {
       developer.log('Error fetching adminUid: $e', name: 'ProductDashBoard');
+      // Fall back to cached adminUid from SQLite when offline
+      return await _getCachedAdminUid();
+    }
+  }
+
+  /// Get cached adminUid from SQLite for offline use
+  Future<String> _getCachedAdminUid() async {
+    try {
+      final sqliteHelper = SQLiteHelper();
+      final cachedAdminUid = await sqliteHelper.getAdminUid(widget.phoneNo);
+      
+      if (cachedAdminUid != null && cachedAdminUid.isNotEmpty) {
+        developer.log('Using cached adminUid from SQLite: $cachedAdminUid', name: 'ProductDashBoard');
+        setState(() {
+          this.adminUid = cachedAdminUid;
+        });
+        return cachedAdminUid;
+      }
+      
+      // Last resort: use phoneNo as adminUid (common pattern in this app)
+      developer.log('No cached adminUid found, using phoneNo as fallback', name: 'ProductDashBoard');
       setState(() {
-        this.adminUid = 'Offline - using local data';
+        this.adminUid = widget.phoneNo;
       });
-      return 'Offline - using local data';
+      return widget.phoneNo;
+    } catch (e) {
+      developer.log('Error getting cached adminUid from SQLite: $e', name: 'ProductDashBoard');
+      // Ultimate fallback: use phoneNo
+      setState(() {
+        this.adminUid = widget.phoneNo;
+      });
+      return widget.phoneNo;
     }
   }
 
@@ -149,7 +198,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
   Future<void> fetchUserData() async {
     final phoneNo = widget.phoneNo;
     setState(() {
-      isLoading = true; // Set isLoading to true before fetching data.
+      isLoading = true;
     });
 
     try {
@@ -163,24 +212,28 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
           userData = data;
         });
 
-        // Cache the adminUid for offline use
+        // Cache the admin data in SQLite for offline use
         try {
-          final box = await Hive.openBox('userCache');
-          if (data['adminUid'] != null) {
-            await box.put('adminUid_$phoneNo', data['adminUid']);
-          }
-          await box.put('userData_$phoneNo', data);
+          final sqliteHelper = SQLiteHelper();
+          await sqliteHelper.saveAdminData({
+            'adminUid': data['adminUid'],
+            'phoneNumber': phoneNo,
+            'name': data['name'],
+            'email': data['email'],
+            'customerCode': data['customerCode'],
+            'createdAt': data['createdAt'],
+          });
         } catch (cacheError) {
-          developer.log('Error caching user data: $cacheError', name: 'ProductDashBoard');
+          developer.log('Error caching user data in SQLite: $cacheError', name: 'ProductDashBoard');
         }
       } else {
         developer.log('Vendor document not found', name: 'ProductDashBoard');
-        // Try to load cached data
+        // Try to load cached data from SQLite
         await _loadCachedUserData(phoneNo);
       }
     } catch (e) {
       NetworkErrorHandler.logNetworkError(e, 'ProductDashBoard', 'fetchUserData');
-      // Load cached data when offline
+      // Load cached data from SQLite when offline
       await _loadCachedUserData(phoneNo);
       // Show user-friendly message for network errors
       if (mounted && NetworkErrorHandler.isNetworkError(e)) {
@@ -188,19 +241,26 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
       }
     } finally {
       setState(() {
-        isLoading = false; // Set isLoading to false after fetching data.
+        isLoading = false;
       });
     }
   }
 
   Future<void> _loadCachedUserData(String phoneNo) async {
     try {
-      final box = await Hive.openBox('userCache');
-      final cachedUserData = box.get('userData_$phoneNo');
-      if (cachedUserData != null) {
-        developer.log('Loading cached user data', name: 'ProductDashBoard');
+      final sqliteHelper = SQLiteHelper();
+      final cachedAdminData = await sqliteHelper.getAdminData(phoneNo);
+      
+      if (cachedAdminData != null) {
+        developer.log('Loading cached user data from SQLite', name: 'ProductDashBoard');
         setState(() {
-          userData = Map<String, dynamic>.from(cachedUserData);
+          userData = {
+            'name': cachedAdminData['name'] ?? 'User',
+            'phoneNumber': cachedAdminData['phoneNumber'] ?? phoneNo,
+            'email': cachedAdminData['email'],
+            'adminUid': cachedAdminData['adminUid'],
+            'customerCode': cachedAdminData['customerCode'],
+          };
         });
       } else {
         // Set default values if no cache available
@@ -212,7 +272,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
         });
       }
     } catch (e) {
-      developer.log('Error loading cached user data: $e', name: 'ProductDashBoard');
+      developer.log('Error loading cached user data from SQLite: $e', name: 'ProductDashBoard');
       // Set minimal default values
       setState(() {
         userData = {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:pos/view/tab_screen/view-model/backend/performance_analytics_dashboard.dart';
+import '../tab_screen/view-model/constants/constants.dart';
 
 class PerformanceDashboardScreen extends StatefulWidget {
   const PerformanceDashboardScreen({Key? key}) : super(key: key);
@@ -55,44 +56,62 @@ class _PerformanceDashboardScreenState extends State<PerformanceDashboardScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Performance Dashboard'),
+        backgroundColor: white,
         elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text(
+          'Performance',
+          style: TextStyle(
+            color: Colors.black,
+            fontFamily: 'tabfont',
+            fontSize: 19,
+          ),
+        ),
         bottom: TabBar(
           controller: _tabController,
-          indicatorColor: Colors.white,
+          indicatorColor: primaryColor,
           indicatorWeight: 3,
+          labelColor: primaryColor,
+          unselectedLabelColor: Colors.grey,
+          labelStyle: const TextStyle(fontFamily: 'fontmain', fontSize: 12),
           tabs: const [
-            Tab(icon: Icon(Icons.dashboard, size: 20), text: 'Overview'),
-            Tab(icon: Icon(Icons.query_stats, size: 20), text: 'Queries'),
-            Tab(icon: Icon(Icons.memory, size: 20), text: 'Memory'),
-            Tab(icon: Icon(Icons.health_and_safety, size: 20), text: 'Health'),
+            Tab(icon: Icon(Icons.dashboard, size: 18), text: 'Overview'),
+            Tab(icon: Icon(Icons.query_stats, size: 18), text: 'Queries'),
+            Tab(icon: Icon(Icons.memory, size: 18), text: 'Memory'),
+            Tab(icon: Icon(Icons.health_and_safety, size: 18), text: 'Health'),
           ],
         ),
         actions: [
           IconButton(
             icon: _isLoading
-                ? const SizedBox(
+                ? SizedBox(
                     width: 20,
                     height: 20,
                     child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Colors.white))
-                : const Icon(Icons.refresh),
+                        strokeWidth: 2, color: primaryColor))
+                : Icon(Icons.refresh, color: primaryColor),
             onPressed: _isLoading ? null : _loadData,
             tooltip: 'Refresh',
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : TabBarView(
-              controller: _tabController,
-              children: [
-                _buildOverviewTab(),
-                _buildQueriesTab(),
-                _buildMemoryTab(),
-                _buildHealthTab(),
-              ],
-            ),
+      body: Container(
+        color: Colors.grey.withOpacity(0.1),
+        child: _isLoading
+            ? Center(child: CircularProgressIndicator(color: primaryColor))
+            : TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildOverviewTab(),
+                  _buildQueriesTab(),
+                  _buildMemoryTab(),
+                  _buildHealthTab(),
+                ],
+              ),
+      ),
     );
   }
 
@@ -103,9 +122,10 @@ class _PerformanceDashboardScreenState extends State<PerformanceDashboardScreen>
     final status = metrics['systemStatus']?['status'] ?? 'Unknown';
 
     return RefreshIndicator(
+      color: primaryColor,
       onRefresh: _loadData,
       child: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         children: [
           // Health Score Card
           _buildHealthScoreCard(healthScore, status),
@@ -156,74 +176,73 @@ class _PerformanceDashboardScreenState extends State<PerformanceDashboardScreen>
   }
 
   Widget _buildHealthScoreCard(int score, String status) {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          gradient: LinearGradient(
-            colors: [
-              _getStatusColor(status).withOpacity(0.8),
-              _getStatusColor(status).withOpacity(0.6),
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        gradient: LinearGradient(
+          colors: [
+            _getStatusColor(status).withOpacity(0.9),
+            _getStatusColor(status).withOpacity(0.7),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
-        child: Row(
-          children: [
-            Stack(
-              alignment: Alignment.center,
-              children: [
-                SizedBox(
-                  width: 80,
-                  height: 80,
-                  child: CircularProgressIndicator(
-                    value: score / 100,
-                    strokeWidth: 8,
-                    backgroundColor: Colors.white.withOpacity(0.3),
-                    valueColor:
-                        const AlwaysStoppedAnimation<Color>(Colors.white),
-                  ),
+      ),
+      child: Row(
+        children: [
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              SizedBox(
+                width: 70,
+                height: 70,
+                child: CircularProgressIndicator(
+                  value: score / 100,
+                  strokeWidth: 6,
+                  backgroundColor: Colors.white.withOpacity(0.3),
+                  valueColor:
+                      const AlwaysStoppedAnimation<Color>(Colors.white),
                 ),
-                Text(
-                  '$score',
-                  style: const TextStyle(
-                    fontSize: 24,
+              ),
+              Text(
+                '$score',
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                  fontFamily: 'tabfont',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Health Score',
+                  style: TextStyle(
+                    fontSize: 16,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
+                    fontFamily: 'tabfont',
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _getHealthDescription(score),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.white.withOpacity(0.9),
+                    fontFamily: 'fontmain',
                   ),
                 ),
               ],
             ),
-            const SizedBox(width: 20),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Health Score',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    _getHealthDescription(score),
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.white.withOpacity(0.9),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -236,9 +255,10 @@ class _PerformanceDashboardScreenState extends State<PerformanceDashboardScreen>
     final distribution = queries['queryPerformanceDistribution'] ?? {};
 
     return RefreshIndicator(
+      color: primaryColor,
       onRefresh: _loadData,
       child: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         children: [
           // Query Overview
           _buildCard(
@@ -304,61 +324,67 @@ class _PerformanceDashboardScreenState extends State<PerformanceDashboardScreen>
     final name = q['name'] ?? 'Unknown Query';
 
     Color getSpeedColor(int ms) {
-      if (ms < 100) return Colors.green;
+      if (ms < 100) return primaryColor;
       if (ms < 500) return Colors.orange;
       if (ms < 1000) return Colors.deepOrange;
       return Colors.red;
     }
 
-    return Card(
+    return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    name,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w600, fontSize: 14),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+      decoration: BoxDecoration(
+        color: white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  name,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                    fontFamily: 'tabfont',
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: getSpeedColor(isSlowQuery ? p95 : avg)
+                      .withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '${isSlowQuery ? p95 : avg}ms',
+                  style: TextStyle(
+                    color: getSpeedColor(isSlowQuery ? p95 : avg),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 11,
                   ),
                 ),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: getSpeedColor(isSlowQuery ? p95 : avg)
-                        .withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    '${isSlowQuery ? p95 : avg}ms',
-                    style: TextStyle(
-                      color: getSpeedColor(isSlowQuery ? p95 : avg),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                _buildMetricChip('Avg', '$avg ms', Colors.blue),
-                const SizedBox(width: 8),
-                _buildMetricChip('P95', '$p95 ms', Colors.purple),
-                const SizedBox(width: 8),
-                _buildMetricChip('Count', '$count', Colors.grey),
-              ],
-            ),
-          ],
-        ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              _buildMetricChip('Avg', '$avg ms', primaryColor),
+              const SizedBox(width: 6),
+              _buildMetricChip('P95', '$p95 ms', Colors.purple),
+              const SizedBox(width: 6),
+              _buildMetricChip('Count', '$count', Colors.grey),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -399,9 +425,10 @@ class _PerformanceDashboardScreenState extends State<PerformanceDashboardScreen>
         double.tryParse(overview['utilizationPercent']?.toString() ?? '0') ?? 0;
 
     return RefreshIndicator(
+      color: primaryColor,
       onRefresh: _loadData,
       child: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         children: [
           // Memory Usage Card
           _buildMemoryUsageCard(currentUsage, peakUsage, utilization,
@@ -456,41 +483,45 @@ class _PerformanceDashboardScreenState extends State<PerformanceDashboardScreen>
 
   Widget _buildMemoryUsageCard(
       double current, double peak, double utilization, String status) {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildMemoryGauge('Current', current, 200, Colors.blue),
-                _buildMemoryGauge('Peak', peak, 200, Colors.orange),
-              ],
+    return Container(
+      decoration: BoxDecoration(
+        color: white,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildMemoryGauge('Current', current, 200, primaryColor),
+              _buildMemoryGauge('Peak', peak, 200, Colors.orange),
+            ],
+          ),
+          const SizedBox(height: 16),
+          LinearProgressIndicator(
+            value: utilization / 100,
+            backgroundColor: Colors.grey.shade200,
+            valueColor: AlwaysStoppedAnimation<Color>(
+              utilization > 80
+                  ? Colors.red
+                  : utilization > 60
+                      ? Colors.orange
+                      : primaryColor,
             ),
-            const SizedBox(height: 16),
-            LinearProgressIndicator(
-              value: utilization / 100,
-              backgroundColor: Colors.grey.shade200,
-              valueColor: AlwaysStoppedAnimation<Color>(
-                utilization > 80
-                    ? Colors.red
-                    : utilization > 60
-                        ? Colors.orange
-                        : Colors.green,
-              ),
-              minHeight: 8,
-              borderRadius: BorderRadius.circular(4),
+            minHeight: 6,
+            borderRadius: BorderRadius.circular(3),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Utilization: ${utilization.toStringAsFixed(1)}% - Status: $status',
+            style: TextStyle(
+              color: Colors.grey.shade600,
+              fontSize: 11,
+              fontFamily: 'fontmain',
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Utilization: ${utilization.toStringAsFixed(1)}% - Status: $status',
-              style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -545,9 +576,10 @@ class _PerformanceDashboardScreenState extends State<PerformanceDashboardScreen>
     final alertsByLevel = alertAnalysis['alertsByLevel'] as Map? ?? {};
 
     return RefreshIndicator(
+      color: primaryColor,
       onRefresh: _loadData,
       child: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         children: [
           // Health Assessment Card
           _buildCard(
@@ -615,69 +647,80 @@ class _PerformanceDashboardScreenState extends State<PerformanceDashboardScreen>
         case 'medium':
           return Colors.orange;
         default:
-          return Colors.blue;
+          return primaryColor;
       }
     }
 
-    return Card(
+    return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: getPriorityColor(priority).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    priority.toUpperCase(),
-                    style: TextStyle(
-                      color: getPriorityColor(priority),
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                    ),
+      decoration: BoxDecoration(
+        color: white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: getPriorityColor(priority).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  priority.toUpperCase(),
+                  style: TextStyle(
+                    color: getPriorityColor(priority),
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    title,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w600, fontSize: 14),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                    fontFamily: 'tabfont',
                   ),
                 ),
-              ],
-            ),
-            if (description.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(
-                description,
-                style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
               ),
             ],
+          ),
+          if (description.isNotEmpty) ...[
             const SizedBox(height: 8),
-            Row(
-              children: [
-                Icon(Icons.flash_on, size: 14, color: Colors.amber.shade700),
-                const SizedBox(width: 4),
-                Text(
-                  'Impact: $impact',
-                  style: TextStyle(
-                      color: Colors.amber.shade700,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500),
-                ),
-              ],
+            Text(
+              description,
+              style: TextStyle(
+                color: Colors.grey.shade600,
+                fontSize: 12,
+                fontFamily: 'fontmain',
+              ),
             ),
           ],
-        ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Icon(Icons.flash_on, size: 14, color: primaryColor),
+              const SizedBox(width: 4),
+              Text(
+                'Impact: $impact',
+                style: TextStyle(
+                  color: primaryColor,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  fontFamily: 'fontmain',
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -685,36 +728,41 @@ class _PerformanceDashboardScreenState extends State<PerformanceDashboardScreen>
   // Helper Widgets
   Widget _buildCard(
       String title, IconData icon, Color color, List<Widget> children) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: color.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(icon, color: color, size: 20),
+    return Container(
+      decoration: BoxDecoration(
+        color: white,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                const SizedBox(width: 12),
-                Text(
+                child: Icon(icon, color: color, size: 18),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
                   title,
                   style: const TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.bold),
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'tabfont',
+                  ),
                 ),
-              ],
-            ),
-            const Divider(height: 24),
-            ...children,
-          ],
-        ),
+              ),
+            ],
+          ),
+          const Divider(height: 20),
+          ...children,
+        ],
       ),
     );
   }
@@ -722,14 +770,15 @@ class _PerformanceDashboardScreenState extends State<PerformanceDashboardScreen>
   Widget _buildSectionTitle(String title, IconData icon) {
     return Row(
       children: [
-        Icon(icon, size: 20, color: Colors.grey.shade700),
+        Icon(icon, size: 18, color: primaryColor),
         const SizedBox(width: 8),
         Text(
           title,
           style: TextStyle(
-            fontSize: 16,
+            fontSize: 14,
             fontWeight: FontWeight.bold,
             color: Colors.grey.shade800,
+            fontFamily: 'tabfont',
           ),
         ),
       ],
@@ -738,12 +787,32 @@ class _PerformanceDashboardScreenState extends State<PerformanceDashboardScreen>
 
   Widget _buildRow(String label, String value) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: TextStyle(color: Colors.grey.shade600)),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.w500)),
+          SizedBox(
+            width: 100,
+            child: Text(
+              label,
+              style: TextStyle(
+                color: Colors.grey.shade600,
+                fontSize: 13,
+                fontFamily: 'fontmain',
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontWeight: FontWeight.w500,
+                fontSize: 13,
+                fontFamily: 'fontmain',
+              ),
+              textAlign: TextAlign.end,
+            ),
+          ),
         ],
       ),
     );
@@ -896,40 +965,62 @@ class _PerformanceDashboardScreenState extends State<PerformanceDashboardScreen>
   }
 
   Widget _buildEmptyState(String message) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Center(
-          child: Column(
-            children: [
-              Icon(Icons.inbox, size: 40, color: Colors.grey.shade400),
-              const SizedBox(height: 8),
-              Text(message, style: TextStyle(color: Colors.grey.shade600)),
-            ],
-          ),
+    return Container(
+      decoration: BoxDecoration(
+        color: white,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      padding: const EdgeInsets.all(24),
+      child: Center(
+        child: Column(
+          children: [
+            Icon(Icons.inbox, size: 36, color: Colors.grey.shade400),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              style: TextStyle(
+                color: Colors.grey.shade600,
+                fontFamily: 'fontmain',
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
   Widget _buildSuggestionCard(String suggestion) {
-    return Card(
+    return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      color: Colors.amber.shade50,
+      decoration: BoxDecoration(
+        color: primaryColor.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: primaryColor.withOpacity(0.2)),
+      ),
       child: ListTile(
-        leading: Icon(Icons.lightbulb, color: Colors.amber.shade700),
-        title: Text(suggestion, style: const TextStyle(fontSize: 13)),
+        leading: Icon(Icons.lightbulb, color: primaryColor, size: 20),
+        title: Text(
+          suggestion,
+          style: const TextStyle(fontSize: 12, fontFamily: 'fontmain'),
+        ),
       ),
     );
   }
 
   Widget _buildImprovementCard(String area) {
-    return Card(
+    return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      color: Colors.blue.shade50,
+      decoration: BoxDecoration(
+        color: primaryColor.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: primaryColor.withOpacity(0.2)),
+      ),
       child: ListTile(
-        leading: Icon(Icons.arrow_upward, color: Colors.blue.shade700),
-        title: Text(area, style: const TextStyle(fontSize: 13)),
+        leading: Icon(Icons.arrow_upward, color: primaryColor, size: 20),
+        title: Text(
+          area,
+          style: const TextStyle(fontSize: 12, fontFamily: 'fontmain'),
+        ),
       ),
     );
   }

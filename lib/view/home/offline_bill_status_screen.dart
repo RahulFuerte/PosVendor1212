@@ -4,6 +4,7 @@ import '../tab_screen/view-model/widgets/offline_bill_status_widget.dart';
 import '../tab_screen/view-model/widgets/offline_status_indicator.dart';
 import '../tab_screen/view-model/backend/complete_offline_data_manager.dart';
 import '../tab_screen/view-model/backend/price_utils.dart';
+import '../tab_screen/view-model/constants/constants.dart';
 
 /// Enhanced offline bill status screen with complete bill viewing capability
 class OfflineBillStatusScreen extends StatefulWidget {
@@ -72,17 +73,25 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Row(
-          children: [
-            Text('Bills & Offline Status'),
-            SizedBox(width: 8),
-            OfflineStatusIndicator(showWhenOnline: false),
-          ],
+        backgroundColor: white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          onPressed: () => Navigator.pop(context),
         ),
-        backgroundColor: Colors.blue[50],
+        title: const Text(
+          'Offline Bills',
+          style: TextStyle(
+            color: Colors.black,
+            fontFamily: 'tabfont',
+            fontSize: 19,
+          ),
+        ),
         actions: [
+          const OfflineStatusIndicator(showWhenOnline: true),
+          const SizedBox(width: 8),
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: Icon(Icons.refresh, color: primaryColor),
             onPressed: _loadAllBills,
             tooltip: 'Refresh Bills',
           ),
@@ -90,69 +99,61 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
       ),
       body: Column(
         children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(8),
-            color: Colors.orange.withOpacity(0.1),
-            child: const Text(
-              'Offline Bill Status',
-              style: TextStyle(
-                color: Colors.orange,
-                fontWeight: FontWeight.w500,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ),
           Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Offline Bill Status Widget
-                  OfflineBillStatusWidget(
-                    adminUid: widget.adminUid,
-                    onSyncCompleted: () {
-                      // Show success message when sync completes
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Offline bills synced successfully'),
-                          backgroundColor: Colors.green,
-                        ),
-                      );
-                      // Reload bills after sync
-                      _loadAllBills();
-                    },
-                  ),
-                  
-                  const SizedBox(height: 24),
-                  
-                  // All Bills Section
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
+            child: Container(
+              color: Colors.grey.withOpacity(0.1),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Offline Bill Status Widget
+                    OfflineBillStatusWidget(
+                      adminUid: widget.adminUid,
+                      onSyncCompleted: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: const Text('Offline bills synced successfully'),
+                            backgroundColor: primaryColor,
+                          ),
+                        );
+                        _loadAllBills();
+                      },
+                    ),
+                    
+                    const SizedBox(height: 16),
+                    
+                    // All Bills Section
+                    Container(
+                      decoration: BoxDecoration(
+                        color: white,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      padding: const EdgeInsets.all(12),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
                             children: [
-                              const Icon(Icons.receipt_long, color: Colors.blue),
+                              Icon(Icons.receipt_long, color: primaryColor),
                               const SizedBox(width: 8),
                               Text(
                                 'All Bills (${_bills.length})',
-                                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                style: const TextStyle(
+                                  fontFamily: 'tabfont',
                                   fontWeight: FontWeight.bold,
+                                  fontSize: 16,
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: 12),
                           
                           if (_isLoading)
-                            const Center(
+                            Center(
                               child: Padding(
-                                padding: EdgeInsets.all(32),
-                                child: CircularProgressIndicator(),
+                                padding: const EdgeInsets.all(32),
+                                child: CircularProgressIndicator(color: primaryColor),
                               ),
                             )
                           else if (_errorMessage.isNotEmpty)
@@ -171,7 +172,10 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
                                     const SizedBox(height: 16),
                                     ElevatedButton(
                                       onPressed: _loadAllBills,
-                                      child: const Text('Retry'),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: primaryColor,
+                                      ),
+                                      child: const Text('Retry', style: TextStyle(color: white)),
                                     ),
                                   ],
                                 ),
@@ -206,8 +210,8 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
                         ],
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -226,34 +230,56 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
     final syncStatus = bill['sync_status']?.toString() ?? 'unknown';
     final isPending = syncStatus == 'pending';
 
-    return Card(
+    return Container(
       margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
       child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: isPending ? Colors.orange : Colors.green,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        leading: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: isPending ? Colors.orange.withOpacity(0.1) : primaryColor.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(20),
+          ),
           child: Icon(
             isPending ? Icons.sync_problem : Icons.check_circle,
-            color: Colors.white,
+            color: isPending ? Colors.orange : primaryColor,
             size: 20,
           ),
         ),
         title: Text(
           'Bill #${billId.length > 8 ? billId.substring(0, 8) : billId}',
-          style: const TextStyle(fontWeight: FontWeight.bold),
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontFamily: 'tabfont',
+            fontSize: 14,
+          ),
         ),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Customer: $customerName'),
-            if (billDate != null)
-              Text('Date: ${_formatDate(billDate)}'),
             Text(
-              'Status: ${isPending ? 'Pending Sync' : 'Synced'}',
+              customerName,
               style: TextStyle(
-                color: isPending ? Colors.orange : Colors.green,
-                fontWeight: FontWeight.w500,
+                fontFamily: 'fontmain',
+                fontSize: 12,
+                color: Colors.grey.shade700,
               ),
             ),
+            if (billDate != null)
+              Text(
+                _formatDate(billDate),
+                style: TextStyle(
+                  fontFamily: 'fontmain',
+                  fontSize: 11,
+                  color: Colors.grey.shade500,
+                ),
+              ),
           ],
         ),
         trailing: Column(
@@ -262,17 +288,28 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
           children: [
             Text(
               '₹$totalAmount',
-              style: const TextStyle(
+              style: TextStyle(
                 fontWeight: FontWeight.bold,
-                fontSize: 16,
+                fontSize: 15,
+                color: primaryColor,
+                fontFamily: 'tabfont',
               ),
             ),
-            if (isPending)
-              const Icon(
-                Icons.cloud_upload,
-                size: 16,
-                color: Colors.orange,
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: isPending ? Colors.orange.withOpacity(0.1) : primaryColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(4),
               ),
+              child: Text(
+                isPending ? 'Pending' : 'Synced',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                  color: isPending ? Colors.orange : primaryColor,
+                ),
+              ),
+            ),
           ],
         ),
         onTap: () {
@@ -286,7 +323,23 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Bill #${bill['id']?.toString() ?? 'Unknown'}'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: Row(
+          children: [
+            Icon(Icons.receipt, color: primaryColor, size: 24),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Bill #${bill['id']?.toString() ?? 'Unknown'}',
+                style: const TextStyle(
+                  fontFamily: 'tabfont',
+                  fontSize: 16,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
         content: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -294,19 +347,18 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
             children: [
               _buildDetailRow('Customer', bill['customer_name']?.toString() ?? 'Unknown'),
               _buildDetailRow('Phone', bill['customer_phone']?.toString() ?? 'N/A'),
-              _buildDetailRow('Total Amount', '₹${PriceUtils.safePriceToString(bill['total_amount'] ?? bill['total'])}'),
-              _buildDetailRow('Payment Method', bill['payment_method']?.toString() ?? 'N/A'),
-              _buildDetailRow('Sync Status', bill['sync_status']?.toString() ?? 'Unknown'),
+              _buildDetailRow('Total', '₹${PriceUtils.safePriceToString(bill['total_amount'] ?? bill['total'])}'),
+              _buildDetailRow('Payment', bill['payment_method']?.toString() ?? 'N/A'),
+              _buildDetailRow('Status', bill['sync_status']?.toString() ?? 'Unknown'),
               if (bill['bill_date'] != null)
                 _buildDetailRow('Date', _formatDate(DateTime.fromMillisecondsSinceEpoch(bill['bill_date'] as int))),
-              if (bill['items'] != null)
-                _buildDetailRow('Items', bill['items'].toString()),
             ],
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
+            style: TextButton.styleFrom(foregroundColor: primaryColor),
             child: const Text('Close'),
           ),
         ],
@@ -316,19 +368,30 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
 
   Widget _buildDetailRow(String label, String value) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 100,
+            width: 80,
             child: Text(
-              '$label:',
-              style: const TextStyle(fontWeight: FontWeight.bold),
+              label,
+              style: TextStyle(
+                fontFamily: 'fontmain',
+                color: Colors.grey.shade600,
+                fontSize: 13,
+              ),
             ),
           ),
           Expanded(
-            child: Text(value),
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontFamily: 'fontmain',
+                fontWeight: FontWeight.w500,
+                fontSize: 13,
+              ),
+            ),
           ),
         ],
       ),

@@ -306,25 +306,47 @@ class DatabaseConnectionManager {
     }
     
     try {
-      if (_unifiedService == null) {
-        throw Exception('Unified database service not initialized');
+      final bool isOnline = _connectionMonitor?.isConnected ?? false;
+      
+      // If online and unified service is available, use it
+      if (isOnline && _unifiedService != null) {
+        switch (dataType) {
+          case 'food_items':
+            await _unifiedService!.saveFoodItem(adminUid, data);
+            break;
+          case 'departments':
+            await _unifiedService!.saveDepartment(adminUid, data);
+            break;
+          case 'bills':
+            await _unifiedService!.saveBill(adminUid, data);
+            break;
+          default:
+            throw Exception('Unsupported data type: $dataType');
+        }
+      } else {
+        // Offline mode: Save directly to SQLite
+        if (_sqliteDAO == null) {
+          throw Exception('SQLite DAO not initialized');
+        }
+        
+        developer.log('Saving $dataType offline to SQLite', name: 'DatabaseConnectionManager');
+        
+        switch (dataType) {
+          case 'food_items':
+            await _sqliteDAO!.saveFoodItem(adminUid, data);
+            break;
+          case 'departments':
+            await _sqliteDAO!.saveDepartment(adminUid, data);
+            break;
+          case 'bills':
+            await _sqliteDAO!.saveBill(adminUid, data);
+            break;
+          default:
+            throw Exception('Unsupported data type: $dataType');
+        }
       }
       
-      switch (dataType) {
-        case 'food_items':
-          await _unifiedService!.saveFoodItem(adminUid, data);
-          break;
-        case 'departments':
-          await _unifiedService!.saveDepartment(adminUid, data);
-          break;
-        case 'bills':
-          await _unifiedService!.saveBill(adminUid, data);
-          break;
-        default:
-          throw Exception('Unsupported data type: $dataType');
-      }
-      
-      developer.log('Data saved successfully: $dataType', name: 'DatabaseConnectionManager');
+      developer.log('Data saved successfully: $dataType (${isOnline ? "online" : "offline"})', name: 'DatabaseConnectionManager');
     } catch (e) {
       developer.log('Error saving data: $e', name: 'DatabaseConnectionManager');
       rethrow;

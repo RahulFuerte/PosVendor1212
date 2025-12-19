@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../backend/database_service.dart';
 import '../backend/unified_database_service.dart';
 import '../backend/offline_bill_manager.dart';
+import '../constants/constants.dart';
 
 /// Widget that displays offline bill sync status and provides manual sync functionality
 class OfflineBillStatusWidget extends StatefulWidget {
@@ -265,92 +266,108 @@ class _OfflineBillStatusWidgetState extends State<OfflineBillStatusWidget> {
 
   Widget _buildSyncStatusIndicator() {
     if (_isSyncing) {
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const SizedBox(
-            width: 16,
-            height: 16,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: primaryColor.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 12,
+              height: 12,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            _getSyncingStatusText(),
-            style: const TextStyle(
-              color: Colors.blue,
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
+            const SizedBox(width: 6),
+            Text(
+              _getSyncingStatusText(),
+              style: TextStyle(
+                color: primaryColor,
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       );
     }
 
     if (!_isConnected) {
-      return const Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.cloud_off,
-            size: 16,
-            color: Colors.orange,
-          ),
-          SizedBox(width: 4),
-          Text(
-            'Offline Mode',
-            style: TextStyle(
-              color: Colors.orange,
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.orange.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.cloud_off, size: 14, color: Colors.orange),
+            SizedBox(width: 4),
+            Text(
+              'Offline',
+              style: TextStyle(
+                color: Colors.orange,
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       );
     }
 
     if (_offlineBillsCount > 0) {
-      return Row(
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.orange.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.sync_problem, size: 14, color: Colors.orange),
+            const SizedBox(width: 4),
+            Text(
+              '$_offlineBillsCount pending',
+              style: const TextStyle(
+                color: Colors.orange,
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: primaryColor.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
-            Icons.sync_problem,
-            size: 16,
-            color: Colors.amber,
-          ),
+          Icon(Icons.cloud_done, size: 14, color: primaryColor),
           const SizedBox(width: 4),
           Text(
-            '$_offlineBillsCount pending sync',
-            style: const TextStyle(
-              color: Colors.amber,
-              fontSize: 12,
+            'Synced',
+            style: TextStyle(
+              color: primaryColor,
+              fontSize: 11,
               fontWeight: FontWeight.w500,
             ),
           ),
         ],
-      );
-    }
-
-    return const Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(
-          Icons.cloud_done,
-          size: 16,
-          color: Colors.green,
-        ),
-        SizedBox(width: 4),
-        Text(
-          'All Synced',
-          style: TextStyle(
-            color: Colors.green,
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
+      ),
     );
   }
 
@@ -369,94 +386,106 @@ class _OfflineBillStatusWidgetState extends State<OfflineBillStatusWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.all(8),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Offline Bills Status',
+    return Container(
+      decoration: BoxDecoration(
+        color: white,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.sync, color: primaryColor, size: 20),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'Sync Status',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    fontSize: 16,
+                    fontSize: 15,
+                    fontFamily: 'tabfont',
                   ),
                 ),
-                _buildSyncStatusIndicator(),
-              ],
-            ),
-            
-            if (_offlineBillsCount > 0) ...[
-              const SizedBox(height: 8),
-              Text(
-                '$_offlineBillsCount bills pending sync',
-                style: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 14,
-                ),
               ),
+              _buildSyncStatusIndicator(),
             ],
-            
-            if (_lastSyncError != null) ...[
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.red[50],
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: Colors.red[200]!),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.error_outline, color: Colors.red, size: 16),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Last sync error: $_lastSyncError',
-                        style: TextStyle(
-                          color: Colors.red[700],
-                          fontSize: 12,
-                        ),
+          ),
+          
+          if (_offlineBillsCount > 0) ...[
+            const SizedBox(height: 8),
+            Text(
+              '$_offlineBillsCount bills pending sync',
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 13,
+                fontFamily: 'fontmain',
+              ),
+            ),
+          ],
+          
+          if (_lastSyncError != null) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.red[50],
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: Colors.red[200]!),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.error_outline, color: Colors.red, size: 16),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Error: $_lastSyncError',
+                      style: TextStyle(
+                        color: Colors.red[700],
+                        fontSize: 11,
+                        fontFamily: 'fontmain',
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
-            
-            if (_lastSyncTime != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                'Last sync: ${_formatDateTime(_lastSyncTime!)}',
-                style: TextStyle(
-                  color: Colors.grey[500],
-                  fontSize: 12,
-                ),
+            ),
+          ],
+          
+          if (_lastSyncTime != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Last sync: ${_formatDateTime(_lastSyncTime!)}',
+              style: TextStyle(
+                color: Colors.grey[500],
+                fontSize: 11,
+                fontFamily: 'fontmain',
               ),
-            ],
-            
-            if (_offlineBillsCount > 0 && _isConnected && !_isSyncing) ...[
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: _manualSync,
-                  icon: const Icon(Icons.sync, size: 18),
-                  label: const Text('Sync Now'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
-                    foregroundColor: Colors.white,
+            ),
+          ],
+          
+          if (_offlineBillsCount > 0 && _isConnected && !_isSyncing) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _manualSync,
+                icon: const Icon(Icons.sync, size: 16),
+                label: const Text('Sync Now', style: TextStyle(fontSize: 13)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: primaryColor,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(6),
                   ),
                 ),
               ),
-            ],
+            ),
           ],
-        ),
+        ],
       ),
     );
   }

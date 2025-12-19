@@ -8,6 +8,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:hive/hive.dart';
+import '../tab_screen/view-model/backend/sqlite_helper.dart';
 import 'package:intl/intl.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:pos/view/home/usersDataScreen.dart';
@@ -57,6 +58,7 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
   List<Map<String, dynamic>> selectedItemsDetails = [];
   final ScrollController _listScrollController = ScrollController();
   final TextEditingController userNameController = TextEditingController();
+  final TextEditingController userPhoneController = TextEditingController();
   final ScrollController _gridViewController = ScrollController();
 
   // Offline functionality
@@ -220,11 +222,7 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
     }
   }
 
-  @override
-  void dispose() {
-    _connectionSubscription?.cancel();
-    super.dispose();
-  }
+
 
   Future<void> _initializeFoodItems() async {
     try {
@@ -251,18 +249,71 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
           .get()
           .timeout(const Duration(seconds: 3));
 
-      final String? fetchedAdminUid = snapshot.data()?['adminUid'];
+      final data = snapshot.data();
+      final String? fetchedAdminUid = data?['adminUid'];
 
-      setState(() {
-        this.adminUid = fetchedAdminUid ?? 'Admin UID not found';
-      });
-      return fetchedAdminUid ?? 'Admin UID not found';
+      if (fetchedAdminUid != null && fetchedAdminUid.isNotEmpty) {
+        // Cache the admin data in SQLite for offline use
+        try {
+          final sqliteHelper = SQLiteHelper();
+          await sqliteHelper.saveAdminData({
+            'adminUid': fetchedAdminUid,
+            'phoneNumber': widget.phoneNo,
+            'name': data?['name'],
+            'email': data?['email'],
+            'customerCode': data?['customerCode'],
+            'createdAt': data?['createdAt'],
+          });
+        } catch (cacheError) {
+          developer.log('Error caching adminUid in SQLite: $cacheError',
+              name: 'RestaurantScreen');
+        }
+
+        setState(() {
+          this.adminUid = fetchedAdminUid;
+        });
+        return fetchedAdminUid;
+      }
+
+      // If Firebase returned null, try SQLite cache
+      return await _getCachedAdminUid();
     } catch (e) {
       developer.log('Error fetching adminUid: $e', name: 'RestaurantScreen');
+      // Fall back to cached adminUid from SQLite when offline
+      return await _getCachedAdminUid();
+    }
+  }
+
+  /// Get cached adminUid from SQLite for offline use
+  Future<String> _getCachedAdminUid() async {
+    try {
+      final sqliteHelper = SQLiteHelper();
+      final cachedAdminUid = await sqliteHelper.getAdminUid(widget.phoneNo);
+
+      if (cachedAdminUid != null && cachedAdminUid.isNotEmpty) {
+        developer.log('Using cached adminUid from SQLite: $cachedAdminUid',
+            name: 'RestaurantScreen');
+        setState(() {
+          this.adminUid = cachedAdminUid;
+        });
+        return cachedAdminUid;
+      }
+
+      // Last resort: use phoneNo as adminUid (common pattern in this app)
+      developer.log('No cached adminUid found, using phoneNo as fallback',
+          name: 'RestaurantScreen');
       setState(() {
-        this.adminUid = 'Offline - using local data';
+        this.adminUid = widget.phoneNo;
       });
-      return 'Offline - using local data';
+      return widget.phoneNo;
+    } catch (e) {
+      developer.log('Error getting cached adminUid from SQLite: $e',
+          name: 'RestaurantScreen');
+      // Ultimate fallback: use phoneNo
+      setState(() {
+        this.adminUid = widget.phoneNo;
+      });
+      return widget.phoneNo;
     }
   }
 
@@ -565,11 +616,12 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                                                                 ['unknown'],
                                                         width: 50,
                                                         height: 50,
-                                                      borderRadius: BorderRadius.circular(100),
-                                                      placeholder: const CircularProgressIndicator(),
-                                                      
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(100),
+                                                        placeholder:
+                                                            const CircularProgressIndicator(),
                                                       ),
-                                                      
 
                                                       //  ImageNetwork(
                                                       //   onTap: () {
@@ -1341,7 +1393,21 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                 child: IconButton(
                   icon: Icon(Icons.bookmark_outline, color: appbar1, size: 24),
                   onPressed: () async {
-                    await _showSaveBottomSheet();
+                    showSaveOrderBottomSheet(
+                        context: context,
+                        formKey: _formKey,
+                        nameController: userNameController,
+                        mobileController: userPhoneController,
+                        itemCount: selectedItemsDetails.length,
+                        totalAmount: subtotal,
+                        onSave: () {
+                          _saveDataAndNavigate();
+                          printprovider.clearCart();
+                          userNameController.clear();
+                          userPhoneController.clear();
+                        },
+                        primaryColor: primaryColor);
+                    // await _showSaveBottomSheet();
                   },
                 ),
               ),
@@ -1517,9 +1583,11 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
 
   void _saveDataAndNavigate() async {
     final userMap = {
+      'phoneNumber': userPhoneController.text,
       'userName': userNameController.text,
       'details': selectedItemsDetails,
       'totalAmount': subtotal,
+      
     };
 
     final box = await Hive.openBox('userBox');
@@ -1531,4 +1599,16 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
       MaterialPageRoute(builder: (context) => UsersScreen()),
     );
   }
+
+  @override
+  void dispose() {
+    _connectionSubscription?.cancel();
+  
+  userNameController.dispose();
+  userPhoneController.dispose();
+  _listScrollController.dispose();
+  audioPlayer.dispose();
+    super.dispose();
+  }
+ 
 }

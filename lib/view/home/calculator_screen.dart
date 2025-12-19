@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:hive/hive.dart';
+import 'package:pos/view/tab_screen/view-model/backend/sqlite_helper.dart';
 import 'package:pos/view/home/usersDataScreen.dart';
 import 'package:pos/view/home/navigation.dart';
 import 'package:pos/view/home/print_provider.dart';
@@ -145,24 +146,113 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
     }
   }
 
+  Future<void> showSaveOrderBottomSheet({
+    required BuildContext context,
+    required GlobalKey<FormState> formKey,
+    required TextEditingController nameController,
+    required TextEditingController mobileController,
+    required int itemCount,
+    required double totalAmount,
+    required VoidCallback onSave,
+    required Color primaryColor,
+  }) {
+    return showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) {
+        return SaveOrderBottomSheet(
+          formKey: formKey,
+          nameController: nameController,
+          mobileController: mobileController,
+          itemCount: itemCount,
+          totalAmount: totalAmount,
+          primaryColor: primaryColor,
+          onCancel: () => Navigator.pop(context),
+          onSave: () {
+            if (formKey.currentState!.validate()) {
+              onSave();
+              Navigator.pop(context);
+            }
+          },
+        );
+      },
+    );
+  }
+
   Future<String> fetchAdminUid() async {
     try {
       DocumentSnapshot<Map<String, dynamic>> snapshot = await FirebaseFirestore
           .instance
           .collection('AllCustomer')
           .doc(widget.phoneNumber)
-          .get();
+          .get()
+          .timeout(const Duration(seconds: 3));
 
-      final String? adminUid = snapshot.data()?['adminUid'];
+      final data = snapshot.data();
+      final String? fetchedAdminUid = data?['adminUid'];
 
-      setState(() {
-        this.adminUid = adminUid ?? 'Admin UID not found';
-      });
+      if (fetchedAdminUid != null && fetchedAdminUid.isNotEmpty) {
+        // Cache the admin data in SQLite for offline use
+        try {
+          final sqliteHelper = SQLiteHelper();
+          await sqliteHelper.saveAdminData({
+            'adminUid': fetchedAdminUid,
+            'phoneNumber': widget.phoneNumber,
+            'name': data?['name'],
+            'email': data?['email'],
+            'customerCode': data?['customerCode'],
+            'createdAt': data?['createdAt'],
+          });
+        } catch (cacheError) {
+          developer.log('Error caching adminUid in SQLite: $cacheError',
+              name: 'CalculatorScreen');
+        }
 
-      return adminUid ?? 'Admin UID not found';
+        setState(() {
+          this.adminUid = fetchedAdminUid;
+        });
+        return fetchedAdminUid;
+      }
+
+      // If Firebase returned null, try SQLite cache
+      return await _getCachedAdminUid();
     } catch (e) {
       developer.log('Error fetching adminUid: $e', name: 'CalculatorScreen');
-      return 'Error fetching adminUid';
+      // Fall back to cached adminUid from SQLite when offline
+      return await _getCachedAdminUid();
+    }
+  }
+
+  /// Get cached adminUid from SQLite for offline use
+  Future<String> _getCachedAdminUid() async {
+    try {
+      final sqliteHelper = SQLiteHelper();
+      final cachedAdminUid = await sqliteHelper.getAdminUid(widget.phoneNumber);
+
+      if (cachedAdminUid != null && cachedAdminUid.isNotEmpty) {
+        developer.log('Using cached adminUid from SQLite: $cachedAdminUid',
+            name: 'CalculatorScreen');
+        setState(() {
+          this.adminUid = cachedAdminUid;
+        });
+        return cachedAdminUid;
+      }
+
+      // Last resort: use phoneNumber as adminUid
+      developer.log('No cached adminUid found, using phoneNumber as fallback',
+          name: 'CalculatorScreen');
+      setState(() {
+        this.adminUid = widget.phoneNumber;
+      });
+      return widget.phoneNumber;
+    } catch (e) {
+      developer.log('Error getting cached adminUid from SQLite: $e',
+          name: 'CalculatorScreen');
+      setState(() {
+        this.adminUid = widget.phoneNumber;
+      });
+      return widget.phoneNumber;
     }
   }
 
@@ -832,7 +922,18 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
                           size: 24,
                         ),
                         onPressed: () async {
-                          await _showSaveBottomSheet();
+                          showSaveOrderBottomSheet(
+                              context: context,
+                              formKey: _formKey,
+                              nameController: userNameController,
+                              mobileController: mobileController,
+                              itemCount: cartItems.length,
+                              totalAmount: totalSum,
+                              primaryColor: primaryColor,
+                              onSave: () {
+
+                              });
+                          // await _showSaveBottomSheet();
                           // SaveOrderBottomSheet(formKey: _formKey, nameController: userNameController,mobileController: mobileController,onSave: () => ,);
                         },
                       ),
@@ -977,48 +1078,49 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
 
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   // TextEditingController userNameController = TextEditingController();
-  Future<void> _showSaveBottomSheet() async {
-    return showModalBottomSheet(
-      context: context,
-      builder: (BuildContext context) {
-        return Container(
-          padding: const EdgeInsets.all(16),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
-                  controller: userNameController,
-                  decoration: const InputDecoration(labelText: 'User Name'),
-                  validator: (value) {
-                    if (value!.isEmpty) {
-                      return 'Please enter a user name';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: () {
-                    if (_formKey.currentState!.validate()) {
-                      _saveDataAndNavigate();
-                      userNameController.clear();
-                    }
-                  },
-                  child: const Text('Submit'),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
+  // Future<void> _showSaveBottomSheet() async {
+  //   return showModalBottomSheet(
+  //     context: context,
+  //     builder: (BuildContext context) {
+  //       return Container(
+  //         padding: const EdgeInsets.all(16),
+  //         child: Form(
+  //           key: _formKey,
+  //           child: Column(
+  //             mainAxisSize: MainAxisSize.min,
+  //             children: [
+  //               TextFormField(
+  //                 controller: userNameController,
+  //                 decoration: const InputDecoration(labelText: 'User Name'),
+  //                 validator: (value) {
+  //                   if (value!.isEmpty) {
+  //                     return 'Please enter a user name';
+  //                   }
+  //                   return null;
+  //                 },
+  //               ),
+  //               const SizedBox(height: 16),
+  //               ElevatedButton(
+  //                 onPressed: () {
+  //                   if (_formKey.currentState!.validate()) {
+  //                     _saveDataAndNavigate();
+  //                     userNameController.clear();
+  //                   }
+  //                 },
+  //                 child: const Text('Submit'),
+  //               ),
+  //             ],
+  //           ),
+  //         ),
+  //       );
+  //     },
+  //   );
+  // }
 
   void _saveDataAndNavigate() async {
     final printprovider = Provider.of<PrintProvider>(context, listen: false);
     final userMap = {
+      'phoneNumber': mobileController.text,
       'userName': userNameController.text,
       'details': _encodeDetails(cartItems),
       'totalAmount': printprovider.total,
