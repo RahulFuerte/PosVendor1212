@@ -767,6 +767,10 @@ class DirectPrintHelper {
     required String contact,
     required String address,
     required String adminUid,
+    String? tableNumber,
+    bool taxEnabled = false,
+    double cgstPercent = 2.5,
+    double sgstPercent = 2.5,
   }) async {
     try {
       // Generate receipt number
@@ -806,6 +810,15 @@ class DirectPrintHelper {
       bytes += generator.text('RECEIPT', styles: smallFontCenter);
       bytes +=
           generator.text('Receipt No: $receiptNo', styles: smallFontCenter);
+
+      // Table number (show N/A if not provided)
+      if (tableNumber != null || tableNumber != 'N/A') {
+        bytes += generator.text(
+          'Table No: ${tableNumber ?? 'N/A'}',
+          styles: smallFontCenter,
+        );
+      }
+
       bytes += generator.text(separator, styles: smallFontLeft);
 
       // Table header
@@ -837,11 +850,9 @@ class DirectPrintHelper {
         );
       }
 
-      // Calculate GST
+      // Calculate totals
       double subtotal = total;
-      double cgst = subtotal * 0.025; // 2.5% CGST
-      double sgst = subtotal * 0.025; // 2.5% SGST
-      double grandTotal = subtotal + cgst + sgst;
+      double grandTotal = subtotal;
 
       // Subtotal
       bytes += generator.text(separator, styles: smallFontLeft);
@@ -851,19 +862,26 @@ class DirectPrintHelper {
         styles: smallFontLeft,
       );
 
-      // CGST
-      bytes += generator.text(
-        'CGST (2.5%)'.padRight(totalCols - 8) +
-            cgst.toStringAsFixed(2).padLeft(8),
-        styles: smallFontLeft,
-      );
+      // Only show tax if enabled
+      if (taxEnabled) {
+        double cgst = subtotal * (cgstPercent / 100);
+        double sgst = subtotal * (sgstPercent / 100);
+        grandTotal = subtotal + cgst + sgst;
 
-      // SGST
-      bytes += generator.text(
-        'SGST (2.5%)'.padRight(totalCols - 8) +
-            sgst.toStringAsFixed(2).padLeft(8),
-        styles: smallFontLeft,
-      );
+        // CGST
+        bytes += generator.text(
+          'CGST (${cgstPercent.toStringAsFixed(1)}%)'.padRight(totalCols - 8) +
+              cgst.toStringAsFixed(2).padLeft(8),
+          styles: smallFontLeft,
+        );
+
+        // SGST
+        bytes += generator.text(
+          'SGST (${sgstPercent.toStringAsFixed(1)}%)'.padRight(totalCols - 8) +
+              sgst.toStringAsFixed(2).padLeft(8),
+          styles: smallFontLeft,
+        );
+      }
 
       // Grand Total
       bytes += generator.text(separator, styles: smallFontLeft);
@@ -900,7 +918,7 @@ class DirectPrintHelper {
         final message = isConnected
             ? 'Receipt printed & saved online! Receipt No: $receiptNo'
             : 'Receipt printed & saved offline! Will sync when online. Receipt No: $receiptNo';
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(message),
@@ -959,7 +977,7 @@ class DirectPrintHelper {
         'subTotal': subTotal,
         'monthDoc': monthDoc,
         'dateDoc': dateDoc,
-        'createdAt': now.millisecondsSinceEpoch,
+        'createdAt': now.toString(),
       };
 
       if (isConnected) {
@@ -993,7 +1011,7 @@ class DirectPrintHelper {
       connectionMonitor.dispose();
     } catch (e) {
       debugPrint('Error saving bill: $e');
-      
+
       // Fallback to offline storage if online save fails
       try {
         final now = DateTime.now();
@@ -1112,11 +1130,13 @@ class DirectPrintHelper {
   }
 
   /// Get offline bill statistics for display
-  static Future<Map<String, dynamic>> getOfflineBillStats(String adminUid) async {
+  static Future<Map<String, dynamic>> getOfflineBillStats(
+      String adminUid) async {
     try {
       final offlineBillManager = OfflineBillManager();
       await offlineBillManager.initialize();
-      return await offlineBillManager.getDetailedOfflineBillStatistics(adminUid);
+      return await offlineBillManager
+          .getDetailedOfflineBillStatistics(adminUid);
     } catch (e) {
       debugPrint('Error getting offline bill stats: $e');
       return {

@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
-
-import 'dart:io';
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
+import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
+import 'package:pos/view/home/print_provider.dart';
+import 'package:pos/view/tab_screen/view-model/backend/sqlite_helper.dart';
+import 'dart:io';
 
 class EditBillReceiptScreen extends StatefulWidget {
   final String AdminUid;
@@ -44,27 +43,67 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
 
   Future<void> _fetchExistingData() async {
     try {
-      final doc = await FirebaseFirestore.instance
-          .collection('AllAdmins')
-          .doc(widget.AdminUid)
-          .collection('customer')
-          .doc(widget.phoneNo)
-          .get();
+      final sqliteHelper = SQLiteHelper();
+      
+      // First try to get data from local SQLite cache
+      final localData = await sqliteHelper.getUserData(widget.phoneNo);
+      
+      if (localData != null && mounted) {
+        // Use local data
+        _shopNameController.text = localData['shopName'] ?? '';
+        _imageUrl = localData['shopLogoUrl'];
 
-      if (doc.exists && mounted) {
-        final data = doc.data();
-        if (data != null) {
-          _shopNameController.text = data['shopName'] ?? '';
-          _imageUrl = data['logoUrl'];
+        // Remove +91 prefix if present for display
+        String contact = localData['shopContact'] ?? '';
+        if (contact.startsWith('+91')) {
+          contact = contact.substring(3);
+        }
+        _contactController.text = contact;
 
-          // Remove +91 prefix if present for display
-          String contact = data['contact'] ?? '';
-          if (contact.startsWith('+91')) {
-            contact = contact.substring(3);
+        _addressController.text = localData['address'] ?? '';
+        
+        print('Loaded receipt data from local cache');
+      } else {
+        // Local data not found, fetch from Firebase
+        final doc = await FirebaseFirestore.instance
+            .collection('AllAdmins')
+            .doc(widget.AdminUid)
+            .collection('customer')
+            .doc(widget.phoneNo)
+            .get();
+
+        if (doc.exists && mounted) {
+          final data = doc.data();
+          if (data != null) {
+            _shopNameController.text = data['shopName'] ?? '';
+            _imageUrl = data['logoUrl'];
+
+            // Remove +91 prefix if present for display
+            String contact = data['contact'] ?? '';
+            if (contact.startsWith('+91')) {
+              contact = contact.substring(3);
+            }
+            _contactController.text = contact;
+
+            _addressController.text = data['address'] ?? '';
+            
+            // Save all fields to local SQLite for future use
+            await sqliteHelper.saveUserData({
+              'phoneNumber': data['phoneNumber'] ?? widget.phoneNo,
+              'adminUid': data['adminUid'] ?? widget.AdminUid,
+              'shopName': data['shopName'],
+              'logoUrl': data['logoUrl'],
+              'contact': data['contact'],
+              'address': data['address'],
+              'name': data['name'],
+              'email': data['email'],
+              'customerCode': data['customerCode'],
+              'gstNumber': data['gstNo'],
+              'createdAt': data['createdAt'],
+            });
+            
+            print('Loaded receipt data from Firebase and saved locally');
           }
-          _contactController.text = contact;
-
-          _addressController.text = data['address'] ?? '';
         }
       }
     } catch (e) {
@@ -280,6 +319,17 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
             .collection('customer')
             .doc(widget.phoneNo)
             .set(data, SetOptions(merge: true));
+
+        // Also save to local SQLite for offline access
+        final sqliteHelper = SQLiteHelper();
+        await sqliteHelper.saveUserData({
+          'phoneNumber': widget.phoneNo,
+          'adminUid': widget.AdminUid,
+          'shopName': _shopNameController.text.trim(),
+          'logoUrl': logoUrl,
+          'contact': contactWithPrefix,
+          'address': _addressController.text.trim(),
+        });
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -533,6 +583,130 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
                                 return null;
                               },
                             ),
+                            const SizedBox(height: 32),
+
+                            // Tax Settings Section
+                            const Text(
+                              'Tax Settings',
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Configure tax display on receipts',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+
+                            // Tax Settings Card
+                            Consumer<PrintProvider>(
+                              builder: (context, printProvider, child) {
+                                return Container(
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: Colors.grey[300]!),
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      // Enable Tax Toggle
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Icon(Icons.percent, color: primaryColor),
+                                              const SizedBox(width: 12),
+                                              Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  const Text(
+                                                    'Enable Tax on Receipt',
+                                                    style: TextStyle(
+                                                      fontSize: 16,
+                                                      fontWeight: FontWeight.w600,
+                                                    ),
+                                                  ),
+                                                  Text(
+                                                    printProvider.taxEnabled
+                                                        ? 'Tax will be shown'
+                                                        : 'Tax will not be shown',
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                      color: Colors.grey[600],
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                          Switch(
+                                            value: printProvider.taxEnabled,
+                                            onChanged: (value) {
+                                              printProvider.setTaxEnabled(value);
+                                            },
+                                            activeColor: primaryColor,
+                                          ),
+                                        ],
+                                      ),
+                                      
+                                      // Tax Rate Fields (only show when enabled)
+                                      if (printProvider.taxEnabled) ...[
+                                        const Divider(height: 24),
+                                        _buildTaxRateField(
+                                          label: 'CGST Rate',
+                                          value: printProvider.cgstPercent,
+                                          onChanged: (value) {
+                                            final cgst = double.tryParse(value) ?? 2.5;
+                                            printProvider.setTaxRates(cgst, printProvider.sgstPercent);
+                                          },
+                                        ),
+                                        const SizedBox(height: 12),
+                                        _buildTaxRateField(
+                                          label: 'SGST Rate',
+                                          value: printProvider.sgstPercent,
+                                          onChanged: (value) {
+                                            final sgst = double.tryParse(value) ?? 2.5;
+                                            printProvider.setTaxRates(printProvider.cgstPercent, sgst);
+                                          },
+                                        ),
+                                        const SizedBox(height: 12),
+                                        Container(
+                                          padding: const EdgeInsets.all(12),
+                                          decoration: BoxDecoration(
+                                            color: primaryColor.withOpacity(0.1),
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              Icon(Icons.info_outline, color: primaryColor, size: 20),
+                                              const SizedBox(width: 8),
+                                              Expanded(
+                                                child: Text(
+                                                  'Total Tax: ${(printProvider.cgstPercent + printProvider.sgstPercent).toStringAsFixed(1)}%',
+                                                  style: TextStyle(
+                                                    fontSize: 14,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: primaryColor,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
                           ],
                         ),
                       ),
@@ -673,6 +847,59 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
             alignLabelWithHint: true,
           ),
           validator: validator,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTaxRateField({
+    required String label,
+    required double value,
+    required Function(String) onChanged,
+  }) {
+    final controller = TextEditingController(text: value.toString());
+    return Row(
+      children: [
+        Expanded(
+          flex: 2,
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+        Expanded(
+          flex: 1,
+          child: TextFormField(
+            controller: controller,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            textAlign: TextAlign.center,
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+            ],
+            decoration: InputDecoration(
+              suffixText: '%',
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(color: Colors.grey[300]!),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(color: Colors.grey[300]!),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: primaryColor, width: 2),
+              ),
+              filled: true,
+              fillColor: Colors.grey[50],
+            ),
+            onChanged: onChanged,
+          ),
         ),
       ],
     );

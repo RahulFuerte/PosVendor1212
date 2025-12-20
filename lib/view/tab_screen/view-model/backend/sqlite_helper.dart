@@ -92,6 +92,7 @@ class SQLiteHelper {
         customer_phone TEXT,
         items TEXT NOT NULL,
         total_amount REAL NOT NULL,
+        table_number TEXT DEFAULT 'N/A',
         bill_date INTEGER NOT NULL,
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL,
@@ -203,6 +204,9 @@ class SQLiteHelper {
         break;
       case 6:
         await _migrateToVersion6(db);
+        break;
+      case 7:
+        await _migrateToVersion7(db);
         break;
       // Add future migration cases here
       default:
@@ -576,6 +580,73 @@ class SQLiteHelper {
         await db.insert('migration_log', {
           'version': 6,
           'migration_name': 'restructure_admin_user_customer_tables',
+          'executed_at': DateTime.now().millisecondsSinceEpoch,
+          'success': 0,
+        });
+      } catch (logError) {
+        print('Error logging failed migration: $logError');
+      }
+      rethrow;
+    }
+  }
+
+  Future<void> _migrateToVersion7(Database db) async {
+    // Migration to version 7: Add table_number column to bills table
+    try {
+      print('Migrating to version 7: Adding table_number column to bills...');
+      
+      // Add table_number column to bills table
+      try {
+        await db.execute('ALTER TABLE bills ADD COLUMN table_number TEXT DEFAULT "N/A"');
+        print('Added table_number column to bills table');
+      } catch (e) {
+        if (e.toString().contains('duplicate column name')) {
+          print('table_number column already exists in bills table');
+        } else {
+          print('Error adding table_number column: $e');
+          // Column might not exist, try to continue
+        }
+      }
+      
+      // Create maintenance_log table if it doesn't exist
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS maintenance_log (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          operation TEXT NOT NULL,
+          executed_at INTEGER NOT NULL,
+          duration_ms INTEGER,
+          success INTEGER DEFAULT 1,
+          details TEXT
+        )
+      ''');
+      
+      // Create migration_log table if it doesn't exist
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS migration_log (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          version INTEGER NOT NULL,
+          migration_name TEXT NOT NULL,
+          executed_at INTEGER NOT NULL,
+          success BOOLEAN DEFAULT 1
+        )
+      ''');
+      
+      // Log this migration
+      await db.insert('migration_log', {
+        'version': 7,
+        'migration_name': 'add_table_number_column_to_bills',
+        'executed_at': DateTime.now().millisecondsSinceEpoch,
+        'success': 1,
+      });
+      
+      print('Successfully migrated to version 7');
+    } catch (e) {
+      print('Error migrating to version 7: $e');
+      // Log failed migration
+      try {
+        await db.insert('migration_log', {
+          'version': 7,
+          'migration_name': 'add_table_number_column_to_bills',
           'executed_at': DateTime.now().millisecondsSinceEpoch,
           'success': 0,
         });

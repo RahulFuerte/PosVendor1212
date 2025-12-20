@@ -13,18 +13,20 @@ import '../../../../home/receipt_preview.dart';
 import '../../constants/constants.dart';
 import '../printers/printer.dart';
 import '../../backend/smart_database_service.dart';
+import '../../backend/sqlite_helper.dart';
+import '../table/table_number_bottom_sheet.dart';
 
 
 /// Reusable Bill Cart Widget
 /// Can be used across multiple pages for consistent cart functionality
-class BillCartWidget extends StatefulWidget {
+class BillCart extends StatefulWidget {
   final String adminUid;
   final String phoneNo;
   final VoidCallback? onCartCleared;
   final Function(List<Map<String, dynamic>>, double)? onCartUpdated;
   final Function() orderBottomSheet;
 
-  const BillCartWidget({
+  const BillCart({
     Key? key,
     required this.adminUid,
     required this.phoneNo,
@@ -34,12 +36,13 @@ class BillCartWidget extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<BillCartWidget> createState() => _BillCartWidgetState();
+  State<BillCart> createState() => _BillCartState();
 }
 
-class _BillCartWidgetState extends State<BillCartWidget> {
+class _BillCartState extends State<BillCart> {
   final ScrollController _listScrollController = ScrollController();
   final SmartDatabaseService _databaseService = SmartDatabaseService();
+  final SQLiteHelper _sqliteHelper = SQLiteHelper();
   List<Map<String, dynamic>> selectedItemsDetails = [];
   double subtotal = 0.0;
 
@@ -73,6 +76,67 @@ class _BillCartWidgetState extends State<BillCartWidget> {
     });
   }
 
+  /// Fetch shop data with local-first approach
+  /// First checks SQLite, then Firebase if not found locally
+  Future<Map<String, String>> _getShopData() async {
+    String shopName = 'N/A';
+    String contact = 'N/A';
+    String address = 'N/A';
+
+    try {
+      // First try to get from local SQLite
+      final localData = await _sqliteHelper.getUserData(widget.phoneNo);
+
+      if (localData != null) {
+        shopName = localData['shopName'] ?? 'N/A';
+        contact = localData['shopContact'] ?? 'N/A';
+        address = localData['address'] ?? 'N/A';
+        debugPrint('Shop data loaded from local cache');
+      } else {
+        // Not found locally, fetch from Firebase
+        final doc = await FirebaseFirestore.instance
+            .collection('AllAdmins')
+            .doc(widget.adminUid)
+            .collection('customer')
+            .doc(widget.phoneNo)
+            .get();
+
+        if (doc.exists) {
+          final data = doc.data();
+          if (data != null) {
+            shopName = data['shopName'] ?? 'N/A';
+            contact = data['contact'] ?? 'N/A';
+            address = data['address'] ?? 'N/A';
+
+            // Save all fields to local SQLite for future use
+            await _sqliteHelper.saveUserData({
+              'phoneNumber': data['phoneNumber'] ?? widget.phoneNo,
+              'adminUid': data['adminUid'] ?? widget.adminUid,
+              'shopName': shopName,
+              'contact': contact,
+              'address': address,
+              'logoUrl': data['logoUrl'],
+              'name': data['name'],
+              'email': data['email'],
+              'customerCode': data['customerCode'],
+              'gstNumber': data['gstNo'],
+              'createdAt': data['createdAt'],
+            });
+            debugPrint('Shop data loaded from Firebase and saved locally');
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching shop data: $e');
+    }
+
+    return {
+      'shopName': shopName,
+      'contact': contact,
+      'address': address,
+    };
+  }
+
   /// Save bill with automatic online/offline handling
   /// Online: Saves to Firebase and local SQLite
   /// Offline: Saves to local SQLite, syncs when online
@@ -81,6 +145,7 @@ class _BillCartWidgetState extends State<BillCartWidget> {
     required String receiptNo,
     required List<Map<String, dynamic>> items,
     required double subTotal,
+    String? tableNumber,
   }) async {
     try {
       final now = DateTime.now();
@@ -98,9 +163,10 @@ class _BillCartWidgetState extends State<BillCartWidget> {
       // Schema: id, admin_uid, customer_phone, items, total_amount, bill_date, created_at, updated_at, sync_status, firebase_id
       final billData = {
         'id': receiptNo,
-        'bill_date': now.millisecondsSinceEpoch,
+        'bill_date': now.toString(),
         'items': jsonEncode(itemsData), // Convert to JSON string for SQLite
         'total_amount': subTotal,
+        'table_number': tableNumber ?? 'N/A',
       };
 
       // Save using SmartDatabaseService (handles online/offline automatically)
@@ -113,6 +179,7 @@ class _BillCartWidgetState extends State<BillCartWidget> {
           receiptNo: receiptNo,
           items: items,
           subTotal: subTotal,
+          tableNumber: tableNumber,
         );
       }
 
@@ -129,6 +196,7 @@ class _BillCartWidgetState extends State<BillCartWidget> {
     required String receiptNo,
     required List<Map<String, dynamic>> items,
     required double subTotal,
+    String? tableNumber,
   }) async {
     try {
       final now = DateTime.now();
@@ -151,6 +219,7 @@ class _BillCartWidgetState extends State<BillCartWidget> {
         'items': itemsData,
         'receiptNo': receiptNo,
         'subTotal': subTotal,
+        'tableNumber': tableNumber ?? 'N/A',
       });
 
       debugPrint('Bill saved to Firebase successfully');
@@ -176,21 +245,96 @@ class _BillCartWidgetState extends State<BillCartWidget> {
     widget.onCartCleared?.call();
   }
 
-  Future<void> _showTableNumberBottomSheet(BuildContext context) async {
-    // Implement your table number bottom sheet logic here
-    // This is a placeholder
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(16),
-        child: const Text('Table Number Selection'),
-      ),
+  Future<void> _showTableNumberBottomSheet(BuildContext parentContext) async {
+    final printProvider = Provider.of<PrintProvider>(parentContext, listen: false);
+
+    final tableNumber = await TableNumberBottomSheet.show(
+      context: parentContext,
+      primaryColor: appbar1,
+      confirmButtonText: 'Print Receipt',
     );
+
+    if (tableNumber == null) return; // User cancelled
+
+    // Show loading dialog
+    showDialog(
+      context: parentContext,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      // Generate receipt number
+      Random random = Random();
+      String generatedReceiptNo = '';
+      for (int i = 0; i < 8; i++) {
+        generatedReceiptNo += random.nextInt(10).toString();
+      }
+
+      // Save bill
+      await saveBill(
+        adminUid: widget.phoneNo,
+        receiptNo: generatedReceiptNo,
+        items: selectedItemsDetails,
+        subTotal: subtotal,
+        tableNumber: tableNumber,
+      );
+
+      // Fetch shop data (local-first)
+      final shopData = await _getShopData();
+      String shopName = shopData['shopName']!;
+      String contact = shopData['contact']!;
+      String address = shopData['address']!;
+
+      if (parentContext.mounted) Navigator.pop(parentContext);
+
+      // Print dine-in receipt with table number
+      await DirectPrintHelper.printReceipt(
+        adminUid: widget.phoneNo,
+        context: parentContext,
+        printer: printProvider.selectedPrinter!,
+        paperSize: printProvider.selectedPaperSize,
+        items: selectedItemsDetails,
+        total: subtotal,
+        shopName: shopName,
+        contact: contact,
+        address: address,
+        tableNumber: tableNumber,
+        taxEnabled: printProvider.taxEnabled,
+        cgstPercent: printProvider.cgstPercent,
+        sgstPercent: printProvider.sgstPercent,
+      );
+      // Debug: Print all data to console
+     
+
+      _clearCart();
+
+      if (parentContext.mounted) {
+        ScaffoldMessenger.of(parentContext).showSnackBar(
+          SnackBar(
+            content: Text('Dine-in receipt printed for Table $tableNumber'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (parentContext.mounted) {
+        Navigator.pop(parentContext);
+        ScaffoldMessenger.of(parentContext).showSnackBar(
+          SnackBar(
+            content: Text('Printing failed: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
   }
 
-  Future<void> _showSaveOrderBottomSheet() {
-    return widget.orderBottomSheet.call();
-  }
+  // Future<void> _showSaveOrderBottomSheet() {
+  //   return widget.orderBottomSheet.call();
+  // }
 
   Future<void> _handleSaveWithoutPrint() async {
     bool? confirmed = await showDialog<bool>(
@@ -300,20 +444,11 @@ class _BillCartWidgetState extends State<BillCartWidget> {
       return;
     }
 
-    final doc = await FirebaseFirestore.instance.collection('AllAdmins').doc(widget.adminUid).collection('customer').doc(widget.phoneNo).get();
-
-    String shopName = 'N/A';
-    String contact = 'N/A';
-    String address = 'N/A';
-
-    if (doc.exists) {
-      final data = doc.data();
-      if (data != null) {
-        shopName = data['shopName'] ?? 'N/A';
-        contact = data['contact'] ?? 'N/A';
-        address = data['address'] ?? 'N/A';
-      }
-    }
+    // Fetch shop data (local-first)
+    final shopData = await _getShopData();
+    String shopName = shopData['shopName']!;
+    String contact = shopData['contact']!;
+    String address = shopData['address']!;
 
     final result = await Navigator.push(
       context,
@@ -388,20 +523,11 @@ class _BillCartWidgetState extends State<BillCartWidget> {
         subTotal: subtotal,
       );
 
-      final doc = await FirebaseFirestore.instance.collection('AllAdmins').doc(widget.adminUid).collection('customer').doc(widget.phoneNo).get();
-
-      String shopName = 'N/A';
-      String contact = 'N/A';
-      String address = 'N/A';
-
-      if (doc.exists) {
-        final data = doc.data();
-        if (data != null) {
-          shopName = data['shopName'] ?? 'N/A';
-          contact = data['contact'] ?? 'N/A';
-          address = data['address'] ?? 'N/A';
-        }
-      }
+      // Fetch shop data (local-first)
+      final shopData = await _getShopData();
+      String shopName = shopData['shopName']!;
+      String contact = shopData['contact']!;
+      String address = shopData['address']!;
 
       if (context.mounted) Navigator.pop(context);
 
@@ -415,6 +541,9 @@ class _BillCartWidgetState extends State<BillCartWidget> {
         shopName: shopName,
         contact: contact,
         address: address,
+        taxEnabled: printProvider.taxEnabled,
+        cgstPercent: printProvider.cgstPercent,
+        sgstPercent: printProvider.sgstPercent,
       );
 
       _clearCart();
@@ -464,15 +593,9 @@ class _BillCartWidgetState extends State<BillCartWidget> {
   Widget build(BuildContext context) {
     return Consumer<PrintProvider>(
       builder: (context, printProvider, child) {
-        // Update local state when provider changes
-        if (printProvider.posts != selectedItemsDetails) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            setState(() {
-              selectedItemsDetails = printProvider.posts;
-              subtotal = printProvider.total;
-            });
-          });
-        }
+        // Always use provider values directly to stay in sync
+        selectedItemsDetails = printProvider.posts;
+        subtotal = printProvider.total;
 
         return Container(
           margin: const EdgeInsets.all(12),
@@ -493,9 +616,10 @@ class _BillCartWidgetState extends State<BillCartWidget> {
             ],
           ),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
               _buildHeader(printProvider),
-              _buildItemsList(printProvider),
+              Flexible(child: _buildItemsList(printProvider)),
               _buildFooter(printProvider),
             ],
           ),
@@ -506,7 +630,7 @@ class _BillCartWidgetState extends State<BillCartWidget> {
 
   Widget _buildHeader(PrintProvider printProvider) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: primaryColor.withOpacity(0.1),
         borderRadius: const BorderRadius.only(
@@ -515,90 +639,112 @@ class _BillCartWidgetState extends State<BillCartWidget> {
         ),
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Row(
-            children: [
-              Icon(Icons.shopping_cart_outlined, color: primaryColor, size: 20),
-              Text(
-                ' My Cart',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontFamily: 'tabfont',
-                  fontWeight: FontWeight.bold,
-                  color: primaryColor,
-                ),
+          const Icon(Icons.shopping_cart_outlined, color: primaryColor, size: 18),
+          const SizedBox(width: 4),
+          const Flexible(
+            child: Text(
+              'Cart',
+              style: TextStyle(
+                fontSize: 13,
+                fontFamily: 'tabfont',
+                fontWeight: FontWeight.bold,
+                color: primaryColor,
               ),
-            ],
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                decoration: BoxDecoration(
-                  color: primaryColor,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  '${selectedItemsDetails.length} Items',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+          const Spacer(),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: primaryColor,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(
+              '${selectedItemsDetails.length}',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+          _buildSmallIconButton(
+            icon: MdiIcons.tableChair,
+            onPressed: () async {
+              if (!printProvider.isConnected || printProvider.selectedPrinter == null) {
+                showDialog(
+                  context: context,
+                  builder: (context) => const PrinterConnectionDialog(),
+                );
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Please connect a printer first'),
+                    backgroundColor: Colors.orange,
+                    duration: Duration(seconds: 2),
                   ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              _buildIconButton(
-                icon: MdiIcons.tableChair,
-                onPressed: () async {
-                  if (!printProvider.isConnected || printProvider.selectedPrinter == null) {
-                    showDialog(
-                      context: context,
-                      builder: (context) => const PrinterConnectionDialog(),
-                    );
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Please connect a printer first'),
-                        backgroundColor: Colors.orange,
-                        duration: Duration(seconds: 2),
-                      ),
-                    );
-                    return;
-                  }
+                );
+                return;
+              }
 
-                  if (selectedItemsDetails.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('No items in cart'),
-                        backgroundColor: Colors.orange,
-                        duration: Duration(seconds: 2),
-                      ),
-                    );
-                    return;
-                  }
+              if (selectedItemsDetails.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('No items in cart'),
+                    backgroundColor: Colors.orange,
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+                return;
+              }
 
-                  await _showTableNumberBottomSheet(context);
-                },
-              ),
-              const SizedBox(width: 8),
-              _buildIconButton(
-                icon: MdiIcons.printerOff,
-                onPressed: _handleSaveWithoutPrint,
-              ),
-            ],
+              await _showTableNumberBottomSheet(context);
+            },
+          ),
+          const SizedBox(width: 4),
+          _buildSmallIconButton(
+            icon: MdiIcons.printerOff,
+            onPressed: _handleSaveWithoutPrint,
           ),
         ],
       ),
     );
   }
 
+  Widget _buildSmallIconButton({required IconData icon, required VoidCallback onPressed}) {
+    return Container(
+      width: 36,
+      height: 36,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.3),
+            blurRadius: 3,
+            offset: const Offset(0, 1),
+          )
+        ],
+      ),
+      child: IconButton(
+        padding: EdgeInsets.zero,
+        icon: Icon(icon, color: appbar1, size: 18),
+        onPressed: onPressed,
+      ),
+    );
+  }
+
   Widget _buildItemsList(PrintProvider printProvider) {
     return Container(
-      height: MediaQuery.of(context).size.height * 0.15,
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.15,
+      ),
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: ListView.builder(
         controller: _listScrollController,
+        shrinkWrap: true,
         itemCount: selectedItemsDetails.length,
         itemBuilder: (context, index) {
           return _buildCartItem(index, printProvider);
@@ -738,7 +884,7 @@ class _BillCartWidgetState extends State<BillCartWidget> {
 
   Widget _buildFooter(PrintProvider printProvider) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.grey[100],
         borderRadius: const BorderRadius.only(
@@ -747,44 +893,42 @@ class _BillCartWidgetState extends State<BillCartWidget> {
         ),
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Total Amount',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[600],
-                  fontWeight: FontWeight.w500,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Total',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey[600],
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
-              ),
-              Text(
-                "₹$subtotal",
-                style: const TextStyle(
-                  fontSize: 20,
-                  color: Colors.black,
-                  fontWeight: FontWeight.bold,
+                Text(
+                  "₹${subtotal.toStringAsFixed(0)}",
+                  style: const TextStyle(
+                    fontSize: 18,
+                    color: Colors.black,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-          Row(
-            children: [
-              _buildIconButton(
-                icon: Icons.receipt_long_outlined,
-                onPressed: _handlePreview,
-              ),
-              const SizedBox(width: 10),
-              _buildIconButton(
-                icon: Icons.bookmark_outline,
-                onPressed: () => widget.orderBottomSheet.call(),
-              ),
-              const SizedBox(width: 10),
-              _buildPrintButton(printProvider),
-            ],
+          _buildSmallIconButton(
+            icon: Icons.receipt_long_outlined,
+            onPressed: _handlePreview,
           ),
+          const SizedBox(width: 6),
+          _buildSmallIconButton(
+            icon: Icons.bookmark_outline,
+            onPressed: () => widget.orderBottomSheet.call(),
+          ),
+          const SizedBox(width: 6),
+          _buildPrintButton(printProvider),
         ],
       ),
     );
@@ -812,24 +956,27 @@ class _BillCartWidgetState extends State<BillCartWidget> {
 
   Widget _buildPrintButton(PrintProvider printProvider) {
     return Container(
+      width: 36,
+      height: 36,
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [appbar1, appbar1.withOpacity(0.8)],
         ),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
         boxShadow: [
           BoxShadow(
             color: appbar1.withOpacity(0.4),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
+            blurRadius: 6,
+            offset: const Offset(0, 3),
           )
         ],
       ),
       child: IconButton(
+        padding: EdgeInsets.zero,
         icon: Icon(
           Icons.print,
           color: printProvider.isConnected ? Colors.green : Colors.white,
-          size: 24,
+          size: 18,
         ),
         onPressed: _handlePrint,
       ),

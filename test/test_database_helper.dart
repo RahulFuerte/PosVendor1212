@@ -80,6 +80,7 @@ class TestDatabaseHelper {
         customer_phone TEXT,
         items TEXT NOT NULL,
         total_amount REAL NOT NULL,
+        table_number TEXT DEFAULT 'N/A',
         bill_date INTEGER NOT NULL,
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL,

@@ -882,7 +882,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                             children: [
                               printprovider.posts.isEmpty
                                   ? const SizedBox()
-                                  : BillCartWidget(
+                                  : BillCart(
                                       adminUid: adminUid,
                                       phoneNo: widget.phoneNo,
                                       onCartCleared: () {
@@ -907,7 +907,10 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                                           totalAmount: subtotal,
                                           primaryColor: primaryColor,
                                           onSave: () {
-                                            // Implement save order logic here
+                                            _saveDataAndNavigate();
+                              printprovider.clearCart();
+                              nameController.clear();
+                              mobileController.clear();
                                             developer.log('Order saved for ${nameController.text}, ${mobileController.text}', name: 'ProductDashBoard');
                                           },
                                         );

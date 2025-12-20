@@ -1,26 +1,18 @@
 import 'dart:async';
-import 'dart:math';
 import 'dart:developer' as developer;
 
 import 'package:audioplayers/audioplayers.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:hive/hive.dart';
 import '../tab_screen/view-model/backend/sqlite_helper.dart';
-import 'package:intl/intl.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:pos/view/home/usersDataScreen.dart';
 import 'package:pos/view/home/navigation.dart';
-import 'package:pos/view/home/print_provider.dart';
-import 'package:pos/view/home/printer_connectionDialog.dart';
-import 'package:pos/view/home/receipt_preview.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:pos/view/tab_screen/view-model/frontend/menuItems.dart';
-import 'package:pos/view/tab_screen/view-model/widgets/printers/printer.dart';
 import 'package:provider/provider.dart';
-import 'package:image_network/image_network.dart';
 
 import '../tab_screen/view-model/backend/complete_offline_data_manager.dart';
 import '../tab_screen/view-model/backend/connection_monitor.dart';
@@ -29,6 +21,8 @@ import '../tab_screen/view-model/backend/offline_bill_manager.dart';
 import '../tab_screen/view-model/backend/smart_database_service.dart';
 import '../tab_screen/view-model/widgets/cached_blob_image.dart';
 import '../tab_screen/view-model/widgets/show_save_order_bottom_sheet.dart';
+import '../tab_screen/view-model/widgets/bill_count/bill_cart_widget.dart';
+import 'print_provider.dart';
 
 class RestaurantScreen extends StatefulWidget {
   final String phoneNo;
@@ -708,833 +702,195 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                       child: Column(
                         children: [
                           printprovider.posts.isNotEmpty
-                              ? billCountContainer()
+                              ? BillCart(
+                                  adminUid: adminUid,
+                                  phoneNo: widget.phoneNo,
+                                  onCartCleared: () {
+                                    setState(() {
+                                      selectedItemsDetails.clear();
+                                      subtotal = 0.0;
+                                    });
+                                  },
+                                  onCartUpdated: (List<Map<String, dynamic>> updatedItems, double updatedTotal) {
+                                    setState(() {
+                                      selectedItemsDetails = updatedItems;
+                                      subtotal = updatedTotal;
+                                    });
+                                  },
+                                  orderBottomSheet: () {
+                                    showSaveOrderBottomSheet(
+                                      context: context,
+                                      formKey: _formKey,
+                                      nameController: userNameController,
+                                      mobileController: userPhoneController,
+                                      itemCount: selectedItemsDetails.length,
+                                      totalAmount: subtotal,
+                                      primaryColor: primaryColor,
+                                      onSave: () {
+                                        _saveDataAndNavigate();
+                                        printprovider.clearCart();
+                                        userNameController.clear();
+                                        userPhoneController.clear();
+                                      },
+                                    );
+                                  },
+                                )
                               : const SizedBox(),
                           Expanded(
-                            child: FutureBuilder(
-                              future: foodItemsFuture,
-                              builder: (context,
-                                  AsyncSnapshot<List<Map<String, dynamic>>>
-                                      snapshot) {
-                                if (snapshot.connectionState ==
-                                    ConnectionState.waiting) {
-                                  return const Center(
-                                    child: CircularProgressIndicator(
-                                        color: primaryColor),
-                                  );
-                                } else if (snapshot.hasError) {
-                                  return Center(
-                                      child: Text('Error: ${snapshot.error}'));
-                                } else {
-                                  List<Map<String, dynamic>> foodItemsList =
-                                      snapshot.data ?? [];
-                                  return LayoutBuilder(
-                                    builder: (context, constraints) {
-                                      int crossAxisCount;
-                                      double childAspectRatio;
-                                      double horizontalPadding;
-                                      double spacing;
-                                      double availableWidth =
-                                          constraints.maxWidth;
-
-                                      if (availableWidth > 1400) {
-                                        crossAxisCount =
-                                            isContainerVisible ? 4 : 5;
-                                        childAspectRatio = 0.80;
-                                        horizontalPadding = 16;
-                                        spacing = 16;
-                                      } else if (availableWidth > 1000) {
-                                        crossAxisCount =
-                                            isContainerVisible ? 3 : 4;
-                                        childAspectRatio = 0.78;
-                                        horizontalPadding = 12;
-                                        spacing = 12;
-                                      } else if (availableWidth > 700) {
-                                        crossAxisCount =
-                                            isContainerVisible ? 2 : 3;
-                                        childAspectRatio = 0.75;
-                                        horizontalPadding = 10;
-                                        spacing = 10;
-                                      } else if (availableWidth > 500) {
-                                        crossAxisCount = 2;
-                                        childAspectRatio = 0.72;
-                                        horizontalPadding = 8;
-                                        spacing = 8;
-                                      } else {
-                                        crossAxisCount =
-                                            isContainerVisible ? 1 : 2;
-                                        childAspectRatio = 0.70;
-                                        horizontalPadding = 8;
-                                        spacing = 8;
-                                      }
-
-                                      return Padding(
-                                        padding: EdgeInsets.symmetric(
-                                          horizontal: horizontalPadding,
-                                          vertical: 8,
-                                        ),
-                                        child: GridView.builder(
-                                          controller: _gridViewController,
-                                          gridDelegate:
-                                              SliverGridDelegateWithFixedCrossAxisCount(
-                                            crossAxisCount: crossAxisCount,
-                                            childAspectRatio: childAspectRatio,
-                                            crossAxisSpacing: spacing,
-                                            mainAxisSpacing: spacing,
-                                          ),
-                                          itemCount: foodItemsList.length,
-                                          itemBuilder: (context, index) {
-                                            final item = foodItemsList[index];
-                                            return GestureDetector(
-                                              onTap: () {
-                                                audioPlayer.play(AssetSource(
-                                                    'sounds/beep.mp3'));
-                                                setState(() {
-                                                  isTapped = true;
-                                                  selectedItemName =
-                                                      item['name'] ?? '';
-                                                  selectedItemPrice = int.parse(
-                                                      item['price'] ?? '0');
-
-                                                  int existingIndex =
-                                                      selectedItemsDetails
-                                                          .indexWhere(
-                                                    (element) =>
-                                                        element['name'] ==
-                                                            selectedItemName &&
-                                                        element['price'] ==
-                                                            selectedItemPrice,
-                                                  );
-
-                                                  if (existingIndex != -1) {
-                                                    selectedItemsDetails[
-                                                            existingIndex]
-                                                        ['quantity'] += 1;
-                                                  } else {
-                                                    selectedItemsDetails.add({
-                                                      'name': selectedItemName,
-                                                      'price':
-                                                          selectedItemPrice,
-                                                      'quantity': 1,
-                                                    });
-                                                  }
-
-                                                  subtotal += selectedItemPrice;
-                                                  printprovider.additem(
-                                                      selectedItemsDetails,
-                                                      subtotal);
-
-                                                  WidgetsBinding.instance
-                                                      .addPostFrameCallback(
-                                                          (_) {
-                                                    if (_listScrollController
-                                                        .hasClients) {
-                                                      _listScrollController
-                                                          .jumpTo(
-                                                        _listScrollController
-                                                            .position
-                                                            .maxScrollExtent,
-                                                      );
-                                                    }
-                                                  });
-                                                });
-                                              },
-                                              child: MenuItem(
-                                                context: context,
-                                                imagePath:
-                                                    item['imagePath'] ?? '',
-                                                text: item['name'] ?? '',
-                                                code: item['foodCode'],
-                                                price: item['price'],
-                                                stocks: item['stocks'],
-                                              ),
-                                            );
-                                          },
-                                        ),
-                                      );
-                                    },
-                                  );
-                                }
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-      ),
-    );
-  }
-
-  Widget billCountContainer() {
-    final printprovider = Provider.of<PrintProvider>(context);
-
-    Future<void> saveBillToFirebase({
-      required String adminUid,
-      required String receiptNo,
-      required List<Map<String, dynamic>> items,
-      required double subTotal,
-    }) async {
-      try {
-        final now = DateTime.now();
-        final monthDoc = DateFormat('yyyyMM').format(now);
-        final dateDoc = DateFormat('yyyyMMdd').format(now);
-        final dateString = DateFormat('MMM dd, yyyy').format(now);
-
-        final List<Map<String, dynamic>> itemsData = items.map((item) {
-          return {
-            'name': item['name'] ?? '',
-            'price': double.tryParse(item['price'].toString()) ?? 0.0,
-            'quantity': int.tryParse(item['quantity'].toString()) ?? 1,
-          };
-        }).toList();
-
-        if (_isOnline) {
-          await FirebaseFirestore.instance
-              .collection('AllBills')
-              .doc(adminUid)
-              .collection('myBills')
-              .doc(monthDoc)
-              .collection(dateDoc)
-              .doc(receiptNo)
-              .set({
-            'adminId': adminUid,
-            'createdAt': FieldValue.serverTimestamp(),
-            'date': dateString,
-            'items': itemsData,
-            'receiptNo': receiptNo,
-            'subTotal': subTotal,
-          });
-          debugPrint('Bill saved to Firebase successfully');
-        } else {
-          // Save offline using storeBillOffline
-          await _offlineBillManager.storeBillOffline(adminUid, {
-            'id': receiptNo,
-            'items': itemsData,
-            'subTotal': subTotal,
-            'date': dateString,
-          });
-          _updatePendingBillsCount();
-          debugPrint('Bill saved offline');
-        }
-      } catch (e) {
-        debugPrint('Error saving bill: $e');
-        // Fallback to offline save
-        await _offlineBillManager.storeBillOffline(adminUid, {
-          'id': receiptNo,
-          'items': items,
-          'subTotal': subTotal,
-        });
-        _updatePendingBillsCount();
-        rethrow;
-      }
-    }
-
-    return Container(
-      margin: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        gradient: LinearGradient(
-          colors: [Colors.white, Colors.grey[50]!],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.3),
-            spreadRadius: 2,
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          )
-        ],
-      ),
-      child: Column(
-        children: [
-          // Header
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: primaryColor.withOpacity(0.1),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(20),
-                topRight: Radius.circular(20),
-              ),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.shopping_cart_outlined,
-                        color: primaryColor, size: 20),
-                    const Text(
-                      ' My Cart',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontFamily: 'tabfont',
-                        fontWeight: FontWeight.bold,
-                        color: primaryColor,
-                      ),
-                    ),
-                  ],
-                ),
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: primaryColor,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        '${selectedItemsDetails.length} Items',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.grey.withOpacity(0.3),
-                            blurRadius: 4,
-                            offset: const Offset(0, 2),
-                          )
-                        ],
-                      ),
-                      child: IconButton(
-                        icon:
-                            Icon(MdiIcons.printerOff, color: appbar1, size: 24),
-                        onPressed: () async {
-                          bool? confirmed = await showDialog<bool>(
-                            context: context,
-                            barrierDismissible: false,
-                            builder: (BuildContext context) {
-                              return AlertDialog(
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                title: Row(
-                                  children: [
-                                    Icon(Icons.warning_amber_rounded,
-                                        color: Colors.orange, size: 28),
-                                    const SizedBox(width: 12),
-                                    const Text(
-                                      'Confirm Action',
-                                      style: TextStyle(
-                                          fontSize: 20,
-                                          fontWeight: FontWeight.bold),
-                                    ),
-                                  ],
-                                ),
-                                content: Text(
-                                  _isOnline
-                                      ? 'Are you sure you want to save this bill without printing?'
-                                      : 'You are offline. Bill will be saved locally and synced when online.',
-                                  style: const TextStyle(fontSize: 16),
-                                ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () =>
-                                        Navigator.of(context).pop(false),
-                                    style: TextButton.styleFrom(
-                                        foregroundColor: Colors.grey[700]),
-                                    child: const Text('Cancel',
-                                        style: TextStyle(fontSize: 16)),
-                                  ),
-                                  ElevatedButton(
-                                    onPressed: () =>
-                                        Navigator.of(context).pop(true),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: appbar1,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 24, vertical: 12),
-                                    ),
-                                    child: const Text('Yes, Save',
-                                        style: TextStyle(
-                                            fontSize: 16, color: white)),
-                                  ),
-                                ],
-                              );
-                            },
-                          );
-
-                          if (confirmed == true) {
-                            Random random = Random();
-                            String generatedReceiptNo = '';
-                            for (int i = 0; i < 8; i++) {
-                              generatedReceiptNo +=
-                                  random.nextInt(10).toString();
-                            }
-
-                            await saveBillToFirebase(
-                              adminUid: widget.phoneNo,
-                              receiptNo: generatedReceiptNo,
-                              items: selectedItemsDetails,
-                              subTotal: subtotal,
-                            );
-
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    _isOnline
-                                        ? 'Bill saved successfully! Receipt No: $generatedReceiptNo'
-                                        : 'Bill saved offline! Will sync when online.',
-                                  ),
-                                  backgroundColor:
-                                      _isOnline ? Colors.green : Colors.orange,
-                                  duration: const Duration(seconds: 3),
-                                ),
-                              );
-                              printprovider.clearCart();
-                            }
-                          }
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          // Items List
-          Container(
-            height: MediaQuery.of(context).size.height * 0.15,
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: ListView.builder(
-              controller: _listScrollController,
-              itemCount: printprovider.posts.length,
-              itemBuilder: (context, index) {
-                return Container(
-                  margin:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.withOpacity(0.2)),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 4,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: appbar1,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              selectedItemsDetails[index]['name'],
-                              style: const TextStyle(
-                                overflow: TextOverflow.ellipsis,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.black87,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              '₹${selectedItemsDetails[index]['price']} × ${selectedItemsDetails[index]['quantity']}',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey[600],
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      // Quantity Controls
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 4, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.grey[100],
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Row(
-                          children: [
-                            InkWell(
-                              onTap: () {
-                                setState(() {
-                                  if (selectedItemsDetails[index]['quantity'] >
-                                      1) {
-                                    selectedItemsDetails[index]['quantity']--;
-                                    subtotal -=
-                                        selectedItemsDetails[index]['price'];
+                            child: Container(
+                              child: FutureBuilder(
+                                future: foodItemsFuture,
+                                builder: (context,
+                                    AsyncSnapshot<List<Map<String, dynamic>>>
+                                        snapshot) {
+                                  if (snapshot.connectionState ==
+                                      ConnectionState.waiting) {
+                                    return const Center(
+                                      child: CircularProgressIndicator(
+                                          color: primaryColor),
+                                    );
+                                  } else if (snapshot.hasError) {
+                                    return Center(
+                                        child: Text('Error: ${snapshot.error}'));
                                   } else {
-                                    subtotal -=
-                                        selectedItemsDetails[index]['price'];
-                                    selectedItemsDetails.removeAt(index);
+                                    List<Map<String, dynamic>> foodItemsList =
+                                        snapshot.data ?? [];
+                                    return LayoutBuilder(
+                                      builder: (context, constraints) {
+                                        int crossAxisCount;
+                                        double childAspectRatio;
+                                        double horizontalPadding;
+                                        double spacing;
+                                        double availableWidth =
+                                            constraints.maxWidth;
+                              
+                                        if (availableWidth > 1400) {
+                                          crossAxisCount =
+                                              isContainerVisible ? 4 : 5;
+                                          childAspectRatio = 0.80;
+                                          horizontalPadding = 16;
+                                          spacing = 16;
+                                        } else if (availableWidth > 1000) {
+                                          crossAxisCount =
+                                              isContainerVisible ? 3 : 4;
+                                          childAspectRatio = 0.78;
+                                          horizontalPadding = 12;
+                                          spacing = 12;
+                                        } else if (availableWidth > 700) {
+                                          crossAxisCount =
+                                              isContainerVisible ? 2 : 3;
+                                          childAspectRatio = 0.75;
+                                          horizontalPadding = 10;
+                                          spacing = 10;
+                                        } else if (availableWidth > 500) {
+                                          crossAxisCount = 2;
+                                          childAspectRatio = 0.72;
+                                          horizontalPadding = 8;
+                                          spacing = 8;
+                                        } else {
+                                          crossAxisCount = isContainerVisible ? 1 : 2;
+                                          childAspectRatio = 0.70;
+                                          horizontalPadding = 8;
+                                          spacing = 8;
+                                        }
+                              
+                                        return Padding(
+                                          padding: EdgeInsets.symmetric(
+                                            horizontal: horizontalPadding,
+                                            vertical: 8,
+                                          ),
+                                          child: GridView.builder(
+                                            controller: _gridViewController,
+                                            gridDelegate:
+                                                SliverGridDelegateWithFixedCrossAxisCount(
+                                              crossAxisCount: crossAxisCount,
+                                              childAspectRatio: childAspectRatio,
+                                              crossAxisSpacing: spacing,
+                                              mainAxisSpacing: spacing,
+                                            ),
+                                            itemCount: foodItemsList.length,
+                                            itemBuilder: (context, index) {
+                                              final item = foodItemsList[index];
+                                              return GestureDetector(
+                                                onTap: () {
+                                                  audioPlayer.play(AssetSource(
+                                                      'sounds/beep.mp3'));
+                                                  setState(() {
+                                                    isTapped = true;
+                                                    selectedItemName =
+                                                        item['name'] ?? '';
+                                                    selectedItemPrice = (double.tryParse(
+                                                        item['price']?.toString() ?? '0') ?? 0).toInt();
+                              
+                                                    int existingIndex =
+                                                        selectedItemsDetails
+                                                            .indexWhere(
+                                                      (element) =>
+                                                          element['name'] ==
+                                                              selectedItemName &&
+                                                          element['price'] ==
+                                                              selectedItemPrice,
+                                                    );
+                              
+                                                    if (existingIndex != -1) {
+                                                      selectedItemsDetails[
+                                                              existingIndex]
+                                                          ['quantity'] += 1;
+                                                    } else {
+                                                      selectedItemsDetails.add({
+                                                        'name': selectedItemName,
+                                                        'price':
+                                                            selectedItemPrice,
+                                                        'quantity': 1,
+                                                      });
+                                                    }
+                              
+                                                    subtotal += selectedItemPrice;
+                                                    printprovider.additem(
+                                                        selectedItemsDetails,
+                                                        subtotal);
+                              
+                                                    WidgetsBinding.instance
+                                                        .addPostFrameCallback(
+                                                            (_) {
+                                                      if (_listScrollController
+                                                          .hasClients) {
+                                                        _listScrollController
+                                                            .jumpTo(
+                                                          _listScrollController
+                                                              .position
+                                                              .maxScrollExtent,
+                                                        );
+                                                      }
+                                                    });
+                                                  });
+                                                },
+                                                child: MenuItem(
+                                                  context: context,
+                                                  imagePath:
+                                                      item['imagePath']?.toString() ?? '',
+                                                  text: item['name']?.toString() ?? '',
+                                                  code: item['foodCode']?.toString() ?? '',
+                                                  price: item['price']?.toString() ?? '0',
+                                                  stocks: item['stocks']?.toString() ?? 'N/A',
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                        );
+                                      },
+                                    );
                                   }
-                                  printprovider.additem(
-                                      selectedItemsDetails, subtotal);
-                                });
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.all(4),
-                                child: Icon(Icons.remove,
-                                    color: appbar1, size: 18),
+                                },
                               ),
                             ),
-                            Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 8),
-                              child: Text(
-                                "${selectedItemsDetails[index]['quantity']}",
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black,
-                                ),
-                              ),
-                            ),
-                            InkWell(
-                              onTap: () {
-                                setState(() {
-                                  selectedItemsDetails[index]['quantity']++;
-                                  subtotal +=
-                                      selectedItemsDetails[index]['price'];
-                                  printprovider.additem(
-                                      selectedItemsDetails, subtotal);
-                                });
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.all(4),
-                                child:
-                                    Icon(Icons.add, color: appbar1, size: 18),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      // Delete Button
-                      InkWell(
-                        onTap: () {
-                          setState(() {
-                            subtotal -= selectedItemsDetails[index]['price'] *
-                                selectedItemsDetails[index]['quantity'];
-                            selectedItemsDetails.removeAt(index);
-                            printprovider.additem(
-                                selectedItemsDetails, subtotal);
-                          });
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: Colors.red.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
                           ),
-                          child: const Icon(Icons.delete_outline,
-                              color: Colors.red, size: 20),
-                        ),
+                        ],
                       ),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ),
-          // Footer with Total and Actions
-          _buildCartFooter(printprovider, saveBillToFirebase),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCartFooter(
-      PrintProvider printprovider,
-      Future<void> Function({
-        required String adminUid,
-        required String receiptNo,
-        required List<Map<String, dynamic>> items,
-        required double subTotal,
-      }) saveBillToFirebase) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.grey[100],
-        borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(20),
-          bottomRight: Radius.circular(20),
-        ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Total Amount',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[600],
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              Text(
-                "₹$subtotal",
-                style: const TextStyle(
-                  fontSize: 20,
-                  color: Colors.black,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          Row(
-            children: [
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.withOpacity(0.3),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    )
+                    ),
                   ],
                 ),
-                child: IconButton(
-                  icon: Icon(Icons.receipt_long_outlined,
-                      color: appbar1, size: 24),
-                  onPressed: () async {
-                    if (selectedItemsDetails.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('No items in cart'),
-                          backgroundColor: Colors.orange,
-                          duration: Duration(seconds: 2),
-                        ),
-                      );
-                      return;
-                    }
-
-                    String shopName = 'N/A';
-                    String contact = 'N/A';
-                    String address = 'N/A';
-
-                    if (_isOnline) {
-                      final doc = await FirebaseFirestore.instance
-                          .collection('AllAdmins')
-                          .doc(adminUid)
-                          .collection('customer')
-                          .doc(widget.phoneNo)
-                          .get();
-
-                      if (doc.exists) {
-                        final data = doc.data();
-                        if (data != null) {
-                          shopName = data['shopName'] ?? 'N/A';
-                          contact = data['contact'] ?? 'N/A';
-                          address = data['address'] ?? 'N/A';
-                        }
-                      }
-                    }
-
-                    final result = await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => ReceiptPreviewScreen(
-                          adminUid: adminUid,
-                          shopName: shopName,
-                          contact: contact,
-                          address: address,
-                          phoneNo: widget.phoneNo,
-                        ),
-                      ),
-                    );
-
-                    if (result != null) {
-                      setState(() {
-                        selectedItemsDetails = result['items'];
-                        subtotal = result['subtotal'];
-                        printprovider.additem(selectedItemsDetails, subtotal);
-                      });
-                    }
-                  },
-                ),
               ),
-              const SizedBox(width: 10),
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.withOpacity(0.3),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    )
-                  ],
-                ),
-                child: IconButton(
-                  icon: Icon(Icons.bookmark_outline, color: appbar1, size: 24),
-                  onPressed: () async {
-                    showSaveOrderBottomSheet(
-                        context: context,
-                        formKey: _formKey,
-                        nameController: userNameController,
-                        mobileController: userPhoneController,
-                        itemCount: selectedItemsDetails.length,
-                        totalAmount: subtotal,
-                        onSave: () {
-                          _saveDataAndNavigate();
-                          printprovider.clearCart();
-                          userNameController.clear();
-                          userPhoneController.clear();
-                        },
-                        primaryColor: primaryColor);
-                    // await _showSaveBottomSheet();
-                  },
-                ),
-              ),
-              const SizedBox(width: 10),
-              Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [appbar1, appbar1.withOpacity(0.8)],
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: appbar1.withOpacity(0.4),
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
-                    )
-                  ],
-                ),
-                child: Consumer<PrintProvider>(
-                  builder: (context, printProvider, child) {
-                    return IconButton(
-                      icon: Icon(
-                        Icons.print,
-                        color: printProvider.isConnected
-                            ? Colors.green
-                            : Colors.white,
-                        size: 24,
-                      ),
-                      onPressed: () async {
-                        if (!printProvider.isConnected ||
-                            printProvider.selectedPrinter == null) {
-                          showDialog(
-                            context: context,
-                            builder: (context) =>
-                                const PrinterConnectionDialog(),
-                          );
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Please connect a printer first'),
-                              backgroundColor: Colors.orange,
-                              duration: Duration(seconds: 2),
-                            ),
-                          );
-                          return;
-                        }
-
-                        if (selectedItemsDetails.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('No items to print'),
-                              backgroundColor: Colors.orange,
-                              duration: Duration(seconds: 2),
-                            ),
-                          );
-                          return;
-                        }
-
-                        showDialog(
-                          context: context,
-                          barrierDismissible: false,
-                          builder: (context) =>
-                              const Center(child: CircularProgressIndicator()),
-                        );
-
-                        try {
-                          String shopName = 'N/A';
-                          String contact = 'N/A';
-                          String address = 'N/A';
-
-                          if (_isOnline) {
-                            final doc = await FirebaseFirestore.instance
-                                .collection('AllAdmins')
-                                .doc(adminUid)
-                                .collection('customer')
-                                .doc(widget.phoneNo)
-                                .get();
-
-                            if (doc.exists) {
-                              final data = doc.data();
-                              if (data != null) {
-                                shopName = data['shopName'] ?? 'N/A';
-                                contact = data['contact'] ?? 'N/A';
-                                address = data['address'] ?? 'N/A';
-                              }
-                            }
-                          }
-
-                          if (context.mounted) {
-                            Navigator.pop(context);
-                          }
-
-                          await DirectPrintHelper.printReceipt(
-                            adminUid: widget.phoneNo,
-                            context: context,
-                            printer: printProvider.selectedPrinter!,
-                            paperSize: printProvider.selectedPaperSize,
-                            items: selectedItemsDetails,
-                            total: subtotal,
-                            shopName: shopName,
-                            contact: contact,
-                            address: address,
-                          );
-
-                          printprovider.clearCart();
-                        } catch (e) {
-                          if (context.mounted) {
-                            Navigator.pop(context);
-                          }
-                          debugPrint('Error printing receipt: $e');
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Printing failed: $e'),
-                                backgroundColor: Colors.red,
-                                duration: const Duration(seconds: 3),
-                              ),
-                            );
-                          }
-                        }
-                      },
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        ],
       ),
     );
   }

@@ -1,10 +1,9 @@
-import 'dart:math'; // Import the 'dart:math' library for the Random class
+import 'dart:math';
 
 import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
 import 'package:flutter/material.dart';
-
-import 'dart:math';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:pos/view/tab_screen/view-model/widgets/printers/printer.dart';
 
 class PrintProvider extends ChangeNotifier {
@@ -18,6 +17,11 @@ class PrintProvider extends ChangeNotifier {
   BluetoothPrinter? _selectedPrinter;
   PaperSize _selectedPaperSize = PaperSize.mm58;
 
+  // Tax settings
+  bool _taxEnabled = false;
+  double _cgstPercent = 2.5;
+  double _sgstPercent = 2.5;
+
   List<Map<String, dynamic>> get posts => _posts;
   double get total => _total;
   bool get isValueTrue => _isValueTrue;
@@ -25,6 +29,43 @@ class PrintProvider extends ChangeNotifier {
   bool get isConnected => _isConnected;
   BluetoothPrinter? get selectedPrinter => _selectedPrinter;
   PaperSize get selectedPaperSize => _selectedPaperSize;
+  
+  // Tax getters
+  bool get taxEnabled => _taxEnabled;
+  double get cgstPercent => _cgstPercent;
+  double get sgstPercent => _sgstPercent;
+
+  PrintProvider() {
+    _loadTaxSettings();
+  }
+
+  Future<void> _loadTaxSettings() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _taxEnabled = prefs.getBool('taxEnabled') ?? false;
+      _cgstPercent = prefs.getDouble('cgstPercent') ?? 2.5;
+      _sgstPercent = prefs.getDouble('sgstPercent') ?? 2.5;
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error loading tax settings: $e');
+    }
+  }
+
+  Future<void> setTaxEnabled(bool enabled) async {
+    _taxEnabled = enabled;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('taxEnabled', enabled);
+    notifyListeners();
+  }
+
+  Future<void> setTaxRates(double cgst, double sgst) async {
+    _cgstPercent = cgst;
+    _sgstPercent = sgst;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble('cgstPercent', cgst);
+    await prefs.setDouble('sgstPercent', sgst);
+    notifyListeners();
+  }
 
   void additem(List<Map<String, dynamic>> products, double total) {
     _posts = products;
