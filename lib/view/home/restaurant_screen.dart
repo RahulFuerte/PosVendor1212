@@ -511,7 +511,16 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
           ),
         ),
         body: isLoading
-            ? Center(child: CircularProgressIndicator(color: appbar1))
+            ? Center(
+                child: SizedBox(
+                  width: 30,
+                  height: 30,
+                  child: CircularProgressIndicator(
+                    color: appbar1,
+                    strokeWidth: 3,
+                  ),
+                ),
+              )
             : Container(
                 color: Colors.grey.withOpacity(0.1),
                 width: double.infinity,
@@ -614,7 +623,13 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                                                             BorderRadius
                                                                 .circular(100),
                                                         placeholder:
-                                                            const CircularProgressIndicator(),
+                                                            const SizedBox(
+                                                              width: 20,
+                                                              height: 20,
+                                                              child: CircularProgressIndicator(
+                                                                strokeWidth: 2,
+                                                              ),
+                                                            ),
                                                       ),
 
                                                       //  ImageNetwork(
@@ -746,8 +761,14 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                                   if (snapshot.connectionState ==
                                       ConnectionState.waiting) {
                                     return const Center(
-                                      child: CircularProgressIndicator(
-                                          color: primaryColor),
+                                      child: SizedBox(
+                                        width: 30,
+                                        height: 30,
+                                        child: CircularProgressIndicator(
+                                          color: primaryColor,
+                                          strokeWidth: 3,
+                                        ),
+                                      ),
                                     );
                                   } else if (snapshot.hasError) {
                                     return Center(
@@ -763,7 +784,7 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                                         double spacing;
                                         double availableWidth =
                                             constraints.maxWidth;
-                              
+
                                         if (availableWidth > 1400) {
                                           crossAxisCount =
                                               isContainerVisible ? 4 : 5;
@@ -782,18 +803,14 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                                           childAspectRatio = 0.75;
                                           horizontalPadding = 10;
                                           spacing = 10;
-                                        } else if (availableWidth > 500) {
+                                        } else {
+                                          // For smaller screens (phones), always 2 columns
                                           crossAxisCount = 2;
                                           childAspectRatio = 0.72;
                                           horizontalPadding = 8;
                                           spacing = 8;
-                                        } else {
-                                          crossAxisCount = isContainerVisible ? 1 : 2;
-                                          childAspectRatio = 0.70;
-                                          horizontalPadding = 8;
-                                          spacing = 8;
                                         }
-                              
+
                                         return Padding(
                                           padding: EdgeInsets.symmetric(
                                             horizontal: horizontalPadding,
@@ -821,7 +838,7 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                                                         item['name'] ?? '';
                                                     selectedItemPrice = (double.tryParse(
                                                         item['price']?.toString() ?? '0') ?? 0).toInt();
-                              
+
                                                     int existingIndex =
                                                         selectedItemsDetails
                                                             .indexWhere(
@@ -831,7 +848,7 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                                                           element['price'] ==
                                                               selectedItemPrice,
                                                     );
-                              
+
                                                     if (existingIndex != -1) {
                                                       selectedItemsDetails[
                                                               existingIndex]
@@ -844,12 +861,12 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                                                         'quantity': 1,
                                                       });
                                                     }
-                              
+
                                                     subtotal += selectedItemPrice;
                                                     printprovider.additem(
                                                         selectedItemsDetails,
                                                         subtotal);
-                              
+
                                                     WidgetsBinding.instance
                                                         .addPostFrameCallback(
                                                             (_) {

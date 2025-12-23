@@ -616,10 +616,9 @@ class _BillCartState extends State<BillCart> {
             ],
           ),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
             children: [
               _buildHeader(printProvider),
-              Flexible(child: _buildItemsList(printProvider)),
+              _buildItemsList(printProvider),
               _buildFooter(printProvider),
             ],
           ),
@@ -630,7 +629,7 @@ class _BillCartState extends State<BillCart> {
 
   Widget _buildHeader(PrintProvider printProvider) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
         color: primaryColor.withOpacity(0.1),
         borderRadius: const BorderRadius.only(
@@ -639,112 +638,90 @@ class _BillCartState extends State<BillCart> {
         ),
       ),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Icon(Icons.shopping_cart_outlined, color: primaryColor, size: 18),
-          const SizedBox(width: 4),
-          const Flexible(
-            child: Text(
-              'Cart',
-              style: TextStyle(
-                fontSize: 13,
-                fontFamily: 'tabfont',
-                fontWeight: FontWeight.bold,
-                color: primaryColor,
+          const Row(
+            children: [
+              Icon(Icons.shopping_cart_outlined, color: primaryColor, size: 20),
+              Text(
+                ' My Cart',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontFamily: 'tabfont',
+                  fontWeight: FontWeight.bold,
+                  color: primaryColor,
+                ),
               ),
-              overflow: TextOverflow.ellipsis,
-            ),
+            ],
           ),
-          const Spacer(),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: primaryColor,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Text(
-              '${selectedItemsDetails.length}',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                decoration: BoxDecoration(
+                  color: primaryColor,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '${selectedItemsDetails.length} Items',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
-            ),
-          ),
-          const SizedBox(width: 6),
-          _buildSmallIconButton(
-            icon: MdiIcons.tableChair,
-            onPressed: () async {
-              if (!printProvider.isConnected || printProvider.selectedPrinter == null) {
-                showDialog(
-                  context: context,
-                  builder: (context) => const PrinterConnectionDialog(),
-                );
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Please connect a printer first'),
-                    backgroundColor: Colors.orange,
-                    duration: Duration(seconds: 2),
-                  ),
-                );
-                return;
-              }
+              const SizedBox(width: 10),
+              _buildIconButton(
+                icon: MdiIcons.tableChair,
+                onPressed: () async {
+                  if (!printProvider.isConnected || printProvider.selectedPrinter == null) {
+                    showDialog(
+                      context: context,
+                      builder: (context) => const PrinterConnectionDialog(),
+                    );
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Please connect a printer first'),
+                        backgroundColor: Colors.orange,
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                    return;
+                  }
 
-              if (selectedItemsDetails.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('No items in cart'),
-                    backgroundColor: Colors.orange,
-                    duration: Duration(seconds: 2),
-                  ),
-                );
-                return;
-              }
+                  if (selectedItemsDetails.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('No items in cart'),
+                        backgroundColor: Colors.orange,
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                    return;
+                  }
 
-              await _showTableNumberBottomSheet(context);
-            },
-          ),
-          const SizedBox(width: 4),
-          _buildSmallIconButton(
-            icon: MdiIcons.printerOff,
-            onPressed: _handleSaveWithoutPrint,
+                  await _showTableNumberBottomSheet(context);
+                },
+              ),
+              const SizedBox(width: 8),
+              _buildIconButton(
+                icon: MdiIcons.printerOff,
+                onPressed: _handleSaveWithoutPrint,
+              ),
+            ],
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildSmallIconButton({required IconData icon, required VoidCallback onPressed}) {
-    return Container(
-      width: 36,
-      height: 36,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.3),
-            blurRadius: 3,
-            offset: const Offset(0, 1),
-          )
-        ],
-      ),
-      child: IconButton(
-        padding: EdgeInsets.zero,
-        icon: Icon(icon, color: appbar1, size: 18),
-        onPressed: onPressed,
       ),
     );
   }
 
   Widget _buildItemsList(PrintProvider printProvider) {
     return Container(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.15,
-      ),
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      height: MediaQuery.of(context).size.height * 0.15,
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: ListView.builder(
         controller: _listScrollController,
-        shrinkWrap: true,
         itemCount: selectedItemsDetails.length,
         itemBuilder: (context, index) {
           return _buildCartItem(index, printProvider);
@@ -884,7 +861,7 @@ class _BillCartState extends State<BillCart> {
 
   Widget _buildFooter(PrintProvider printProvider) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: Colors.grey[100],
         borderRadius: const BorderRadius.only(
@@ -893,42 +870,44 @@ class _BillCartState extends State<BillCart> {
         ),
       ),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Total',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.grey[600],
-                    fontWeight: FontWeight.w500,
-                  ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Total Amount',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[600],
+                  fontWeight: FontWeight.w500,
                 ),
-                Text(
-                  "₹${subtotal.toStringAsFixed(0)}",
-                  style: const TextStyle(
-                    fontSize: 18,
-                    color: Colors.black,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  overflow: TextOverflow.ellipsis,
+              ),
+              Text(
+                "₹$subtotal",
+                style: const TextStyle(
+                  fontSize: 20,
+                  color: Colors.black,
+                  fontWeight: FontWeight.bold,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-          _buildSmallIconButton(
-            icon: Icons.receipt_long_outlined,
-            onPressed: _handlePreview,
+          Row(
+            children: [
+              _buildIconButton(
+                icon: Icons.receipt_long_outlined,
+                onPressed: _handlePreview,
+              ),
+              const SizedBox(width: 10),
+              _buildIconButton(
+                icon: Icons.bookmark_outline,
+                onPressed: () => widget.orderBottomSheet.call(),
+              ),
+              const SizedBox(width: 10),
+              _buildPrintButton(printProvider),
+            ],
           ),
-          const SizedBox(width: 6),
-          _buildSmallIconButton(
-            icon: Icons.bookmark_outline,
-            onPressed: () => widget.orderBottomSheet.call(),
-          ),
-          const SizedBox(width: 6),
-          _buildPrintButton(printProvider),
         ],
       ),
     );
@@ -956,27 +935,24 @@ class _BillCartState extends State<BillCart> {
 
   Widget _buildPrintButton(PrintProvider printProvider) {
     return Container(
-      width: 36,
-      height: 36,
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [appbar1, appbar1.withOpacity(0.8)],
         ),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
             color: appbar1.withOpacity(0.4),
-            blurRadius: 6,
-            offset: const Offset(0, 3),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
           )
         ],
       ),
       child: IconButton(
-        padding: EdgeInsets.zero,
         icon: Icon(
           Icons.print,
           color: printProvider.isConnected ? Colors.green : Colors.white,
-          size: 18,
+          size: 24,
         ),
         onPressed: _handlePrint,
       ),
