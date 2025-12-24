@@ -164,9 +164,21 @@ class OfflineBillManager {
       // Get all bills with pending sync status
       final allBills = await _sqliteDAO!.getBills(adminUid);
       
-      final offlineBills = allBills.where((bill) => 
-        bill['sync_status'] == SyncStatus.pending.value
-      ).toList();
+      print('Total bills found for adminUid $adminUid: ${allBills.length}');
+      if (allBills.isNotEmpty) {
+        print('First bill sync_status: ${allBills.first['sync_status']} (type: ${allBills.first['sync_status'].runtimeType})');
+      }
+      
+      final offlineBills = allBills.where((bill) {
+        final syncStatus = bill['sync_status'];
+        // Handle both int and String types for sync_status
+        if (syncStatus is int) {
+          return syncStatus == SyncStatus.pending.value;
+        } else if (syncStatus is String) {
+          return syncStatus == SyncStatus.pending.value.toString() || syncStatus == 'pending';
+        }
+        return false;
+      }).toList();
       
       print('Found ${offlineBills.length} offline bills with pending sync status');
       return offlineBills;

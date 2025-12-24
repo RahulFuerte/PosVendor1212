@@ -362,9 +362,9 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
                                   child: Column(
                                     children: [
                                       // Table Header
-                                      Row(
+                                      const Row(
                                         children: [
-                                          const Expanded(
+                                          Expanded(
                                             flex: 4,
                                             child: Text(
                                               'Item',
@@ -374,7 +374,7 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
                                               ),
                                             ),
                                           ),
-                                          const SizedBox(
+                                          SizedBox(
                                             width: 50,
                                             child: Text(
                                               'Price',
@@ -385,8 +385,8 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
                                               textAlign: TextAlign.center,
                                             ),
                                           ),
-                                          const SizedBox(width: 8),
-                                          const SizedBox(
+                                          SizedBox(width: 8),
+                                          SizedBox(
                                             width: 90,
                                             child: Text(
                                               'Qty',
@@ -397,8 +397,8 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
                                               textAlign: TextAlign.center,
                                             ),
                                           ),
-                                          const SizedBox(width: 8),
-                                          const SizedBox(
+                                          SizedBox(width: 8),
+                                          SizedBox(
                                             width: 55,
                                             child: Text(
                                               'Total',
@@ -409,8 +409,8 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
                                               textAlign: TextAlign.right,
                                             ),
                                           ),
-                                          const SizedBox(width: 8),
-                                          const SizedBox(width: 30),
+                                          SizedBox(width: 8),
+                                          SizedBox(width: 30),
                                         ],
                                       ),
                                       Divider(

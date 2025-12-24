@@ -254,7 +254,7 @@ class _BillCartState extends State<BillCart> {
       confirmButtonText: 'Print Receipt',
     );
 
-    if (tableNumber == null) return; // User cancelled
+    if (tableNumber == null || !mounted) return; // User cancelled or widget unmounted
 
     // Show loading dialog
     showDialog(
@@ -286,7 +286,8 @@ class _BillCartState extends State<BillCart> {
       String contact = shopData['contact']!;
       String address = shopData['address']!;
 
-      if (parentContext.mounted) Navigator.pop(parentContext);
+      if (!mounted) return;
+      Navigator.pop(parentContext);
 
       // Print dine-in receipt with table number
       await DirectPrintHelper.printReceipt(
@@ -304,31 +305,27 @@ class _BillCartState extends State<BillCart> {
         cgstPercent: printProvider.cgstPercent,
         sgstPercent: printProvider.sgstPercent,
       );
-      // Debug: Print all data to console
-     
 
       _clearCart();
 
-      if (parentContext.mounted) {
-        ScaffoldMessenger.of(parentContext).showSnackBar(
-          SnackBar(
-            content: Text('Dine-in receipt printed for Table $tableNumber'),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(parentContext).showSnackBar(
+        SnackBar(
+          content: Text('Dine-in receipt printed for Table $tableNumber'),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 2),
+        ),
+      );
     } catch (e) {
-      if (parentContext.mounted) {
-        Navigator.pop(parentContext);
-        ScaffoldMessenger.of(parentContext).showSnackBar(
-          SnackBar(
-            content: Text('Printing failed: $e'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      }
+      if (!mounted) return;
+      Navigator.pop(parentContext);
+      ScaffoldMessenger.of(parentContext).showSnackBar(
+        SnackBar(
+          content: Text('Printing failed: $e'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 3),
+        ),
+      );
     }
   }
 
@@ -340,7 +337,7 @@ class _BillCartState extends State<BillCart> {
     bool? confirmed = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (BuildContext context) {
+      builder: (BuildContext dialogContext) {
         return AlertDialog(
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
@@ -358,12 +355,12 @@ class _BillCartState extends State<BillCart> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
+              onPressed: () => Navigator.of(dialogContext).pop(false),
               style: TextButton.styleFrom(foregroundColor: Colors.grey[700]),
               child: const Text('Cancel', style: TextStyle(fontSize: 16)),
             ),
             ElevatedButton(
-              onPressed: () => Navigator.of(context).pop(true),
+              onPressed: () => Navigator.of(dialogContext).pop(true),
               style: ElevatedButton.styleFrom(
                 backgroundColor: appbar1,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -376,59 +373,57 @@ class _BillCartState extends State<BillCart> {
       },
     );
 
-    if (confirmed == true) {
-      Random random = Random();
-      String generatedReceiptNo = '';
-      for (int i = 0; i < 8; i++) {
-        generatedReceiptNo += random.nextInt(10).toString();
-      }
+    if (confirmed != true || !mounted) return;
 
-      try {
-        await saveBill(
-          adminUid: widget.phoneNo,
-          receiptNo: generatedReceiptNo,
-          items: selectedItemsDetails,
-          subTotal: subtotal,
-        );
+    Random random = Random();
+    String generatedReceiptNo = '';
+    for (int i = 0; i < 8; i++) {
+      generatedReceiptNo += random.nextInt(10).toString();
+    }
 
-        if (context.mounted) {
-          final isOnline = _databaseService.isOnline;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Row(
-                children: [
-                  Icon(
-                    isOnline ? Icons.cloud_done : Icons.cloud_off,
-                    color: Colors.white,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      isOnline
-                          ? 'Bill saved! Receipt No: $generatedReceiptNo'
-                          : 'Bill saved offline! Receipt No: $generatedReceiptNo (will sync when online)',
-                    ),
-                  ),
-                ],
+    try {
+      await saveBill(
+        adminUid: widget.phoneNo,
+        receiptNo: generatedReceiptNo,
+        items: selectedItemsDetails,
+        subTotal: subtotal,
+      );
+
+      if (!mounted) return;
+      final isOnline = _databaseService.isOnline;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Icon(
+                isOnline ? Icons.cloud_done : Icons.cloud_off,
+                color: Colors.white,
+                size: 20,
               ),
-              backgroundColor: Colors.green,
-              duration: const Duration(seconds: 3),
-            ),
-          );
-          _clearCart();
-        }
-      } catch (e) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Failed to save bill: $e'),
-              backgroundColor: Colors.red,
-              duration: const Duration(seconds: 3),
-            ),
-          );
-        }
-      }
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  isOnline
+                      ? 'Bill saved! Receipt No: $generatedReceiptNo'
+                      : 'Bill saved offline! Receipt No: $generatedReceiptNo (will sync when online)',
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+      _clearCart();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to save bill: $e'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 3),
+        ),
+      );
     }
   }
 
@@ -446,6 +441,8 @@ class _BillCartState extends State<BillCart> {
 
     // Fetch shop data (local-first)
     final shopData = await _getShopData();
+    if (!mounted) return;
+    
     String shopName = shopData['shopName']!;
     String contact = shopData['contact']!;
     String address = shopData['address']!;
@@ -462,7 +459,8 @@ class _BillCartState extends State<BillCart> {
         ),
       ),
     );
-
+    
+    if (!mounted) return;
     if (result != null) {
       setState(() {
         selectedItemsDetails = result['items'];
@@ -529,7 +527,8 @@ class _BillCartState extends State<BillCart> {
       String contact = shopData['contact']!;
       String address = shopData['address']!;
 
-      if (context.mounted) Navigator.pop(context);
+      if (!mounted) return;
+      Navigator.pop(context);
 
       await DirectPrintHelper.printReceipt(
         adminUid: widget.phoneNo,
@@ -548,44 +547,42 @@ class _BillCartState extends State<BillCart> {
 
       _clearCart();
       
-      if (context.mounted) {
-        final isOnline = _databaseService.isOnline;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                Icon(
-                  isOnline ? Icons.cloud_done : Icons.cloud_off,
-                  color: Colors.white,
-                  size: 20,
+      if (!mounted) return;
+      final isOnline = _databaseService.isOnline;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Icon(
+                isOnline ? Icons.cloud_done : Icons.cloud_off,
+                color: Colors.white,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  isOnline
+                      ? 'Printed & saved! Receipt: $generatedReceiptNo'
+                      : 'Printed & saved offline! Receipt: $generatedReceiptNo',
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    isOnline
-                        ? 'Printed & saved! Receipt: $generatedReceiptNo'
-                        : 'Printed & saved offline! Receipt: $generatedReceiptNo',
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 2),
+              ),
+            ],
           ),
-        );
-      }
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 2),
+        ),
+      );
     } catch (e) {
-      if (context.mounted) Navigator.pop(context);
+      if (!mounted) return;
+      Navigator.pop(context);
       debugPrint('Error printing receipt: $e');
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Printing failed: $e'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Printing failed: $e'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 3),
+        ),
+      );
     }
   }
 

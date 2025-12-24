@@ -366,9 +366,10 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
+          centerTitle: true,
           elevation: 1,
           title: const Text(
-            'Bill generator',
+            'Enter Food code',
             style: TextStyle(
                 color: Colors.black, fontFamily: 'tabfont', fontSize: 19),
           ),
@@ -376,82 +377,71 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
         ),
         body: SingleChildScrollView(
           child: SizedBox(
-            height: MediaQuery.of(context).size.height - 60,
+            height: MediaQuery.of(context).size.height - 80,
             child: Column(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                const SizedBox(height: 20),
-                const Text(
-                  'Enter Food Code:',
-                  style: TextStyle(
-                      fontSize: 18, fontFamily: "tabfont", letterSpacing: 2),
-                ),
-                const SizedBox(height: 16),
-                Padding(
-                  padding: const EdgeInsets.all(3.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: <Widget>[
-                      SizedBox(
-                        height: MediaQuery.of(context).size.height * 0.09,
-                        width: MediaQuery.of(context).size.width * 0.9,
-                        child: TextField(
-                          style: const TextStyle(
-                            fontSize: 28,
-                            fontFamily: "tabfont",
-                            color: primaryColor,
-                          ),
-                          readOnly: true,
-                          controller: _textEditingController,
-                          cursorColor: primaryColor,
-                          decoration: InputDecoration(
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(20),
-                              borderSide:
-                                  const BorderSide(color: Colors.black38),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(20),
-                              borderSide: const BorderSide(color: primaryColor),
-                            ),
-                            focusColor: primaryColor,
-                            hoverColor: primaryColor,
-                            suffixIcon: isInputNotEmpty
-                                ? Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      IconButton(
-                                        icon: const Icon(
-                                          Icons.backspace_outlined,
-                                          color: primaryColor,
-                                          size: 24,
-                                        ),
-                                        onPressed: () {
-                                          if (_textEditingController
-                                              .text.isNotEmpty) {
-                                            _textEditingController.text =
-                                                _textEditingController.text
-                                                    .substring(
-                                                        0,
-                                                        _textEditingController
-                                                                .text.length -
-                                                            1);
-                                          }
-                                        },
-                                      ),
-                                    ],
-                                  )
-                                : null,
-                          ),
-                          textAlign: TextAlign.center,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: <Widget>[
+                    SizedBox(
+                      height: MediaQuery.of(context).size.height * 0.09,
+                      width: MediaQuery.of(context).size.width * 0.9,
+                      child: TextField(
+                        style: const TextStyle(
+                          fontSize: 28,
+                          fontFamily: "tabfont",
+                          color: primaryColor,
                         ),
-                      )
-                    ],
-                  ),
+                        readOnly: true,
+                        controller: _textEditingController,
+                        cursorColor: primaryColor,
+                        decoration: InputDecoration(
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(20),
+                            borderSide: const BorderSide(color: Colors.black38),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(20),
+                            borderSide: const BorderSide(color: primaryColor),
+                          ),
+                          focusColor: primaryColor,
+                          hoverColor: primaryColor,
+                          suffixIcon: isInputNotEmpty
+                              ? Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(
+                                        Icons.backspace_outlined,
+                                        color: primaryColor,
+                                        size: 24,
+                                      ),
+                                      onPressed: () {
+                                        if (_textEditingController
+                                            .text.isNotEmpty) {
+                                          _textEditingController.text =
+                                              _textEditingController.text
+                                                  .substring(
+                                                      0,
+                                                      _textEditingController
+                                                              .text.length -
+                                                          1);
+                                        }
+                                      },
+                                    ),
+                                  ],
+                                )
+                              : null,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    )
+                  ],
                 ),
-                const SizedBox(height: 16),
                 GridView.count(
-                  childAspectRatio: 1.3,
+                  childAspectRatio: 1.5,
                   crossAxisCount: 3,
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
@@ -502,7 +492,6 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
                       ),
                   ],
                 ),
-                const SizedBox(height: 16),
                 // Use Flexible to allow the cart container to take available space
                 if (printprovider.posts.isNotEmpty)
                   Flexible(
@@ -516,7 +505,8 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
                           totalSum = 0.0;
                         });
                       },
-                      onCartUpdated: (List<Map<String, dynamic>> updatedItems, double updatedTotal) {
+                      onCartUpdated: (List<Map<String, dynamic>> updatedItems,
+                          double updatedTotal) {
                         setState(() {
                           cartItems = updatedItems;
                           totalSum = updatedTotal;
@@ -541,7 +531,7 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
                       },
                     ),
                   ),
-                const SizedBox(height: 20),
+                // const SizedBox(height: 10),
               ],
             ),
           ),

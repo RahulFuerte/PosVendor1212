@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import '../backend/sync_manager.dart';
 import '../backend/connection_monitor.dart';
+import '../constants/constants.dart';
 import 'sync_progress_dialog.dart';
 
 /// Comprehensive sync status page for detailed sync management
@@ -165,21 +166,54 @@ class _SyncStatusPageState extends State<SyncStatusPage> {
   }
 
   Widget _buildConnectionStatus() {
-    return Card(
+    return Container(
+      decoration: BoxDecoration(
+        color: white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            spreadRadius: 1,
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: ListTile(
-        leading: Icon(
-          _isConnected ? Icons.wifi : Icons.wifi_off,
-          color: _isConnected ? Colors.green : Colors.red,
+        contentPadding: const EdgeInsets.all(16),
+        leading: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: _isConnected ? primaryColor.withOpacity(0.1) : Colors.red.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(
+            _isConnected ? Icons.wifi : Icons.wifi_off,
+            color: _isConnected ? primaryColor : Colors.red,
+          ),
         ),
-        title: Text(_isConnected ? 'Online' : 'Offline'),
+        title: Text(
+          _isConnected ? 'Online' : 'Offline',
+          style: const TextStyle(
+            fontFamily: 'tabfont',
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+          ),
+        ),
         subtitle: Text(
           _isConnected 
               ? 'Connected to internet' 
               : 'No internet connection',
+          style: TextStyle(
+            fontFamily: 'fontmain',
+            fontSize: 13,
+            color: Colors.grey[600],
+          ),
         ),
-        trailing: _isConnected 
-            ? const Icon(Icons.check_circle, color: Colors.green)
-            : const Icon(Icons.error, color: Colors.red),
+        trailing: Icon(
+          _isConnected ? Icons.check_circle : Icons.error,
+          color: _isConnected ? primaryColor : Colors.red,
+        ),
       ),
     );
   }
@@ -202,7 +236,7 @@ class _SyncStatusPageState extends State<SyncStatusPage> {
         break;
       case SyncOperationStatus.completed:
         statusText = 'Completed';
-        statusColor = Colors.green;
+        statusColor = primaryColor;
         statusIcon = Icons.check_circle;
         break;
       case SyncOperationStatus.failed:
@@ -218,23 +252,71 @@ class _SyncStatusPageState extends State<SyncStatusPage> {
         break;
     }
 
-    return Card(
+    return Container(
+      decoration: BoxDecoration(
+        color: white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            spreadRadius: 1,
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: ListTile(
-        leading: Icon(statusIcon, color: statusColor),
-        title: Text('Sync Status: $statusText'),
+        contentPadding: const EdgeInsets.all(16),
+        leading: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: statusColor.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(statusIcon, color: statusColor),
+        ),
+        title: Text(
+          'Sync Status: $statusText',
+          style: const TextStyle(
+            fontFamily: 'tabfont',
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+          ),
+        ),
         subtitle: _lastResult?.errorMessage != null
             ? Text(
                 'Error: ${_lastResult!.errorMessage}',
-                style: const TextStyle(color: Colors.red),
+                style: const TextStyle(
+                  color: Colors.red,
+                  fontFamily: 'fontmain',
+                  fontSize: 13,
+                ),
               )
             : _lastResult?.success == true
-                ? Text('Last sync: ${_lastResult!.itemsSynced} items')
-                : const Text('Ready to sync'),
+                ? Text(
+                    'Last sync: ${_lastResult!.itemsSynced} items',
+                    style: TextStyle(
+                      fontFamily: 'fontmain',
+                      fontSize: 13,
+                      color: Colors.grey[600],
+                    ),
+                  )
+                : Text(
+                    'Ready to sync',
+                    style: TextStyle(
+                      fontFamily: 'fontmain',
+                      fontSize: 13,
+                      color: Colors.grey[600],
+                    ),
+                  ),
         trailing: _currentStatus == SyncOperationStatus.syncing
-            ? const SizedBox(
+            ? SizedBox(
                 width: 20,
                 height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2),
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: primaryColor,
+                ),
               )
             : null,
       ),
@@ -243,10 +325,36 @@ class _SyncStatusPageState extends State<SyncStatusPage> {
 
   Widget _buildSyncStatistics() {
     if (_syncStatistics.isEmpty) {
-      return const Card(
+      return Container(
+        decoration: BoxDecoration(
+          color: white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.1),
+              spreadRadius: 1,
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
         child: ListTile(
-          leading: Icon(Icons.info),
-          title: Text('Loading statistics...'),
+          contentPadding: const EdgeInsets.all(16),
+          leading: Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.grey.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.info, color: Colors.grey),
+          ),
+          title: const Text(
+            'Loading statistics...',
+            style: TextStyle(
+              fontFamily: 'tabfont',
+              fontSize: 15,
+            ),
+          ),
         ),
       );
     }
@@ -255,43 +363,69 @@ class _SyncStatusPageState extends State<SyncStatusPage> {
     final lastSyncTime = _syncStatistics['lastSyncTime'];
     final isInitialized = _syncStatistics['isInitialized'] ?? false;
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Sync Statistics',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
+    return Container(
+      decoration: BoxDecoration(
+        color: white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            spreadRadius: 1,
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.analytics, color: primaryColor),
+              const SizedBox(width: 8),
+              const Text(
+                'Sync Statistics',
+                style: TextStyle(
+                  fontFamily: 'tabfont',
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-            _buildStatRow('Pending Items', pendingCount.toString()),
-            _buildStatRow('Last Sync', lastSyncTime ?? 'Never'),
-            _buildStatRow('Sync Manager', isInitialized ? 'Initialized' : 'Not initialized'),
-            _buildStatRow('Connection', _isConnected ? 'Online' : 'Offline'),
-          ],
-        ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _buildStatRow('Pending Items', pendingCount.toString(), pendingCount > 0 ? Colors.orange : primaryColor),
+          _buildStatRow('Last Sync', lastSyncTime ?? 'Never', Colors.grey[700]!),
+          _buildStatRow('Sync Manager', isInitialized ? 'Initialized' : 'Not initialized', isInitialized ? primaryColor : Colors.orange),
+          _buildStatRow('Connection', _isConnected ? 'Online' : 'Offline', _isConnected ? primaryColor : Colors.red),
+        ],
       ),
     );
   }
 
-  Widget _buildStatRow(String label, String value) {
+  Widget _buildStatRow(String label, String value, Color valueColor) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
             label,
-            style: const TextStyle(fontWeight: FontWeight.w500),
+            style: const TextStyle(
+              fontFamily: 'fontmain',
+              fontWeight: FontWeight.w500,
+              fontSize: 14,
+            ),
           ),
           Text(
             value,
-            style: TextStyle(color: Colors.grey[600]),
+            style: TextStyle(
+              fontFamily: 'fontmain',
+              color: valueColor,
+              fontWeight: FontWeight.w600,
+              fontSize: 14,
+            ),
           ),
         ],
       ),
@@ -304,47 +438,98 @@ class _SyncStatusPageState extends State<SyncStatusPage> {
                    _currentStatus != SyncOperationStatus.syncing &&
                    _currentStatus != SyncOperationStatus.retrying;
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text(
-              'Sync Actions',
+    return Container(
+      decoration: BoxDecoration(
+        color: white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            spreadRadius: 1,
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.touch_app, color: primaryColor),
+              const SizedBox(width: 8),
+              const Text(
+                'Sync Actions',
+                style: TextStyle(
+                  fontFamily: 'tabfont',
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton.icon(
+            onPressed: canSync && pendingCount > 0 ? _performManualSync : null,
+            icon: const Icon(Icons.sync),
+            label: Text(
+              'Sync Pending Items ($pendingCount)',
+              style: const TextStyle(
+                fontFamily: 'tabfont',
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primaryColor,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          ElevatedButton.icon(
+            onPressed: canSync ? _performFullSync : null,
+            icon: const Icon(Icons.sync_alt),
+            label: const Text(
+              'Full Sync',
               style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
+                fontFamily: 'tabfont',
+                fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
-              onPressed: canSync && pendingCount > 0 ? _performManualSync : null,
-              icon: const Icon(Icons.sync),
-              label: Text('Sync Pending Items ($pendingCount)'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
-                foregroundColor: Colors.white,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
               ),
             ),
-            const SizedBox(height: 8),
-            ElevatedButton.icon(
-              onPressed: canSync ? _performFullSync : null,
-              icon: const Icon(Icons.sync_alt),
-              label: const Text('Full Sync'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                foregroundColor: Colors.white,
+          ),
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            onPressed: _loadData,
+            icon: Icon(Icons.refresh, color: primaryColor),
+            label: Text(
+              'Refresh Status',
+              style: TextStyle(
+                fontFamily: 'tabfont',
+                fontWeight: FontWeight.w600,
+                color: primaryColor,
               ),
             ),
-            const SizedBox(height: 8),
-            OutlinedButton.icon(
-              onPressed: _loadData,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Refresh Status'),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              side: BorderSide(color: primaryColor),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -352,23 +537,45 @@ class _SyncStatusPageState extends State<SyncStatusPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.green[50],
       appBar: AppBar(
-        title: const Text('Sync Status'),
-        backgroundColor: Colors.blue[50],
+        backgroundColor: white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios, color: Colors.black87),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text(
+          'Sync Diagnostics',
+          style: TextStyle(
+            color: Colors.black87,
+            fontFamily: 'tabfont',
+            fontWeight: FontWeight.w600,
+            fontSize: 18,
+          ),
+        ),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.refresh, color: primaryColor),
+            onPressed: _loadData,
+            tooltip: 'Refresh',
+          ),
+        ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(child: CircularProgressIndicator(color: primaryColor))
           : RefreshIndicator(
               onRefresh: _loadData,
+              color: primaryColor,
               child: ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
                   _buildConnectionStatus(),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 12),
                   _buildSyncStatus(),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 12),
                   _buildSyncStatistics(),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 12),
                   _buildActionButtons(),
                 ],
               ),

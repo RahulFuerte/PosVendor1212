@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:provider/provider.dart';
 import '../backend/database_service.dart';
 
@@ -139,7 +140,9 @@ class _CachedBlobImageState extends State<CachedBlobImage> {
           height: widget.height,
           color: Colors.grey[200],
           child: const Center(
-            child: CircularProgressIndicator(),
+            child: CircularProgressIndicator(
+              color: primaryColor,
+            ),
           ),
         );
     }

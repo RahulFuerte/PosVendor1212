@@ -151,9 +151,15 @@ class CompleteOfflineDataManager {
   }
 
   /// Ensure all bills are available offline
-  Future<List<Map<String, dynamic>>> ensureBillsOfflineAvailability(String adminUid, {DateTime? startDate, DateTime? endDate}) async {
+  Future<List<Map<String, dynamic>>> ensureBillsOfflineAvailability(String adminUid, {DateTime? startDate, DateTime? endDate, bool forceRefresh = false}) async {
     try {
       await _ensureInitialized();
+
+      // Clear cache if force refresh
+      if (forceRefresh) {
+        final cacheKey = 'bills_${adminUid}_${startDate?.millisecondsSinceEpoch ?? 'all'}_${endDate?.millisecondsSinceEpoch ?? 'all'}';
+        _dataCache.remove(cacheKey);
+      }
 
       // Get bills from local database
       final List<Map<String, dynamic>> bills = await _sqliteDAO.getBills(adminUid, startDate: startDate, endDate: endDate);
@@ -164,6 +170,7 @@ class CompleteOfflineDataManager {
       final List<Map<String, dynamic>> completeBills = [];
       for (final bill in bills) {
         // Ensure all required fields are present with fallback values
+        // Keep sync_status as-is (int) to preserve the actual status
         final completeBill = {
           'id': bill['id'] ?? 'bill_${DateTime.now().millisecondsSinceEpoch}',
           'bill_number': bill['bill_number'] ?? bill['billNumber'] ?? 'N/A',
@@ -178,7 +185,7 @@ class CompleteOfflineDataManager {
           'status': bill['status'] ?? 'Completed',
           'created_at': bill['created_at'] ?? DateTime.now().millisecondsSinceEpoch,
           'updated_at': bill['updated_at'] ?? DateTime.now().millisecondsSinceEpoch,
-          'sync_status': bill['sync_status'] ?? 'synced',
+          'sync_status': bill['sync_status'] ?? 0, // Keep as int: 0=synced, 1=pending, 2=conflict
           'admin_uid': bill['admin_uid'] ?? adminUid,
         };
         completeBills.add(completeBill);

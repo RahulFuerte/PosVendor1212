@@ -17,7 +17,7 @@ class SplashScreen extends StatefulWidget {
 }
 
 class SplashScreenState extends State<SplashScreen> {
-  static const KEYLOGIN = 'isLoggedIn';
+  static const keyLogin = 'isLoggedIn';
 
   @override
   void initState() {
@@ -28,7 +28,7 @@ class SplashScreenState extends State<SplashScreen> {
       bool isLogged = prefs.getBool('isLogged') ?? false;
       String myPhone = prefs.getString('myPhone') ?? '';
 
-      if (isLogged) {
+      if (isLogged && mounted) {
         // User is already logged in, navigate to HomeScreen
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
@@ -39,11 +39,11 @@ class SplashScreenState extends State<SplashScreen> {
         );
       } else {
         // User is not logged in, navigate to LoginScreen
-        Navigator.of(context).pushReplacement(
+        mounted?Navigator.of(context).pushReplacement(
           MaterialPageRoute(
             builder: (context) => const Inception(),
           ),
-        );
+        ):null;
       }
     });
   }

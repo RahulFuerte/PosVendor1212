@@ -45,14 +45,22 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
   }
 
   Future<void> _loadAllBills() async {
+    if (!mounted) return;
+    
     try {
       setState(() {
         _isLoading = true;
         _errorMessage = '';
+        _bills = []; // Clear existing bills to force refresh
       });
 
-      // Load all bills ensuring offline availability
-      final bills = await _offlineDataManager.ensureBillsOfflineAvailability(widget.adminUid);
+      // Re-initialize to clear any cached data
+      await _offlineDataManager.initialize();
+      
+      // Load all bills ensuring offline availability (force refresh to get latest data)
+      final bills = await _offlineDataManager.ensureBillsOfflineAvailability(widget.adminUid, forceRefresh: true);
+      
+      if (!mounted) return;
       
       setState(() {
         _bills = bills;
@@ -62,6 +70,8 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
       developer.log('Loaded ${bills.length} bills for offline viewing', name: 'OfflineBillStatusScreen');
     } catch (e) {
       developer.log('Error loading bills: $e', name: 'OfflineBillStatusScreen');
+      if (!mounted) return;
+      
       setState(() {
         _errorMessage = 'Failed to load bills: $e';
         _isLoading = false;
@@ -72,19 +82,21 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.green[50],
       appBar: AppBar(
         backgroundColor: white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          icon: const Icon(Icons.arrow_back_ios, color: Colors.black87),
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
           'Offline Bills',
           style: TextStyle(
-            color: Colors.black,
+            color: Colors.black87,
             fontFamily: 'tabfont',
-            fontSize: 19,
+            fontWeight: FontWeight.w600,
+            fontSize: 18,
           ),
         ),
         actions: [
@@ -100,118 +112,130 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
       body: Column(
         children: [
           Expanded(
-            child: Container(
-              color: Colors.grey.withOpacity(0.1),
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Offline Bill Status Widget
-                    OfflineBillStatusWidget(
-                      adminUid: widget.adminUid,
-                      onSyncCompleted: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: const Text('Offline bills synced successfully'),
-                            backgroundColor: primaryColor,
-                          ),
-                        );
-                        _loadAllBills();
-                      },
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Offline Bill Status Widget
+                  OfflineBillStatusWidget(
+                    adminUid: widget.adminUid,
+                    onSyncCompleted: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: const Text('Offline bills synced successfully'),
+                          backgroundColor: primaryColor,
+                        ),
+                      );
+                      _loadAllBills();
+                    },
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  
+                  // All Bills Section
+                  Container(
+                    decoration: BoxDecoration(
+                      color: white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.withOpacity(0.1),
+                          spreadRadius: 1,
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
-                    
-                    const SizedBox(height: 16),
-                    
-                    // All Bills Section
-                    Container(
-                      decoration: BoxDecoration(
-                        color: white,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(Icons.receipt_long, color: primaryColor),
-                              const SizedBox(width: 8),
-                              Text(
-                                'All Bills (${_bills.length})',
-                                style: const TextStyle(
-                                  fontFamily: 'tabfont',
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.receipt_long, color: primaryColor),
+                            const SizedBox(width: 8),
+                            Text(
+                              'All Bills (${_bills.length})',
+                              style: const TextStyle(
+                                fontFamily: 'tabfont',
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
                               ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          
-                          if (_isLoading)
-                            Center(
-                              child: Padding(
-                                padding: const EdgeInsets.all(32),
-                                child: CircularProgressIndicator(color: primaryColor),
-                              ),
-                            )
-                          else if (_errorMessage.isNotEmpty)
-                            Center(
-                              child: Padding(
-                                padding: const EdgeInsets.all(32),
-                                child: Column(
-                                  children: [
-                                    const Icon(Icons.error_outline, size: 48, color: Colors.red),
-                                    const SizedBox(height: 16),
-                                    Text(
-                                      _errorMessage,
-                                      style: const TextStyle(color: Colors.red),
-                                      textAlign: TextAlign.center,
-                                    ),
-                                    const SizedBox(height: 16),
-                                    ElevatedButton(
-                                      onPressed: _loadAllBills,
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: primaryColor,
-                                      ),
-                                      child: const Text('Retry', style: TextStyle(color: white)),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            )
-                          else if (_bills.isEmpty)
-                            const Center(
-                              child: Padding(
-                                padding: EdgeInsets.all(32),
-                                child: Column(
-                                  children: [
-                                    Icon(Icons.receipt_outlined, size: 48, color: Colors.grey),
-                                    SizedBox(height: 16),
-                                    Text(
-                                      'No bills found',
-                                      style: TextStyle(color: Colors.grey, fontSize: 16),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            )
-                          else
-                            ListView.builder(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              itemCount: _bills.length,
-                              itemBuilder: (context, index) {
-                                final bill = _bills[index];
-                                return _buildBillCard(bill);
-                              },
                             ),
-                        ],
-                      ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        
+                        if (_isLoading)
+                          Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(32),
+                              child: CircularProgressIndicator(color: primaryColor),
+                            ),
+                          )
+                        else if (_errorMessage.isNotEmpty)
+                          Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(32),
+                              child: Column(
+                                children: [
+                                  const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    _errorMessage,
+                                    style: const TextStyle(
+                                      color: Colors.red,
+                                      fontFamily: 'fontmain',
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  ElevatedButton(
+                                    onPressed: _loadAllBills,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: primaryColor,
+                                    ),
+                                    child: const Text('Retry', style: TextStyle(color: white)),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        else if (_bills.isEmpty)
+                          Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(32),
+                              child: Column(
+                                children: [
+                                  Icon(Icons.receipt_outlined, size: 48, color: Colors.grey[400]),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    'No bills found',
+                                    style: TextStyle(
+                                      color: Colors.grey[500],
+                                      fontFamily: 'fontmain',
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        else
+                          ListView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: _bills.length,
+                            itemBuilder: (context, index) {
+                              final bill = _bills[index];
+                              return _buildBillCard(bill);
+                            },
+                          ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -222,34 +246,74 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
 
   Widget _buildBillCard(Map<String, dynamic> bill) {
     final billId = bill['id']?.toString() ?? 'Unknown';
-    final billDate = bill['bill_date'] != null 
-        ? DateTime.fromMillisecondsSinceEpoch(bill['bill_date'] as int)
-        : null;
+    DateTime? billDate;
+    try {
+      final billDateValue = bill['bill_date'];
+      if (billDateValue is int) {
+        billDate = DateTime.fromMillisecondsSinceEpoch(billDateValue);
+      } else if (billDateValue is String) {
+        // Try parsing as milliseconds string first
+        final parsed = int.tryParse(billDateValue);
+        if (parsed != null) {
+          billDate = DateTime.fromMillisecondsSinceEpoch(parsed);
+        } else {
+          // Try parsing as date string
+          billDate = DateTime.tryParse(billDateValue);
+        }
+      }
+    } catch (e) {
+      billDate = null;
+    }
     final customerName = bill['customer_name']?.toString() ?? 'Unknown Customer';
     final totalAmount = PriceUtils.safePriceToString(bill['total_amount'] ?? bill['total']);
-    final syncStatus = bill['sync_status']?.toString() ?? 'unknown';
-    final isPending = syncStatus == 'pending';
+    
+    // Handle sync_status as both int and String
+    // 0 = synced, 1 = pending, 2 = conflict
+    final syncStatusValue = bill['sync_status'];
+    bool isPending = false;
+    String syncStatusText = 'Unknown';
+    
+    if (syncStatusValue is int) {
+      isPending = syncStatusValue == 1;
+      syncStatusText = syncStatusValue == 0 ? 'Synced' : (syncStatusValue == 1 ? 'Pending' : 'Conflict');
+    } else if (syncStatusValue is String) {
+      final parsed = int.tryParse(syncStatusValue);
+      if (parsed != null) {
+        isPending = parsed == 1;
+        syncStatusText = parsed == 0 ? 'Synced' : (parsed == 1 ? 'Pending' : 'Conflict');
+      } else {
+        isPending = syncStatusValue.toLowerCase() == 'pending';
+        syncStatusText = syncStatusValue;
+      }
+    }
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
         color: white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade200),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.08),
+            spreadRadius: 1,
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         leading: Container(
-          width: 40,
-          height: 40,
+          width: 44,
+          height: 44,
           decoration: BoxDecoration(
             color: isPending ? Colors.orange.withOpacity(0.1) : primaryColor.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(12),
           ),
           child: Icon(
             isPending ? Icons.sync_problem : Icons.check_circle,
             color: isPending ? Colors.orange : primaryColor,
-            size: 20,
+            size: 22,
           ),
         ),
         title: Text(
@@ -257,17 +321,18 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
           style: const TextStyle(
             fontWeight: FontWeight.bold,
             fontFamily: 'tabfont',
-            fontSize: 14,
+            fontSize: 15,
           ),
         ),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            const SizedBox(height: 4),
             Text(
               customerName,
               style: TextStyle(
                 fontFamily: 'fontmain',
-                fontSize: 12,
+                fontSize: 13,
                 color: Colors.grey.shade700,
               ),
             ),
@@ -290,22 +355,24 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
               '₹$totalAmount',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
-                fontSize: 15,
+                fontSize: 16,
                 color: primaryColor,
                 fontFamily: 'tabfont',
               ),
             ),
+            const SizedBox(height: 4),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
                 color: isPending ? Colors.orange.withOpacity(0.1) : primaryColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(4),
+                borderRadius: BorderRadius.circular(6),
               ),
               child: Text(
-                isPending ? 'Pending' : 'Synced',
+                syncStatusText,
                 style: TextStyle(
                   fontSize: 10,
-                  fontWeight: FontWeight.w500,
+                  fontFamily: 'fontmain',
+                  fontWeight: FontWeight.w600,
                   color: isPending ? Colors.orange : primaryColor,
                 ),
               ),
@@ -349,9 +416,9 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
               _buildDetailRow('Phone', bill['customer_phone']?.toString() ?? 'N/A'),
               _buildDetailRow('Total', '₹${PriceUtils.safePriceToString(bill['total_amount'] ?? bill['total'])}'),
               _buildDetailRow('Payment', bill['payment_method']?.toString() ?? 'N/A'),
-              _buildDetailRow('Status', bill['sync_status']?.toString() ?? 'Unknown'),
+              _buildDetailRow('Status', _getSyncStatusText(bill['sync_status'])),
               if (bill['bill_date'] != null)
-                _buildDetailRow('Date', _formatDate(DateTime.fromMillisecondsSinceEpoch(bill['bill_date'] as int))),
+                _buildDetailRow('Date', _formatBillDate(bill['bill_date'])),
             ],
           ),
         ),
@@ -400,5 +467,46 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
 
   String _formatDate(DateTime date) {
     return '${date.day}/${date.month}/${date.year} ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
+  }
+
+  String _formatBillDate(dynamic billDateValue) {
+    DateTime? billDate;
+    try {
+      if (billDateValue is int) {
+        billDate = DateTime.fromMillisecondsSinceEpoch(billDateValue);
+      } else if (billDateValue is String) {
+        final parsed = int.tryParse(billDateValue);
+        if (parsed != null) {
+          billDate = DateTime.fromMillisecondsSinceEpoch(parsed);
+        } else {
+          billDate = DateTime.tryParse(billDateValue);
+        }
+      }
+    } catch (e) {
+      return 'Unknown';
+    }
+    return billDate != null ? _formatDate(billDate) : 'Unknown';
+  }
+
+  String _getSyncStatusText(dynamic syncStatus) {
+    if (syncStatus is int) {
+      switch (syncStatus) {
+        case 0:
+          return 'Synced';
+        case 1:
+          return 'Pending';
+        case 2:
+          return 'Conflict';
+        default:
+          return 'Unknown';
+      }
+    } else if (syncStatus is String) {
+      final parsed = int.tryParse(syncStatus);
+      if (parsed != null) {
+        return _getSyncStatusText(parsed);
+      }
+      return syncStatus;
+    }
+    return 'Unknown';
   }
 }

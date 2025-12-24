@@ -56,13 +56,16 @@ class MenuItem extends StatelessWidget {
                         child: 
 
                         CachedBlobImage(
+                          width: 10,
+                          height: 10,
                           imageUrl: imagePath,
                           tableName: 'food_items',
                           recordId: code,
-                          placeholder: 
-                                const CircularProgressIndicator(
-                            color: primaryColor,
-                          ),
+                          // placeholder: 
+                          //       const CircularProgressIndicator(
+                          //   color: primaryColor,
+                          //   strokeWidth: 2,
+                          // ),
                           errorWidget: 
                               const Icon(Icons.error),
                         ),

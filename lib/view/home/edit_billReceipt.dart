@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:pos/view/home/print_provider.dart';
 import 'package:pos/view/tab_screen/view-model/backend/sqlite_helper.dart';
@@ -437,23 +438,22 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
                                             )
                                           : _imageUrl != null
                                               ? ClipOval(
-                                                  child: Image.network(
-                                                    _imageUrl!,
+                                                  child: CachedNetworkImage(
+                                                    imageUrl: _imageUrl!,
                                                     width: 120,
                                                     height: 120,
                                                     fit: BoxFit.cover,
-                                                    loadingBuilder: (context,
-                                                        child,
-                                                        loadingProgress) {
-                                                      if (loadingProgress ==
-                                                          null) {
-                                                        return child;
-                                                      }
-                                                      return const Center(
-                                                        child:
-                                                            CircularProgressIndicator(),
-                                                      );
-                                                    },
+                                                    placeholder: (context, url) =>
+                                                        const Center(
+                                                      child:
+                                                          CircularProgressIndicator(),
+                                                    ),
+                                                    errorWidget: (context, url, error) =>
+                                                        Icon(
+                                                      Icons.store,
+                                                      size: 50,
+                                                      color: Colors.grey[400],
+                                                    ),
                                                   ),
                                                 )
                                               : Icon(

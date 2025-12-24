@@ -766,7 +766,7 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                                         height: 30,
                                         child: CircularProgressIndicator(
                                           color: primaryColor,
-                                          strokeWidth: 3,
+                                          strokeWidth: 2,
                                         ),
                                       ),
                                     );
