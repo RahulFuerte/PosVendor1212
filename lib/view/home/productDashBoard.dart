@@ -807,7 +807,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
               ),
               const Divider(),
               ListTile(
-                leading: const Icon(Icons.people, color: Colors.blue),
+                leading: const Icon(Icons.people, color: primaryColor),
                 title: const Text('My Customers'),
                 onTap: () {
                   Navigator.push(
@@ -822,7 +822,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.save_as, color: Colors.teal),
+                leading: const Icon(Icons.save_as, color: primaryColor),
                 title: const Text('Saved Orders'),
                 onTap: () {
                   Navigator.push(
@@ -834,7 +834,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.sync, color: Colors.orange),
+                leading: const Icon(Icons.sync, color: primaryColor),
                 title: const Text('Offline Status & Bills'),
                 onTap: () {
                   Navigator.push(
@@ -848,7 +848,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.sync_problem, color: Colors.deepOrange),
+                leading: const Icon(Icons.sync_problem, color: primaryColor),
                 title: const Text('Sync Diagnostics'),
                 onTap: () {
                   Navigator.push(
@@ -881,12 +881,12 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
               //       context,
               //       MaterialPageRoute(
               //         builder: (context) => const ErrorNotificationScreen(),
-              //       ),
+              //       )
               //     );
               //   },
               // ),
               ListTile(
-                leading: Icon(MdiIcons.chartBar, color: Colors.purple),
+                leading: Icon(MdiIcons.chartBar, color: primaryColor),
                 title: const Text('Sales Report'),
                 onTap: () {
                   Navigator.push(
@@ -900,7 +900,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                 },
               ),
               ListTile(
-                leading: Icon(MdiIcons.fileDocumentOutline, color: Colors.indigo),
+                leading: Icon(MdiIcons.fileDocumentOutline, color: primaryColor),
                 title: const Text('Billwise Report'),
                 onTap: () {
                   Navigator.push(
@@ -915,7 +915,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                 },
               ),
               ListTile(
-                leading: Icon(MdiIcons.foodOutline, color: Colors.green),
+                leading: Icon(MdiIcons.foodOutline, color: primaryColor),
                 title: const Text('Itemwise Report'),
                 onTap: () {
                   Navigator.push(
@@ -930,7 +930,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                 },
               ),
               ListTile(
-                leading: Icon(MdiIcons.calendarMonth, color: Colors.cyan),
+                leading: Icon(MdiIcons.calendarMonth, color: primaryColor),
                 title: const Text('Datewise Report'),
                 onTap: () {
                   Navigator.push(
@@ -945,7 +945,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.receipt, color: Colors.brown),
+                leading: const Icon(Icons.receipt, color: primaryColor),
                 title: const Text('Edit bill Receipt'),
                 onTap: () {
                   Navigator.push(
