@@ -718,6 +718,8 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                         children: [
                           printprovider.posts.isNotEmpty
                               ? BillCart(
+                                 isContainerVisible: isContainerVisible,
+                                 isRestaurantScreen: true,
                                   adminUid: adminUid,
                                   phoneNo: widget.phoneNo,
                                   onCartCleared: () {

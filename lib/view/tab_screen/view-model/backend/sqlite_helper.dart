@@ -37,12 +37,46 @@ class SQLiteHelper {
 
   Future<Database> _initDatabase() async {
     String path = join(await getDatabasesPath(), 'pos_database.db');
-    return await openDatabase(
+    final db = await openDatabase(
       path,
       version: _currentVersion,
       onCreate: _createTables,
       onUpgrade: _migrateTables,
     );
+    // Ensure tax columns exist for existing databases
+    await _ensureTaxColumnsExist(db);
+    return db;
+  }
+
+  /// Ensures tax columns exist in bills table (for existing databases)
+  Future<void> _ensureTaxColumnsExist(Database db) async {
+    try {
+      // Check if columns exist by querying table info
+      final tableInfo = await db.rawQuery('PRAGMA table_info(bills)');
+      final columnNames = tableInfo.map((col) => col['name'] as String).toSet();
+      
+      // Add missing columns
+      if (!columnNames.contains('sub_total')) {
+        await db.execute('ALTER TABLE bills ADD COLUMN sub_total REAL');
+      }
+      if (!columnNames.contains('tax_enabled')) {
+        await db.execute('ALTER TABLE bills ADD COLUMN tax_enabled INTEGER DEFAULT 0');
+      }
+      if (!columnNames.contains('cgst_percent')) {
+        await db.execute('ALTER TABLE bills ADD COLUMN cgst_percent REAL DEFAULT 0.0');
+      }
+      if (!columnNames.contains('sgst_percent')) {
+        await db.execute('ALTER TABLE bills ADD COLUMN sgst_percent REAL DEFAULT 0.0');
+      }
+      if (!columnNames.contains('cgst_amount')) {
+        await db.execute('ALTER TABLE bills ADD COLUMN cgst_amount REAL DEFAULT 0.0');
+      }
+      if (!columnNames.contains('sgst_amount')) {
+        await db.execute('ALTER TABLE bills ADD COLUMN sgst_amount REAL DEFAULT 0.0');
+      }
+    } catch (e) {
+      print('Error ensuring tax columns exist: $e');
+    }
   }
 
   Future<void> _createTables(Database db, int version) async {
@@ -92,7 +126,13 @@ class SQLiteHelper {
         customer_phone TEXT,
         items TEXT NOT NULL,
         total_amount REAL NOT NULL,
+        sub_total REAL,
         table_number TEXT DEFAULT 'N/A',
+        tax_enabled INTEGER DEFAULT 0,
+        cgst_percent REAL DEFAULT 0.0,
+        sgst_percent REAL DEFAULT 0.0,
+        cgst_amount REAL DEFAULT 0.0,
+        sgst_amount REAL DEFAULT 0.0,
         bill_date INTEGER NOT NULL,
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL,
@@ -215,8 +255,16 @@ class SQLiteHelper {
   }
 
   Future<void> _migrateToVersion2(Database db) async {
-    // Migration to version 2: Add performance indexes
+    // Migration to version 2: Add tax columns to bills table and performance indexes
     try {
+      // Add tax columns to bills table
+      await db.execute('ALTER TABLE bills ADD COLUMN sub_total REAL');
+      await db.execute('ALTER TABLE bills ADD COLUMN tax_enabled INTEGER DEFAULT 0');
+      await db.execute('ALTER TABLE bills ADD COLUMN cgst_percent REAL DEFAULT 0.0');
+      await db.execute('ALTER TABLE bills ADD COLUMN sgst_percent REAL DEFAULT 0.0');
+      await db.execute('ALTER TABLE bills ADD COLUMN cgst_amount REAL DEFAULT 0.0');
+      await db.execute('ALTER TABLE bills ADD COLUMN sgst_amount REAL DEFAULT 0.0');
+      
       // Add new indexes for better performance
       await db.execute('CREATE INDEX IF NOT EXISTS idx_food_items_sync_status ON food_items(sync_status)');
       await db.execute('CREATE INDEX IF NOT EXISTS idx_departments_sync_status ON departments(sync_status)');
@@ -237,7 +285,7 @@ class SQLiteHelper {
       // Log this migration
       await db.insert('migration_log', {
         'version': 2,
-        'migration_name': 'add_performance_indexes',
+        'migration_name': 'add_tax_columns_and_indexes',
         'executed_at': DateTime.now().millisecondsSinceEpoch,
         'success': 1,
       });
@@ -1107,6 +1155,27 @@ await prefs.setString('uid', adminUid);
       print('User data saved for: $phoneNumber');
     } catch (e) {
       print('Error saving user data: $e');
+    }
+  }
+
+  /// Get the next sequential receipt number for an admin
+  /// Returns 1 if no bills exist, otherwise returns max + 1
+  Future<int> getNextReceiptNumber(String adminUid) async {
+    try {
+      final db = await database;
+      final result = await db.rawQuery('''
+        SELECT MAX(CAST(id AS INTEGER)) as max_id 
+        FROM bills 
+        WHERE admin_uid = ? AND id GLOB '[0-9]*'
+      ''', [adminUid]);
+      
+      if (result.isNotEmpty && result.first['max_id'] != null) {
+        return (result.first['max_id'] as int) + 1;
+      }
+      return 1; // Start from 1 if no bills exist
+    } catch (e) {
+      print('Error getting next receipt number: $e');
+      return 1; // Default to 1 on error
     }
   }
 

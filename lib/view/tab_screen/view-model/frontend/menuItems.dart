@@ -152,7 +152,7 @@ class MenuItem extends StatelessWidget {
                         Expanded(
                           flex: 2,
                           child: Text(
-                            '₹$price',
+                            '₹${price.split('.')[0]}',
                             textAlign: TextAlign.center,
                             maxLines: 2,
                             style: const TextStyle(

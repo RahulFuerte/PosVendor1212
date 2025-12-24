@@ -154,25 +154,25 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
         developer.log('First item sample: ${allItems.first}', name: 'ProductDashBoard');
       }
 
-      bool isHotValue(dynamic v) {
-        if (v == null) return false;
-        if (v is bool) return v;
-        if (v is int) return v == 1;
-        if (v is String) {
-          final lower = v.toLowerCase();
-          return lower == 'true' || lower == '1' || lower == 'yes' || lower == 'y';
-        }
-        return false;
-      }
+      // bool isHotValue(dynamic v) {
+      //   if (v == null) return false;
+      //   if (v is bool) return v;
+      //   if (v is int) return v == 1;
+      //   if (v is String) {
+      //     final lower = v.toLowerCase();
+      //     return lower == 'true' || lower == '1' || lower == 'yes' || lower == 'y';
+      //   }
+      //   return false;
+      // }
 
       // Filter for hot food items (supporting multiple key names & types)
-      final List<Map<String, dynamic>> hotItems = allItems.where((item) {
-        final dynamic raw = item['is_hot'] ?? item['isHot'];
-        final bool isHot = isHotValue(raw);
+      // COMMENTED OUT: isHot filter - now showing all items
+      final List<Map<String, dynamic>> hotItems = allItems.map((item) {
+        // final dynamic raw = item['is_hot'] ?? item['isHot'];
+        // final bool isHot = isHotValue(raw);
         // Debug each item decision (you can remove or comment out this line later)
-        developer.log('Checking item "${item['name'] ?? item['id'] ?? 'unknown'}": raw=$raw (${raw?.runtimeType}), isHot=$isHot', name: 'ProductDashBoard');
-        return isHot;
-      }).map((item) {
+        // developer.log('Checking item "${item['name'] ?? item['id'] ?? 'unknown'}": raw=$raw (${raw?.runtimeType}), isHot=$isHot', name: 'ProductDashBoard');
+        // return isHot;
         return {
           'id': item['id'] ?? item['name'],
           'name': item['name'] ?? 'N/A',

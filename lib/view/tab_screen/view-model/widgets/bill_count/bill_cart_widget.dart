@@ -3,7 +3,6 @@ import 'package:material_design_icons_flutter/material_design_icons_flutter.dart
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
-import 'dart:math';
 import 'dart:convert';
 
 import '../../../../home/navigation.dart';
@@ -16,7 +15,6 @@ import '../../backend/smart_database_service.dart';
 import '../../backend/sqlite_helper.dart';
 import '../table/table_number_bottom_sheet.dart';
 
-
 /// Reusable Bill Cart Widget
 /// Can be used across multiple pages for consistent cart functionality
 class BillCart extends StatefulWidget {
@@ -25,6 +23,8 @@ class BillCart extends StatefulWidget {
   final VoidCallback? onCartCleared;
   final Function(List<Map<String, dynamic>>, double)? onCartUpdated;
   final Function() orderBottomSheet;
+  final bool? isRestaurantScreen;
+  final bool? isContainerVisible;
 
   const BillCart({
     Key? key,
@@ -32,6 +32,8 @@ class BillCart extends StatefulWidget {
     required this.phoneNo,
     this.onCartCleared,
     this.onCartUpdated,
+    this.isContainerVisible,
+    this.isRestaurantScreen = false,
     required this.orderBottomSheet,
   }) : super(key: key);
 
@@ -146,6 +148,9 @@ class _BillCartState extends State<BillCart> {
     required List<Map<String, dynamic>> items,
     required double subTotal,
     String? tableNumber,
+    bool taxEnabled = false,
+    double cgstPercent = 0.0,
+    double sgstPercent = 0.0,
   }) async {
     try {
       final now = DateTime.now();
@@ -158,6 +163,17 @@ class _BillCartState extends State<BillCart> {
         };
       }).toList();
 
+      // Calculate tax amounts if enabled
+      double cgstAmount = 0.0;
+      double sgstAmount = 0.0;
+      double totalWithTax = subTotal;
+      
+      if (taxEnabled) {
+        cgstAmount = subTotal * (cgstPercent / 100);
+        sgstAmount = subTotal * (sgstPercent / 100);
+        totalWithTax = subTotal + cgstAmount + sgstAmount;
+      }
+
       // Prepare bill data for SmartDatabaseService
       // Note: items must be JSON encoded string for SQLite storage
       // Schema: id, admin_uid, customer_phone, items, total_amount, bill_date, created_at, updated_at, sync_status, firebase_id
@@ -165,8 +181,14 @@ class _BillCartState extends State<BillCart> {
         'id': receiptNo,
         'bill_date': now.toString(),
         'items': jsonEncode(itemsData), // Convert to JSON string for SQLite
-        'total_amount': subTotal,
+        'total_amount': totalWithTax,
+        'sub_total': subTotal,
         'table_number': tableNumber ?? 'N/A',
+        'tax_enabled': taxEnabled ? 1 : 0, // SQLite doesn't support bool, use int
+        'cgst_percent': cgstPercent,
+        'sgst_percent': sgstPercent,
+        'cgst_amount': cgstAmount,
+        'sgst_amount': sgstAmount,
       };
 
       // Save using SmartDatabaseService (handles online/offline automatically)
@@ -180,10 +202,17 @@ class _BillCartState extends State<BillCart> {
           items: items,
           subTotal: subTotal,
           tableNumber: tableNumber,
+          taxEnabled: taxEnabled,
+          cgstPercent: cgstPercent,
+          sgstPercent: sgstPercent,
+          cgstAmount: cgstAmount,
+          sgstAmount: sgstAmount,
+          totalWithTax: totalWithTax,
         );
       }
 
-      debugPrint('Bill saved successfully (${_databaseService.isOnline ? "online" : "offline"})');
+      debugPrint(
+          'Bill saved successfully (${_databaseService.isOnline ? "online" : "offline"})');
     } catch (e) {
       debugPrint('Error saving bill: $e');
       rethrow;
@@ -197,6 +226,12 @@ class _BillCartState extends State<BillCart> {
     required List<Map<String, dynamic>> items,
     required double subTotal,
     String? tableNumber,
+    bool taxEnabled = false,
+    double cgstPercent = 0.0,
+    double sgstPercent = 0.0,
+    double cgstAmount = 0.0,
+    double sgstAmount = 0.0,
+    double totalWithTax = 0.0,
   }) async {
     try {
       final now = DateTime.now();
@@ -212,7 +247,7 @@ class _BillCartState extends State<BillCart> {
         };
       }).toList();
 
-      await FirebaseFirestore.instance.collection('AllBills').doc(adminUid).collection('myBills').doc(monthDoc).collection(dateDoc).doc(receiptNo).set({
+      final Map<String, dynamic> billData = {
         'adminId': adminUid,
         'createdAt': FieldValue.serverTimestamp(),
         'date': dateString,
@@ -220,7 +255,26 @@ class _BillCartState extends State<BillCart> {
         'receiptNo': receiptNo,
         'subTotal': subTotal,
         'tableNumber': tableNumber ?? 'N/A',
-      });
+        'taxEnabled': taxEnabled,
+      };
+
+      // Add tax data if enabled
+      if (taxEnabled) {
+        billData['cgstPercent'] = cgstPercent;
+        billData['sgstPercent'] = sgstPercent;
+        billData['cgstAmount'] = cgstAmount;
+        billData['sgstAmount'] = sgstAmount;
+        billData['totalWithTax'] = totalWithTax;
+      }
+
+      await FirebaseFirestore.instance
+          .collection('AllBills')
+          .doc(adminUid)
+          .collection('myBills')
+          .doc(monthDoc)
+          .collection(dateDoc)
+          .doc(receiptNo)
+          .set(billData);
 
       debugPrint('Bill saved to Firebase successfully');
     } catch (e) {
@@ -246,7 +300,8 @@ class _BillCartState extends State<BillCart> {
   }
 
   Future<void> _showTableNumberBottomSheet(BuildContext parentContext) async {
-    final printProvider = Provider.of<PrintProvider>(parentContext, listen: false);
+    final printProvider =
+        Provider.of<PrintProvider>(parentContext, listen: false);
 
     final tableNumber = await TableNumberBottomSheet.show(
       context: parentContext,
@@ -254,7 +309,8 @@ class _BillCartState extends State<BillCart> {
       confirmButtonText: 'Print Receipt',
     );
 
-    if (tableNumber == null || !mounted) return; // User cancelled or widget unmounted
+    if (tableNumber == null || !mounted)
+      return; // User cancelled or widget unmounted
 
     // Show loading dialog
     showDialog(
@@ -264,12 +320,9 @@ class _BillCartState extends State<BillCart> {
     );
 
     try {
-      // Generate receipt number
-      Random random = Random();
-      String generatedReceiptNo = '';
-      for (int i = 0; i < 8; i++) {
-        generatedReceiptNo += random.nextInt(10).toString();
-      }
+      // Generate sequential receipt number
+      final nextReceiptNo = await _sqliteHelper.getNextReceiptNumber(widget.phoneNo);
+      String generatedReceiptNo = nextReceiptNo.toString();
 
       // Save bill
       await saveBill(
@@ -278,6 +331,9 @@ class _BillCartState extends State<BillCart> {
         items: selectedItemsDetails,
         subTotal: subtotal,
         tableNumber: tableNumber,
+        taxEnabled: printProvider.taxEnabled,
+        cgstPercent: printProvider.cgstPercent,
+        sgstPercent: printProvider.sgstPercent,
       );
 
       // Fetch shop data (local-first)
@@ -346,7 +402,8 @@ class _BillCartState extends State<BillCart> {
             children: [
               Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
               SizedBox(width: 12),
-              Text('Confirm Action', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              Text('Confirm Action',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             ],
           ),
           content: const Text(
@@ -363,10 +420,13 @@ class _BillCartState extends State<BillCart> {
               onPressed: () => Navigator.of(dialogContext).pop(true),
               style: ElevatedButton.styleFrom(
                 backgroundColor: appbar1,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               ),
-              child: const Text('Yes, Save', style: TextStyle(fontSize: 16, color: Colors.white)),
+              child: const Text('Yes, Save',
+                  style: TextStyle(fontSize: 16, color: Colors.white)),
             ),
           ],
         );
@@ -375,11 +435,11 @@ class _BillCartState extends State<BillCart> {
 
     if (confirmed != true || !mounted) return;
 
-    Random random = Random();
-    String generatedReceiptNo = '';
-    for (int i = 0; i < 8; i++) {
-      generatedReceiptNo += random.nextInt(10).toString();
-    }
+    final printProvider = Provider.of<PrintProvider>(context, listen: false);
+
+    // Generate sequential receipt number
+    final nextReceiptNo = await _sqliteHelper.getNextReceiptNumber(widget.phoneNo);
+    String generatedReceiptNo = nextReceiptNo.toString();
 
     try {
       await saveBill(
@@ -387,6 +447,9 @@ class _BillCartState extends State<BillCart> {
         receiptNo: generatedReceiptNo,
         items: selectedItemsDetails,
         subTotal: subtotal,
+        taxEnabled: printProvider.taxEnabled,
+        cgstPercent: printProvider.cgstPercent,
+        sgstPercent: printProvider.sgstPercent,
       );
 
       if (!mounted) return;
@@ -442,7 +505,7 @@ class _BillCartState extends State<BillCart> {
     // Fetch shop data (local-first)
     final shopData = await _getShopData();
     if (!mounted) return;
-    
+
     String shopName = shopData['shopName']!;
     String contact = shopData['contact']!;
     String address = shopData['address']!;
@@ -459,7 +522,7 @@ class _BillCartState extends State<BillCart> {
         ),
       ),
     );
-    
+
     if (!mounted) return;
     if (result != null) {
       setState(() {
@@ -506,12 +569,9 @@ class _BillCartState extends State<BillCart> {
     );
 
     try {
-      // Generate receipt number
-      Random random = Random();
-      String generatedReceiptNo = '';
-      for (int i = 0; i < 8; i++) {
-        generatedReceiptNo += random.nextInt(10).toString();
-      }
+      // Generate sequential receipt number
+      final nextReceiptNo = await _sqliteHelper.getNextReceiptNumber(widget.phoneNo);
+      String generatedReceiptNo = nextReceiptNo.toString();
 
       // Save bill to local database (and Firebase if online)
       await saveBill(
@@ -519,6 +579,9 @@ class _BillCartState extends State<BillCart> {
         receiptNo: generatedReceiptNo,
         items: selectedItemsDetails,
         subTotal: subtotal,
+        taxEnabled: printProvider.taxEnabled,
+        cgstPercent: printProvider.cgstPercent,
+        sgstPercent: printProvider.sgstPercent,
       );
 
       // Fetch shop data (local-first)
@@ -546,7 +609,7 @@ class _BillCartState extends State<BillCart> {
       );
 
       _clearCart();
-      
+
       if (!mounted) return;
       final isOnline = _databaseService.isOnline;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -653,26 +716,32 @@ class _BillCartState extends State<BillCart> {
           ),
           Row(
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                decoration: BoxDecoration(
-                  color: primaryColor,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  '${selectedItemsDetails.length} Items',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+              //restaurent page enable and not full screen - hide items count when restaurant screen and not fullscreen
+              // Show items count for productDashBoard and calculator_screen (when isRestaurantScreen is null or false)
+              if (!(widget.isRestaurantScreen == true &&
+                  widget.isContainerVisible == true))
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: primaryColor,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '${selectedItemsDetails.length} Items',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
-              ),
               const SizedBox(width: 10),
               _buildIconButton(
                 icon: MdiIcons.tableChair,
                 onPressed: () async {
-                  if (!printProvider.isConnected || printProvider.selectedPrinter == null) {
+                  if (!printProvider.isConnected ||
+                      printProvider.selectedPrinter == null) {
                     showDialog(
                       context: context,
                       builder: (context) => const PrinterConnectionDialog(),
@@ -803,8 +872,9 @@ class _BillCartState extends State<BillCart> {
               });
             },
             child: Container(
+              color: appbar1,
               padding: const EdgeInsets.all(4),
-              child: Icon(Icons.remove, color: appbar1, size: 18),
+              child: const Icon(Icons.remove, color: white, size: 28),
             ),
           ),
           Padding(
@@ -812,7 +882,7 @@ class _BillCartState extends State<BillCart> {
             child: Text(
               "${selectedItemsDetails[index]['quantity']}",
               style: const TextStyle(
-                fontSize: 14,
+                fontSize: 20,
                 fontWeight: FontWeight.bold,
                 color: Colors.black,
               ),
@@ -827,8 +897,9 @@ class _BillCartState extends State<BillCart> {
               });
             },
             child: Container(
+              color: appbar1,
               padding: const EdgeInsets.all(4),
-              child: Icon(Icons.add, color: appbar1, size: 18),
+              child: const Icon(Icons.add, color: white, size: 28),
             ),
           ),
         ],
@@ -840,7 +911,8 @@ class _BillCartState extends State<BillCart> {
     return InkWell(
       onTap: () {
         setState(() {
-          subtotal -= selectedItemsDetails[index]['price'] * selectedItemsDetails[index]['quantity'];
+          subtotal -= selectedItemsDetails[index]['price'] *
+              selectedItemsDetails[index]['quantity'];
           selectedItemsDetails.removeAt(index);
           _updateCart();
         });
@@ -851,12 +923,18 @@ class _BillCartState extends State<BillCart> {
           color: Colors.red.withOpacity(0.1),
           borderRadius: BorderRadius.circular(8),
         ),
-        child: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
+        child: const Icon(Icons.delete_outline, color: Colors.red, size: 28),
       ),
     );
   }
 
   Widget _buildFooter(PrintProvider printProvider) {
+    // Check if we should show compact view (restaurant screen and not fullscreen)
+    // Compact view: only amount, no "Total Amount" label
+    // Full view (productDashBoard, calculator_screen): show "Total Amount" label + amount
+    final bool isCompactView =
+        widget.isRestaurantScreen == true && widget.isContainerVisible == true;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
@@ -869,27 +947,51 @@ class _BillCartState extends State<BillCart> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Total Amount',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[600],
-                  fontWeight: FontWeight.w500,
+          // Show only amount when compact view, otherwise show label + amount
+          if (isCompactView)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                 Text(
+                  'Amount',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
-              ),
-              Text(
-                "₹$subtotal",
-                style: const TextStyle(
-                  fontSize: 20,
-                  color: Colors.black,
-                  fontWeight: FontWeight.bold,
+                Text(
+                  "₹$subtotal",
+                  style: const TextStyle(
+                    fontSize: 20,
+                    color: Colors.black,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            )
+          else
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Total Amount',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                Text(
+                  "₹$subtotal",
+                  style: const TextStyle(
+                    fontSize: 20,
+                    color: Colors.black,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
           Row(
             children: [
               _buildIconButton(
@@ -910,7 +1012,8 @@ class _BillCartState extends State<BillCart> {
     );
   }
 
-  Widget _buildIconButton({required IconData icon, required VoidCallback onPressed}) {
+  Widget _buildIconButton(
+      {required IconData icon, required VoidCallback onPressed}) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,

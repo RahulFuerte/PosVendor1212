@@ -181,30 +181,30 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
             name: 'ProductDashBoard');
       }
 
-      bool isHotValue(dynamic v) {
-        if (v == null) return false;
-        if (v is bool) return v;
-        if (v is int) return v == 1;
-        if (v is String) {
-          final lower = v.toLowerCase();
-          return lower == 'true' ||
-              lower == '1' ||
-              lower == 'yes' ||
-              lower == 'y';
-        }
-        return false;
-      }
+      // bool isHotValue(dynamic v) {
+      //   if (v == null) return false;
+      //   if (v is bool) return v;
+      //   if (v is int) return v == 1;
+      //   if (v is String) {
+      //     final lower = v.toLowerCase();
+      //     return lower == 'true' ||
+      //         lower == '1' ||
+      //         lower == 'yes' ||
+      //         lower == 'y';
+      //   }
+      //   return false;
+      // }
 
       // Filter for hot food items (supporting multiple key names & types)
-      final List<Map<String, dynamic>> hotItems = allItems.where((item) {
-        final dynamic raw = item['is_hot'] ?? item['isHot'];
-        final bool isHot = isHotValue(raw);
+      // COMMENTED OUT: isHot filter - now showing all items
+      final List<Map<String, dynamic>> hotItems = allItems.map((item) {
+        // final dynamic raw = item['is_hot'] ?? item['isHot'];
+        // final bool isHot = isHotValue(raw);
         // Debug each item decision (you can remove or comment out this line later)
-        developer.log(
-            'Checking item "${item['name'] ?? item['id'] ?? 'unknown'}": raw=$raw (${raw?.runtimeType}), isHot=$isHot',
-            name: 'ProductDashBoard');
-        return isHot;
-      }).map((item) {
+        // developer.log(
+        //     'Checking item "${item['name'] ?? item['id'] ?? 'unknown'}": raw=$raw (${raw?.runtimeType}), isHot=$isHot',
+        //     name: 'ProductDashBoard');
+        // return isHot;
         return {
           'id': item['id'] ?? item['name'],
           'name': item['name'] ?? 'N/A',
@@ -666,7 +666,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                     ),
                     Expanded(
                       child: Padding(
-                        padding: const EdgeInsets.only(left: 16,right: 8),
+                        padding: const EdgeInsets.only(left: 16, right: 8),
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -678,9 +678,8 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                                 color: Colors.white,
                                 fontWeight: FontWeight.w500,
                                 // fontSize: 17,
-                      
+
                                 letterSpacing: 1,
-                                
                               ),
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
@@ -900,7 +899,8 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                 },
               ),
               ListTile(
-                leading: Icon(MdiIcons.fileDocumentOutline, color: primaryColor),
+                leading:
+                    Icon(MdiIcons.fileDocumentOutline, color: primaryColor),
                 title: const Text('Billwise Report'),
                 onTap: () {
                   Navigator.push(
@@ -1312,7 +1312,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                                                             ],
                                                           ),
                                                           child: Text(
-                                                            "₹${item['price']}",
+                                                            "₹${(item['price'].split('.')[0])}",
                                                             style:
                                                                 const TextStyle(
                                                               color:
