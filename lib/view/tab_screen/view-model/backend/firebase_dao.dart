@@ -1,7 +1,9 @@
+import 'dart:convert';
 import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:intl/intl.dart';
 import 'database_service.dart';
 
 /// Firebase Data Access Object for cloud database operations
@@ -434,23 +436,63 @@ class FirebaseDAO implements DatabaseService {
   @override
   Future<void> saveBill(String adminUid, Map<String, dynamic> billData) async {
     try {
-      final now = Timestamp.now();
-      final Map<String, dynamic> firebaseData = transformSQLiteToFirebase(billData);
+      final now = DateTime.now();
+      final monthDoc = DateFormat('yyyyMM').format(now);
+      final dateDoc = DateFormat('yyyyMMdd').format(now);
       
-      // Add Firebase-specific fields
-      firebaseData['adminId'] = adminUid;
-      firebaseData['createdAt'] = now;
-      firebaseData['updatedAt'] = now;
-      
-      // Ensure billDate is set
-      if (!firebaseData.containsKey('billDate')) {
-        firebaseData['billDate'] = now;
+      // Parse items - convert from JSON string to array if needed
+      List<Map<String, dynamic>> itemsArray = [];
+      final itemsData = billData['items'];
+      if (itemsData is String) {
+        // Parse JSON string to array
+        try {
+          final decoded = jsonDecode(itemsData);
+          if (decoded is List) {
+            itemsArray = decoded.map((e) => Map<String, dynamic>.from(e)).toList();
+          }
+        } catch (e) {
+          // If parsing fails, use empty array
+          itemsArray = [];
+        }
+      } else if (itemsData is List) {
+        itemsArray = itemsData.map((e) => Map<String, dynamic>.from(e)).toList();
       }
       
+      // Convert tax_enabled to boolean
+      bool taxEnabled = false;
+      final taxEnabledValue = billData['tax_enabled'];
+      if (taxEnabledValue is bool) {
+        taxEnabled = taxEnabledValue;
+      } else if (taxEnabledValue is int) {
+        taxEnabled = taxEnabledValue == 1;
+      } else if (taxEnabledValue is String) {
+        taxEnabled = taxEnabledValue == '1' || taxEnabledValue.toLowerCase() == 'true';
+      }
+      
+      // Build Firebase data with proper types
+      final Map<String, dynamic> firebaseData = {
+        'adminId': adminUid,
+        'receiptNo': billData['id'],
+        'items': itemsArray, // Array, not string
+        'subTotal': billData['sub_total'] ?? billData['total_amount'],
+        'totalAmount': billData['total_amount'],
+        'tableNumber': billData['table_number'] ?? 'N/A',
+        'taxEnabled': taxEnabled, // Boolean, not int
+        'cgstPercent': billData['cgst_percent'] ?? 0.0,
+        'sgstPercent': billData['sgst_percent'] ?? 0.0,
+        'cgstAmount': billData['cgst_amount'] ?? 0.0,
+        'sgstAmount': billData['sgst_amount'] ?? 0.0,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+      
+      // Save to: AllBills/{adminUid}/myBills/{monthDoc}/{dateDoc}/{receiptNo}
       await _firestore
           .collection('AllBills')
           .doc(adminUid)
           .collection('myBills')
+          .doc(monthDoc)
+          .collection(dateDoc)
           .doc(billData['id'])
           .set(firebaseData);
     } catch (e) {

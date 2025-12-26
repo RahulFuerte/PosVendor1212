@@ -768,13 +768,15 @@ class DirectPrintHelper {
     required String address,
     required String adminUid,
     String? tableNumber,
+    String? receiptNo, // Optional: pass existing receipt number, otherwise generate new one
     bool taxEnabled = false,
     double cgstPercent = 2.5,
     double sgstPercent = 2.5,
+    bool saveBill = false, // Set to false by default since bill is usually saved before calling this
   }) async {
     try {
-      // Generate receipt number
-      final String receiptNo = generateReceiptNumber();
+      // Use provided receipt number or generate a new one
+      final String finalReceiptNo = receiptNo ?? generateReceiptNumber();
 
       final profile = await CapabilityProfile.load(name: 'XP-N160I');
       final Generator generator = Generator(paperSize, profile);
@@ -809,7 +811,7 @@ class DirectPrintHelper {
       bytes += generator.text(separator, styles: smallFontLeft);
       bytes += generator.text('RECEIPT', styles: smallFontCenter);
       bytes +=
-          generator.text('Receipt No: $receiptNo', styles: smallFontCenter);
+          generator.text('Receipt No: $finalReceiptNo', styles: smallFontCenter);
 
       // Table number (show N/A if not provided)
       if (tableNumber != null || tableNumber != 'N/A') {
@@ -897,25 +899,27 @@ class DirectPrintHelper {
           generator.text('Thank you! Visit Again', styles: smallFontCenter);
       bytes += generator.cut();
 
+       final isConnected = await isOnline();
+
       // Send to printer
       await PrinterManager.instance.send(
         type: printer.typePrinter,
         bytes: bytes,
       );
 
-      // Check if online before saving
-      final isConnected = await isOnline();
-
-      // Save bill data to Firebase (or offline)
-      await saveBillToFirebase(
-        adminUid: adminUid,
-        receiptNo: receiptNo,
-        items: items,
-        subTotal: subtotal,
-      );
+      // Only save bill if saveBill flag is true (to avoid duplicate saves)
+      // When called from bill_cart_widget.dart, bill is already saved via SmartDatabaseService
+      if (saveBill) {
+        await saveBillToFirebase(
+          adminUid: adminUid,
+          receiptNo: finalReceiptNo,
+          items: items,
+          subTotal: subtotal,
+        );
+      }
 
       if (context.mounted) {
-        final message = isConnected
+                final message = isConnected
             ? 'Receipt printed & saved online! Receipt No: $receiptNo'
             : 'Receipt printed & saved offline! Will sync when online. Receipt No: $receiptNo';
 
@@ -926,6 +930,13 @@ class DirectPrintHelper {
             duration: const Duration(seconds: 4),
           ),
         );
+        // ScaffoldMessenger.of(context).showSnackBar(
+        //   SnackBar(
+        //     content: Text('Receipt printed! Receipt No: $finalReceiptNo'),
+        //     backgroundColor: Colors.green,
+        //     duration: const Duration(seconds: 2),
+        //   ),
+        // );
       }
     } catch (e) {
       debugPrint("Printing error: $e");

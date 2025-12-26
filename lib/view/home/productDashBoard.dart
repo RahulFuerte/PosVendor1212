@@ -1862,7 +1862,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                                   Navigator.pop(context);
                                 }
 
-                                // Print receipt directly
+                                // Print receipt directly (also saves bill)
                                 await DirectPrintHelper.printReceipt(
                                   adminUid: widget.phoneNo,
                                   context: context,
@@ -1873,6 +1873,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                                   shopName: shopName,
                                   contact: contact,
                                   address: address,
+                                  saveBill: true, // Save bill since it's not saved elsewhere
                                 );
 
                                 printprovider.clearCart();

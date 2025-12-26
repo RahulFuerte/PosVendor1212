@@ -583,6 +583,16 @@ class DatabaseMaintenanceService {
   /// Clean up old migration logs
   Future<int> _cleanupOldMigrationLogs(Database db) async {
     try {
+      // First check if migration_log table exists
+      final tableExists = await db.rawQuery(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='migration_log'"
+      );
+      
+      if (tableExists.isEmpty) {
+        // Table doesn't exist, nothing to clean up
+        return 0;
+      }
+      
       // Keep only the last 10 migration log entries
       final result = await db.rawDelete('''
         DELETE FROM migration_log 

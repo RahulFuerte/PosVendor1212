@@ -705,6 +705,7 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
                                   shopName: widget.shopName,
                                   contact: widget.contact,
                                   address: widget.address,
+                                  saveBill: true, // Save bill since it's not saved elsewhere
                                 );
 
                                 if (context.mounted) {

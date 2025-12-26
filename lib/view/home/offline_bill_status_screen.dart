@@ -264,7 +264,7 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
     } catch (e) {
       billDate = null;
     }
-    final customerName = bill['customer_name']?.toString() ?? 'Unknown Customer';
+    final customerName = bill['customer_name']?.toString() ?? 'Walk-in Customer';
     final totalAmount = PriceUtils.safePriceToString(bill['total_amount'] ?? bill['total']);
     
     // Handle sync_status as both int and String
@@ -317,12 +317,14 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
           ),
         ),
         title: Text(
-          'Bill #${billId.length > 8 ? billId.substring(0, 8) : billId}',
+          'Bill #$billId',
           style: const TextStyle(
             fontWeight: FontWeight.bold,
             fontFamily: 'tabfont',
             fontSize: 15,
           ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -335,6 +337,8 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
                 fontSize: 13,
                 color: Colors.grey.shade700,
               ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
             if (billDate != null)
               Text(
@@ -344,6 +348,7 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
                   fontSize: 11,
                   color: Colors.grey.shade500,
                 ),
+                maxLines: 1,
               ),
           ],
         ),

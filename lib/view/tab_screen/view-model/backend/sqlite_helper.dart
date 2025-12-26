@@ -213,6 +213,29 @@ class SQLiteHelper {
       )
     ''');
 
+    // Create migration_log table for tracking database migrations
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS migration_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        version INTEGER NOT NULL,
+        migration_name TEXT NOT NULL,
+        executed_at INTEGER NOT NULL,
+        success BOOLEAN DEFAULT 1
+      )
+    ''');
+
+    // Create maintenance_log table for tracking maintenance operations
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS maintenance_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        operation TEXT NOT NULL,
+        executed_at INTEGER NOT NULL,
+        duration_ms INTEGER,
+        success INTEGER DEFAULT 1,
+        details TEXT
+      )
+    ''');
+
     // Create comprehensive indexes for better performance
     await _createPerformanceIndexes(db);
   }
@@ -1159,8 +1182,8 @@ await prefs.setString('uid', adminUid);
   }
 
   /// Get the next sequential receipt number for an admin
-  /// Returns 1 if no bills exist, otherwise returns max + 1
-  Future<int> getNextReceiptNumber(String adminUid) async {
+  /// Returns padded 8-digit string (e.g., "00000001", "00000002")
+  Future<String> getNextReceiptNumber(String adminUid) async {
     try {
       final db = await database;
       final result = await db.rawQuery('''
@@ -1169,13 +1192,15 @@ await prefs.setString('uid', adminUid);
         WHERE admin_uid = ? AND id GLOB '[0-9]*'
       ''', [adminUid]);
       
+      int nextNumber = 1;
       if (result.isNotEmpty && result.first['max_id'] != null) {
-        return (result.first['max_id'] as int) + 1;
+        nextNumber = (result.first['max_id'] as int) + 1;
       }
-      return 1; // Start from 1 if no bills exist
+      // Return 8-digit padded string (e.g., "00000001")
+      return nextNumber.toString().padLeft(8, '0');
     } catch (e) {
       print('Error getting next receipt number: $e');
-      return 1; // Default to 1 on error
+      return '00000001'; // Default to "00000001" on error
     }
   }
 

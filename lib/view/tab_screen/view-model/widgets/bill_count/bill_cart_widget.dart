@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:intl/intl.dart';
 import 'dart:convert';
 
 import '../../../../home/navigation.dart';
@@ -192,94 +191,14 @@ class _BillCartState extends State<BillCart> {
       };
 
       // Save using SmartDatabaseService (handles online/offline automatically)
+      // This already saves to Firebase when online, no need for separate Firebase call
       await _databaseService.saveBill(adminUid, billData);
-
-      // If online, also save to Firebase for backward compatibility
-      if (_databaseService.isOnline) {
-        await _saveBillToFirebase(
-          adminUid: adminUid,
-          receiptNo: receiptNo,
-          items: items,
-          subTotal: subTotal,
-          tableNumber: tableNumber,
-          taxEnabled: taxEnabled,
-          cgstPercent: cgstPercent,
-          sgstPercent: sgstPercent,
-          cgstAmount: cgstAmount,
-          sgstAmount: sgstAmount,
-          totalWithTax: totalWithTax,
-        );
-      }
 
       debugPrint(
           'Bill saved successfully (${_databaseService.isOnline ? "online" : "offline"})');
     } catch (e) {
       debugPrint('Error saving bill: $e');
       rethrow;
-    }
-  }
-
-  /// Save bill to Firebase (for online mode and backward compatibility)
-  Future<void> _saveBillToFirebase({
-    required String adminUid,
-    required String receiptNo,
-    required List<Map<String, dynamic>> items,
-    required double subTotal,
-    String? tableNumber,
-    bool taxEnabled = false,
-    double cgstPercent = 0.0,
-    double sgstPercent = 0.0,
-    double cgstAmount = 0.0,
-    double sgstAmount = 0.0,
-    double totalWithTax = 0.0,
-  }) async {
-    try {
-      final now = DateTime.now();
-      final monthDoc = DateFormat('yyyyMM').format(now);
-      final dateDoc = DateFormat('yyyyMMdd').format(now);
-      final dateString = DateFormat('MMM dd, yyyy').format(now);
-
-      final List<Map<String, dynamic>> itemsData = items.map((item) {
-        return {
-          'name': item['name'] ?? '',
-          'price': double.tryParse(item['price'].toString()) ?? 0.0,
-          'quantity': int.tryParse(item['quantity'].toString()) ?? 1,
-        };
-      }).toList();
-
-      final Map<String, dynamic> billData = {
-        'adminId': adminUid,
-        'createdAt': FieldValue.serverTimestamp(),
-        'date': dateString,
-        'items': itemsData,
-        'receiptNo': receiptNo,
-        'subTotal': subTotal,
-        'tableNumber': tableNumber ?? 'N/A',
-        'taxEnabled': taxEnabled,
-      };
-
-      // Add tax data if enabled
-      if (taxEnabled) {
-        billData['cgstPercent'] = cgstPercent;
-        billData['sgstPercent'] = sgstPercent;
-        billData['cgstAmount'] = cgstAmount;
-        billData['sgstAmount'] = sgstAmount;
-        billData['totalWithTax'] = totalWithTax;
-      }
-
-      await FirebaseFirestore.instance
-          .collection('AllBills')
-          .doc(adminUid)
-          .collection('myBills')
-          .doc(monthDoc)
-          .collection(dateDoc)
-          .doc(receiptNo)
-          .set(billData);
-
-      debugPrint('Bill saved to Firebase successfully');
-    } catch (e) {
-      debugPrint('Error saving bill to Firebase: $e');
-      // Don't rethrow - local save already succeeded
     }
   }
 
@@ -320,9 +239,8 @@ class _BillCartState extends State<BillCart> {
     );
 
     try {
-      // Generate sequential receipt number
-      final nextReceiptNo = await _sqliteHelper.getNextReceiptNumber(widget.phoneNo);
-      String generatedReceiptNo = nextReceiptNo.toString();
+      // Generate sequential receipt number (returns 8-digit padded string like "00000001")
+      String generatedReceiptNo = await _sqliteHelper.getNextReceiptNumber(widget.phoneNo);
 
       // Save bill
       await saveBill(
@@ -357,9 +275,11 @@ class _BillCartState extends State<BillCart> {
         contact: contact,
         address: address,
         tableNumber: tableNumber,
+        receiptNo: generatedReceiptNo, // Pass the already-saved receipt number
         taxEnabled: printProvider.taxEnabled,
         cgstPercent: printProvider.cgstPercent,
         sgstPercent: printProvider.sgstPercent,
+        saveBill: false, // Bill already saved via SmartDatabaseService
       );
 
       _clearCart();
@@ -437,9 +357,8 @@ class _BillCartState extends State<BillCart> {
 
     final printProvider = Provider.of<PrintProvider>(context, listen: false);
 
-    // Generate sequential receipt number
-    final nextReceiptNo = await _sqliteHelper.getNextReceiptNumber(widget.phoneNo);
-    String generatedReceiptNo = nextReceiptNo.toString();
+    // Generate sequential receipt number (returns 8-digit padded string like "00000001")
+    String generatedReceiptNo = await _sqliteHelper.getNextReceiptNumber(widget.phoneNo);
 
     try {
       await saveBill(
@@ -569,9 +488,8 @@ class _BillCartState extends State<BillCart> {
     );
 
     try {
-      // Generate sequential receipt number
-      final nextReceiptNo = await _sqliteHelper.getNextReceiptNumber(widget.phoneNo);
-      String generatedReceiptNo = nextReceiptNo.toString();
+      // Generate sequential receipt number (returns 8-digit padded string like "00000001")
+      String generatedReceiptNo = await _sqliteHelper.getNextReceiptNumber(widget.phoneNo);
 
       // Save bill to local database (and Firebase if online)
       await saveBill(
@@ -603,9 +521,11 @@ class _BillCartState extends State<BillCart> {
         shopName: shopName,
         contact: contact,
         address: address,
+        receiptNo: generatedReceiptNo, // Pass the already-saved receipt number
         taxEnabled: printProvider.taxEnabled,
         cgstPercent: printProvider.cgstPercent,
         sgstPercent: printProvider.sgstPercent,
+        saveBill: false, // Bill already saved via SmartDatabaseService
       );
 
       _clearCart();

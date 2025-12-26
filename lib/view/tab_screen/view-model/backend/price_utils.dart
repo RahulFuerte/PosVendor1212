@@ -60,15 +60,22 @@ class PriceUtils {
   }
 
   /// Safely converts a dynamic value to a string price
-  /// Ensures consistent string representation
+  /// Ensures consistent string representation with max 2 decimal places
   static String safePriceToString(dynamic value, {String defaultValue = '0'}) {
     if (value == null) return defaultValue;
     
     try {
       if (value is String) {
-        return value.isEmpty ? defaultValue : value;
+        if (value.isEmpty) return defaultValue;
+        // Parse and format to ensure consistent decimal places
+        final parsed = double.tryParse(value);
+        if (parsed != null) {
+          // Format with max 2 decimal places, remove trailing zeros
+          return _formatPrice(parsed);
+        }
+        return value;
       } else if (value is num) {
-        return value.toString();
+        return _formatPrice(value.toDouble());
       } else {
         return value.toString();
       }
@@ -76,6 +83,20 @@ class PriceUtils {
       developer.log('Error converting price to string "$value": $e', name: 'PriceUtils');
       return defaultValue;
     }
+  }
+
+  /// Helper to format price with max 2 decimal places
+  static String _formatPrice(double value) {
+    // Round to 2 decimal places
+    final rounded = (value * 100).round() / 100;
+    
+    // If it's a whole number, return without decimals
+    if (rounded == rounded.roundToDouble()) {
+      return rounded.round().toString();
+    }
+    
+    // Otherwise return with up to 2 decimal places
+    return rounded.toStringAsFixed(2);
   }
 
   /// Formats a price for display with currency symbol
