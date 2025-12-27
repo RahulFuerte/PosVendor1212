@@ -5,14 +5,12 @@ import 'database_service.dart';
 import 'sqlite_helper.dart';
 import 'data_integrity_service.dart';
 import 'performance_monitor.dart';
-import 'fts5_fallback_service.dart';
 
 /// SQLite Data Access Object for local database operations
 class SQLiteDAO implements DatabaseService {
   final SQLiteHelper _sqliteHelper = SQLiteHelper();
   final DataIntegrityService _integrityService = DataIntegrityService();
   final PerformanceMonitor _performanceMonitor = PerformanceMonitor();
-  final FTS5FallbackService _fts5FallbackService = FTS5FallbackService();
   
   // Query result cache for frequently accessed data
   final Map<String, Map<String, dynamic>> _queryCache = {};
@@ -29,23 +27,23 @@ class SQLiteDAO implements DatabaseService {
     _initializePreparedStatements();
     
     // Setup search infrastructure with FTS5 fallback
-    await _setupSearchInfrastructure();
+    // await _setupSearchInfrastructure();
     
     // Ensure database is ready and indexes are created
     await _ensureDatabaseOptimization();
   }
 
   /// Setup search infrastructure with FTS5 fallback handling
-  Future<void> _setupSearchInfrastructure() async {
-    try {
-      final db = await _sqliteHelper.database;
-      await _fts5FallbackService.setupSearchInfrastructure(db);
-      developer.log('Search infrastructure setup completed', name: 'SQLiteDAO');
-    } catch (e) {
-      developer.log('Error setting up search infrastructure: $e', name: 'SQLiteDAO');
-      // Continue without search optimization - basic functionality will still work
-    }
-  }
+  // Future<void> _setupSearchInfrastructure() async {
+  //   try {
+  //     final db = await _sqliteHelper.database;
+  //     await _fts5FallbackService.setupSearchInfrastructure(db);
+  //     developer.log('Search infrastructure setup completed', name: 'SQLiteDAO');
+  //   } catch (e) {
+  //     developer.log('Error setting up search infrastructure: $e', name: 'SQLiteDAO');
+  //     // Continue without search optimization - basic functionality will still work
+  //   }
+  // }
 
   /// Ensure database optimization is complete
   Future<void> _ensureDatabaseOptimization() async {
@@ -463,7 +461,9 @@ class SQLiteDAO implements DatabaseService {
     }
   }
 
-  /// Enhanced search food items with optimized FTS (Full-Text Search) and ranking
+  /// Enhanced search food items with basic LIKE search
+  /// Note: FTS5 was removed as searchFoodItems is not used in UI
+  /// UI uses local .contains() filtering on already-loaded data
   Future<List<Map<String, dynamic>>> searchFoodItems(
     String adminUid,
     String searchTerm, {
@@ -473,29 +473,11 @@ class SQLiteDAO implements DatabaseService {
   }) async {
     return await _performanceMonitor.trackQuery('searchFoodItems', () async {
       try {
-        final db = await _sqliteHelper.database;
-        
-        // Use FTS5 fallback service for robust search handling
-        final results = await _fts5FallbackService.searchFoodItems(
-          db,
-          adminUid,
-          searchTerm,
-          department: department,
-          limit: limit,
-        );
-        
-        developer.log('Search completed: ${results.length} results for "$searchTerm"', name: 'SQLiteDAO');
-        return results;
+        // Use basic LIKE search (FTS5 removed - not used in UI)
+        return await _performBasicSearch(adminUid, searchTerm, department, limit);
       } catch (e) {
         developer.log('Search failed: $e', name: 'SQLiteDAO');
-        
-        // Final fallback to basic query
-        try {
-          return await _performBasicSearch(adminUid, searchTerm, department, limit);
-        } catch (fallbackError) {
-          developer.log('Basic search fallback also failed: $fallbackError', name: 'SQLiteDAO');
-          return [];
-        }
+        return [];
       }
     });
   }

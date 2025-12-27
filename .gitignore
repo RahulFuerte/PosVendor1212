@@ -49,3 +49,43 @@ app.*.map.json
 # Markdown files (except README.md)
 *.md
 !README.md
+
+# Example and Demo files (not needed in production)
+*_example.dart
+*_demo.dart
+
+# Unused/Dead code files
+lib/view/tab_screen/view-model/backend/database_error_fix.dart
+lib/view/tab_screen/view-model/widgets/printers/printer2.dart
+lib/view/tab_screen/view-model/widgets/progressive_image_loader.dart
+lib/view/tab_screen/view-model/widgets/offline_data_availability_widget.dart
+
+# FTS5 files (not used in UI - search uses local .contains() filtering)
+lib/view/tab_screen/view-model/backend/fts5_fallback_service.dart
+test/fts5_fallback_test.dart
+
+# Advanced Caching Group (not imported anywhere in app)
+lib/view/tab_screen/view-model/backend/advanced_caching_service.dart
+lib/view/tab_screen/view-model/backend/advanced_caching_integration.dart
+lib/view/tab_screen/view-model/backend/cache_invalidation_manager.dart
+lib/view/tab_screen/view-model/backend/cache_warming_coordinator.dart
+lib/view/tab_screen/view-model/backend/cache_performance_analytics.dart
+lib/view/tab_screen/view-model/backend/connection_pool_service.dart
+
+# Performance Dashboard Group (navigation commented out)
+lib/view/home/performance_dashboard_screen.dart
+lib/view/tab_screen/view-model/backend/performance_analytics_dashboard.dart
+lib/view/tab_screen/view-model/backend/performance_optimization_service.dart
+
+# Performance Error Group (only used in example files)
+lib/view/tab_screen/view-model/backend/performance_error_handler.dart
+lib/view/tab_screen/view-model/backend/performance_error_integration.dart
+lib/view/tab_screen/view-model/widgets/performance_error_widget.dart
+lib/view/tab_screen/view-model/widgets/performance_error_example.dart
+
+# Test files for unused features
+test/advanced_caching_strategies_test.dart
+test/comprehensive_performance_monitoring_test.dart
+test/performance_error_handling_test.dart
+test/performance_integration_test.dart
+test/query_optimization_test.dart

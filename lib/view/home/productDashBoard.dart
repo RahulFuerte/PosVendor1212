@@ -24,7 +24,6 @@ import 'package:pos/view/home/customer_listScreen.dart';
 import 'package:pos/view/home/offline_bill_status_screen.dart';
 import 'package:pos/view/home/error_notification_screen.dart';
 import 'package:pos/view/tab_screen/view-model/widgets/sync_status_page.dart';
-import 'package:pos/view/home/performance_dashboard_screen.dart';
 import 'package:pos/view/login/inception.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:pos/view/tab_screen/view-model/backend/database_service.dart';
