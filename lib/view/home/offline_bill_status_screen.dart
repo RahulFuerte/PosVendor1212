@@ -24,6 +24,9 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
   List<Map<String, dynamic>> _bills = [];
   bool _isLoading = true;
   String _errorMessage = '';
+  
+  // Function to refresh the sync widget
+  VoidCallback? _refreshSyncWidget;
 
   @override
   void initState() {
@@ -66,6 +69,9 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
         _bills = bills;
         _isLoading = false;
       });
+      
+      // Also refresh the sync status widget
+      _refreshSyncWidget?.call();
 
       developer.log('Loaded ${bills.length} bills for offline viewing', name: 'OfflineBillStatusScreen');
     } catch (e) {
@@ -103,7 +109,7 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
           const OfflineStatusIndicator(showWhenOnline: true),
           const SizedBox(width: 8),
           IconButton(
-            icon: Icon(Icons.refresh, color: primaryColor),
+            icon: const Icon(Icons.refresh, color: primaryColor),
             onPressed: _loadAllBills,
             tooltip: 'Refresh Bills',
           ),
@@ -120,10 +126,13 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
                   // Offline Bill Status Widget
                   OfflineBillStatusWidget(
                     adminUid: widget.adminUid,
+                    onRefreshCallbackReady: (refreshCallback) {
+                      _refreshSyncWidget = refreshCallback;
+                    },
                     onSyncCompleted: () {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: const Text('Offline bills synced successfully'),
+                        const SnackBar(
+                          content: Text('Offline bills synced successfully'),
                           backgroundColor: primaryColor,
                         ),
                       );
@@ -153,7 +162,7 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
                       children: [
                         Row(
                           children: [
-                            Icon(Icons.receipt_long, color: primaryColor),
+                            const Icon(Icons.receipt_long, color: primaryColor),
                             const SizedBox(width: 8),
                             Text(
                               'All Bills (${_bills.length})',
@@ -168,9 +177,9 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
                         const SizedBox(height: 12),
                         
                         if (_isLoading)
-                          Center(
+                          const Center(
                             child: Padding(
-                              padding: const EdgeInsets.all(32),
+                              padding: EdgeInsets.all(32),
                               child: CircularProgressIndicator(color: primaryColor),
                             ),
                           )
@@ -358,7 +367,7 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
           children: [
             Text(
               '₹$totalAmount',
-              style: TextStyle(
+              style: const TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 16,
                 color: primaryColor,
@@ -398,7 +407,7 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         title: Row(
           children: [
-            Icon(Icons.receipt, color: primaryColor, size: 24),
+            const Icon(Icons.receipt, color: primaryColor, size: 24),
             const SizedBox(width: 8),
             Expanded(
               child: Text(

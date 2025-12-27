@@ -45,3 +45,7 @@ app.*.map.json
 
 
 .kiro/
+
+# Markdown files (except README.md)
+*.md
+!README.md

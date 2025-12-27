@@ -1005,7 +1005,7 @@ await prefs.setString('uid', adminUid);
       await db.execute('CREATE INDEX IF NOT EXISTS idx_user_data_phone ON user_data(phone_number)');
       
       // Admin data indexes
-      await db.execute('CREATE INDEX IF NOT EXISTS idx_admin_data_phone ON admin_data(phone_number)');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_admin_data_mobile ON admin_data(mobile_no)');
       
       // Fallback search indexes (FTS5 is disabled to prevent errors)
       await db.execute('CREATE INDEX IF NOT EXISTS idx_food_items_name_search ON food_items(name COLLATE NOCASE)');
@@ -1182,7 +1182,7 @@ await prefs.setString('uid', adminUid);
   }
 
   /// Get the next sequential receipt number for an admin
-  /// Returns padded 8-digit string (e.g., "00000001", "00000002")
+  /// Returns simple number string (e.g., "1", "2", "3")
   Future<String> getNextReceiptNumber(String adminUid) async {
     try {
       final db = await database;
@@ -1196,11 +1196,13 @@ await prefs.setString('uid', adminUid);
       if (result.isNotEmpty && result.first['max_id'] != null) {
         nextNumber = (result.first['max_id'] as int) + 1;
       }
-      // Return 8-digit padded string (e.g., "00000001")
-      return nextNumber.toString().padLeft(8, '0');
+      
+      final receiptNo = nextNumber.toString();
+      print('[SQLiteHelper] Generated receiptNo: $receiptNo for admin: $adminUid');
+      return receiptNo;
     } catch (e) {
       print('Error getting next receipt number: $e');
-      return '00000001'; // Default to "00000001" on error
+      return '1'; // Default to "1" on error
     }
   }
 

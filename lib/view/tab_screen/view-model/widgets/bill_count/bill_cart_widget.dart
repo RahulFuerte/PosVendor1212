@@ -178,7 +178,7 @@ class _BillCartState extends State<BillCart> {
       // Schema: id, admin_uid, customer_phone, items, total_amount, bill_date, created_at, updated_at, sync_status, firebase_id
       final billData = {
         'id': receiptNo,
-        'bill_date': now.toString(),
+        'bill_date': now.millisecondsSinceEpoch, // Store as integer for proper sorting
         'items': jsonEncode(itemsData), // Convert to JSON string for SQLite
         'total_amount': totalWithTax,
         'sub_total': subTotal,
@@ -195,7 +195,7 @@ class _BillCartState extends State<BillCart> {
       await _databaseService.saveBill(adminUid, billData);
 
       debugPrint(
-          'Bill saved successfully (${_databaseService.isOnline ? "online" : "offline"})');
+          '[BillCart] Bill saved successfully - receiptNo: $receiptNo (${_databaseService.isOnline ? "online" : "offline"})');
     } catch (e) {
       debugPrint('Error saving bill: $e');
       rethrow;

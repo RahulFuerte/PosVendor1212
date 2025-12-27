@@ -868,18 +868,23 @@ class SQLiteDAO implements DatabaseService {
   // Bills operations
   @override
   Future<List<Map<String, dynamic>>> getBills(String adminUid, {DateTime? startDate, DateTime? endDate}) async {
+    // Always get fresh data for bills (disable cache to ensure we see new offline bills)
     if (startDate != null && endDate != null) {
-      return await _executeOptimizedQuery(
+      final results = await _executeOptimizedQuery(
         queryKey: 'getBillsByAdminAndDateRange',
         parameters: [adminUid, startDate.millisecondsSinceEpoch, endDate.millisecondsSinceEpoch],
-        useCache: true,
+        useCache: false, // Disable cache to get fresh data
       );
+      developer.log('[SQLiteDAO] getBills with date range: found ${results.length} bills for $adminUid', name: 'SQLiteDAO');
+      return results;
     } else {
-      return await _executeOptimizedQuery(
+      final results = await _executeOptimizedQuery(
         queryKey: 'getBillsByAdmin',
         parameters: [adminUid],
-        useCache: true,
+        useCache: false, // Disable cache to get fresh data
       );
+      developer.log('[SQLiteDAO] getBills: found ${results.length} bills for $adminUid', name: 'SQLiteDAO');
+      return results;
     }
   }
 
@@ -951,6 +956,8 @@ class SQLiteDAO implements DatabaseService {
         'sync_status': SyncStatus.pending.value,
       };
       
+      developer.log('[SQLiteDAO] saveBill: id=${bill['id']}, admin_uid=$adminUid, bill_date=${bill['bill_date']}', name: 'SQLiteDAO');
+      
       await txn.insert(
         'bills',
         bill,
@@ -962,6 +969,8 @@ class SQLiteDAO implements DatabaseService {
       
       // Clear relevant cache entries
       _clearCacheForQuery('getBills');
+      
+      developer.log('[SQLiteDAO] saveBill: Bill ${bill['id']} saved successfully', name: 'SQLiteDAO');
     });
   }
 
@@ -1036,12 +1045,14 @@ class SQLiteDAO implements DatabaseService {
       final now = DateTime.now().millisecondsSinceEpoch;
       
       // Update the main table sync status
-      await txn.update(
+      final rowsUpdated = await txn.update(
         tableName,
-        {'sync_status': SyncStatus.synced.value},
+        {'sync_status': SyncStatus.synced.value, 'updated_at': now},
         where: 'id = ?',
         whereArgs: [recordId],
       );
+      
+      developer.log('[SQLiteDAO] markAsSynced: $tableName:$recordId - rows updated: $rowsUpdated', name: 'SQLiteDAO');
       
       // Update sync log
       await txn.update(
@@ -1054,6 +1065,16 @@ class SQLiteDAO implements DatabaseService {
         whereArgs: [tableName, recordId],
       );
     });
+    
+    // Clear cache for the affected table to ensure fresh data is loaded
+    if (tableName == 'bills') {
+      _clearCacheForQuery('getBills');
+    } else if (tableName == 'food_items') {
+      _clearCacheForQuery('getFoodItems');
+      _clearCacheForQuery('searchFoodItems');
+    } else if (tableName == 'departments') {
+      _clearCacheForQuery('getDepartments');
+    }
   }
 
   @override

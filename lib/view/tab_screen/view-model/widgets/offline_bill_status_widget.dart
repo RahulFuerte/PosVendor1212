@@ -10,11 +10,13 @@ import '../constants/constants.dart';
 class OfflineBillStatusWidget extends StatefulWidget {
   final String adminUid;
   final VoidCallback? onSyncCompleted;
+  final void Function(VoidCallback refreshCallback)? onRefreshCallbackReady;
 
   const OfflineBillStatusWidget({
     Key? key,
     required this.adminUid,
     this.onSyncCompleted,
+    this.onRefreshCallbackReady,
   }) : super(key: key);
 
   @override
@@ -44,6 +46,13 @@ class _OfflineBillStatusWidgetState extends State<OfflineBillStatusWidget> {
     _initializeService();
     _setupListeners();
     _loadInitialData();
+    
+    // Provide refresh callback to parent
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      widget.onRefreshCallbackReady?.call(() {
+        _loadInitialData();
+      });
+    });
   }
 
   @override
@@ -78,20 +87,29 @@ class _OfflineBillStatusWidgetState extends State<OfflineBillStatusWidget> {
 
     // Listen to offline bill sync results
     _syncResultSubscription = _databaseService.offlineBillSyncResultStream.listen(
-      (result) {
+      (result) async {
         if (mounted) {
-          setState(() {
-            _isSyncing = false;
-            _lastSyncTime = result.timestamp;
-            
-            if (result.success) {
+          // If sync was successful, immediately set count to 0 for synced bills
+          // then refresh to get accurate count
+          if (result.success) {
+            setState(() {
+              _isSyncing = false;
+              _lastSyncTime = result.timestamp;
               _lastSyncError = null;
-              _loadOfflineBillsCount(); // Refresh count after successful sync
-              widget.onSyncCompleted?.call();
-            } else {
+              // Immediately reduce count by synced bills for instant UI update
+              _offlineBillsCount = (_offlineBillsCount - result.billsSynced).clamp(0, _offlineBillsCount);
+            });
+            
+            // Then refresh to get accurate count from database
+            await _loadOfflineBillsCount();
+            widget.onSyncCompleted?.call();
+          } else {
+            setState(() {
+              _isSyncing = false;
+              _lastSyncTime = result.timestamp;
               _lastSyncError = result.errorMessage;
-            }
-          });
+            });
+          }
           
           // Show snackbar for sync results
           _showSyncResultSnackBar(result);

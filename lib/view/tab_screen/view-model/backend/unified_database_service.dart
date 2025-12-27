@@ -623,8 +623,9 @@ class UnifiedDatabaseService implements DatabaseService {
         
         try {
           await _firebaseDAO.saveBill(adminUid, billData);
-          await _sqliteDAO.markAsSynced('bills', billData['id']);
-          developer.log('Bill ${billData['id']} synced to Firebase', name: 'DatabaseService');
+          // Mark as synced AFTER successful Firebase save
+          await _sqliteDAO.markAsSynced('bills', billData['id'].toString());
+          developer.log('Bill ${billData['id']} synced to Firebase and marked as synced', name: 'DatabaseService');
         } catch (e) {
           developer.log('Failed to sync bill to Firebase: $e', name: 'DatabaseService');
           // Firebase sync failed, bill remains marked as pending

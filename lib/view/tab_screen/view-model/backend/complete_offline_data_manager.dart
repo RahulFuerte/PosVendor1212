@@ -156,12 +156,14 @@ class CompleteOfflineDataManager {
       await _ensureInitialized();
 
       // Clear cache if force refresh
+      final cacheKey = 'bills_${adminUid}_${startDate?.millisecondsSinceEpoch ?? 'all'}_${endDate?.millisecondsSinceEpoch ?? 'all'}';
       if (forceRefresh) {
-        final cacheKey = 'bills_${adminUid}_${startDate?.millisecondsSinceEpoch ?? 'all'}_${endDate?.millisecondsSinceEpoch ?? 'all'}';
         _dataCache.remove(cacheKey);
+        // Also clear SQLiteDAO cache to get fresh data
+        _sqliteDAO.clearCacheForQueryType('getBills');
       }
 
-      // Get bills from local database
+      // Get bills from local database (fresh data after cache clear)
       final List<Map<String, dynamic>> bills = await _sqliteDAO.getBills(adminUid, startDate: startDate, endDate: endDate);
       
       developer.log('Retrieved ${bills.length} bills from local database', name: 'OfflineDataManager');
@@ -192,7 +194,6 @@ class CompleteOfflineDataManager {
       }
 
       // Cache the data for quick access
-      final cacheKey = 'bills_${adminUid}_${startDate?.millisecondsSinceEpoch ?? 'all'}_${endDate?.millisecondsSinceEpoch ?? 'all'}';
       _dataCache[cacheKey] = completeBills;
 
       developer.log('Ensured complete offline availability for ${completeBills.length} bills', name: 'OfflineDataManager');
