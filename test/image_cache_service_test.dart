@@ -1,7 +1,12 @@
+// Dart imports:
+import 'dart:math';
+import 'dart:typed_data';
+
+// Package imports:
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'dart:typed_data';
-import 'dart:math';
+
+// Project imports:
 import 'package:pos/view/tab_screen/view-model/backend/image_cache_service.dart';
 
 void main() {
@@ -311,7 +316,7 @@ void main() {
       
       // Test automatic cleanup with retention period
       for (int i = 0; i < 10; i++) {
-        final tableName = 'food_items';
+        const tableName = 'food_items';
         final recordId = 'auto_cleanup_$i';
         final imageUrl = 'https://example.com/auto_$i.jpg';
         final imageData = Uint8List.fromList([i, i + 1, i + 2]);

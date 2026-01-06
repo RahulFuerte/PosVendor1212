@@ -1,9 +1,15 @@
+// Dart imports:
 import 'dart:math' as math;
 
+// Flutter imports:
 import 'package:flutter/material.dart';
+
+// Package imports:
+import 'package:shimmer/shimmer.dart';
+
+// Project imports:
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:pos/view/tab_screen/view-model/frontend/screen.dart';
-import 'package:shimmer/shimmer.dart';
 
 class LoadingImage extends StatelessWidget {
   const LoadingImage({Key? key}) : super(key: key);

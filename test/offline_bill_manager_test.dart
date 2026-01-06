@@ -1,7 +1,10 @@
+// Package imports:
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import '../lib/view/tab_screen/view-model/backend/offline_bill_manager.dart';
-import '../lib/view/tab_screen/view-model/backend/database_service.dart';
+
+// Project imports:
+import 'package:pos/view/tab_screen/view-model/backend/database_service.dart';
+import 'package:pos/view/tab_screen/view-model/backend/offline_bill_manager.dart';
 
 void main() {
   // Initialize sqflite for testing
@@ -154,7 +157,7 @@ void main() {
       );
 
       expect(result.timestamp, isNotNull);
-      expect(result.timestamp.isBefore(DateTime.now().add(Duration(seconds: 1))), isTrue);
+      expect(result.timestamp.isBefore(DateTime.now().add(const Duration(seconds: 1))), isTrue);
     });
 
     test('should create result with custom timestamp', () {

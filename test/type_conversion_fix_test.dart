@@ -1,4 +1,7 @@
+// Package imports:
 import 'package:flutter_test/flutter_test.dart';
+
+// Project imports:
 import 'package:pos/view/tab_screen/view-model/backend/price_utils.dart';
 
 void main() {
@@ -37,19 +40,19 @@ void main() {
       // These are the specific cases that caused the original error
       
       // Case 1: int value where string expected
-      final intValue = 123;
+      const intValue = 123;
       expect(PriceUtils.safePriceToString(intValue), '123');
       
       // Case 2: double value where string expected  
-      final doubleValue = 123.45;
+      const doubleValue = 123.45;
       expect(PriceUtils.safePriceToString(doubleValue), '123.45');
       
       // Case 3: null value where string expected
-      final nullValue = null;
+      const nullValue = null;
       expect(PriceUtils.safePriceToString(nullValue), '0');
       
       // Case 4: empty string
-      final emptyString = '';
+      const emptyString = '';
       expect(PriceUtils.safePriceToString(emptyString), '0');
       
       // Case 5: Mixed types in a map (simulating database response)

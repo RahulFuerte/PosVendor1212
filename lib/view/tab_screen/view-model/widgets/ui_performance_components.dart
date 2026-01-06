@@ -1,5 +1,10 @@
+// Dart imports:
 import 'dart:async';
+
+// Flutter imports:
 import 'package:flutter/material.dart';
+
+// Package imports:
 import 'package:shimmer/shimmer.dart';
 
 /// Collection of UI performance optimization components
@@ -190,7 +195,7 @@ class ProgressiveLoadingGrid extends StatefulWidget {
 
 class _ProgressiveLoadingGridState extends State<ProgressiveLoadingGrid>
     with TickerProviderStateMixin {
-  List<Widget> _displayedItems = [];
+  final List<Widget> _displayedItems = [];
   Timer? _loadingTimer;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;

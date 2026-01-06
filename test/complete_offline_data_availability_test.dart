@@ -1,8 +1,12 @@
+// Package imports:
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pos/data/datasources/complete_offline_data_manager.dart';
+import 'package:pos/data/datasources/image_cache_service.dart';
+import 'package:pos/data/datasources/local/sqlite_dao.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'package:pos/view/tab_screen/view-model/backend/complete_offline_data_manager.dart';
-import 'package:pos/view/tab_screen/view-model/backend/sqlite_dao.dart';
-import 'package:pos/view/tab_screen/view-model/backend/image_cache_service.dart';
+
+// Project imports:
+
 import 'test_database_helper.dart';
 
 /// **Feature: local-database-performance-optimization, Property 3: Complete Offline Data Availability**

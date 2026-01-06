@@ -1,7 +1,13 @@
-import 'package:flutter/material.dart';
+// Dart imports:
 import 'dart:async';
-import '../backend/sync_manager.dart';
-import '../backend/connection_monitor.dart';
+
+// Flutter imports:
+import 'package:flutter/material.dart';
+
+// Project imports:
+
+import '../../../../core/network/connection_monitor.dart';
+import '../../../../data/datasources/sync_manager.dart';
 import '../constants/constants.dart';
 import 'sync_progress_dialog.dart';
 
@@ -310,7 +316,7 @@ class _SyncStatusPageState extends State<SyncStatusPage> {
                     ),
                   ),
         trailing: _currentStatus == SyncOperationStatus.syncing
-            ? SizedBox(
+            ? const SizedBox(
                 width: 20,
                 height: 20,
                 child: CircularProgressIndicator(
@@ -380,11 +386,11 @@ class _SyncStatusPageState extends State<SyncStatusPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          const Row(
             children: [
               Icon(Icons.analytics, color: primaryColor),
-              const SizedBox(width: 8),
-              const Text(
+              SizedBox(width: 8),
+              Text(
                 'Sync Statistics',
                 style: TextStyle(
                   fontFamily: 'tabfont',
@@ -455,11 +461,11 @@ class _SyncStatusPageState extends State<SyncStatusPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
+          const Row(
             children: [
               Icon(Icons.touch_app, color: primaryColor),
-              const SizedBox(width: 8),
-              const Text(
+              SizedBox(width: 8),
+              Text(
                 'Sync Actions',
                 style: TextStyle(
                   fontFamily: 'tabfont',
@@ -512,8 +518,8 @@ class _SyncStatusPageState extends State<SyncStatusPage> {
           const SizedBox(height: 10),
           OutlinedButton.icon(
             onPressed: _loadData,
-            icon: Icon(Icons.refresh, color: primaryColor),
-            label: Text(
+            icon: const Icon(Icons.refresh, color: primaryColor),
+            label: const Text(
               'Refresh Status',
               style: TextStyle(
                 fontFamily: 'tabfont',
@@ -523,7 +529,7 @@ class _SyncStatusPageState extends State<SyncStatusPage> {
             ),
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 14),
-              side: BorderSide(color: primaryColor),
+              side: const BorderSide(color: primaryColor),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
               ),
@@ -556,14 +562,14 @@ class _SyncStatusPageState extends State<SyncStatusPage> {
         ),
         actions: [
           IconButton(
-            icon: Icon(Icons.refresh, color: primaryColor),
+            icon: const Icon(Icons.refresh, color: primaryColor),
             onPressed: _loadData,
             tooltip: 'Refresh',
           ),
         ],
       ),
       body: _isLoading
-          ? Center(child: CircularProgressIndicator(color: primaryColor))
+          ? const Center(child: CircularProgressIndicator(color: primaryColor))
           : RefreshIndicator(
               onRefresh: _loadData,
               color: primaryColor,

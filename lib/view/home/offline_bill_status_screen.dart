@@ -1,10 +1,15 @@
-import 'package:flutter/material.dart';
+// Dart imports:
 import 'dart:developer' as developer;
+
+// Flutter imports:
+import 'package:flutter/material.dart';
+
+// Project imports:
+import '../../core/utils/price_utils.dart';
+import '../../data/datasources/complete_offline_data_manager.dart';
+import '../tab_screen/view-model/constants/constants.dart';
 import '../tab_screen/view-model/widgets/offline_bill_status_widget.dart';
 import '../tab_screen/view-model/widgets/offline_status_indicator.dart';
-import '../tab_screen/view-model/backend/complete_offline_data_manager.dart';
-import '../tab_screen/view-model/backend/price_utils.dart';
-import '../tab_screen/view-model/constants/constants.dart';
 
 /// Enhanced offline bill status screen with complete bill viewing capability
 class OfflineBillStatusScreen extends StatefulWidget {

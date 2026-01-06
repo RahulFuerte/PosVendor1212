@@ -1,20 +1,24 @@
+// Dart imports:
 import 'dart:io';
 
-import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
+// Flutter imports:
 import 'package:flutter/material.dart';
+
+// Package imports:
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
 import 'package:flutter_pos_printer_platform_image_3/flutter_pos_printer_platform_image_3.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
+
+// Project imports:
 import 'package:pos/view/home/print_provider.dart';
 import 'package:pos/view/home/printer_connectionDialog.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
-import 'package:printing/printing.dart';
-import 'package:provider/provider.dart';
-
-import 'package:pdf/pdf.dart';
-import 'package:pdf/widgets.dart' as pw;
-import 'package:share_plus/share_plus.dart';
 
 class ItemwiseReportScreen extends StatefulWidget {
   final String uid;
@@ -451,14 +455,14 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
       );
       bytes += generator.text('Item Wise Sales Report',
           styles: const PosStyles(align: PosAlign.center, bold: true));
-      bytes += generator.text('${"-" * 32}',
+      bytes += generator.text("-" * 32,
           styles: const PosStyles(align: PosAlign.center));
 
       bytes += generator.text(
         'From: ${DateFormat('dd/MM/yy').format(fromDate!)}     To: ${DateFormat('dd/MM/yy').format(toDate!)}',
         styles: const PosStyles(align: PosAlign.left),
       );
-      bytes += generator.text('${"-" * 32}',
+      bytes += generator.text("-" * 32,
           styles: const PosStyles(align: PosAlign.center));
 
       // Table header
@@ -469,7 +473,7 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
         PosColumn(
             text: 'AMOUNT', width: 3, styles: const PosStyles(bold: true)),
       ]);
-      bytes += generator.text('${"-" * 32}',
+      bytes += generator.text("-" * 32,
           styles: const PosStyles(align: PosAlign.center));
 
       // Items data
@@ -485,7 +489,7 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
         ]);
       }
 
-      bytes += generator.text('${"-" * 32}',
+      bytes += generator.text("-" * 32,
           styles: const PosStyles(align: PosAlign.center));
 
       // Total
@@ -501,7 +505,7 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
             width: 3,
             styles: const PosStyles(align: PosAlign.right, bold: true)),
       ]);
-      bytes += generator.text('${"-" * 32}',
+      bytes += generator.text("-" * 32,
           styles: const PosStyles(align: PosAlign.center));
 
       bytes += generator.text('TOTAL AMOUNT',
@@ -649,7 +653,7 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
       pdf.addPage(
         pw.Page(
           pageFormat: PdfPageFormat.a4,
-          margin: pw.EdgeInsets.all(20),
+          margin: const pw.EdgeInsets.all(20),
           build: (pw.Context pdfContext) {
             return pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -669,7 +673,7 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
                   pw.Center(
                     child: pw.Text(
                       address,
-                      style: pw.TextStyle(fontSize: 10),
+                      style: const pw.TextStyle(fontSize: 10),
                       textAlign: pw.TextAlign.center,
                     ),
                   ),
@@ -679,7 +683,7 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
                   pw.Center(
                     child: pw.Text(
                       'Contact: $contact',
-                      style: pw.TextStyle(fontSize: 10),
+                      style: const pw.TextStyle(fontSize: 10),
                     ),
                   ),
                 ],
@@ -688,7 +692,7 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
                   pw.Center(
                     child: pw.Text(
                       'GST: $gstNo',
-                      style: pw.TextStyle(fontSize: 10),
+                      style: const pw.TextStyle(fontSize: 10),
                     ),
                   ),
                 ],
@@ -700,7 +704,7 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
                 pw.Center(
                   child: pw.Text(
                     DateFormat('dd MMM yyyy hh:mm a').format(DateTime.now()),
-                    style: pw.TextStyle(fontSize: 10),
+                    style: const pw.TextStyle(fontSize: 10),
                   ),
                 ),
                 pw.SizedBox(height: 4),
@@ -718,10 +722,10 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
 
                 // Date Range
                 pw.Container(
-                  padding: pw.EdgeInsets.all(8),
+                  padding: const pw.EdgeInsets.all(8),
                   decoration: pw.BoxDecoration(
                     border: pw.Border.all(color: PdfColors.grey400),
-                    borderRadius: pw.BorderRadius.all(pw.Radius.circular(4)),
+                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
                   ),
                   child: pw.Text(
                     'Period: ${DateFormat('dd/MM/yyyy').format(fromDate!)} to ${DateFormat('dd/MM/yyyy').format(toDate!)}',
@@ -744,8 +748,8 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
                     fontSize: 11,
                     fontWeight: pw.FontWeight.bold,
                   ),
-                  cellStyle: pw.TextStyle(fontSize: 10),
-                  headerDecoration: pw.BoxDecoration(
+                  cellStyle: const pw.TextStyle(fontSize: 10),
+                  headerDecoration: const pw.BoxDecoration(
                     color: PdfColors.grey300,
                   ),
                   cellAlignment: pw.Alignment.centerLeft,
@@ -757,8 +761,8 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
                   },
                   headers: ['Sr.', 'Item Name', 'Quantity', 'Amount'],
                   data: tableData,
-                  cellPadding: pw.EdgeInsets.all(6),
-                  oddRowDecoration: pw.BoxDecoration(
+                  cellPadding: const pw.EdgeInsets.all(6),
+                  oddRowDecoration: const pw.BoxDecoration(
                     color: PdfColors.grey100,
                   ),
                 ),
@@ -769,8 +773,8 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
 
                 // Summary Section
                 pw.Container(
-                  padding: pw.EdgeInsets.all(10),
-                  decoration: pw.BoxDecoration(
+                  padding: const pw.EdgeInsets.all(10),
+                  decoration: const pw.BoxDecoration(
                     color: PdfColors.grey200,
                     borderRadius: pw.BorderRadius.all(pw.Radius.circular(4)),
                   ),
@@ -828,7 +832,7 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
                 pw.Center(
                   child: pw.Text(
                     'Generated by POS System',
-                    style: pw.TextStyle(
+                    style: const pw.TextStyle(
                       fontSize: 8,
                       color: PdfColors.grey600,
                     ),

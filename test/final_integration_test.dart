@@ -1,10 +1,15 @@
+// Dart imports:
 import 'dart:math';
 import 'dart:typed_data';
+
+// Package imports:
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+
+// Project imports:
+import 'package:pos/view/tab_screen/view-model/backend/database_service.dart';
 import 'package:pos/view/tab_screen/view-model/backend/image_cache_service.dart';
 import 'package:pos/view/tab_screen/view-model/backend/sqlite_dao.dart';
-import 'package:pos/view/tab_screen/view-model/backend/database_service.dart';
 import 'test_database_helper.dart';
 
 void main() {
@@ -206,7 +211,7 @@ void main() {
           for (int retry = 0; retry < 3; retry++) {
             try {
               cachedImage = await imageCacheService.getImageBlob('food_items', entry.key);
-              if (cachedImage != null) break;
+              break;
               await Future.delayed(const Duration(milliseconds: 10));
             } catch (e) {
               if (retry == 2) rethrow;
@@ -861,7 +866,7 @@ void main() {
         for (int retry = 0; retry < 3; retry++) {
           try {
             cachedImage = await imageCacheService.getImageBlob('food_items', 'integration_food_0');
-            if (cachedImage != null) break;
+            break;
             await Future.delayed(const Duration(milliseconds: 10));
           } catch (e) {
             if (retry == 2) rethrow;

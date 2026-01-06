@@ -1,7 +1,10 @@
+// Flutter imports:
 import 'package:flutter/material.dart';
+
+// Project imports:
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
-import '../widgets/sync_status_indicator.dart';
 import '../widgets/sync_progress_dialog.dart';
+import '../widgets/sync_status_indicator.dart';
 
 /// App bar with integrated sync status indicator
 class SyncAwareAppBar extends StatelessWidget implements PreferredSizeWidget {

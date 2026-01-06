@@ -1,5 +1,7 @@
+// Package imports:
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter/material.dart';
+
+// Project imports:
 import 'package:pos/view/home/restaurant_screen.dart';
 
 void main() {
@@ -78,8 +80,8 @@ void main() {
         },
       ];
 
-      final double total = 797.0; // (299 * 2) + 199
-      final String adminUid = 'test_admin_123';
+      const double total = 797.0; // (299 * 2) + 199
+      const String adminUid = 'test_admin_123';
       final now = DateTime.now();
 
       // Simulate offline bill creation

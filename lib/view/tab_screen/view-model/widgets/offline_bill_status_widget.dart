@@ -1,9 +1,17 @@
-import 'package:flutter/material.dart';
+// Dart imports:
 import 'dart:async';
+
+// Flutter imports:
+import 'package:flutter/material.dart';
+
+// Package imports:
 import 'package:provider/provider.dart';
-import '../backend/database_service.dart';
-import '../backend/unified_database_service.dart';
-import '../backend/offline_bill_manager.dart';
+
+// Project imports:
+
+import '../../../../data/datasources/database_service.dart';
+import '../../../../data/datasources/offline_bill_manager.dart';
+import '../../../../data/datasources/unified_database_service.dart';
 import '../constants/constants.dart';
 
 /// Widget that displays offline bill sync status and provides manual sync functionality
@@ -293,7 +301,7 @@ class _OfflineBillStatusWidgetState extends State<OfflineBillStatusWidget> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            SizedBox(
+            const SizedBox(
               width: 12,
               height: 12,
               child: CircularProgressIndicator(
@@ -304,7 +312,7 @@ class _OfflineBillStatusWidgetState extends State<OfflineBillStatusWidget> {
             const SizedBox(width: 6),
             Text(
               _getSyncingStatusText(),
-              style: TextStyle(
+              style: const TextStyle(
                 color: primaryColor,
                 fontSize: 11,
                 fontWeight: FontWeight.w500,
@@ -371,11 +379,11 @@ class _OfflineBillStatusWidgetState extends State<OfflineBillStatusWidget> {
         color: primaryColor.withOpacity(0.1),
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Row(
+      child: const Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(Icons.cloud_done, size: 14, color: primaryColor),
-          const SizedBox(width: 4),
+          SizedBox(width: 4),
           Text(
             'Synced',
             style: TextStyle(
@@ -416,7 +424,7 @@ class _OfflineBillStatusWidgetState extends State<OfflineBillStatusWidget> {
         children: [
           Row(
             children: [
-              Icon(Icons.sync, color: primaryColor, size: 20),
+              const Icon(Icons.sync, color: primaryColor, size: 20),
               const SizedBox(width: 8),
               const Expanded(
                 child: Text(

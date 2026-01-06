@@ -1,9 +1,10 @@
+// Package imports:
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'dart:math';
-import 'dart:typed_data';
-import '../lib/view/tab_screen/view-model/backend/performance_monitor.dart';
-import '../lib/view/tab_screen/view-model/backend/lazy_loading_service.dart';
+
+// Project imports:
+import 'package:pos/view/tab_screen/view-model/backend/lazy_loading_service.dart';
+import 'package:pos/view/tab_screen/view-model/backend/performance_monitor.dart';
 import 'test_database_helper.dart';
 
 void main() {
@@ -62,7 +63,7 @@ void main() {
         // Simulate some operations to generate metrics
         for (int i = 0; i < 10; i++) {
           await performanceMonitor.trackQuery('fast_query', () async {
-            await Future.delayed(Duration(milliseconds: 5));
+            await Future.delayed(const Duration(milliseconds: 5));
             return 'fast_result';
           });
         }

@@ -1,6 +1,13 @@
-import 'package:flutter/material.dart';
+// Dart imports:
 import 'dart:async';
-import '../backend/sync_manager.dart';
+
+// Flutter imports:
+import 'package:flutter/material.dart';
+
+import '../../../../data/datasources/sync_manager.dart';
+
+// Project imports:
+
 
 /// Dialog that shows detailed sync progress with real-time updates
 class SyncProgressDialog extends StatefulWidget {

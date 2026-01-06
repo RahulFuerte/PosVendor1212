@@ -5,7 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:provider/provider.dart';
-import '../backend/database_service.dart';
+import '../../../../data/datasources/database_service.dart';
+
 
 /// A widget that displays images from BLOB cache when available, 
 /// falling back to network images when offline or BLOB not available

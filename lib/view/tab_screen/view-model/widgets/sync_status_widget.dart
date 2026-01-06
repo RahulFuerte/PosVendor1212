@@ -1,7 +1,14 @@
-import 'package:flutter/material.dart';
+// Dart imports:
 import 'dart:async';
-import '../backend/sync_manager.dart';
-import '../backend/connection_monitor.dart';
+
+// Flutter imports:
+import 'package:flutter/material.dart';
+
+import '../../../../core/network/connection_monitor.dart';
+import '../../../../data/datasources/sync_manager.dart';
+
+// Project imports:
+
 
 /// Comprehensive sync status widget that displays sync progress, completion, errors, and offline status
 class SyncStatusWidget extends StatefulWidget {
@@ -209,10 +216,10 @@ class _SyncStatusWidgetState extends State<SyncStatusWidget> {
 
   Widget _buildSyncProgressIndicator() {
     if (_currentStatus == SyncOperationStatus.syncing) {
-      return Row(
+      return const Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const SizedBox(
+          SizedBox(
             width: 16,
             height: 16,
             child: CircularProgressIndicator(
@@ -220,8 +227,8 @@ class _SyncStatusWidgetState extends State<SyncStatusWidget> {
               valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
             ),
           ),
-          const SizedBox(width: 8),
-          const Text(
+          SizedBox(width: 8),
+          Text(
             'Syncing...',
             style: TextStyle(
               color: Colors.blue,
@@ -234,10 +241,10 @@ class _SyncStatusWidgetState extends State<SyncStatusWidget> {
     }
 
     if (_currentStatus == SyncOperationStatus.retrying) {
-      return Row(
+      return const Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const SizedBox(
+          SizedBox(
             width: 16,
             height: 16,
             child: CircularProgressIndicator(
@@ -245,8 +252,8 @@ class _SyncStatusWidgetState extends State<SyncStatusWidget> {
               valueColor: AlwaysStoppedAnimation<Color>(Colors.orange),
             ),
           ),
-          const SizedBox(width: 8),
-          const Text(
+          SizedBox(width: 8),
+          Text(
             'Retrying...',
             style: TextStyle(
               color: Colors.orange,
@@ -270,16 +277,16 @@ class _SyncStatusWidgetState extends State<SyncStatusWidget> {
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: Colors.orange[300]!),
         ),
-        child: Row(
+        child: const Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
+            Icon(
               Icons.cloud_off,
               size: 16,
               color: Colors.orange,
             ),
-            const SizedBox(width: 4),
-            const Text(
+            SizedBox(width: 4),
+            Text(
               'Offline',
               style: TextStyle(
                 color: Colors.orange,
@@ -342,11 +349,11 @@ class _SyncStatusWidgetState extends State<SyncStatusWidget> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
+            const Row(
               children: [
-                const Icon(Icons.error_outline, color: Colors.red, size: 16),
-                const SizedBox(width: 8),
-                const Text(
+                Icon(Icons.error_outline, color: Colors.red, size: 16),
+                SizedBox(width: 8),
+                Text(
                   'Sync Failed',
                   style: TextStyle(
                     color: Colors.red,

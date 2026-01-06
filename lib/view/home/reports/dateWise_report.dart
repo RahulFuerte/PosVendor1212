@@ -1,16 +1,20 @@
-import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
+// Flutter imports:
 import 'package:flutter/material.dart';
+
+// Package imports:
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
 import 'package:flutter_pos_printer_platform_image_3/flutter_pos_printer_platform_image_3.dart';
 import 'package:intl/intl.dart';
-import 'package:pos/view/home/print_provider.dart';
-import 'package:pos/view/home/printer_connectionDialog.dart';
-import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 
-import 'package:pdf/pdf.dart';
-import 'package:pdf/widgets.dart' as pw;
+// Project imports:
+import 'package:pos/view/home/print_provider.dart';
+import 'package:pos/view/home/printer_connectionDialog.dart';
+import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 
 class DatewiseReportScreen extends StatefulWidget {
   final String uid;
@@ -514,19 +518,19 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
         DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now()),
         styles: const PosStyles(align: PosAlign.center),
       );
-      bytes += generator.text('${"-" * 48}',
+      bytes += generator.text("-" * 48,
           styles: const PosStyles(align: PosAlign.center));
 
       bytes += generator.text('Sales Summary',
           styles: const PosStyles(align: PosAlign.left, bold: true));
-      bytes += generator.text('${"-" * 48}',
+      bytes += generator.text("-" * 48,
           styles: const PosStyles(align: PosAlign.center));
 
       bytes += generator.text(
         'From : ${DateFormat('dd/MM/yy').format(fromDate!)}              To : ${DateFormat('dd/MM/yy').format(toDate!)}',
         styles: const PosStyles(align: PosAlign.left),
       );
-      bytes += generator.text('${"-" * 48}',
+      bytes += generator.text("-" * 48,
           styles: const PosStyles(align: PosAlign.center));
 
       // Table header
@@ -541,7 +545,7 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
             width: 3,
             styles: const PosStyles(bold: true, align: PosAlign.right)),
       ]);
-      bytes += generator.text('${"-" * 48}',
+      bytes += generator.text("-" * 48,
           styles: const PosStyles(align: PosAlign.center));
 
       // Date data
@@ -570,7 +574,7 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
         ]);
       }
 
-      bytes += generator.text('${"-" * 48}',
+      bytes += generator.text("-" * 48,
           styles: const PosStyles(align: PosAlign.center));
 
       // Grand Total
@@ -586,13 +590,13 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
             width: 3,
             styles: const PosStyles(bold: true, align: PosAlign.right)),
       ]);
-      bytes += generator.text('${"-" * 48}',
+      bytes += generator.text("-" * 48,
           styles: const PosStyles(align: PosAlign.center));
 
       // Payment Summary
       bytes += generator.text('Payment Summary',
           styles: const PosStyles(bold: true));
-      bytes += generator.text('${"-" * 48}',
+      bytes += generator.text("-" * 48,
           styles: const PosStyles(align: PosAlign.center));
 
       bytes += generator.row([
@@ -602,7 +606,7 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
             width: 3,
             styles: const PosStyles(align: PosAlign.right)),
       ]);
-      bytes += generator.text('${"-" * 48}',
+      bytes += generator.text("-" * 48,
           styles: const PosStyles(align: PosAlign.center));
 
       bytes += generator.emptyLines(3);
@@ -809,10 +813,10 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
                 // Summary Section
                 pw.Container(
                   padding: const pw.EdgeInsets.all(10),
-                  decoration: pw.BoxDecoration(
+                  decoration: const pw.BoxDecoration(
                     color: PdfColors.grey200,
                     borderRadius:
-                        const pw.BorderRadius.all(pw.Radius.circular(4)),
+                        pw.BorderRadius.all(pw.Radius.circular(4)),
                   ),
                   child: pw.Column(
                     children: [

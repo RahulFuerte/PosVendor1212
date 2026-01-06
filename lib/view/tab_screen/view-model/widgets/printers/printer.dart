@@ -747,8 +747,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_pos_printer_platform_image_3/flutter_pos_printer_platform_image_3.dart';
 import 'package:intl/intl.dart';
 import 'package:pos/view/home/print_provider.dart';
-import 'package:pos/view/tab_screen/view-model/backend/offline_bill_manager.dart';
-import 'package:pos/view/tab_screen/view-model/backend/connection_monitor.dart';
+
+
+import '../../../../../core/network/connection_monitor.dart';
+import '../../../../../data/datasources/offline_bill_manager.dart';
 
 class DirectPrintHelper {
   // Generate 8-digit random receipt number

@@ -1,13 +1,17 @@
+// Flutter imports:
 import 'package:flutter/material.dart';
-import 'package:pos/view/home/customer_listScreen.dart';
+
+// Package imports:
+import 'package:provider/provider.dart';
+
+// Project imports:
 import 'package:pos/view/home/navigation.dart';
 import 'package:pos/view/home/print_provider.dart';
+import 'package:pos/view/home/screens/customer_list_screen.dart';
 import 'package:pos/view/local_DB/customerDB_helper.dart';
 import 'package:pos/view/local_DB/customer_model.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:pos/view/tab_screen/view-model/widgets/printers/printer.dart';
-import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
 
 class ReceiptPreviewScreen extends StatefulWidget {
   final String shopName;

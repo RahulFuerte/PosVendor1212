@@ -1,8 +1,11 @@
+// Package imports:
 import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
 import 'package:flutter_pos_printer_platform_image_3/flutter_pos_printer_platform_image_3.dart';
-import 'package:pos/view/tab_screen/view-model/widgets/printers/printer.dart';
-import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
+import 'package:sqflite/sqflite.dart';
+
+// Project imports:
+import 'package:pos/view/tab_screen/view-model/widgets/printers/printer.dart';
 
 class PrinterDatabaseHelper {
   static final PrinterDatabaseHelper instance = PrinterDatabaseHelper._init();

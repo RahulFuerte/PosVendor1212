@@ -1,6 +1,10 @@
+// Package imports:
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pos/core/network/connection_monitor.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'package:pos/view/tab_screen/view-model/backend/connection_monitor.dart';
+
+// Project imports:
+
 
 void main() {
   // Initialize Flutter binding and sqflite for testing

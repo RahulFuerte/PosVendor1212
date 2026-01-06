@@ -1,11 +1,11 @@
+// Package imports:
 import 'package:flutter_test/flutter_test.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 void main() {
   group('Data Transformation Tests', () {
     test('should parse timestamp from string correctly', () {
       // Test string timestamp parsing
-      final stringTimestamp = '2024-01-27 14:07:41.867586';
+      const stringTimestamp = '2024-01-27 14:07:41.867586';
       final dateTime = DateTime.parse(stringTimestamp);
       final result = dateTime.millisecondsSinceEpoch;
       

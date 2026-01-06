@@ -1,9 +1,14 @@
+// Dart imports:
 import 'dart:async';
+
+// Package imports:
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import '../lib/view/tab_screen/view-model/backend/enhanced_offline_manager.dart';
-import '../lib/view/tab_screen/view-model/backend/sqlite_dao.dart';
-import '../lib/view/tab_screen/view-model/backend/connection_monitor.dart';
+
+// Project imports:
+import 'package:pos/view/tab_screen/view-model/backend/connection_monitor.dart';
+import 'package:pos/view/tab_screen/view-model/backend/enhanced_offline_manager.dart';
+import 'package:pos/view/tab_screen/view-model/backend/sqlite_dao.dart';
 
 void main() {
   group('Enhanced Offline Manager Tests', () {

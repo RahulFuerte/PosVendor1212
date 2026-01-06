@@ -1,10 +1,17 @@
+// Dart imports:
 import 'dart:typed_data';
+
+// Flutter imports:
 import 'package:flutter/material.dart';
+
+// Package imports:
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+
+// Project imports:
+import 'package:pos/view/home/print_provider.dart';
 import 'package:pos/view/home/productDashBoard.dart';
 import 'package:pos/view/tab_screen/view-model/backend/database_service.dart';
-import 'package:pos/view/home/print_provider.dart';
 
 /// Test for ProductDashBoard optimization features
 /// Validates lazy loading, progressive image loading, and virtual scrolling
@@ -25,7 +32,7 @@ void main() {
             Provider<DatabaseService>.value(value: mockDatabaseService),
             ChangeNotifierProvider<PrintProvider>.value(value: printProvider),
           ],
-          child: MaterialApp(
+          child: const MaterialApp(
             home: ProductDashBoard(phoneNo: '1234567890'),
           ),
         ),
@@ -45,7 +52,7 @@ void main() {
             Provider<DatabaseService>.value(value: mockDatabaseService),
             ChangeNotifierProvider<PrintProvider>.value(value: printProvider),
           ],
-          child: MaterialApp(
+          child: const MaterialApp(
             home: ProductDashBoard(phoneNo: '1234567890'),
           ),
         ),
@@ -64,7 +71,7 @@ void main() {
             Provider<DatabaseService>.value(value: mockDatabaseService),
             ChangeNotifierProvider<PrintProvider>.value(value: printProvider),
           ],
-          child: MaterialApp(
+          child: const MaterialApp(
             home: ProductDashBoard(phoneNo: '1234567890'),
           ),
         ),
@@ -97,7 +104,7 @@ void main() {
             Provider<DatabaseService>.value(value: mockDatabaseService),
             ChangeNotifierProvider<PrintProvider>.value(value: printProvider),
           ],
-          child: MaterialApp(
+          child: const MaterialApp(
             home: ProductDashBoard(phoneNo: '1234567890'),
           ),
         ),

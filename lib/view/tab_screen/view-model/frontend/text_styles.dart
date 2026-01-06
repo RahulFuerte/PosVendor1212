@@ -1,4 +1,7 @@
+// Flutter imports:
 import 'package:flutter/material.dart';
+
+// Project imports:
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 
 class MyTextStyle {

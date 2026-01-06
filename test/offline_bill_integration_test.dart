@@ -1,6 +1,9 @@
+// Package imports:
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pos/view/tab_screen/view-model/backend/offline_bill_manager.dart';
+
+// Project imports:
 import 'package:pos/view/tab_screen/view-model/backend/connection_monitor.dart';
+import 'package:pos/view/tab_screen/view-model/backend/offline_bill_manager.dart';
 
 void main() {
   group('Offline Bill Integration Tests', () {

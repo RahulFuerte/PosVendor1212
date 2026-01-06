@@ -1,43 +1,49 @@
-import 'dart:io';
+// Dart imports:
 import 'dart:async';
 import 'dart:developer' as developer;
-import 'package:audioplayers/audioplayers.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:io';
+
+// Flutter imports:
 import 'package:flutter/material.dart';
+
+// Package imports:
+import 'package:audioplayers/audioplayers.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/services.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_pos_printer_platform_image_3/flutter_pos_printer_platform_image_3.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:hive/hive.dart';
-import 'package:pos/view/tab_screen/view-model/backend/sqlite_helper.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:pos/view/home/edit_billReceipt.dart';
-import 'package:pos/view/home/usersDataScreen.dart';
-import 'package:pos/view/home/reports/billWise_report.dart';
-import 'package:pos/view/home/reports/itemWise_report.dart';
-import 'package:pos/view/home/reports/dateWise_report.dart';
-import 'package:pos/view/home/navigation.dart';
-import 'package:pos/view/home/print_provider.dart';
-import 'package:pos/view/home/printer_connectionDialog.dart';
-import 'package:pos/view/home/sales_reportScreen.dart';
-import 'package:pos/view/home/customer_listScreen.dart';
-import 'package:pos/view/home/offline_bill_status_screen.dart';
-import 'package:pos/view/home/error_notification_screen.dart';
-import 'package:pos/view/tab_screen/view-model/widgets/sync_status_page.dart';
-import 'package:pos/view/login/inception.dart';
-import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
-import 'package:pos/view/tab_screen/view-model/backend/database_service.dart';
-import 'package:pos/view/tab_screen/view-model/backend/network_error_handler.dart';
-import 'package:pos/view/tab_screen/view-model/backend/price_utils.dart';
-import 'package:pos/view/tab_screen/view-model/widgets/cached_blob_image.dart';
-import 'package:pos/view/tab_screen/view-model/widgets/offline_status_indicator.dart';
-import 'package:pos/view/tab_screen/view-model/widgets/offline_status_banner.dart'
-    as banner;
-import 'package:pos/view/tab_screen/view-model/widgets/printers/printer.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../tab_screen/view-model/widgets/bill_count/bill_cart_widget.dart';
-import '../tab_screen/view-model/widgets/show_save_order_bottom_sheet.dart';
+
+// Project imports:
+import 'package:pos/core/error/network_error_handler.dart';
+import 'package:pos/core/utils/price_utils.dart';
+import 'package:pos/data/datasources/database_service.dart';
+import 'package:pos/data/datasources/local/sqlite_helper.dart';
+import 'package:pos/view/home/navigation.dart';
+import 'package:pos/view/home/offline_bill_status_screen.dart';
+import 'package:pos/view/home/print_provider.dart';
+import 'package:pos/view/home/printer_connectionDialog.dart';
+import 'package:pos/view/home/reports/billWise_report.dart';
+import 'package:pos/view/home/reports/dateWise_report.dart';
+import 'package:pos/view/home/reports/itemWise_report.dart';
+import 'package:pos/view/home/screens/customer_list_screen.dart';
+import 'package:pos/view/home/screens/edit_bill_receipt.dart';
+import 'package:pos/view/home/screens/sales_report_screen.dart';
+import 'package:pos/view/home/screens/users_data_screen.dart';
+import 'package:pos/view/login/screens/inception_screen.dart';
+import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
+import 'package:pos/view/tab_screen/view-model/widgets/cached_blob_image.dart';
+import 'package:pos/view/tab_screen/view-model/widgets/offline_status_indicator.dart';
+import 'package:pos/view/tab_screen/view-model/widgets/printers/printer.dart';
+import 'package:pos/view/tab_screen/view-model/widgets/sync_status_page.dart';
+import 'widgets/bill_cart_widget.dart';
+import 'widgets/show_save_order_bottom_sheet.dart';
+
+import 'package:pos/view/tab_screen/view-model/widgets/offline_status_banner.dart'
+    as banner;
 
 class ProductDashBoard extends StatefulWidget {
   final String phoneNo;
@@ -106,7 +112,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
 
         if (mounted) {
           setState(() {
-            this.adminUid = fetchedAdminUid;
+            adminUid = fetchedAdminUid;
           });
         }
         return fetchedAdminUid;
@@ -132,7 +138,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
             name: 'ProductDashBoard');
         if (mounted) {
           setState(() {
-            this.adminUid = cachedAdminUid;
+            adminUid = cachedAdminUid;
           });
         }
         return cachedAdminUid;
@@ -143,7 +149,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
           name: 'ProductDashBoard');
       if (mounted) {
         setState(() {
-          this.adminUid = widget.phoneNo;
+          adminUid = widget.phoneNo;
         });
       }
       return widget.phoneNo;
@@ -153,7 +159,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
       // Ultimate fallback: use phoneNo
       if (mounted) {
         setState(() {
-          this.adminUid = widget.phoneNo;
+          adminUid = widget.phoneNo;
         });
       }
       return widget.phoneNo;
@@ -488,8 +494,9 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
     selectedItemsDetails = printprovider.posts;
     subtotal = printprovider.total;
 
-    return WillPopScope(
-      onWillPop: () async {
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (bool didPop) async {
         // Handle double back press to exit the app
         DateTime now = DateTime.now();
         if (currentBackPressTime == null ||
@@ -505,9 +512,10 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
             textColor: Colors.white,
             fontSize: 16.0,
           );
-          return false;
+        } else {
+          // Exit the app
+          exit(0);
         }
-        return true;
       },
       child: Scaffold(
         appBar: AppBar(
@@ -1143,10 +1151,9 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
 
                                     return GridView.builder(
                                       gridDelegate:
-                                          const SliverGridDelegateWithFixedCrossAxisCount(
-                                        crossAxisCount: 2,
-                                        childAspectRatio:
-                                            0.78, // Slightly taller to prevent overflow
+                                          SliverGridDelegateWithFixedCrossAxisCount(
+                                        crossAxisCount: crossAxisCount,
+                                        childAspectRatio: childAspectRatio,
                                         crossAxisSpacing: 12,
                                         mainAxisSpacing: 12,
                                       ),
@@ -1274,13 +1281,13 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                                                           //     ),
                                                           //   ),
                                                           // ),
-                                                          errorWidget:
-                                                              Container(
-                                                            color: Colors
-                                                                .grey[200],
-                                                            child: const Icon(
-                                                                Icons.error),
-                                                          ),
+                                                          // errorWidget:
+                                                          //     Container(
+                                                          //   color: Colors
+                                                          //       .grey[200],
+                                                          //   child: const Icon(
+                                                          //       Icons.error),
+                                                          // ),
                                                         ),
                                                       ),
                                                       Positioned(

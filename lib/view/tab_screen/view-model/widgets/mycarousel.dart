@@ -1,7 +1,12 @@
-import 'package:carousel_slider/carousel_slider.dart';
+// Flutter imports:
 import 'package:flutter/material.dart';
-import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
+
+// Package imports:
+import 'package:carousel_slider/carousel_slider.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
+
+// Project imports:
+import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 
 class Mycarousel extends StatefulWidget {
   const Mycarousel({Key? key}) : super(key: key);

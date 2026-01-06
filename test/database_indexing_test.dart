@@ -1,7 +1,11 @@
+// Package imports:
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pos/data/datasources/database_index_manager.dart';
+import 'package:pos/data/datasources/local/sqlite_helper.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import '../lib/view/tab_screen/view-model/backend/database_index_manager.dart';
-import '../lib/view/tab_screen/view-model/backend/sqlite_helper.dart';
+
+
+
 
 void main() {
   group('Database Indexing Tests', () {

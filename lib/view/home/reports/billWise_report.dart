@@ -1,18 +1,22 @@
-import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
+// Flutter imports:
 import 'package:flutter/material.dart';
+
+// Package imports:
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
 import 'package:flutter_pos_printer_platform_image_3/flutter_pos_printer_platform_image_3.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
+import 'package:provider/provider.dart';
+
+// Project imports:
 import 'package:pos/view/home/print_provider.dart';
 import 'package:pos/view/home/printer_connectionDialog.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:pos/view/tab_screen/view-model/widgets/printers/printer.dart';
-import 'package:printing/printing.dart';
-import 'package:provider/provider.dart';
-import 'package:hive_flutter/hive_flutter.dart';
-
-import 'package:pdf/pdf.dart';
-import 'package:pdf/widgets.dart' as pw;
 
 class BillwiseReportScreen extends StatefulWidget {
   final String uid;
@@ -339,7 +343,7 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
       );
       bytes += generator.text('Bill Wise Sales Report',
           styles: const PosStyles(align: PosAlign.center, bold: true));
-      bytes += generator.text('${"-" * 32}',
+      bytes += generator.text("-" * 32,
           styles: const PosStyles(align: PosAlign.center));
 
       // Date range
@@ -347,7 +351,7 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
         'From: ${DateFormat('dd/MM/yy').format(fromDate!)}     To: ${DateFormat('dd/MM/yy').format(toDate!)}',
         styles: const PosStyles(align: PosAlign.left),
       );
-      bytes += generator.text('${"-" * 32}',
+      bytes += generator.text("-" * 32,
           styles: const PosStyles(align: PosAlign.center));
 
       // Table header
@@ -357,7 +361,7 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
         PosColumn(
             text: 'Amount', width: 5, styles: const PosStyles(bold: true)),
       ]);
-      bytes += generator.text('${"-" * 32}',
+      bytes += generator.text("-" * 32,
           styles: const PosStyles(align: PosAlign.center));
 
       // Bills data
@@ -385,7 +389,7 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
         ]);
       }
 
-      bytes += generator.text('${"-" * 32}',
+      bytes += generator.text("-" * 32,
           styles: const PosStyles(align: PosAlign.center));
 
       // Subtotal
@@ -396,7 +400,7 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
             width: 6,
             styles: const PosStyles(align: PosAlign.right)),
       ]);
-      bytes += generator.text('${"-" * 32}',
+      bytes += generator.text("-" * 32,
           styles: const PosStyles(align: PosAlign.center));
 
       // Additional charges
@@ -444,7 +448,7 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
             width: 3,
             styles: const PosStyles(align: PosAlign.right)),
       ]);
-      bytes += generator.text('${"-" * 32}',
+      bytes += generator.text("-" * 32,
           styles: const PosStyles(align: PosAlign.center));
 
       // Net Amount
@@ -458,13 +462,13 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
             width: 6,
             styles: const PosStyles(align: PosAlign.right, bold: true)),
       ]);
-      bytes += generator.text('${"-" * 32}',
+      bytes += generator.text("-" * 32,
           styles: const PosStyles(align: PosAlign.center));
 
       // Payment Summary
       bytes += generator.text('Payment Summary',
           styles: const PosStyles(bold: true));
-      bytes += generator.text('${"-" * 32}',
+      bytes += generator.text("-" * 32,
           styles: const PosStyles(align: PosAlign.center));
       bytes += generator.row([
         PosColumn(text: 'CASH', width: 6),
@@ -686,10 +690,10 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
                 // Summary Section
                 pw.Container(
                   padding: const pw.EdgeInsets.all(10),
-                  decoration: pw.BoxDecoration(
+                  decoration: const pw.BoxDecoration(
                     color: PdfColors.grey200,
                     borderRadius:
-                        const pw.BorderRadius.all(pw.Radius.circular(4)),
+                        pw.BorderRadius.all(pw.Radius.circular(4)),
                   ),
                   child: pw.Column(
                     children: [

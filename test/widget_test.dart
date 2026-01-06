@@ -1,7 +1,12 @@
 // This is a basic Flutter widget test for the POS application.
 
+// Flutter imports:
 import 'package:flutter/material.dart';
+
+// Package imports:
 import 'package:flutter_test/flutter_test.dart';
+
+// Project imports:
 import 'package:pos/main.dart';
 
 void main() {

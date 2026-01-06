@@ -1,7 +1,12 @@
+// Flutter imports:
 import 'package:flutter/material.dart';
+
+// Package imports:
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pos/view/tab_screen/view-model/widgets/ui_performance_components.dart';
+
+// Project imports:
 import 'package:pos/view/tab_screen/view-model/widgets/enhanced_loading_states.dart';
+import 'package:pos/view/tab_screen/view-model/widgets/ui_performance_components.dart';
 
 void main() {
   group('UI Performance Components Tests', () {

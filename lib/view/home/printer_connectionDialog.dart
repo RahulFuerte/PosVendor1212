@@ -1,11 +1,18 @@
+// Dart imports:
 import 'dart:async';
 import 'dart:io';
-import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
+
+// Flutter imports:
 import 'package:flutter/material.dart';
+
+// Package imports:
+import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
 import 'package:flutter_pos_printer_platform_image_3/flutter_pos_printer_platform_image_3.dart';
+import 'package:provider/provider.dart';
+
+// Project imports:
 import 'package:pos/view/home/print_provider.dart';
 import 'package:pos/view/tab_screen/view-model/widgets/printers/printer.dart';
-import 'package:provider/provider.dart';
 
 class PrinterConnectionDialog extends StatefulWidget {
   const PrinterConnectionDialog({Key? key}) : super(key: key);
@@ -18,7 +25,7 @@ class PrinterConnectionDialog extends StatefulWidget {
 class _PrinterConnectionDialogState extends State<PrinterConnectionDialog> {
   var defaultPrinterType = PrinterType.bluetooth;
   var _isBle = false;
-  var _reconnect = false;
+  final _reconnect = false;
   var printerManager = PrinterManager.instance;
   var devices = <BluetoothPrinter>[];
   StreamSubscription<PrinterDevice>? _subscription;

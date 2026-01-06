@@ -1,5 +1,10 @@
+// Dart imports:
 import 'dart:async';
+
+// Flutter imports:
 import 'package:flutter/material.dart';
+
+// Project imports:
 import 'ui_performance_components.dart';
 
 /// Enhanced loading states with smooth transitions and performance optimizations
@@ -78,9 +83,9 @@ class EnhancedLoadingStates {
 
   /// Create a pull-to-refresh loading state
   static Widget buildPullToRefreshLoading() {
-    return Container(
+    return const SizedBox(
       height: 80,
-      child: const Center(
+      child: Center(
         child: SmoothLoadingState(
           message: 'Refreshing...',
           size: 30,

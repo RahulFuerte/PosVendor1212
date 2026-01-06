@@ -1,7 +1,11 @@
+// Dart imports:
 import 'dart:math';
-import 'package:flutter/services.dart';
+
+// Package imports:
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+
+// Project imports:
 import 'package:pos/view/tab_screen/view-model/backend/database_service.dart';
 import 'package:pos/view/tab_screen/view-model/backend/sqlite_dao.dart';
 

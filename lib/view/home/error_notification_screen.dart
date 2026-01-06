@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../core/error/error_recovery_service.dart';
+import '../../core/error/user_error_service.dart';
 import '../tab_screen/view-model/widgets/error_notification_widget.dart';
-import '../tab_screen/view-model/backend/user_error_service.dart';
-import '../tab_screen/view-model/backend/error_recovery_service.dart';
+
 
 /// Full screen wrapper for ErrorNotificationWidget
 class ErrorNotificationScreen extends StatefulWidget {

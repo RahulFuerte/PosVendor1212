@@ -1,7 +1,8 @@
-import 'package:cached_network_image/cached_network_image.dart';
+// Flutter imports:
 import 'package:flutter/material.dart';
+
+// Project imports:
 import 'package:pos/view/home/navigation.dart';
-import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:pos/view/tab_screen/view-model/widgets/cached_blob_image.dart';
 
 class MenuItem extends StatelessWidget {

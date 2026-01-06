@@ -1,10 +1,15 @@
+// Dart imports:
 import 'dart:math';
 import 'dart:typed_data';
+
+// Package imports:
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'package:pos/view/tab_screen/view-model/backend/sqlite_dao.dart';
+
+// Project imports:
 import 'package:pos/view/tab_screen/view-model/backend/database_service.dart';
 import 'package:pos/view/tab_screen/view-model/backend/image_cache_service.dart';
+import 'package:pos/view/tab_screen/view-model/backend/sqlite_dao.dart';
 import 'test_database_helper.dart';
 
 /// **Feature: local-database-performance-optimization, Property All: Final Performance Testing and Validation**
@@ -83,7 +88,7 @@ void main() {
           for (int itemIndex = 0; itemIndex < itemsPerDepartment; itemIndex++) {
             final globalIndex = (deptIndex * itemsPerDepartment) + itemIndex;
             final foodItem = {
-              'id': 'item_${globalIndex}',
+              'id': 'item_$globalIndex',
               'name': 'Food Item ${globalIndex + 1}',
               'price': 5.0 + (Random().nextDouble() * 45.0), // $5-$50 range
               'department': department,
@@ -312,7 +317,7 @@ void main() {
         // Analyze results
         final successCount = operationResults.where((r) => r.contains('success')).length;
         final errorCount = operationResults.where((r) => r.contains('error')).length;
-        final totalOperations = concurrentUsers * operationsPerUser;
+        const totalOperations = concurrentUsers * operationsPerUser;
 
         expect(successCount, equals(totalOperations), 
           reason: 'All concurrent operations should succeed');

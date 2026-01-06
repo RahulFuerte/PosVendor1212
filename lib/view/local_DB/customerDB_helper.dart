@@ -1,6 +1,9 @@
-import 'package:pos/view/local_DB/customer_model.dart';
-import 'package:sqflite/sqflite.dart';
+// Package imports:
 import 'package:path/path.dart';
+import 'package:sqflite/sqflite.dart';
+
+// Project imports:
+import 'package:pos/view/local_DB/customer_model.dart';
 
 class CustomerDatabase {
   static final CustomerDatabase instance = CustomerDatabase._init();

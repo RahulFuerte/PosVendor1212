@@ -1,9 +1,15 @@
+// Dart imports:
 import 'dart:math';
 
-import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
-import 'package:flutter/material.dart';
+// Flutter imports:
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+
+// Package imports:
+import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+// Project imports:
 import 'package:pos/view/tab_screen/view-model/widgets/printers/printer.dart';
 
 class PrintProvider extends ChangeNotifier {

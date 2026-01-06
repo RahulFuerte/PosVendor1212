@@ -1,5 +1,8 @@
+// Package imports:
 import 'package:flutter_test/flutter_test.dart';
-import '../lib/view/tab_screen/view-model/backend/performance_monitor.dart';
+
+// Project imports:
+import 'package:pos/view/tab_screen/view-model/backend/performance_monitor.dart';
 
 void main() {
   group('Performance Monitoring Core Tests', () {

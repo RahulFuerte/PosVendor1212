@@ -1,15 +1,20 @@
-import 'package:firebase_core/firebase_core.dart';
+// Flutter imports:
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
+// Package imports:
+import 'package:firebase_core/firebase_core.dart';
 import 'package:hive_flutter/adapters.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:pos/view/home/print_provider.dart';
-import 'package:pos/view/tab_screen/view-model/backend/provider/adminUidProvider.dart';
-import 'package:pos/view/tab_screen/view-model/backend/provider/login_provider.dart';
-import 'package:pos/view/tab_screen/view-model/backend/database_service.dart';
-import 'package:pos/view/tab_screen/view-model/backend/unified_database_service.dart';
-import 'package:pos/view/login/splash_screen.dart';
 import 'package:provider/provider.dart';
+
+// Project imports:
+import 'package:pos/data/datasources/database_service.dart';
+import 'package:pos/data/datasources/unified_database_service.dart';
+import 'package:pos/view/home/print_provider.dart';
+import 'package:pos/view/home/providers/admin_uid_provider.dart';
+import 'package:pos/view/login/providers/login_provider.dart';
+import 'package:pos/view/login/screens/splash_screen.dart';
 
 //3.16.9
 void main() async {

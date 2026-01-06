@@ -1,7 +1,14 @@
-import 'package:flutter/material.dart';
+// Dart imports:
 import 'dart:async';
-import '../backend/sync_manager.dart';
-import '../backend/connection_monitor.dart';
+
+// Flutter imports:
+import 'package:flutter/material.dart';
+
+import '../../../../core/network/connection_monitor.dart';
+import '../../../../data/datasources/sync_manager.dart';
+
+// Project imports:
+
 
 /// Compact sync status indicator for use in app bars and navigation
 class SyncStatusIndicator extends StatefulWidget {

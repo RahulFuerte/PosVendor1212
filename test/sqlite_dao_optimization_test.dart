@@ -1,7 +1,10 @@
+// Package imports:
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import '../lib/view/tab_screen/view-model/backend/sqlite_dao.dart';
-import '../lib/view/tab_screen/view-model/backend/database_service.dart';
+
+// Project imports:
+import 'package:pos/view/tab_screen/view-model/backend/database_service.dart';
+import 'package:pos/view/tab_screen/view-model/backend/sqlite_dao.dart';
 import 'test_database_helper.dart';
 
 void main() {
@@ -249,7 +252,7 @@ void main() {
         await sqliteDAO.batchInsertFoodItems(testAdminUid, foodItems);
 
         // Test cursor-based pagination
-        final pageSize = 10;
+        const pageSize = 10;
         String? cursor;
         int totalItemsRetrieved = 0;
         int pageCount = 0;

@@ -1,6 +1,10 @@
+// Package imports:
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pos/data/datasources/database_index_manager.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'package:pos/view/tab_screen/view-model/backend/database_index_manager.dart';
+
+// Project imports:
+
 
 /// Test for FTS5 fallback functionality
 /// Validates that the database index manager handles FTS5 unavailability gracefully

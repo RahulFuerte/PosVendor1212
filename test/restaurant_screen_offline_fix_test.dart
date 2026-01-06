@@ -1,3 +1,4 @@
+// Package imports:
 import 'package:flutter_test/flutter_test.dart';
 
 /// Test to verify Restaurant Screen offline data display fixes
@@ -55,7 +56,7 @@ void main() {
     });
 
     test('Online adminUid should not trigger offline mode', () {
-      final onlineAdminUid = 'user123_valid_uid';
+      const onlineAdminUid = 'user123_valid_uid';
       
       expect(onlineAdminUid.contains('Offline'), false);
       expect(onlineAdminUid.contains('Error'), false);
@@ -85,7 +86,7 @@ void main() {
 
   group('Offline Data Display Logic', () {
     test('Should use default data when adminUid is offline', () {
-      final adminUid = 'Offline - Admin UID unavailable';
+      const adminUid = 'Offline - Admin UID unavailable';
       final shouldUseDefaults = adminUid.contains('Error') || 
                                 adminUid.contains('Offline') || 
                                 adminUid.contains('unavailable');
@@ -94,7 +95,7 @@ void main() {
     });
 
     test('Should use database when adminUid is valid', () {
-      final adminUid = 'valid_user_123';
+      const adminUid = 'valid_user_123';
       final shouldUseDefaults = adminUid.contains('Error') || 
                                 adminUid.contains('Offline') || 
                                 adminUid.contains('unavailable');

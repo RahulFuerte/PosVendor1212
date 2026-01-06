@@ -1,4 +1,7 @@
+// Flutter imports:
 import 'package:flutter/material.dart';
+
+// Project imports:
 import 'package:pos/view/tab_screen/view-model/widgets/printers/printer.dart';
 
 /// A button widget that shows offline bill count and allows manual sync

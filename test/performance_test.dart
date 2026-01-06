@@ -1,13 +1,16 @@
+// Dart imports:
+import 'dart:typed_data';
+
+// Package imports:
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'dart:math';
-import 'dart:typed_data';
-import 'dart:async';
-import '../lib/view/tab_screen/view-model/backend/performance_monitor.dart';
-import '../lib/view/tab_screen/view-model/backend/lazy_loading_service.dart';
-import '../lib/view/tab_screen/view-model/backend/sqlite_dao.dart';
-import '../lib/view/tab_screen/view-model/backend/sync_manager.dart';
-import '../lib/view/tab_screen/view-model/backend/image_cache_service.dart';
+
+// Project imports:
+import 'package:pos/view/tab_screen/view-model/backend/image_cache_service.dart';
+import 'package:pos/view/tab_screen/view-model/backend/lazy_loading_service.dart';
+import 'package:pos/view/tab_screen/view-model/backend/performance_monitor.dart';
+import 'package:pos/view/tab_screen/view-model/backend/sqlite_dao.dart';
+import 'package:pos/view/tab_screen/view-model/backend/sync_manager.dart';
 import 'test_database_helper.dart';
 
 void main() {

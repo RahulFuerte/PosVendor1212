@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
-import '../backend/user_error_service.dart';
-import '../backend/error_recovery_service.dart';
+import '../../../../core/error/error_recovery_service.dart';
+import '../../../../core/error/user_error_service.dart';
+
 
 /// Widget that displays error notifications to users with recovery options
 class ErrorNotificationWidget extends StatefulWidget {

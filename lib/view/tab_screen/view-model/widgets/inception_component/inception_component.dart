@@ -1,9 +1,13 @@
-import 'package:animated_text_kit/animated_text_kit.dart';
+// Flutter imports:
 import 'package:flutter/material.dart';
+
+// Package imports:
+import 'package:animated_text_kit/animated_text_kit.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+// Project imports:
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:pos/view/tab_screen/view-model/frontend/loading.dart';
-
 import '../../frontend/screen.dart';
 
 class Shape extends StatelessWidget {

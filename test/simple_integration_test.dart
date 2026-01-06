@@ -1,8 +1,13 @@
+// Dart imports:
 import 'dart:math';
+
+// Package imports:
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'package:pos/view/tab_screen/view-model/backend/sqlite_dao.dart';
+
+// Project imports:
 import 'package:pos/view/tab_screen/view-model/backend/database_service.dart';
+import 'package:pos/view/tab_screen/view-model/backend/sqlite_dao.dart';
 
 void main() {
   group('Simple Integration Testing and Validation', () {
