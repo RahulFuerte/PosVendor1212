@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:hive_flutter/adapters.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:pos/view/home/providers/order_type_provider.dart';
 import 'package:provider/provider.dart';
 
 // Project imports:
@@ -49,7 +50,7 @@ class MyApp extends StatelessWidget {
           },
           dispose: (_, service) => service.close(),
         ),
-        
+
         // Application state providers
         // These providers manage UI state and user session data
         ChangeNotifierProvider(
@@ -61,6 +62,7 @@ class MyApp extends StatelessWidget {
         ),
         ChangeNotifierProvider(create: (_) => AdminUidProvider()),
         ChangeNotifierProvider(create: (_) => PrintProvider()),
+        ChangeNotifierProvider(create: (_) => OrderTypeProvider()),
       ],
       child: const MaterialApp(
         title: 'POS',
