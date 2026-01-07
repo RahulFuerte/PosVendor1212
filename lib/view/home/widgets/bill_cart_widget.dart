@@ -588,12 +588,118 @@ class _BillCartState extends State<BillCart> {
                   await _showTableNumberBottomSheet(context);
                 },
               ),
+              //  _buildIconButton(
+              //   icon: MdiIcons.printerOff,
+              //   onPressed: _handleSaveWithoutPrint,
+              // ),
             ],
           ),
         ],
       ),
     );
   }
+
+  
+  Future<void> _handleSaveWithoutPrint() async {
+    bool? confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
+              SizedBox(width: 12),
+              Text('Confirm Action',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: const Text(
+            'Are you sure you want to save this bill without printing?',
+            style: TextStyle(fontSize: 16),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              style: TextButton.styleFrom(foregroundColor: Colors.grey[700]),
+              child: const Text('Cancel', style: TextStyle(fontSize: 16)),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: appbar1,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+              child: const Text('Yes, Save',
+                  style: TextStyle(fontSize: 16, color: Colors.white)),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    final printProvider = Provider.of<PrintProvider>(context, listen: false);
+
+    // Generate sequential receipt number (returns 8-digit padded string like "00000001")
+    String generatedReceiptNo = await _sqliteHelper.getNextReceiptNumber(widget.phoneNo);
+
+    try {
+      await saveBill(
+        adminUid: widget.phoneNo,
+        receiptNo: generatedReceiptNo,
+        items: selectedItemsDetails,
+        subTotal: subtotal,
+        taxEnabled: printProvider.taxEnabled,
+        cgstPercent: printProvider.cgstPercent,
+        sgstPercent: printProvider.sgstPercent,
+      );
+
+      if (!mounted) return;
+      final isOnline = _databaseService.isOnline;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Icon(
+                isOnline ? Icons.cloud_done : Icons.cloud_off,
+                color: Colors.white,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  isOnline
+                      ? 'Bill saved! Receipt No: $generatedReceiptNo'
+                      : 'Bill saved offline! Receipt No: $generatedReceiptNo (will sync when online)',
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+      _clearCart();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to save bill: $e'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
 
   Widget _buildItemsList(PrintProvider printProvider) {
     return Container(
@@ -808,9 +914,9 @@ class _BillCartState extends State<BillCart> {
               //   icon: Icons.receipt_long_outlined,
               //   onPressed: _handlePreview,
               // ),
-              const SizedBox(width: 10),
+              // const SizedBox(width: 10),
               _buildIconButton(
-                icon: Icons.bookmark_outline,
+                icon: Icons.save,
                 onPressed: _handlePreview,
 
                 // onPressed: () => widget.orderBottomSheet.call(),

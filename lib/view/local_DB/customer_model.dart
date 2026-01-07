@@ -3,6 +3,7 @@ class CustomerModel {
   final String name;
   final String phone;
   final String? gstNo;
+  final String? address;
   final DateTime createdAt;
   final bool isUploaded;
 
@@ -11,6 +12,7 @@ class CustomerModel {
     required this.name,
     required this.phone,
     this.gstNo,
+    this.address,
     required this.createdAt,
     this.isUploaded = false,
   });
@@ -21,6 +23,7 @@ class CustomerModel {
       'name': name,
       'phone': phone,
       'gstNo': gstNo,
+      'address': address,
       'createdAt': createdAt.toIso8601String(),
       'isUploaded': isUploaded ? 1 : 0,
     };
@@ -32,6 +35,7 @@ class CustomerModel {
       name: map['name'],
       phone: map['phone'],
       gstNo: map['gstNo'],
+      address: map['address'],
       createdAt: DateTime.parse(map['createdAt']),
       isUploaded: map['isUploaded'] == 1,
     );
@@ -44,12 +48,14 @@ class CustomerModel {
     String? gstNo,
     DateTime? createdAt,
     bool? isUploaded,
+    String? address,
   }) {
     return CustomerModel(
       id: id ?? this.id,
       name: name ?? this.name,
       phone: phone ?? this.phone,
       gstNo: gstNo ?? this.gstNo,
+      address: address ?? this.address,
       createdAt: createdAt ?? this.createdAt,
       isUploaded: isUploaded ?? this.isUploaded,
     );
