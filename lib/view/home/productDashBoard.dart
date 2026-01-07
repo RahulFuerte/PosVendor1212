@@ -14,6 +14,7 @@ import 'package:flutter_pos_printer_platform_image_3/flutter_pos_printer_platfor
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:hive/hive.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:pos/view/home/screens/order_type_selector.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -42,8 +43,7 @@ import 'package:pos/view/tab_screen/view-model/widgets/sync_status_page.dart';
 import 'widgets/bill_cart_widget.dart';
 import 'widgets/show_save_order_bottom_sheet.dart';
 
-import 'package:pos/view/tab_screen/view-model/widgets/offline_status_banner.dart'
-    as banner;
+import 'package:pos/view/tab_screen/view-model/widgets/offline_status_banner.dart' as banner;
 
 class ProductDashBoard extends StatefulWidget {
   final String phoneNo;
@@ -59,6 +59,8 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   TextEditingController nameController = TextEditingController();
   TextEditingController mobileController = TextEditingController();
+  TextEditingController addressController = TextEditingController();
+  TextEditingController gstController = TextEditingController();
   String search1 = '';
   final ScrollController _listScrollController = ScrollController();
   AudioPlayer audioPlayer = AudioPlayer();
@@ -83,8 +85,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
   Future<String> fetchAdminUid() async {
     // Try Firebase with short timeout - DatabaseService handles offline data
     try {
-      DocumentSnapshot<Map<String, dynamic>> snapshot = await FirebaseFirestore
-          .instance
+      DocumentSnapshot<Map<String, dynamic>> snapshot = await FirebaseFirestore.instance
           .collection('AllCustomer')
           .doc(widget.phoneNo)
           .get()
@@ -106,8 +107,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
             'createdAt': data?['createdAt'],
           });
         } catch (cacheError) {
-          developer.log('Error caching adminUid in SQLite: $cacheError',
-              name: 'ProductDashBoard');
+          developer.log('Error caching adminUid in SQLite: $cacheError', name: 'ProductDashBoard');
         }
 
         if (mounted) {
@@ -134,8 +134,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
       final cachedAdminUid = await sqliteHelper.getAdminUid(widget.phoneNo);
 
       if (cachedAdminUid != null && cachedAdminUid.isNotEmpty) {
-        developer.log('Using cached adminUid from SQLite: $cachedAdminUid',
-            name: 'ProductDashBoard');
+        developer.log('Using cached adminUid from SQLite: $cachedAdminUid', name: 'ProductDashBoard');
         if (mounted) {
           setState(() {
             adminUid = cachedAdminUid;
@@ -145,8 +144,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
       }
 
       // Last resort: use phoneNo as adminUid (common pattern in this app)
-      developer.log('No cached adminUid found, using phoneNo as fallback',
-          name: 'ProductDashBoard');
+      developer.log('No cached adminUid found, using phoneNo as fallback', name: 'ProductDashBoard');
       if (mounted) {
         setState(() {
           adminUid = widget.phoneNo;
@@ -154,8 +152,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
       }
       return widget.phoneNo;
     } catch (e) {
-      developer.log('Error getting cached adminUid from SQLite: $e',
-          name: 'ProductDashBoard');
+      developer.log('Error getting cached adminUid from SQLite: $e', name: 'ProductDashBoard');
       // Ultimate fallback: use phoneNo
       if (mounted) {
         setState(() {
@@ -169,21 +166,16 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
   Future<List<Map<String, dynamic>>> fetchFoodItems() async {
     try {
       final String adminUid = await fetchAdminUid();
-      final DatabaseService databaseService =
-          Provider.of<DatabaseService>(context, listen: false);
+      final DatabaseService databaseService = Provider.of<DatabaseService>(context, listen: false);
 
       // Get all food items using DatabaseService
-      final List<Map<String, dynamic>> allItems =
-          await databaseService.getFoodItems(adminUid);
+      final List<Map<String, dynamic>> allItems = await databaseService.getFoodItems(adminUid);
 
       // Debug: show count and sample types
-      developer.log('All items count: ${allItems.length}',
-          name: 'ProductDashBoard');
+      developer.log('All items count: ${allItems.length}', name: 'ProductDashBoard');
       if (allItems.isNotEmpty) {
-        developer.log('First item keys: ${allItems.first.keys.toList()}',
-            name: 'ProductDashBoard');
-        developer.log('First item sample: ${allItems.first}',
-            name: 'ProductDashBoard');
+        developer.log('First item keys: ${allItems.first.keys.toList()}', name: 'ProductDashBoard');
+        developer.log('First item sample: ${allItems.first}', name: 'ProductDashBoard');
       }
 
       // bool isHotValue(dynamic v) {
@@ -220,17 +212,13 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
       }).toList();
 
       // Log for debugging
-      developer.log(
-          'Fetched hot food items (count ${hotItems.length}): $hotItems',
-          name: 'ProductDashBoard');
+      developer.log('Fetched hot food items (count ${hotItems.length}): $hotItems', name: 'ProductDashBoard');
       developer.log('adminNO: $adminUid', name: 'ProductDashBoard');
-      developer.log('All food items (unfiltered): $allItems',
-          name: 'ProductDashBoard');
+      developer.log('All food items (unfiltered): $allItems', name: 'ProductDashBoard');
 
       return hotItems;
     } catch (e, st) {
-      NetworkErrorHandler.logNetworkError(
-          e, 'ProductDashBoard', 'fetchFoodItems');
+      NetworkErrorHandler.logNetworkError(e, 'ProductDashBoard', 'fetchFoodItems');
       developer.log('Stack trace: $st', name: 'ProductDashBoard');
       return [];
     }
@@ -267,13 +255,11 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
             };
           });
         }
-        developer.log('Loaded user data from local cache',
-            name: 'ProductDashBoard');
+        developer.log('Loaded user data from local cache', name: 'ProductDashBoard');
       }
 
       // Fetch from Firebase to get latest data
-      final DocumentSnapshot doc =
-          await firestore.collection('AllCustomer').doc(phoneNo).get();
+      final DocumentSnapshot doc = await firestore.collection('AllCustomer').doc(phoneNo).get();
       developer.log('Fetched Data: ${doc.data()}', name: 'ProductDashBoard');
       developer.log('Phone Number: $phoneNo', name: 'ProductDashBoard');
 
@@ -290,12 +276,8 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
         // Also fetch shop data from customer collection
         if (fetchedAdminUid.isNotEmpty) {
           try {
-            final shopDoc = await firestore
-                .collection('AllAdmins')
-                .doc(fetchedAdminUid)
-                .collection('customer')
-                .doc(phoneNo)
-                .get();
+            final shopDoc =
+                await firestore.collection('AllAdmins').doc(fetchedAdminUid).collection('customer').doc(phoneNo).get();
 
             if (shopDoc.exists) {
               final shopData = shopDoc.data();
@@ -325,8 +307,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                 'gstNumber': shopData?['gstNo'],
                 'createdAt': data['createdAt'],
               });
-              developer.log('Saved user and shop data to local cache',
-                  name: 'ProductDashBoard');
+              developer.log('Saved user and shop data to local cache', name: 'ProductDashBoard');
             } else {
               // Save basic user data without shop info
               await sqliteHelper.saveUserData({
@@ -339,8 +320,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
               });
             }
           } catch (shopError) {
-            developer.log('Error fetching shop data: $shopError',
-                name: 'ProductDashBoard');
+            developer.log('Error fetching shop data: $shopError', name: 'ProductDashBoard');
             // Still save basic admin data
             await sqliteHelper.saveUserData({
               'phoneNumber': data['phoneNumber'] ?? phoneNo,
@@ -360,8 +340,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
         }
       }
     } catch (e) {
-      NetworkErrorHandler.logNetworkError(
-          e, 'ProductDashBoard', 'fetchUserData');
+      NetworkErrorHandler.logNetworkError(e, 'ProductDashBoard', 'fetchUserData');
       // Load cached data from SQLite when offline (if not already loaded)
       final localData = await sqliteHelper.getUserData(phoneNo);
       if (localData == null) {
@@ -386,8 +365,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
       final cachedUserData = await sqliteHelper.getUserData(phoneNo);
 
       if (cachedUserData != null) {
-        developer.log('Loading cached user data from SQLite',
-            name: 'ProductDashBoard');
+        developer.log('Loading cached user data from SQLite', name: 'ProductDashBoard');
         if (mounted) {
           setState(() {
             userData = {
@@ -401,16 +379,14 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
               'contact': cachedUserData['shopContact'],
               'address': cachedUserData['address'],
             };
-            developer.log('Cached user data loaded from SQLite: $userData',
-                name: 'ProductDashBoard');
+            developer.log('Cached user data loaded from SQLite: $userData', name: 'ProductDashBoard');
           });
         }
       } else {
         // Try admin_data table as fallback
         final cachedAdminData = await sqliteHelper.getAdminData(phoneNo);
         if (cachedAdminData != null) {
-          developer.log('Loading cached admin data from SQLite',
-              name: 'ProductDashBoard');
+          developer.log('Loading cached admin data from SQLite', name: 'ProductDashBoard');
           if (mounted) {
             setState(() {
               userData = {
@@ -435,8 +411,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
         }
       }
     } catch (e) {
-      developer.log('Error loading cached user data from SQLite: $e',
-          name: 'ProductDashBoard');
+      developer.log('Error loading cached user data from SQLite: $e', name: 'ProductDashBoard');
       // Set minimal default values
       if (mounted) {
         setState(() {
@@ -454,6 +429,8 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
     required GlobalKey<FormState> formKey,
     required TextEditingController nameController,
     required TextEditingController mobileController,
+    required TextEditingController addressController,
+    required TextEditingController gstController,
     required int itemCount,
     required double totalAmount,
     required VoidCallback onSave,
@@ -468,6 +445,8 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
           formKey: formKey,
           nameController: nameController,
           mobileController: mobileController,
+          gstController: gstController,
+          addressController: addressController,
           itemCount: itemCount,
           totalAmount: totalAmount,
           primaryColor: primaryColor,
@@ -499,9 +478,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
       onPopInvoked: (bool didPop) async {
         // Handle double back press to exit the app
         DateTime now = DateTime.now();
-        if (currentBackPressTime == null ||
-            now.difference(currentBackPressTime!) >
-                const Duration(seconds: 2)) {
+        if (currentBackPressTime == null || now.difference(currentBackPressTime!) > const Duration(seconds: 2)) {
           currentBackPressTime = now;
           Fluttertoast.showToast(
             msg: "Press back again to exit",
@@ -532,9 +509,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
               padding: const EdgeInsets.only(right: 10),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 300),
-                width: isSearchExpanded
-                    ? MediaQuery.of(context).size.width * 0.75
-                    : 50,
+                width: isSearchExpanded ? MediaQuery.of(context).size.width * 0.75 : 50,
                 height: 45,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(25),
@@ -622,13 +597,11 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                       ),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(75),
-                        child: userData['logoUrl'] != null &&
-                                userData['logoUrl'].toString().isNotEmpty
+                        child: userData['logoUrl'] != null && userData['logoUrl'].toString().isNotEmpty
                             ? Image.network(
                                 userData['logoUrl'],
                                 fit: BoxFit.cover,
-                                loadingBuilder:
-                                    (context, child, loadingProgress) {
+                                loadingBuilder: (context, child, loadingProgress) {
                                   if (loadingProgress == null) return child;
                                   return Container(
                                     color: primaryColor,
@@ -643,13 +616,10 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                                 errorBuilder: (context, error, stackTrace) {
                                   // Handle network errors gracefully
                                   if (error is SocketException) {
-                                    developer.log(
-                                        'Network error loading avatar: ${error.message}',
+                                    developer.log('Network error loading avatar: ${error.message}',
                                         name: 'ProductDashBoard');
                                   } else {
-                                    developer.log(
-                                        'Error loading avatar: $error',
-                                        name: 'ProductDashBoard');
+                                    developer.log('Error loading avatar: $error', name: 'ProductDashBoard');
                                   }
                                   return Container(
                                     color: primaryColor,
@@ -712,29 +682,20 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
               Consumer<PrintProvider>(
                 builder: (context, printProvider, child) {
                   return Container(
-                    margin:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: printProvider.isConnected
-                          ? Colors.green.shade50
-                          : Colors.orange.shade50,
+                      color: printProvider.isConnected ? Colors.green.shade50 : Colors.orange.shade50,
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
-                        color: printProvider.isConnected
-                            ? Colors.green
-                            : Colors.orange,
+                        color: printProvider.isConnected ? Colors.green : Colors.orange,
                       ),
                     ),
                     child: Row(
                       children: [
                         Icon(
-                          printProvider.isConnected
-                              ? Icons.check_circle
-                              : Icons.print_disabled,
-                          color: printProvider.isConnected
-                              ? Colors.green
-                              : Colors.orange,
+                          printProvider.isConnected ? Icons.check_circle : Icons.print_disabled,
+                          color: printProvider.isConnected ? Colors.green : Colors.orange,
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -742,21 +703,15 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                printProvider.isConnected
-                                    ? 'Printer Connected'
-                                    : 'Printer Not Connected',
+                                printProvider.isConnected ? 'Printer Connected' : 'Printer Not Connected',
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  color: printProvider.isConnected
-                                      ? Colors.green.shade900
-                                      : Colors.orange.shade900,
+                                  color: printProvider.isConnected ? Colors.green.shade900 : Colors.orange.shade900,
                                 ),
                               ),
-                              if (printProvider.isConnected &&
-                                  printProvider.selectedPrinter != null)
+                              if (printProvider.isConnected && printProvider.selectedPrinter != null)
                                 Text(
-                                  printProvider.selectedPrinter!.deviceName ??
-                                      'Unknown',
+                                  printProvider.selectedPrinter!.deviceName ?? 'Unknown',
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: Colors.grey.shade700,
@@ -776,13 +731,10 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                   return ListTile(
                     leading: Icon(
                       printProvider.isConnected ? Icons.link_off : Icons.link,
-                      color:
-                          printProvider.isConnected ? Colors.red : Colors.blue,
+                      color: printProvider.isConnected ? Colors.red : Colors.blue,
                     ),
                     title: Text(
-                      printProvider.isConnected
-                          ? 'Disconnect Printer'
-                          : 'Connect Printer',
+                      printProvider.isConnected ? 'Disconnect Printer' : 'Connect Printer',
                     ),
                     onTap: () async {
                       if (printProvider.isConnected) {
@@ -906,8 +858,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                 },
               ),
               ListTile(
-                leading:
-                    Icon(MdiIcons.fileDocumentOutline, color: primaryColor),
+                leading: Icon(MdiIcons.fileDocumentOutline, color: primaryColor),
                 title: const Text('Billwise Report'),
                 onTap: () {
                   Navigator.push(
@@ -975,55 +926,41 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                     builder: (BuildContext) {
                       return Dialog(
                           // backgroundColor: Colors.amber.shade100,
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(
-                                  50.0)), //this right here
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(50.0)), //this right here
                           child: SizedBox(
                             height: 200,
                             child: Center(
                               child: Column(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceEvenly,
+                                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                                 children: [
                                   const Text(
                                     "Are you sure ?",
-                                    style: TextStyle(
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.w500),
+                                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w500),
                                   ),
                                   Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceAround,
+                                    mainAxisAlignment: MainAxisAlignment.spaceAround,
                                     children: [
                                       ElevatedButton(
-                                        style: ElevatedButton.styleFrom(
-                                            backgroundColor: primaryColor),
-                                        child: const Text("Cancel",
-                                            style:
-                                                TextStyle(color: Colors.white)),
+                                        style: ElevatedButton.styleFrom(backgroundColor: primaryColor),
+                                        child: const Text("Cancel", style: TextStyle(color: Colors.white)),
                                         onPressed: () {
                                           Navigator.pop(context);
                                         },
                                       ),
                                       ElevatedButton(
-                                        style: ElevatedButton.styleFrom(
-                                            backgroundColor: Colors.red),
+                                        style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
                                         child: const Text(
                                           "Logout",
                                           style: TextStyle(color: Colors.white),
                                         ),
                                         onPressed: () async {
-                                          SharedPreferences prefs =
-                                              await SharedPreferences
-                                                  .getInstance();
-                                          await prefs.setBool(
-                                              'isLogged', false);
+                                          SharedPreferences prefs = await SharedPreferences.getInstance();
+                                          await prefs.setBool('isLogged', false);
                                           FirebaseAuth.instance.signOut();
                                           Navigator.pushReplacement(
                                               context,
                                               MaterialPageRoute(
-                                                builder: (context) =>
-                                                    const Inception(),
+                                                builder: (context) => const Inception(),
                                               ));
                                         },
                                       )
@@ -1049,8 +986,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                 children: [
                   FutureBuilder(
                     future: foodItemsFuture,
-                    builder: (context,
-                        AsyncSnapshot<List<Map<String, dynamic>>> snapshot) {
+                    builder: (context, AsyncSnapshot<List<Map<String, dynamic>>> snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
                         return Center(
                           child: CircularProgressIndicator(
@@ -1062,14 +998,10 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                           child: Text('Error: ${snapshot.error}'),
                         );
                       } else {
-                        List<Map<String, dynamic>> foodItemsList =
-                            snapshot.data ?? [];
+                        List<Map<String, dynamic>> foodItemsList = snapshot.data ?? [];
                         // Filter items based on search
                         List<Map<String, dynamic>> filteredItems = foodItemsList
-                            .where((item) => item['name']
-                                .toString()
-                                .toLowerCase()
-                                .contains(search1.toLowerCase()))
+                            .where((item) => item['name'].toString().toLowerCase().contains(search1.toLowerCase()))
                             .toList();
 
                         return Container(
@@ -1078,6 +1010,12 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                           color: Colors.green[50],
                           child: Column(
                             children: [
+                              Container(
+                                height: 50,
+                                margin: EdgeInsets.symmetric(vertical: 5, horizontal: 10),
+                                width: double.infinity,
+                                child: const OrderTypeSelector(),
+                              ),
                               printprovider.posts.isEmpty
                                   ? const SizedBox()
                                   : BillCart(
@@ -1089,9 +1027,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                                           subtotal = 0.0;
                                         });
                                       },
-                                      onCartUpdated: (List<Map<String, dynamic>>
-                                              updatedItems,
-                                          double updatedTotal) {
+                                      onCartUpdated: (List<Map<String, dynamic>> updatedItems, double updatedTotal) {
                                         setState(() {
                                           selectedItemsDetails = updatedItems;
                                           subtotal = updatedTotal;
@@ -1103,8 +1039,9 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                                           formKey: _formKey,
                                           nameController: nameController,
                                           mobileController: mobileController,
-                                          itemCount:
-                                              selectedItemsDetails.length,
+                                          itemCount: selectedItemsDetails.length,
+                                          addressController: addressController,
+                                          gstController: gstController,
                                           totalAmount: subtotal,
                                           primaryColor: primaryColor,
                                           onSave: () {
@@ -1123,10 +1060,8 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                               // billCountContainer(),
                               Expanded(
                                 child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 12, vertical: 8),
-                                  child: LayoutBuilder(
-                                      builder: (context, constraints) {
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  child: LayoutBuilder(builder: (context, constraints) {
                                     // Calculate number of columns based on screen width
                                     int crossAxisCount;
                                     double childAspectRatio;
@@ -1150,8 +1085,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                                     }
 
                                     return GridView.builder(
-                                      gridDelegate:
-                                          SliverGridDelegateWithFixedCrossAxisCount(
+                                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                                         crossAxisCount: crossAxisCount,
                                         childAspectRatio: childAspectRatio,
                                         crossAxisSpacing: 12,
@@ -1162,30 +1096,20 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                                         final item = filteredItems[index];
                                         return GestureDetector(
                                           onTap: () {
-                                            audioPlayer.play(
-                                                AssetSource('sounds/beep.mp3'));
+                                            audioPlayer.play(AssetSource('sounds/beep.mp3'));
                                             setState(() {
                                               isTapped = true;
-                                              selectedItemName =
-                                                  item['name'] ?? '';
-                                              selectedItemPrice =
-                                                  PriceUtils.safeParseInt(
-                                                      item['price']);
+                                              selectedItemName = item['name'] ?? '';
+                                              selectedItemPrice = PriceUtils.safeParseInt(item['price']);
 
-                                              int existingIndex =
-                                                  selectedItemsDetails
-                                                      .indexWhere(
+                                              int existingIndex = selectedItemsDetails.indexWhere(
                                                 (element) =>
-                                                    element['name'] ==
-                                                        selectedItemName &&
-                                                    element['price'] ==
-                                                        selectedItemPrice,
+                                                    element['name'] == selectedItemName &&
+                                                    element['price'] == selectedItemPrice,
                                               );
 
                                               if (existingIndex != -1) {
-                                                selectedItemsDetails[
-                                                        existingIndex]
-                                                    ['quantity'] += 1;
+                                                selectedItemsDetails[existingIndex]['quantity'] += 1;
                                               } else {
                                                 selectedItemsDetails.add({
                                                   'name': selectedItemName,
@@ -1194,25 +1118,17 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                                                 });
                                               }
                                               subtotal += selectedItemPrice;
-                                              printprovider.additem(
-                                                  selectedItemsDetails,
-                                                  subtotal);
+                                              printprovider.additem(selectedItemsDetails, subtotal);
 
                                               // Safely scroll to bottom with proper checks
-                                              if (_listScrollController
-                                                      .hasClients &&
-                                                  _listScrollController.position
-                                                      .hasContentDimensions) {
+                                              if (_listScrollController.hasClients &&
+                                                  _listScrollController.position.hasContentDimensions) {
                                                 try {
                                                   _listScrollController.jumpTo(
-                                                    _listScrollController
-                                                        .position
-                                                        .maxScrollExtent,
+                                                    _listScrollController.position.maxScrollExtent,
                                                   );
                                                 } catch (e) {
-                                                  developer.log(
-                                                      'ScrollController error: $e',
-                                                      name: 'ProductDashBoard');
+                                                  developer.log('ScrollController error: $e', name: 'ProductDashBoard');
                                                 }
                                               }
                                             });
@@ -1220,12 +1136,10 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                                           child: Container(
                                             decoration: BoxDecoration(
                                               color: Colors.white,
-                                              borderRadius:
-                                                  BorderRadius.circular(16),
+                                              borderRadius: BorderRadius.circular(16),
                                               boxShadow: [
                                                 BoxShadow(
-                                                  color: Colors.grey
-                                                      .withOpacity(0.2),
+                                                  color: Colors.grey.withOpacity(0.2),
                                                   spreadRadius: 1,
                                                   blurRadius: 8,
                                                   offset: const Offset(0, 3),
@@ -1233,8 +1147,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                                               ],
                                             ),
                                             child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
+                                              crossAxisAlignment: CrossAxisAlignment.start,
                                               children: [
                                                 // Image section - flexible height
                                                 Expanded(
@@ -1242,29 +1155,16 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                                                   child: Stack(
                                                     children: [
                                                       ClipRRect(
-                                                        borderRadius:
-                                                            const BorderRadius
-                                                                .only(
-                                                          topLeft:
-                                                              Radius.circular(
-                                                                  16),
-                                                          topRight:
-                                                              Radius.circular(
-                                                                  16),
+                                                        borderRadius: const BorderRadius.only(
+                                                          topLeft: Radius.circular(16),
+                                                          topRight: Radius.circular(16),
                                                         ),
                                                         child: CachedBlobImage(
-                                                          imageUrl:
-                                                              item['imagePath'],
-                                                          tableName:
-                                                              'food_items',
-                                                          recordId: item[
-                                                                  'id'] ??
-                                                              item['name'] ??
-                                                              'unknown',
-                                                          height:
-                                                              double.infinity,
-                                                          width:
-                                                              double.infinity,
+                                                          imageUrl: item['imagePath'],
+                                                          tableName: 'food_items',
+                                                          recordId: item['id'] ?? item['name'] ?? 'unknown',
+                                                          height: double.infinity,
+                                                          width: double.infinity,
                                                           fit: BoxFit.cover,
                                                           // placeholder:
                                                           //     Container(
@@ -1294,38 +1194,25 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                                                         top: 8,
                                                         right: 8,
                                                         child: Container(
-                                                          padding:
-                                                              const EdgeInsets
-                                                                  .symmetric(
+                                                          padding: const EdgeInsets.symmetric(
                                                             horizontal: 6,
                                                             vertical: 3,
                                                           ),
-                                                          decoration:
-                                                              BoxDecoration(
+                                                          decoration: BoxDecoration(
                                                             color: Colors.white,
-                                                            borderRadius:
-                                                                BorderRadius
-                                                                    .circular(
-                                                                        10),
+                                                            borderRadius: BorderRadius.circular(10),
                                                             boxShadow: [
                                                               BoxShadow(
-                                                                color: Colors
-                                                                    .black
-                                                                    .withOpacity(
-                                                                        0.1),
+                                                                color: Colors.black.withOpacity(0.1),
                                                                 blurRadius: 4,
                                                               )
                                                             ],
                                                           ),
                                                           child: Text(
                                                             "₹${(item['price'].split('.')[0])}",
-                                                            style:
-                                                                const TextStyle(
-                                                              color:
-                                                                  primaryColor,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .bold,
+                                                            style: const TextStyle(
+                                                              color: primaryColor,
+                                                              fontWeight: FontWeight.bold,
                                                               fontSize: 16,
                                                             ),
                                                           ),
@@ -1338,74 +1225,47 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                                                 Expanded(
                                                   flex: 2,
                                                   child: Padding(
-                                                    padding:
-                                                        const EdgeInsets.all(8),
+                                                    padding: const EdgeInsets.all(8),
                                                     child: Column(
-                                                      crossAxisAlignment:
-                                                          CrossAxisAlignment
-                                                              .start,
-                                                      mainAxisAlignment:
-                                                          MainAxisAlignment
-                                                              .spaceBetween,
+                                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                                       children: [
                                                         Text(
                                                           item['name'],
                                                           maxLines: 2,
-                                                          overflow: TextOverflow
-                                                              .ellipsis,
-                                                          style:
-                                                              const TextStyle(
-                                                            fontFamily:
-                                                                'fontmain',
-                                                            color:
-                                                                Colors.black87,
-                                                            fontWeight:
-                                                                FontWeight.w600,
+                                                          overflow: TextOverflow.ellipsis,
+                                                          style: const TextStyle(
+                                                            fontFamily: 'fontmain',
+                                                            color: Colors.black87,
+                                                            fontWeight: FontWeight.w600,
                                                             fontSize: 14,
                                                             height: 1.2,
                                                           ),
                                                         ),
-                                                        const SizedBox(
-                                                            height: 4),
+                                                        const SizedBox(height: 4),
                                                         Container(
-                                                          width:
-                                                              double.infinity,
-                                                          padding:
-                                                              const EdgeInsets
-                                                                  .symmetric(
+                                                          width: double.infinity,
+                                                          padding: const EdgeInsets.symmetric(
                                                             vertical: 4,
                                                           ),
-                                                          decoration:
-                                                              BoxDecoration(
-                                                            border: Border.all(
-                                                                color: appbar1),
-                                                            borderRadius:
-                                                                BorderRadius
-                                                                    .circular(
-                                                                        6),
+                                                          decoration: BoxDecoration(
+                                                            border: Border.all(color: appbar1),
+                                                            borderRadius: BorderRadius.circular(6),
                                                           ),
                                                           child: Row(
-                                                            mainAxisAlignment:
-                                                                MainAxisAlignment
-                                                                    .center,
+                                                            mainAxisAlignment: MainAxisAlignment.center,
                                                             children: [
                                                               Icon(
-                                                                Icons
-                                                                    .shopping_cart,
+                                                                Icons.shopping_cart,
                                                                 color: appbar1,
                                                                 size: 16,
                                                               ),
                                                               Text(
                                                                 " Add to cart",
-                                                                style:
-                                                                    TextStyle(
-                                                                  fontFamily:
-                                                                      'tabfont',
-                                                                  color:
-                                                                      appbar1,
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .w600,
+                                                                style: TextStyle(
+                                                                  fontFamily: 'tabfont',
+                                                                  color: appbar1,
+                                                                  fontWeight: FontWeight.w600,
                                                                   fontSize: 12,
                                                                 ),
                                                               ),
@@ -1590,21 +1450,17 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                             InkWell(
                               onTap: () {
                                 setState(() {
-                                  if (selectedItemsDetails[index]['quantity'] >
-                                      1) {
+                                  if (selectedItemsDetails[index]['quantity'] > 1) {
                                     // Just decrease quantity
                                     selectedItemsDetails[index]['quantity']--;
-                                    subtotal -=
-                                        selectedItemsDetails[index]['price'];
+                                    subtotal -= selectedItemsDetails[index]['price'];
                                   } else {
                                     // Quantity is 1 → remove item entirely
-                                    subtotal -=
-                                        selectedItemsDetails[index]['price'];
+                                    subtotal -= selectedItemsDetails[index]['price'];
                                     selectedItemsDetails.removeAt(index);
                                   }
                                   // Update provider
-                                  printprovider.additem(
-                                      selectedItemsDetails, subtotal);
+                                  printprovider.additem(selectedItemsDetails, subtotal);
                                 });
                               },
                               child: Container(
@@ -1617,8 +1473,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                               ),
                             ),
                             Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 8),
+                              padding: const EdgeInsets.symmetric(horizontal: 8),
                               child: Text(
                                 "${selectedItemsDetails[index]['quantity']}",
                                 style: const TextStyle(
@@ -1632,8 +1487,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                               onTap: () {
                                 setState(() {
                                   selectedItemsDetails[index]['quantity']++;
-                                  subtotal +=
-                                      selectedItemsDetails[index]['price'];
+                                  subtotal += selectedItemsDetails[index]['price'];
                                   printprovider.additem(
                                     selectedItemsDetails,
                                     subtotal,
@@ -1657,11 +1511,9 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                       InkWell(
                         onTap: () {
                           setState(() {
-                            subtotal -= selectedItemsDetails[index]['price'] *
-                                selectedItemsDetails[index]['quantity'];
+                            subtotal -= selectedItemsDetails[index]['price'] * selectedItemsDetails[index]['quantity'];
                             selectedItemsDetails.removeAt(index);
-                            printprovider.additem(
-                                selectedItemsDetails, subtotal);
+                            printprovider.additem(selectedItemsDetails, subtotal);
                           });
                         },
                         child: Container(
@@ -1759,6 +1611,8 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                             formKey: _formKey,
                             nameController: nameController,
                             mobileController: mobileController,
+                            addressController: addressController,
+                            gstController: gstController,
                             itemCount: selectedItemsDetails.length,
                             totalAmount: subtotal,
                             primaryColor: primaryColor,
@@ -1792,27 +1646,22 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                           return IconButton(
                             icon: Icon(
                               Icons.print,
-                              color: printProvider.isConnected
-                                  ? Colors.green
-                                  : Colors.white,
+                              color: printProvider.isConnected ? Colors.green : Colors.white,
                               size: 24,
                             ),
                             onPressed: () async {
                               // Check if printer is connected
-                              if (!printProvider.isConnected ||
-                                  printProvider.selectedPrinter == null) {
+                              if (!printProvider.isConnected || printProvider.selectedPrinter == null) {
                                 // Show connection dialog
                                 showDialog(
                                   context: context,
-                                  builder: (context) =>
-                                      const PrinterConnectionDialog(),
+                                  builder: (context) => const PrinterConnectionDialog(),
                                 );
 
                                 // Show info message
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
-                                    content:
-                                        Text('Please connect a printer first'),
+                                    content: Text('Please connect a printer first'),
                                     backgroundColor: Colors.orange,
                                     duration: Duration(seconds: 2),
                                   ),
@@ -1938,8 +1787,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
     );
   }
 
-  List<Map<String, dynamic>> _encodeDetails(
-      List<Map<String, dynamic>> details) {
+  List<Map<String, dynamic>> _encodeDetails(List<Map<String, dynamic>> details) {
     return details.map((item) {
       return {
         'name': item['name'],

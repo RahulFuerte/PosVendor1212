@@ -1,4 +1,6 @@
 // Package imports:
+import 'dart:convert';
+
 import 'package:path/path.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
@@ -13,7 +15,7 @@ class SQLiteHelper {
   static Database? _database;
   static const int _currentVersion = 1; // Testing phase - fresh database each install
   static const String _migrationCompleteKey = 'initial_migration_complete';
-  
+
   // Database maintenance service (lazy initialization to avoid circular dependency)
   DatabaseMaintenanceService? _maintenanceService;
 
@@ -22,7 +24,7 @@ class SQLiteHelper {
   }
 
   SQLiteHelper._internal();
-  
+
   /// Get or create the maintenance service instance
   DatabaseMaintenanceService get _getMaintenanceService {
     if (_maintenanceService == null) {
@@ -57,7 +59,7 @@ class SQLiteHelper {
       // Check if columns exist by querying table info
       final tableInfo = await db.rawQuery('PRAGMA table_info(bills)');
       final columnNames = tableInfo.map((col) => col['name'] as String).toSet();
-      
+
       // Add missing columns
       if (!columnNames.contains('sub_total')) {
         await db.execute('ALTER TABLE bills ADD COLUMN sub_total REAL');
@@ -101,7 +103,9 @@ class SQLiteHelper {
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL,
         sync_status INTEGER DEFAULT 0,
-        firebase_id TEXT
+        firebase_id TEXT,
+        baseVariant TEXT,
+        variants TEXT
       )
     ''');
 
@@ -245,7 +249,7 @@ class SQLiteHelper {
 
   Future<void> _migrateTables(Database db, int oldVersion, int newVersion) async {
     print('Migrating database from version $oldVersion to $newVersion');
-    
+
     // Handle specific migration paths
     for (int version = oldVersion + 1; version <= newVersion; version++) {
       await _migrateToVersion(db, version);
@@ -254,7 +258,7 @@ class SQLiteHelper {
 
   Future<void> _migrateToVersion(Database db, int version) async {
     print('Migrating to version $version');
-    
+
     switch (version) {
       case 2:
         await _migrateToVersion2(db);
@@ -290,13 +294,13 @@ class SQLiteHelper {
       await db.execute('ALTER TABLE bills ADD COLUMN sgst_percent REAL DEFAULT 0.0');
       await db.execute('ALTER TABLE bills ADD COLUMN cgst_amount REAL DEFAULT 0.0');
       await db.execute('ALTER TABLE bills ADD COLUMN sgst_amount REAL DEFAULT 0.0');
-      
+
       // Add new indexes for better performance
       await db.execute('CREATE INDEX IF NOT EXISTS idx_food_items_sync_status ON food_items(sync_status)');
       await db.execute('CREATE INDEX IF NOT EXISTS idx_departments_sync_status ON departments(sync_status)');
       await db.execute('CREATE INDEX IF NOT EXISTS idx_bills_sync_status ON bills(sync_status)');
       await db.execute('CREATE INDEX IF NOT EXISTS idx_bills_date ON bills(bill_date)');
-      
+
       // Add migration metadata table if it doesn't exist
       await db.execute('''
         CREATE TABLE IF NOT EXISTS migration_log (
@@ -307,7 +311,7 @@ class SQLiteHelper {
           success BOOLEAN DEFAULT 1
         )
       ''');
-      
+
       // Log this migration
       await db.insert('migration_log', {
         'version': 2,
@@ -315,7 +319,7 @@ class SQLiteHelper {
         'executed_at': DateTime.now().millisecondsSinceEpoch,
         'success': 1,
       });
-      
+
       print('Successfully migrated to version 2');
     } catch (e) {
       print('Error migrating to version 2: $e');
@@ -351,7 +355,7 @@ class SQLiteHelper {
           await _recreateFoodItemsTable(db);
         }
       }
-      
+
       // Log this migration
       await db.insert('migration_log', {
         'version': 3,
@@ -359,7 +363,7 @@ class SQLiteHelper {
         'executed_at': DateTime.now().millisecondsSinceEpoch,
         'success': 1,
       });
-      
+
       print('Successfully migrated to version 3');
     } catch (e) {
       print('Error migrating to version 3: $e');
@@ -380,13 +384,13 @@ class SQLiteHelper {
 
   Future<void> _recreateFoodItemsTable(Database db) async {
     print('Recreating food_items table with tax column...');
-    
+
     // Create backup of existing data
     final existingData = await db.query('food_items');
-    
+
     // Drop the old table
     await db.execute('DROP TABLE IF EXISTS food_items');
-    
+
     // Create new table with tax column
     await db.execute('''
       CREATE TABLE food_items (
@@ -405,21 +409,23 @@ class SQLiteHelper {
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL,
         sync_status INTEGER DEFAULT 0,
-        firebase_id TEXT
+        firebase_id TEXT,
+        baseVariant TEXT,
+        variants TEXT
       )
     ''');
-    
+
     // Restore data with default tax value
     for (final row in existingData) {
       final newRow = Map<String, dynamic>.from(row);
       newRow['tax'] = 'GST'; // Add default tax value
       await db.insert('food_items', newRow);
     }
-    
+
     // Recreate indexes
     await db.execute('CREATE INDEX IF NOT EXISTS idx_food_items_admin_uid ON food_items(admin_uid)');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_food_items_sync_status ON food_items(sync_status)');
-    
+
     print('Successfully recreated food_items table with ${existingData.length} records');
   }
 
@@ -427,7 +433,7 @@ class SQLiteHelper {
     // Migration to version 4: Force recreation to ensure tax column exists
     try {
       print('Migrating to version 4: Ensuring tax column exists...');
-      
+
       // Check if tax column exists
       bool taxColumnExists = false;
       try {
@@ -443,14 +449,14 @@ class SQLiteHelper {
           rethrow;
         }
       }
-      
+
       if (!taxColumnExists) {
         await _recreateFoodItemsTable(db);
       }
-      
+
       // Re-enable tax field mapping now that column exists
       print('Tax column migration complete, re-enabling tax field mapping');
-      
+
       // Log this migration
       await db.insert('migration_log', {
         'version': 4,
@@ -458,7 +464,7 @@ class SQLiteHelper {
         'executed_at': DateTime.now().millisecondsSinceEpoch,
         'success': 1,
       });
-      
+
       print('Successfully migrated to version 4');
     } catch (e) {
       print('Error migrating to version 4: $e');
@@ -481,7 +487,7 @@ class SQLiteHelper {
     // Migration to version 5: Add new columns to admin_data and user_data tables
     try {
       print('Migrating to version 5: Adding new columns to admin_data and user_data...');
-      
+
       // Add new columns to admin_data table
       final adminColumns = [
         'ALTER TABLE admin_data ADD COLUMN admin_uid TEXT',
@@ -489,7 +495,7 @@ class SQLiteHelper {
         'ALTER TABLE admin_data ADD COLUMN customer_code TEXT',
         'ALTER TABLE admin_data ADD COLUMN gst_number TEXT',
       ];
-      
+
       for (final sql in adminColumns) {
         try {
           await db.execute(sql);
@@ -502,12 +508,12 @@ class SQLiteHelper {
           }
         }
       }
-      
+
       // Add new columns to user_data table
       final userColumns = [
         'ALTER TABLE user_data ADD COLUMN gst_number TEXT',
       ];
-      
+
       for (final sql in userColumns) {
         try {
           await db.execute(sql);
@@ -520,7 +526,7 @@ class SQLiteHelper {
           }
         }
       }
-      
+
       // Log this migration
       await db.insert('migration_log', {
         'version': 5,
@@ -528,7 +534,7 @@ class SQLiteHelper {
         'executed_at': DateTime.now().millisecondsSinceEpoch,
         'success': 1,
       });
-      
+
       print('Successfully migrated to version 5');
     } catch (e) {
       print('Error migrating to version 5: $e');
@@ -551,7 +557,7 @@ class SQLiteHelper {
     // Migration to version 6: Restructure admin_data, user_data, and add customer_data
     try {
       print('Migrating to version 6: Restructuring tables...');
-      
+
       // Backup existing admin_data
       List<Map<String, dynamic>> adminBackup = [];
       try {
@@ -559,14 +565,14 @@ class SQLiteHelper {
       } catch (e) {
         print('No existing admin_data to backup: $e');
       }
-      
+
       // Note: Old user_data will be dropped and recreated with new schema
       // Data from old admin_data will be migrated to new user_data
-      
+
       // Drop old tables
       await db.execute('DROP TABLE IF EXISTS admin_data');
       await db.execute('DROP TABLE IF EXISTS user_data');
-      
+
       // Create new user_data table (shop/admin info)
       await db.execute('''
         CREATE TABLE user_data (
@@ -586,7 +592,7 @@ class SQLiteHelper {
           updated_at INTEGER NOT NULL
         )
       ''');
-      
+
       // Create new admin_data table (simple: email, name, mobile)
       await db.execute('''
         CREATE TABLE admin_data (
@@ -596,7 +602,7 @@ class SQLiteHelper {
           mobile_no TEXT NOT NULL UNIQUE
         )
       ''');
-      
+
       // Create customer_data table
       await db.execute('''
         CREATE TABLE customer_data (
@@ -607,37 +613,40 @@ class SQLiteHelper {
           created_at INTEGER NOT NULL
         )
       ''');
-      
+
       // Migrate old admin_data to new user_data (if had shop info)
       for (final row in adminBackup) {
         try {
           final now = DateTime.now().millisecondsSinceEpoch;
-          await db.insert('user_data', {
-            'id': row['id'] ?? row['phone_number']?.toString(),
-            'admin_uid': row['admin_uid'] ?? row['phone_number']?.toString() ?? '',
-            'phone_number': row['phone_number']?.toString() ?? '',
-            'name': row['name'],
-            'email': row['email'],
-            'shop_name': row['shop_name'],
-            'shop_logo_url': row['shop_logo_url'],
-            'shop_contact': row['shop_contact'],
-            'address': row['address'],
-            'customer_code': row['customer_code'],
-            'gst_number': row['gst_number'],
-            'created_at': row['created_at'] ?? now,
-            'updated_at': row['updated_at'] ?? now,
-          }, conflictAlgorithm: ConflictAlgorithm.replace);
+          await db.insert(
+              'user_data',
+              {
+                'id': row['id'] ?? row['phone_number']?.toString(),
+                'admin_uid': row['admin_uid'] ?? row['phone_number']?.toString() ?? '',
+                'phone_number': row['phone_number']?.toString() ?? '',
+                'name': row['name'],
+                'email': row['email'],
+                'shop_name': row['shop_name'],
+                'shop_logo_url': row['shop_logo_url'],
+                'shop_contact': row['shop_contact'],
+                'address': row['address'],
+                'customer_code': row['customer_code'],
+                'gst_number': row['gst_number'],
+                'created_at': row['created_at'] ?? now,
+                'updated_at': row['updated_at'] ?? now,
+              },
+              conflictAlgorithm: ConflictAlgorithm.replace);
         } catch (e) {
           print('Error migrating admin row: $e');
         }
       }
-      
+
       // Create indexes
       await db.execute('CREATE INDEX IF NOT EXISTS idx_user_data_phone ON user_data(phone_number)');
       await db.execute('CREATE INDEX IF NOT EXISTS idx_user_data_admin_uid ON user_data(admin_uid)');
       await db.execute('CREATE INDEX IF NOT EXISTS idx_admin_data_mobile ON admin_data(mobile_no)');
       await db.execute('CREATE INDEX IF NOT EXISTS idx_customer_data_mobile ON customer_data(mobile_no)');
-      
+
       // Log this migration
       await db.insert('migration_log', {
         'version': 6,
@@ -645,7 +654,7 @@ class SQLiteHelper {
         'executed_at': DateTime.now().millisecondsSinceEpoch,
         'success': 1,
       });
-      
+
       print('Successfully migrated to version 6');
     } catch (e) {
       print('Error migrating to version 6: $e');
@@ -668,7 +677,7 @@ class SQLiteHelper {
     // Migration to version 7: Add table_number column to bills table
     try {
       print('Migrating to version 7: Adding table_number column to bills...');
-      
+
       // Add table_number column to bills table
       try {
         await db.execute('ALTER TABLE bills ADD COLUMN table_number TEXT DEFAULT "N/A"');
@@ -681,7 +690,7 @@ class SQLiteHelper {
           // Column might not exist, try to continue
         }
       }
-      
+
       // Create maintenance_log table if it doesn't exist
       await db.execute('''
         CREATE TABLE IF NOT EXISTS maintenance_log (
@@ -693,7 +702,7 @@ class SQLiteHelper {
           details TEXT
         )
       ''');
-      
+
       // Create migration_log table if it doesn't exist
       await db.execute('''
         CREATE TABLE IF NOT EXISTS migration_log (
@@ -704,7 +713,7 @@ class SQLiteHelper {
           success BOOLEAN DEFAULT 1
         )
       ''');
-      
+
       // Log this migration
       await db.insert('migration_log', {
         'version': 7,
@@ -712,7 +721,7 @@ class SQLiteHelper {
         'executed_at': DateTime.now().millisecondsSinceEpoch,
         'success': 1,
       });
-      
+
       print('Successfully migrated to version 7');
     } catch (e) {
       print('Error migrating to version 7: $e');
@@ -746,7 +755,7 @@ class SQLiteHelper {
   Future<void> initializeDatabase() async {
     await database;
     await _checkAndPerformInitialMigration();
-    
+
     // Schedule automatic maintenance after initialization
     await _getMaintenanceService.scheduleAutomaticMaintenance();
   }
@@ -756,7 +765,7 @@ class SQLiteHelper {
     try {
       final prefs = await SharedPreferences.getInstance();
       final migrationComplete = prefs.getBool(_migrationCompleteKey) ?? false;
-      
+
       if (!migrationComplete) {
         print('Performing initial data migration from Firebase...');
         await performInitialDataMigration();
@@ -782,10 +791,10 @@ class SQLiteHelper {
         final currentUser = await firebaseDao.getCurrentUser();
         if (currentUser != null) {
           adminUid = currentUser['uid'];
-await prefs.setString('uid', adminUid);
+          await prefs.setString('uid', adminUid);
         }
       }
-      
+
       if (adminUid.isEmpty) {
         print('No admin UID found, skipping initial migration');
         return;
@@ -793,7 +802,7 @@ await prefs.setString('uid', adminUid);
 
       final firebaseDao = FirebaseDAO();
       final db = await database;
-      
+
       // Check if Firebase is accessible
       final isOnline = await firebaseDao.isOnline();
       if (!isOnline) {
@@ -802,18 +811,17 @@ await prefs.setString('uid', adminUid);
       }
 
       print('Starting migration for admin: $adminUid');
-      
+
       // Migrate food items
       await _migrateFoodItems(firebaseDao, db, adminUid);
-      
+
       // Migrate departments
       await _migrateDepartments(firebaseDao, db, adminUid);
-      
+
       // Migrate recent bills (last 30 days)
       await _migrateRecentBills(firebaseDao, db, adminUid);
-      
+
       print('Initial data migration completed successfully');
-      
     } catch (e) {
       print('Error during initial data migration: $e');
       // Don't rethrow - allow app to continue with empty local database
@@ -823,10 +831,12 @@ await prefs.setString('uid', adminUid);
 
   Future<void> _migrateFoodItems(FirebaseDAO firebaseDao, Database db, String adminUid) async {
     try {
-      print('Migrating food items...');
+      print('Migrating food items.................................');
       final foodItems = await firebaseDao.getFoodItems(adminUid);
-      
+
       for (final item in foodItems) {
+        print('Migrating food items................................. Inside The For Loop .................');
+
         await db.insert(
           'food_items',
           {
@@ -843,14 +853,16 @@ await prefs.setString('uid', adminUid);
             'tax': item['tax'] ?? 'GST',
             'created_at': item['created_at'] ?? DateTime.now().millisecondsSinceEpoch,
             'updated_at': item['updated_at'] ?? DateTime.now().millisecondsSinceEpoch,
-            'sync_status': 0, // Mark as synced
+            'sync_status': 0,
             'firebase_id': item['firebase_id'] ?? item['id'],
+            'baseVariant': item['baseVariant'] ?? '',
+            'variants': item['variants'],
           },
           conflictAlgorithm: ConflictAlgorithm.replace,
         );
       }
-      
-      print('Migrated ${foodItems.length} food items');
+
+  
     } catch (e) {
       print('Error migrating food items: $e');
     }
@@ -858,9 +870,8 @@ await prefs.setString('uid', adminUid);
 
   Future<void> _migrateDepartments(FirebaseDAO firebaseDao, Database db, String adminUid) async {
     try {
-      print('Migrating departments...');
       final departments = await firebaseDao.getDepartments(adminUid);
-      
+
       for (final dept in departments) {
         await db.insert(
           'departments',
@@ -878,7 +889,7 @@ await prefs.setString('uid', adminUid);
           conflictAlgorithm: ConflictAlgorithm.replace,
         );
       }
-      
+
       print('Migrated ${departments.length} departments');
     } catch (e) {
       print('Error migrating departments: $e');
@@ -890,7 +901,7 @@ await prefs.setString('uid', adminUid);
       print('Migrating recent bills...');
       final thirtyDaysAgo = DateTime.now().subtract(const Duration(days: 30));
       final bills = await firebaseDao.getBills(adminUid, startDate: thirtyDaysAgo);
-      
+
       for (final bill in bills) {
         await db.insert(
           'bills',
@@ -909,7 +920,7 @@ await prefs.setString('uid', adminUid);
           conflictAlgorithm: ConflictAlgorithm.replace,
         );
       }
-      
+
       print('Migrated ${bills.length} recent bills');
     } catch (e) {
       print('Error migrating recent bills: $e');
@@ -974,47 +985,48 @@ await prefs.setString('uid', adminUid);
       await db.execute('CREATE INDEX IF NOT EXISTS idx_food_items_admin_uid ON food_items(admin_uid)');
       await db.execute('CREATE INDEX IF NOT EXISTS idx_departments_admin_uid ON departments(admin_uid)');
       await db.execute('CREATE INDEX IF NOT EXISTS idx_bills_admin_uid ON bills(admin_uid)');
-      
+
       // Performance indexes for frequently queried columns
       await db.execute('CREATE INDEX IF NOT EXISTS idx_food_items_name ON food_items(name)');
       await db.execute('CREATE INDEX IF NOT EXISTS idx_food_items_department ON food_items(department)');
       await db.execute('CREATE INDEX IF NOT EXISTS idx_food_items_price ON food_items(price)');
       await db.execute('CREATE INDEX IF NOT EXISTS idx_food_items_food_code ON food_items(food_code)');
       await db.execute('CREATE INDEX IF NOT EXISTS idx_food_items_stocks ON food_items(stocks)');
-      
+
       // Composite indexes for common query patterns
       await db.execute('CREATE INDEX IF NOT EXISTS idx_food_items_admin_dept ON food_items(admin_uid, department)');
       await db.execute('CREATE INDEX IF NOT EXISTS idx_food_items_admin_name ON food_items(admin_uid, name)');
       await db.execute('CREATE INDEX IF NOT EXISTS idx_food_items_admin_price ON food_items(admin_uid, price)');
-      
+
       // Sync status indexes for performance
       await db.execute('CREATE INDEX IF NOT EXISTS idx_food_items_sync_status ON food_items(sync_status)');
       await db.execute('CREATE INDEX IF NOT EXISTS idx_departments_sync_status ON departments(sync_status)');
       await db.execute('CREATE INDEX IF NOT EXISTS idx_bills_sync_status ON bills(sync_status)');
-      
+
       // Date-based indexes for bills
       await db.execute('CREATE INDEX IF NOT EXISTS idx_bills_date ON bills(bill_date)');
       await db.execute('CREATE INDEX IF NOT EXISTS idx_bills_admin_date ON bills(admin_uid, bill_date)');
-      
+
       // Sync log indexes
       await db.execute('CREATE INDEX IF NOT EXISTS idx_sync_log_table_record ON sync_log(table_name, record_id)');
       await db.execute('CREATE INDEX IF NOT EXISTS idx_sync_log_status ON sync_log(sync_status)');
-      
+
       // Image cache indexes
       await db.execute('CREATE INDEX IF NOT EXISTS idx_image_cache_record ON image_cache(table_name, record_id)');
       await db.execute('CREATE INDEX IF NOT EXISTS idx_image_cache_accessed ON image_cache(last_accessed)');
-      
+
       // User data indexes
       await db.execute('CREATE INDEX IF NOT EXISTS idx_user_data_phone ON user_data(phone_number)');
-      
+
       // Admin data indexes
       await db.execute('CREATE INDEX IF NOT EXISTS idx_admin_data_mobile ON admin_data(mobile_no)');
-      
+
       // Fallback search indexes (FTS5 is disabled to prevent errors)
       await db.execute('CREATE INDEX IF NOT EXISTS idx_food_items_name_search ON food_items(name COLLATE NOCASE)');
-      await db.execute('CREATE INDEX IF NOT EXISTS idx_food_items_description_search ON food_items(description COLLATE NOCASE)');
+      await db.execute(
+          'CREATE INDEX IF NOT EXISTS idx_food_items_description_search ON food_items(description COLLATE NOCASE)');
       print('Search indexes created successfully');
-      
+
       print('Performance indexes created successfully');
     } catch (e) {
       print('Error creating performance indexes: $e');
@@ -1032,7 +1044,7 @@ await prefs.setString('uid', adminUid);
   Future<Map<String, dynamic>> analyzeQueryPerformance() async {
     final db = await database;
     final analysis = <String, dynamic>{};
-    
+
     try {
       // Check if indexes are being used
       final explainQueries = [
@@ -1041,23 +1053,23 @@ await prefs.setString('uid', adminUid);
         'EXPLAIN QUERY PLAN SELECT * FROM food_items WHERE name LIKE ?',
         'EXPLAIN QUERY PLAN SELECT * FROM bills WHERE admin_uid = ? AND bill_date > ?',
       ];
-      
+
       for (final query in explainQueries) {
         final result = await db.rawQuery(query, ['test']);
         analysis[query] = result;
       }
-      
+
       // Get table statistics
       final foodItemsCount = await db.rawQuery('SELECT COUNT(*) as count FROM food_items');
       final departmentsCount = await db.rawQuery('SELECT COUNT(*) as count FROM departments');
       final billsCount = await db.rawQuery('SELECT COUNT(*) as count FROM bills');
-      
+
       analysis['tableStats'] = {
         'food_items': foodItemsCount.first['count'],
         'departments': departmentsCount.first['count'],
         'bills': billsCount.first['count'],
       };
-      
+
       return analysis;
     } catch (e) {
       print('Error analyzing query performance: $e');
@@ -1070,19 +1082,19 @@ await prefs.setString('uid', adminUid);
     try {
       // Close existing database
       await closeDatabase();
-      
+
       // Delete database file
       String path = join(await getDatabasesPath(), 'pos_database.db');
       await deleteDatabase(path);
-      
+
       // Reset migration flag
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_migrationCompleteKey, false);
-      
+
       // Reinitialize database
       _database = await _initDatabase();
       await _checkAndPerformInitialMigration();
-      
+
       print('Database recreated successfully');
     } catch (e) {
       print('Error recreating database: $e');
@@ -1091,7 +1103,7 @@ await prefs.setString('uid', adminUid);
   }
 
   // Database Maintenance Operations
-  
+
   /// Perform comprehensive database maintenance
   Future<MaintenanceResult> performDatabaseMaintenance({
     bool forceVacuum = false,
@@ -1106,37 +1118,37 @@ await prefs.setString('uid', adminUid);
       optimizeIndexes: optimizeIndexes,
     );
   }
-  
+
   /// Perform automatic database vacuum operation
   Future<VacuumResult> performDatabaseVacuum() async {
     return await _getMaintenanceService.performVacuum();
   }
-  
+
   /// Perform database integrity check
   Future<IntegrityCheckResult> performDatabaseIntegrityCheck() async {
     return await _getMaintenanceService.performIntegrityCheck();
   }
-  
+
   /// Get database size information and monitoring data
   Future<DatabaseSizeInfo> getDatabaseSizeInformation() async {
     return await _getMaintenanceService.getDatabaseSizeInfo();
   }
-  
+
   /// Perform data cleanup operations
   Future<DataCleanupResult> performDatabaseCleanup() async {
     return await _getMaintenanceService.performDataCleanup();
   }
-  
+
   /// Optimize database indexes
   Future<IndexOptimizationResult> optimizeDatabaseIndexes() async {
     return await _getMaintenanceService.optimizeIndexes();
   }
-  
+
   /// Get maintenance history
   Future<List<Map<String, dynamic>>> getMaintenanceHistory({int limit = 50}) async {
     return await _getMaintenanceService.getMaintenanceHistory(limit: limit);
   }
-  
+
   /// Schedule automatic maintenance (called during initialization)
   Future<void> scheduleAutomaticMaintenance() async {
     await _getMaintenanceService.scheduleAutomaticMaintenance();
@@ -1150,14 +1162,14 @@ await prefs.setString('uid', adminUid);
       final db = await database;
       final phoneNumber = userData['phoneNumber'] ?? userData['phone_number'] ?? userData['phone'];
       final adminUid = userData['adminUid'] ?? userData['admin_uid'] ?? phoneNumber;
-      
+
       if (phoneNumber == null || phoneNumber.toString().isEmpty) {
         print('Cannot save user data: phone number is required');
         return;
       }
 
       final now = DateTime.now().millisecondsSinceEpoch;
-      
+
       await db.insert(
         'user_data',
         {
@@ -1167,7 +1179,8 @@ await prefs.setString('uid', adminUid);
           'name': userData['name'],
           'email': userData['email'],
           'shop_name': userData['shopName'] ?? userData['shop_name'],
-          'shop_logo_url': userData['shopLogoUrl'] ?? userData['shop_logo_url'] ?? userData['logoUrl'] ?? userData['logo_url'],
+          'shop_logo_url':
+              userData['shopLogoUrl'] ?? userData['shop_logo_url'] ?? userData['logoUrl'] ?? userData['logo_url'],
           'shop_contact': userData['shopContact'] ?? userData['shop_contact'] ?? userData['contact'],
           'address': userData['address'],
           'customer_code': userData['customerCode'] ?? userData['customer_code'],
@@ -1177,7 +1190,7 @@ await prefs.setString('uid', adminUid);
         },
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
-      
+
       print('User data saved for: $phoneNumber');
     } catch (e) {
       print('Error saving user data: $e');
@@ -1194,12 +1207,12 @@ await prefs.setString('uid', adminUid);
         FROM bills 
         WHERE admin_uid = ? AND id GLOB '[0-9]*'
       ''', [adminUid]);
-      
+
       int nextNumber = 1;
       if (result.isNotEmpty && result.first['max_id'] != null) {
         nextNumber = (result.first['max_id'] as int) + 1;
       }
-      
+
       final receiptNo = nextNumber.toString();
       print('[SQLiteHelper] Generated receiptNo: $receiptNo for admin: $adminUid');
       return receiptNo;
@@ -1219,7 +1232,7 @@ await prefs.setString('uid', adminUid);
         whereArgs: [phoneNumber],
         limit: 1,
       );
-      
+
       if (results.isNotEmpty) {
         final row = results.first;
         return {
@@ -1254,7 +1267,7 @@ await prefs.setString('uid', adminUid);
         whereArgs: [adminUid],
         limit: 1,
       );
-      
+
       if (results.isNotEmpty) {
         final row = results.first;
         return {
@@ -1311,14 +1324,15 @@ await prefs.setString('uid', adminUid);
   Future<void> saveAdminData(Map<String, dynamic> adminData) async {
     try {
       final db = await database;
-      final mobileNo = adminData['mobileNo'] ?? adminData['mobile_no'] ?? adminData['phoneNumber'] ?? adminData['phone_number'];
+      final mobileNo =
+          adminData['mobileNo'] ?? adminData['mobile_no'] ?? adminData['phoneNumber'] ?? adminData['phone_number'];
       final adminUid = adminData['adminUid'] ?? adminData['admin_uid'] ?? mobileNo;
-      
+
       if (mobileNo == null || mobileNo.toString().isEmpty) {
         print('Cannot save admin data: mobile number is required');
         return;
       }
-      
+
       await db.insert(
         'admin_data',
         {
@@ -1332,7 +1346,7 @@ await prefs.setString('uid', adminUid);
         },
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
-      
+
       print('[SQLiteHelper] Admin data saved for: $mobileNo with adminUid: $adminUid');
     } catch (e) {
       print('[SQLiteHelper] Error saving admin data: $e');
@@ -1349,7 +1363,7 @@ await prefs.setString('uid', adminUid);
         whereArgs: [mobileNo],
         limit: 1,
       );
-      
+
       if (results.isNotEmpty) {
         final row = results.first;
         print('[SQLiteHelper] Found cached admin data for: $mobileNo');
@@ -1415,14 +1429,14 @@ await prefs.setString('uid', adminUid);
     try {
       final db = await database;
       final mobileNo = customerData['mobileNo'] ?? customerData['mobile_no'] ?? customerData['phone'];
-      
+
       if (mobileNo == null || mobileNo.toString().isEmpty) {
         print('Cannot save customer data: mobile number is required');
         return;
       }
 
       final now = DateTime.now().millisecondsSinceEpoch;
-      
+
       await db.insert(
         'customer_data',
         {
@@ -1434,7 +1448,7 @@ await prefs.setString('uid', adminUid);
         },
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
-      
+
       print('Customer data saved for: $mobileNo');
     } catch (e) {
       print('Error saving customer data: $e');
@@ -1451,7 +1465,7 @@ await prefs.setString('uid', adminUid);
         whereArgs: [mobileNo],
         limit: 1,
       );
-      
+
       if (results.isNotEmpty) {
         final row = results.first;
         return {
@@ -1473,13 +1487,15 @@ await prefs.setString('uid', adminUid);
     try {
       final db = await database;
       final results = await db.query('customer_data', orderBy: 'created_at DESC');
-      
-      return results.map((row) => {
-        'gstNo': row['gst_no'],
-        'name': row['name'],
-        'mobileNo': row['mobile_no'],
-        'createdAt': row['created_at'],
-      }).toList();
+
+      return results
+          .map((row) => {
+                'gstNo': row['gst_no'],
+                'name': row['name'],
+                'mobileNo': row['mobile_no'],
+                'createdAt': row['created_at'],
+              })
+          .toList();
     } catch (e) {
       print('Error getting all customers: $e');
       return [];

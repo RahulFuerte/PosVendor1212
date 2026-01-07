@@ -21,7 +21,6 @@ import '../print_provider.dart';
 import '../printer_connectionDialog.dart';
 import '../receipt_preview.dart';
 
-
 /// Reusable Bill Cart Widget
 /// Can be used across multiple pages for consistent cart functionality
 class BillCart extends StatefulWidget {
@@ -174,7 +173,7 @@ class _BillCartState extends State<BillCart> {
       double cgstAmount = 0.0;
       double sgstAmount = 0.0;
       double totalWithTax = subTotal;
-      
+
       if (taxEnabled) {
         cgstAmount = subTotal * (cgstPercent / 100);
         sgstAmount = subTotal * (sgstPercent / 100);
@@ -227,8 +226,7 @@ class _BillCartState extends State<BillCart> {
   }
 
   Future<void> _showTableNumberBottomSheet(BuildContext parentContext) async {
-    final printProvider =
-        Provider.of<PrintProvider>(parentContext, listen: false);
+    final printProvider = Provider.of<PrintProvider>(parentContext, listen: false);
 
     final tableNumber = await TableNumberBottomSheet.show(
       context: parentContext,
@@ -236,9 +234,7 @@ class _BillCartState extends State<BillCart> {
       confirmButtonText: 'Print Receipt',
     );
 
-    if (tableNumber == null || !mounted) {
-      return; // User cancelled or widget unmounted
-    }
+    if (tableNumber == null || !mounted) return; // User cancelled or widget unmounted
 
     // Show loading dialog
     showDialog(
@@ -307,110 +303,6 @@ class _BillCartState extends State<BillCart> {
       ScaffoldMessenger.of(parentContext).showSnackBar(
         SnackBar(
           content: Text('Printing failed: $e'),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 3),
-        ),
-      );
-    }
-  }
-
-  // Future<void> _showSaveOrderBottomSheet() {
-  //   return widget.orderBottomSheet.call();
-  // }
-
-  Future<void> _handleSaveWithoutPrint() async {
-    bool? confirmed = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: const Row(
-            children: [
-              Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
-              SizedBox(width: 12),
-              Text('Confirm Action',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            ],
-          ),
-          content: const Text(
-            'Are you sure you want to save this bill without printing?',
-            style: TextStyle(fontSize: 16),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              style: TextButton.styleFrom(foregroundColor: Colors.grey[700]),
-              child: const Text('Cancel', style: TextStyle(fontSize: 16)),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: appbar1,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8)),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              ),
-              child: const Text('Yes, Save',
-                  style: TextStyle(fontSize: 16, color: Colors.white)),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (confirmed != true || !mounted) return;
-
-    final printProvider = Provider.of<PrintProvider>(context, listen: false);
-
-    // Generate sequential receipt number (returns 8-digit padded string like "00000001")
-    String generatedReceiptNo = await _sqliteHelper.getNextReceiptNumber(widget.phoneNo);
-
-    try {
-      await saveBill(
-        adminUid: widget.phoneNo,
-        receiptNo: generatedReceiptNo,
-        items: selectedItemsDetails,
-        subTotal: subtotal,
-        taxEnabled: printProvider.taxEnabled,
-        cgstPercent: printProvider.cgstPercent,
-        sgstPercent: printProvider.sgstPercent,
-      );
-
-      if (!mounted) return;
-      final isOnline = _databaseService.isOnline;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              Icon(
-                isOnline ? Icons.cloud_done : Icons.cloud_off,
-                color: Colors.white,
-                size: 20,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  isOnline
-                      ? 'Bill saved! Receipt No: $generatedReceiptNo'
-                      : 'Bill saved offline! Receipt No: $generatedReceiptNo (will sync when online)',
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: Colors.green,
-          duration: const Duration(seconds: 3),
-        ),
-      );
-      _clearCart();
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to save bill: $e'),
           backgroundColor: Colors.red,
           duration: const Duration(seconds: 3),
         ),
@@ -647,11 +539,9 @@ class _BillCartState extends State<BillCart> {
             children: [
               //restaurent page enable and not full screen - hide items count when restaurant screen and not fullscreen
               // Show items count for productDashBoard and calculator_screen (when isRestaurantScreen is null or false)
-              if (!(widget.isRestaurantScreen == true &&
-                  widget.isContainerVisible == true))
+              if (!(widget.isRestaurantScreen == true && widget.isContainerVisible == true))
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
                   decoration: BoxDecoration(
                     color: primaryColor,
                     borderRadius: BorderRadius.circular(12),
@@ -669,8 +559,7 @@ class _BillCartState extends State<BillCart> {
               _buildIconButton(
                 icon: MdiIcons.tableChair,
                 onPressed: () async {
-                  if (!printProvider.isConnected ||
-                      printProvider.selectedPrinter == null) {
+                  if (!printProvider.isConnected || printProvider.selectedPrinter == null) {
                     showDialog(
                       context: context,
                       builder: (context) => const PrinterConnectionDialog(),
@@ -698,11 +587,6 @@ class _BillCartState extends State<BillCart> {
 
                   await _showTableNumberBottomSheet(context);
                 },
-              ),
-              const SizedBox(width: 8),
-              _buildIconButton(
-                icon: MdiIcons.printerOff,
-                onPressed: _handleSaveWithoutPrint,
               ),
             ],
           ),
@@ -732,19 +616,18 @@ class _BillCartState extends State<BillCart> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.withOpacity(0.2)),
+        border: Border(left: BorderSide(color: appbar1, width: 5)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.15),
+            blurRadius: 8,
+            spreadRadius: 1,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         children: [
-          Container(
-            width: 4,
-            height: 40,
-            decoration: BoxDecoration(
-              color: appbar1,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -840,8 +723,7 @@ class _BillCartState extends State<BillCart> {
     return InkWell(
       onTap: () {
         setState(() {
-          subtotal -= selectedItemsDetails[index]['price'] *
-              selectedItemsDetails[index]['quantity'];
+          subtotal -= selectedItemsDetails[index]['price'] * selectedItemsDetails[index]['quantity'];
           selectedItemsDetails.removeAt(index);
           _updateCart();
         });
@@ -861,8 +743,7 @@ class _BillCartState extends State<BillCart> {
     // Check if we should show compact view (restaurant screen and not fullscreen)
     // Compact view: only amount, no "Total Amount" label
     // Full view (productDashBoard, calculator_screen): show "Total Amount" label + amount
-    final bool isCompactView =
-        widget.isRestaurantScreen == true && widget.isContainerVisible == true;
+    final bool isCompactView = widget.isRestaurantScreen == true && widget.isContainerVisible == true;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -881,8 +762,8 @@ class _BillCartState extends State<BillCart> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                 Text(
-                  'Amount',
+                Text(
+                  'Grand Total',
                   style: TextStyle(
                     fontSize: 12,
                     color: Colors.grey[600],
@@ -904,7 +785,7 @@ class _BillCartState extends State<BillCart> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Total Amount',
+                  'Grand Total',
                   style: TextStyle(
                     fontSize: 12,
                     color: Colors.grey[600],
@@ -923,14 +804,16 @@ class _BillCartState extends State<BillCart> {
             ),
           Row(
             children: [
-              _buildIconButton(
-                icon: Icons.receipt_long_outlined,
-                onPressed: _handlePreview,
-              ),
+              // _buildIconButton(
+              //   icon: Icons.receipt_long_outlined,
+              //   onPressed: _handlePreview,
+              // ),
               const SizedBox(width: 10),
               _buildIconButton(
                 icon: Icons.bookmark_outline,
-                onPressed: () => widget.orderBottomSheet.call(),
+                onPressed: _handlePreview,
+
+                // onPressed: () => widget.orderBottomSheet.call(),
               ),
               const SizedBox(width: 10),
               _buildPrintButton(printProvider),
@@ -941,8 +824,7 @@ class _BillCartState extends State<BillCart> {
     );
   }
 
-  Widget _buildIconButton(
-      {required IconData icon, required VoidCallback onPressed}) {
+  Widget _buildIconButton({required IconData icon, required VoidCallback onPressed}) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -988,29 +870,3 @@ class _BillCartState extends State<BillCart> {
     );
   }
 }
-
-// Usage Example in your page:
-/*
-class YourPage extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Column(
-        children: [
-          // Your other widgets
-          BillCartWidget(
-            adminUid: 'your_admin_uid',
-            phoneNo: 'your_phone_no',
-            onCartCleared: () {
-              print('Cart cleared!');
-            },
-            onCartUpdated: (items, total) {
-              print('Cart updated: $total');
-            },
-          ),
-        ],
-      ),
-    );
-  }
-}
-*/

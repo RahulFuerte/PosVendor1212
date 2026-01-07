@@ -1,17 +1,13 @@
-// Flutter imports:
 import 'package:flutter/material.dart';
-
-// Package imports:
-import 'package:provider/provider.dart';
-
-// Project imports:
 import 'package:pos/view/home/navigation.dart';
 import 'package:pos/view/home/print_provider.dart';
 import 'package:pos/view/home/screens/customer_list_screen.dart';
+import 'package:pos/view/home/screens/order_type_selector.dart';
 import 'package:pos/view/local_DB/customerDB_helper.dart';
 import 'package:pos/view/local_DB/customer_model.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:pos/view/tab_screen/view-model/widgets/printers/printer.dart';
+import 'package:provider/provider.dart';
 
 class ReceiptPreviewScreen extends StatefulWidget {
   final String shopName;
@@ -176,14 +172,11 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
                           final customer = CustomerModel(
                             name: nameController.text.trim(),
                             phone: phoneController.text.trim(),
-                            gstNo: gstController.text.trim().isEmpty
-                                ? null
-                                : gstController.text.trim(),
+                            gstNo: gstController.text.trim().isEmpty ? null : gstController.text.trim(),
                             createdAt: DateTime.now(),
                           );
 
-                          await CustomerDatabase.instance
-                              .insertCustomer(customer);
+                          await CustomerDatabase.instance.insertCustomer(customer);
 
                           if (context.mounted) {
                             Navigator.pop(context);
@@ -256,8 +249,7 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
             appBar: AppBar(
               title: const Text(
                 'Receipt Preview',
-                style: TextStyle(
-                    fontWeight: FontWeight.bold, fontSize: 20, color: white),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: white),
               ),
               centerTitle: true,
               elevation: 0,
@@ -302,6 +294,7 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
                           padding: const EdgeInsets.only(bottom: 16),
                           child: Container(
                             margin: const EdgeInsets.all(12),
+                            padding: EdgeInsets.all(15),
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(16),
@@ -317,52 +310,45 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
                             child: Column(
                               children: [
                                 // Header
-                                Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: appbar1.withOpacity(0.1),
-                                    borderRadius: const BorderRadius.only(
-                                      topLeft: Radius.circular(16),
-                                      topRight: Radius.circular(16),
-                                    ),
+
+                                Text(
+                                  widget.shopName,
+                                  style: TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.bold,
+                                    color: appbar1,
                                   ),
-                                  child: Column(
-                                    children: [
-                                      Text(
-                                        widget.shopName,
-                                        style: TextStyle(
-                                          fontSize: 24,
-                                          fontWeight: FontWeight.bold,
-                                          color: appbar1,
-                                        ),
-                                        textAlign: TextAlign.center,
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        widget.address,
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          color: Colors.grey[700],
-                                        ),
-                                        textAlign: TextAlign.center,
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        'Contact: ${widget.contact}',
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          color: Colors.grey[700],
-                                        ),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Divider(color: Colors.grey[400]),
-                                    ],
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  widget.address,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey[700],
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Contact: ${widget.contact}',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey[700],
                                   ),
                                 ),
+                                const SizedBox(height: 8),
+                                Divider(color: Colors.grey[400]),
 
+                                Container(
+                                  height: 50,
+                                  margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 10),
+                                  width: double.infinity,
+                                  child: const OrderTypeSelector(),
+                                ),
                                 // Items List
                                 Padding(
-                                  padding: const EdgeInsets.all(12),
+                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 10),
                                   child: Column(
                                     children: [
                                       // Table Header
@@ -426,22 +412,18 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
                                       // Items
                                       ListView.builder(
                                         shrinkWrap: true,
-                                        physics:
-                                            const NeverScrollableScrollPhysics(),
+                                        physics: const NeverScrollableScrollPhysics(),
                                         itemCount: cartItems.length,
                                         itemBuilder: (context, index) {
                                           final item = cartItems[index];
-                                          final itemTotal =
-                                              item['price'] * item['quantity'];
+                                          final itemTotal = item['price'] * item['quantity'];
 
                                           return Container(
-                                            margin: const EdgeInsets.only(
-                                                bottom: 10),
+                                            margin: const EdgeInsets.only(bottom: 10),
                                             padding: const EdgeInsets.all(8),
                                             decoration: BoxDecoration(
                                               color: Colors.grey[50],
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
+                                              borderRadius: BorderRadius.circular(8),
                                               border: Border.all(
                                                 color: Colors.grey[200]!,
                                               ),
@@ -455,11 +437,9 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
                                                     item['name'],
                                                     style: const TextStyle(
                                                       fontSize: 13,
-                                                      fontWeight:
-                                                          FontWeight.w500,
+                                                      fontWeight: FontWeight.w500,
                                                     ),
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
+                                                    overflow: TextOverflow.ellipsis,
                                                     maxLines: 2,
                                                   ),
                                                 ),
@@ -482,28 +462,15 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
                                                 SizedBox(
                                                   width: 90,
                                                   child: Row(
-                                                    mainAxisAlignment:
-                                                        MainAxisAlignment
-                                                            .center,
+                                                    mainAxisAlignment: MainAxisAlignment.center,
                                                     children: [
                                                       InkWell(
-                                                        onTap: () =>
-                                                            _updateQuantity(
-                                                                index,
-                                                                false,
-                                                                printProvider),
+                                                        onTap: () => _updateQuantity(index, false, printProvider),
                                                         child: Container(
-                                                          padding:
-                                                              const EdgeInsets
-                                                                  .all(3),
-                                                          decoration:
-                                                              BoxDecoration(
-                                                            color: Colors
-                                                                .grey[200],
-                                                            borderRadius:
-                                                                BorderRadius
-                                                                    .circular(
-                                                                        4),
+                                                          padding: const EdgeInsets.all(3),
+                                                          decoration: BoxDecoration(
+                                                            color: Colors.grey[200],
+                                                            borderRadius: BorderRadius.circular(4),
                                                           ),
                                                           child: Icon(
                                                             Icons.remove,
@@ -513,37 +480,22 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
                                                         ),
                                                       ),
                                                       Padding(
-                                                        padding:
-                                                            const EdgeInsets
-                                                                .symmetric(
-                                                                horizontal: 6),
+                                                        padding: const EdgeInsets.symmetric(horizontal: 6),
                                                         child: Text(
                                                           '${item['quantity']}',
-                                                          style:
-                                                              const TextStyle(
+                                                          style: const TextStyle(
                                                             fontSize: 18,
-                                                            fontWeight:
-                                                                FontWeight.bold,
+                                                            fontWeight: FontWeight.bold,
                                                           ),
                                                         ),
                                                       ),
                                                       InkWell(
-                                                        onTap: () =>
-                                                            _updateQuantity(
-                                                                index,
-                                                                true,
-                                                                printProvider),
+                                                        onTap: () => _updateQuantity(index, true, printProvider),
                                                         child: Container(
-                                                          padding:
-                                                              const EdgeInsets
-                                                                  .all(3),
-                                                          decoration:
-                                                              BoxDecoration(
+                                                          padding: const EdgeInsets.all(3),
+                                                          decoration: BoxDecoration(
                                                             color: appbar1,
-                                                            borderRadius:
-                                                                BorderRadius
-                                                                    .circular(
-                                                                        4),
+                                                            borderRadius: BorderRadius.circular(4),
                                                           ),
                                                           child: const Icon(
                                                             Icons.add,
@@ -564,8 +516,7 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
                                                     '₹$itemTotal',
                                                     style: const TextStyle(
                                                       fontSize: 18,
-                                                      fontWeight:
-                                                          FontWeight.bold,
+                                                      fontWeight: FontWeight.bold,
                                                     ),
                                                     textAlign: TextAlign.right,
                                                   ),
@@ -574,17 +525,13 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
 
                                                 // Delete button
                                                 InkWell(
-                                                  onTap: () => _removeItem(
-                                                      index, printProvider),
+                                                  onTap: () => _removeItem(index, printProvider),
                                                   child: Container(
                                                     width: 30,
                                                     height: 30,
                                                     decoration: BoxDecoration(
-                                                      color: Colors.red
-                                                          .withOpacity(0.1),
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              6),
+                                                      color: Colors.red.withOpacity(0.1),
+                                                      borderRadius: BorderRadius.circular(6),
                                                     ),
                                                     child: const Icon(
                                                       Icons.delete_outline,
@@ -607,11 +554,9 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
 
                                       // Total Section
                                       Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                            vertical: 12),
+                                        padding: const EdgeInsets.symmetric(vertical: 12),
                                         child: Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.spaceBetween,
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                           children: [
                                             const Text(
                                               'Total Amount:',
@@ -659,31 +604,11 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
                       children: [
                         Expanded(
                           child: ElevatedButton.icon(
-                            onPressed: () {
-                              Navigator.pop(context);
-                            },
-                            icon: const Icon(Icons.arrow_back, size: 20),
-                            label: const Text('Back'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.grey[200],
-                              foregroundColor: Colors.black87,
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: ElevatedButton.icon(
                             onPressed: () async {
-                              if (!printProvider.isConnected ||
-                                  printProvider.selectedPrinter == null) {
+                              if (!printProvider.isConnected || printProvider.selectedPrinter == null) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
-                                    content:
-                                        Text('Please connect a printer first'),
+                                    content: Text('Please connect a printer first'),
                                     backgroundColor: Colors.orange,
                                   ),
                                 );
@@ -732,9 +657,7 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
                             icon: Icon(
                               Icons.print,
                               size: 20,
-                              color: printProvider.isConnected
-                                  ? Colors.green
-                                  : Colors.white,
+                              color: printProvider.isConnected ? Colors.green : Colors.white,
                             ),
                             label: const Text(
                               'Print Receipt',
