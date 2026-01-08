@@ -789,7 +789,7 @@ class DirectPrintHelper {
       // Paper configuration
       bool is58mm = paperSize == PaperSize.mm58;
       int totalCols = is58mm ? 31 : 48;
-      String separator = '*' * totalCols;
+      String separator = '-' * totalCols;
 
       // Smart dynamic columns
       int desc = is58mm ? 12 : 22;

@@ -120,7 +120,7 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
           child: Scaffold(
             backgroundColor: Colors.white,
             bottomNavigationBar: Container(
-              height: 150,
+              height: 160,
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -164,17 +164,17 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         _buildIconButton(
-                          icon: Icons.kitchen,
+                          imagePath: "assets/images/kot.png",
                           onPressed: () {},
                         ),
                         const SizedBox(width: 10),
                         _buildIconButton(
-                          icon: Icons.soup_kitchen,
+                          imagePath: "assets/images/kot2.png",
                           onPressed: () {},
                         ),
                         const SizedBox(width: 10),
                         _buildIconButton(
-                          icon: Icons.save,
+                          imagePath: "assets/images/save.png",
                           onPressed: () async {
                             try {
                               await DirectPrintHelper.printReceipt(
@@ -210,7 +210,8 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
                         ),
                         const SizedBox(width: 10),
                         _buildIconButton(
-                          icon: Icons.print,
+                          imagePath: "assets/images/save2.png",
+
                           onPressed: () async {
                             if (!printProvider.isConnected || printProvider.selectedPrinter == null) {
                               ScaffoldMessenger.of(context).showSnackBar(
@@ -633,7 +634,10 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
     FocusScope.of(context).unfocus();
   }
 
-  Widget _buildIconButton({required IconData icon, required VoidCallback onPressed}) {
+  Widget _buildIconButton({
+    required String imagePath,
+    required VoidCallback onPressed,
+  }) {
     return Container(
       decoration: BoxDecoration(
         color: appbar1,
@@ -647,8 +651,13 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
         ],
       ),
       child: IconButton(
-        icon: Icon(icon, color: Colors.white, size: 24),
         onPressed: onPressed,
+        icon: Image.asset(
+          imagePath,
+          width: 35,
+          height: 35,
+          fit: BoxFit.contain,
+        ),
       ),
     );
   }

@@ -555,43 +555,23 @@ class _BillCartState extends State<BillCart> {
                     ),
                   ),
                 ),
-              const SizedBox(width: 10),
-              _buildIconButton(
-                icon: MdiIcons.tableChair,
-                onPressed: () async {
-                  if (!printProvider.isConnected || printProvider.selectedPrinter == null) {
-                    showDialog(
-                      context: context,
-                      builder: (context) => const PrinterConnectionDialog(),
-                    );
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Please connect a printer first'),
-                        backgroundColor: Colors.orange,
-                        duration: Duration(seconds: 2),
-                      ),
-                    );
-                    return;
-                  }
-
-                  if (selectedItemsDetails.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('No items in cart'),
-                        backgroundColor: Colors.orange,
-                        duration: Duration(seconds: 2),
-                      ),
-                    );
-                    return;
-                  }
-
-                  await _showTableNumberBottomSheet(context);
-                },
-              ),
+              const SizedBox(width: 5),
+             
               //  _buildIconButton(
               //   icon: MdiIcons.printerOff,
               //   onPressed: _handleSaveWithoutPrint,
               // ),
+              const SizedBox(width: 5),
+
+              _buildIconButton(
+                imagePath: "assets/images/kot.png",
+                onPressed: () {},
+              ),
+              const SizedBox(width: 5),
+              _buildIconButton(
+                imagePath: "assets/images/kot2.png",
+                onPressed: () {},
+              ),
             ],
           ),
         ],
@@ -599,7 +579,6 @@ class _BillCartState extends State<BillCart> {
     );
   }
 
-  
   Future<void> _handleSaveWithoutPrint() async {
     bool? confirmed = await showDialog<bool>(
       context: context,
@@ -613,8 +592,7 @@ class _BillCartState extends State<BillCart> {
             children: [
               Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
               SizedBox(width: 12),
-              Text('Confirm Action',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              Text('Confirm Action', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             ],
           ),
           content: const Text(
@@ -631,13 +609,10 @@ class _BillCartState extends State<BillCart> {
               onPressed: () => Navigator.of(dialogContext).pop(true),
               style: ElevatedButton.styleFrom(
                 backgroundColor: appbar1,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8)),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               ),
-              child: const Text('Yes, Save',
-                  style: TextStyle(fontSize: 16, color: Colors.white)),
+              child: const Text('Yes, Save', style: TextStyle(fontSize: 16, color: Colors.white)),
             ),
           ],
         );
@@ -699,7 +674,6 @@ class _BillCartState extends State<BillCart> {
       );
     }
   }
-
 
   Widget _buildItemsList(PrintProvider printProvider) {
     return Container(
@@ -910,19 +884,53 @@ class _BillCartState extends State<BillCart> {
             ),
           Row(
             children: [
-              // _buildIconButton(
-              //   icon: Icons.receipt_long_outlined,
-              //   onPressed: _handlePreview,
-              // ),
-              // const SizedBox(width: 10),
+             _buildIconButton(
+                icon: MdiIcons.tableChair,
+                onPressed: () async {
+                  if (!printProvider.isConnected || printProvider.selectedPrinter == null) {
+                    showDialog(
+                      context: context,
+                      builder: (context) => const PrinterConnectionDialog(),
+                    );
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Please connect a printer first'),
+                        backgroundColor: Colors.orange,
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                    return;
+                  }
+
+                  if (selectedItemsDetails.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('No items in cart'),
+                        backgroundColor: Colors.orange,
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                    return;
+                  }
+
+                  await _showTableNumberBottomSheet(context);
+                },
+              ),
+              
+              const SizedBox(width: 5),
               _buildIconButton(
-                icon: Icons.save,
+                // icon: Icons.save,
+                imagePath: "assets/images/save.png",
+
                 onPressed: _handlePreview,
 
                 // onPressed: () => widget.orderBottomSheet.call(),
               ),
-              const SizedBox(width: 10),
-              _buildPrintButton(printProvider),
+              const SizedBox(width: 5),
+              _buildIconButton(
+                imagePath: "assets/images/save2.png",
+                onPressed: _handlePrint,
+              ),
             ],
           ),
         ],
@@ -930,10 +938,20 @@ class _BillCartState extends State<BillCart> {
     );
   }
 
-  Widget _buildIconButton({required IconData icon, required VoidCallback onPressed}) {
+  Widget _buildIconButton({
+    IconData? icon,
+    String? imagePath,
+    required VoidCallback onPressed,
+    double size = 30,
+  }) {
+    assert(
+      icon != null || imagePath != null,
+      'Either icon or imagePath must be provided',
+    );
+
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: appbar1,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
@@ -944,35 +962,40 @@ class _BillCartState extends State<BillCart> {
         ],
       ),
       child: IconButton(
-        icon: Icon(icon, color: appbar1, size: 24),
         onPressed: onPressed,
+        icon: icon != null
+            ? Icon(
+                icon,
+                size: size,
+                color: Colors.white,
+              )
+            : Image.asset(
+                imagePath!,
+                width: size ,
+                height: size ,
+                fit: BoxFit.contain,
+              ),
       ),
     );
   }
 
-  Widget _buildPrintButton(PrintProvider printProvider) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [appbar1, appbar1.withOpacity(0.8)],
-        ),
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: appbar1.withOpacity(0.4),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          )
-        ],
-      ),
-      child: IconButton(
-        icon: Icon(
-          Icons.print,
-          color: printProvider.isConnected ? Colors.green : Colors.white,
-          size: 24,
-        ),
-        onPressed: _handlePrint,
-      ),
-    );
-  }
+  // Widget _buildIconButton({required IconData icon, required VoidCallback onPressed}) {
+  //   return Container(
+  //     decoration: BoxDecoration(
+  //       color: Colors.white,
+  //       borderRadius: BorderRadius.circular(12),
+  //       boxShadow: [
+  //         BoxShadow(
+  //           color: Colors.grey.withOpacity(0.3),
+  //           blurRadius: 4,
+  //           offset: const Offset(0, 2),
+  //         )
+  //       ],
+  //     ),
+  //     child: IconButton(
+  //       icon: Icon(icon, color: appbar1, size: 24),
+  //       onPressed: onPressed,
+  //     ),
+  //   );
+  // }
 }

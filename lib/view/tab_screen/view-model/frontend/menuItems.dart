@@ -266,57 +266,142 @@ class MenuItem extends StatelessWidget {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (ctx) {
         return StatefulBuilder(
           builder: (_, setModalState) {
             return Padding(
-              padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(ctx).viewInsets.bottom,
+              ),
               child: Container(
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(text, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 10),
-                    DropdownButton<Map<String, dynamic>>(
-                      value: selectedVariant,
-                      isExpanded: true,
-                      items: variants!
-                          .map((v) => DropdownMenuItem(
-                                value: v as Map<String, dynamic>,
-                                child: Text('${v['unit']} - ₹${v['price']}'),
-                              ))
-                          .toList(),
-                      onChanged: (val) => setModalState(() => selectedVariant = val!),
+                    /// TITLE
+                    Center(
+                      child: Text(
+                        text,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
-                    const SizedBox(height: 10),
+
+                    const SizedBox(height: 16),
+
+                    /// VARIANT CHIPS
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: variants!.map((v) {
+                        final bool isSelected = v == selectedVariant;
+
+                        return ChoiceChip(
+                          selected: isSelected,
+                          showCheckmark: false,
+                          label: Column(
+                            children: [
+                              Text(
+                                '${v['qty']} ${v['unit']}',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: isSelected ? Colors.white : Colors.black87,
+                                ),
+                              ),
+                              const SizedBox(
+                                height: 5,
+                              ),
+                              Text(
+                                '₹${v['price']}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: isSelected ? Colors.white : appbar1,
+                                ),
+                              ),
+                            ],
+                          ),
+                          selectedColor: appbar1,
+                          backgroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(5),
+                          ),
+                          onSelected: (_) {
+                            setModalState(() {
+                              selectedVariant = v;
+                            });
+                          },
+                        );
+                      }).toList(),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    /// QUANTITY
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         IconButton(
-                            onPressed: () {
-                              if (quantity > 1) {
-                                setModalState(() => quantity--);
-                              }
-                            },
-                            icon: const Icon(Icons.remove)),
-                        Text('$quantity', style: const TextStyle(fontWeight: FontWeight.bold)),
-                        IconButton(onPressed: () => setModalState(() => quantity++), icon: const Icon(Icons.add)),
+                          onPressed: () {
+                            if (quantity > 1) {
+                              setModalState(() => quantity--);
+                            }
+                          },
+                          icon: const Icon(Icons.remove_circle_outline),
+                        ),
+                        Text(
+                          '$quantity',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => setModalState(() => quantity++),
+                          icon: const Icon(Icons.add_circle_outline),
+                        ),
                       ],
                     ),
-                    const SizedBox(height: 12),
-                    ElevatedButton(
-                      onPressed: () {
-                        _addToCart(
-                          text,
-                          selectedVariant['price'].toString(),
-                          quantity,
-                          selectedVariant['unit'].toString(),
-                          (selectedVariant['qty'] as num).toInt(),
-                        );
-                        Navigator.pop(ctx);
-                      },
-                      child: const Text('Add to Cart'),
+
+                    const SizedBox(height: 16),
+
+                    /// ADD BUTTON
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: appbar1,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(25),
+                          ),
+                        ),
+                        onPressed: () {
+                          _addToCart(
+                            text,
+                            selectedVariant['price'].toString(),
+                            quantity,
+                            selectedVariant['unit'].toString(),
+                            (selectedVariant['qty'] as num).toInt(),
+                          );
+                          Navigator.pop(ctx);
+                        },
+                        child: const Text(
+                          'ADD TO CART',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
                     ),
                   ],
                 ),
