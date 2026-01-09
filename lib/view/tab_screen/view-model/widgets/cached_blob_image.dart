@@ -269,6 +269,11 @@ class _CachedBlobImageState extends State<CachedBlobImage> {
 
     // If no image URL, show error widget
     return widget.errorWidget ?? 
-      const Icon(Icons.image_not_supported);
+       Container(
+        width: widget.width,
+        height: widget.height,
+        color: Colors.grey[200],
+        child: const Icon(Icons.image_not_supported, size: 50),
+      );
   }
 }
