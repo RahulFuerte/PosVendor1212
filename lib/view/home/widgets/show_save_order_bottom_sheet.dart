@@ -2,105 +2,105 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-Future<void> showSaveOrderBottomSheet({
-  required BuildContext context,
-  required GlobalKey<FormState> formKey,
-  required TextEditingController nameController,
-  required TextEditingController mobileController,
-  required int itemCount,
-  required double totalAmount,
-  required Color primaryColor,
-  required VoidCallback onSave,
-  VoidCallback? onCancel,
-}) {
-  return showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    builder: (_) {
-      return Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-        ),
-        child: Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
-          ),
-          padding: const EdgeInsets.all(24),
-          child: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 50,
-                    height: 5,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[300],
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                const Text('Save Order',
-                    style:
-                        TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                Text('Enter customer details to save this order',
-                    style: TextStyle(color: Colors.grey[600])),
-                const SizedBox(height: 24),
-                TextFormField(
-                  controller: nameController,
-                  validator: (v) =>
-                      v == null || v.length < 2 ? 'Invalid name' : null,
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: mobileController,
-                  maxLength: 10,
-                  keyboardType: TextInputType.phone,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  validator: (v) =>
-                      v == null || v.length != 10 ? 'Invalid mobile' : null,
-                ),
-                const SizedBox(height: 24),
-                Text('$itemCount items • ₹$totalAmount'),
-                const SizedBox(height: 24),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: onCancel ?? () => Navigator.pop(context),
-                        child: const Text('Cancel'),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () {
-                          if (formKey.currentState!.validate()) {
-                            onSave();
-                            Navigator.pop(context);
-                          }
-                        },
-                        style: ElevatedButton.styleFrom(
-                            backgroundColor: primaryColor),
-                        child: const Text('Save Order'),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    },
-  );
-}
+// Future<void> showSaveOrderBottomSheet({
+//   required BuildContext context,
+//   required GlobalKey<FormState> formKey,
+//   required TextEditingController nameController,
+//   required TextEditingController mobileController,
+//   required int itemCount,
+//   required double totalAmount,
+//   required Color primaryColor,
+//   required VoidCallback onSave,
+//   VoidCallback? onCancel,
+// }) {
+//   return showModalBottomSheet(
+//     context: context,
+//     isScrollControlled: true,
+//     backgroundColor: Colors.transparent,
+//     builder: (_) {
+//       return Padding(
+//         padding: EdgeInsets.only(
+//           bottom: MediaQuery.of(context).viewInsets.bottom,
+//         ),
+//         child: Container(
+//           decoration: const BoxDecoration(
+//             color: Colors.white,
+//             borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+//           ),
+//           padding: const EdgeInsets.all(24),
+//           child: Form(
+//             key: formKey,
+//             child: Column(
+//               mainAxisSize: MainAxisSize.min,
+//               crossAxisAlignment: CrossAxisAlignment.start,
+//               children: [
+//                 Center(
+//                   child: Container(
+//                     width: 50,
+//                     height: 5,
+//                     decoration: BoxDecoration(
+//                       color: Colors.grey[300],
+//                       borderRadius: BorderRadius.circular(10),
+//                     ),
+//                   ),
+//                 ),
+//                 const SizedBox(height: 20),
+//                 const Text('Save Order',
+//                     style:
+//                         TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+//                 const SizedBox(height: 8),
+//                 Text('Enter customer details to save this order',
+//                     style: TextStyle(color: Colors.grey[600])),
+//                 const SizedBox(height: 24),
+//                 TextFormField(
+//                   controller: nameController,
+//                   validator: (v) =>
+//                       v == null || v.length < 2 ? 'Invalid name' : null,
+//                 ),
+//                 const SizedBox(height: 16),
+//                 TextFormField(
+//                   controller: mobileController,
+//                   maxLength: 10,
+//                   keyboardType: TextInputType.phone,
+//                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+//                   validator: (v) =>
+//                       v == null || v.length != 10 ? 'Invalid mobile' : null,
+//                 ),
+//                 const SizedBox(height: 24),
+//                 Text('$itemCount items • ₹$totalAmount'),
+//                 const SizedBox(height: 24),
+//                 Row(
+//                   children: [
+//                     Expanded(
+//                       child: OutlinedButton(
+//                         onPressed: onCancel ?? () => Navigator.pop(context),
+//                         child: const Text('Cancel'),
+//                       ),
+//                     ),
+//                     const SizedBox(width: 16),
+//                     Expanded(
+//                       child: ElevatedButton(
+//                         onPressed: () {
+//                           if (formKey.currentState!.validate()) {
+//                             onSave();
+//                             Navigator.pop(context);
+//                           }
+//                         },
+//                         style: ElevatedButton.styleFrom(
+//                             backgroundColor: primaryColor),
+//                         child: const Text('Save Order'),
+//                       ),
+//                     ),
+//                   ],
+//                 ),
+//               ],
+//             ),
+//           ),
+//         ),
+//       );
+//     },
+//   );
+// }
 
 class SaveOrderBottomSheet extends StatelessWidget {
   const SaveOrderBottomSheet({
