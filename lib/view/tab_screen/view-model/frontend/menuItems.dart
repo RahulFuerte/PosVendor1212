@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:pos/view/home/navigation.dart';
+import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:pos/view/tab_screen/view-model/widgets/cached_blob_image.dart';
 
 class MenuItem extends StatelessWidget {
@@ -14,6 +15,7 @@ class MenuItem extends StatelessWidget {
     this.variants,
     this.baseVariant,
     this.onAdd,
+    this.imagerecordId,
   });
 
   final BuildContext context;
@@ -24,6 +26,7 @@ class MenuItem extends StatelessWidget {
   final String stocks;
   final String? baseVariant;
   final List<dynamic>? variants;
+  final String? imagerecordId;
 
   /// Callback to add item to cart
   final void Function(
@@ -38,138 +41,141 @@ class MenuItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: Colors.black12, width: 1.5),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.06),
-                blurRadius: 6,
-                offset: const Offset(0, 3),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              /// IMAGE
-              Expanded(
-                child: ClipRRect(
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
-                  child: CachedBlobImage(
-                    imageUrl: imagePath,
-                    tableName: 'food_items',
-                    recordId: code,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                    errorWidget: Center(
-                        child: const Icon(
-                      Icons.fastfood,
-                      size: 40,
-                      color: Colors.black45,
-                    )),
+        GestureDetector(
+          onTap: () {
+            if (variants != null && variants!.isNotEmpty) {
+              _showVariantBottomSheet(context);
+            } else {
+              _addToCart(
+                text,
+                price,
+                1,
+                baseVariant ?? '',
+                1,
+              );
+            }
+          },
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.black12, width: 1.5),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.06),
+                  blurRadius: 6,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                /// IMAGE
+                Expanded(
+                  child: ClipRRect(
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+                    child: CachedBlobImage(
+                      imageUrl: imagePath,
+                      tableName: 'food_items',
+                      recordId: imagerecordId ?? code,
+                      width: double.infinity,
+                      fit: BoxFit.fill,
+                      errorWidget: Center(
+                          child: const Icon(
+                        Icons.fastfood,
+                        size: 40,
+                        color: Colors.black45,
+                      )),
+                    ),
                   ),
                 ),
-              ),
 
-              /// NAME
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                child: Text(
-                  text,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
+                /// NAME
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  child: Text(
+                    text,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
-              ),
 
-              /// VARIANT BADGE
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    variants != null && variants!.isNotEmpty
-                        ? Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: Colors.blue.shade50,
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: Colors.blue.shade200),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.layers, size: 12, color: Colors.blueGrey),
-                                const SizedBox(width: 4),
-                                Text(
-                                  baseVariant ?? '',
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.blueGrey,
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: Colors.blueGrey,
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: Text(
-                                    '${variants!.length}',
+                /// VARIANT BADGE
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  child: Wrap(
+                    spacing: 8, // horizontal space
+                    runSpacing: 6, // vertical space when it wraps
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.start,
+                    children: [
+                      variants != null && variants!.isNotEmpty
+                          ? Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: appbar1.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: appbar1.withOpacity(0.5)),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    baseVariant ?? '',
                                     style: const TextStyle(
-                                      fontSize: 10,
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
                                     ),
                                   ),
-                                ),
-                              ],
-                            ),
-                          )
-                        : const SizedBox.shrink(),
-                    _codeBadge(),
-                  ],
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: appbar1,
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: Text(
+                                      '${variants!.length}',
+                                      style: const TextStyle(
+                                        fontSize: 10,
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          : const SizedBox.shrink(),
+                      _codeBadge(),
+                    ],
+                  ),
                 ),
-              ),
 
-              const Divider(thickness: 0.3),
+                const Divider(thickness: 0.3),
 
-              /// PRICE + ADD
-              Padding(
-                padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
-                child: Row(
-                  children: [
-                    Text(
-                      '₹${price.split('.').first}',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
+                /// PRICE + ADD
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '₹${numberFormat.format(double.tryParse(price) ?? 0)}',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
-                    ),
-                    const Spacer(),
-                    GestureDetector(
-                      onTap: () {
-                        if (variants != null && variants!.isNotEmpty) {
-                          _showVariantBottomSheet(context);
-                        } else {
-                          _addToCart(
-                            text,
-                            price,
-                            1,
-                            baseVariant ?? '',
-                            1,
-                          );
-                        }
-                      },
-                      child: Container(
+                      Container(
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                         decoration: BoxDecoration(
                           color: appbar1,
@@ -184,11 +190,11 @@ class MenuItem extends StatelessWidget {
                           ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
 

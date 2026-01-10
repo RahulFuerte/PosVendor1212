@@ -1,5 +1,6 @@
 // Dart imports:
 import 'dart:async';
+import 'dart:convert';
 import 'dart:developer' as developer;
 import 'dart:io';
 
@@ -15,6 +16,8 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:hive/hive.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:pos/view/home/screens/order_type_selector.dart';
+import 'package:pos/view/home/widgets/mydrawer.dart';
+import 'package:pos/view/tab_screen/view-model/frontend/menuItems.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -25,7 +28,7 @@ import 'package:pos/data/datasources/database_service.dart';
 import 'package:pos/data/datasources/local/sqlite_helper.dart';
 import 'package:pos/view/home/navigation.dart';
 import 'package:pos/view/home/offline_bill_status_screen.dart';
-import 'package:pos/view/home/print_provider.dart';
+import 'package:pos/data/providers/print_provider.dart';
 import 'package:pos/view/home/printer_connectionDialog.dart';
 import 'package:pos/view/home/reports/billWise_report.dart';
 import 'package:pos/view/home/reports/dateWise_report.dart';
@@ -74,12 +77,14 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
   bool isLoading = false;
   final FirebaseFirestore firestore = FirebaseFirestore.instance;
   Map<String, dynamic> userData = {};
+  bool isSearching = false;
+  TextEditingController searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     foodItemsFuture = fetchFoodItems();
-    fetchUserData();
+    // fetchUserData();
   }
 
   Future<String> fetchAdminUid() async {
@@ -178,36 +183,25 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
         developer.log('First item sample: ${allItems.first}', name: 'ProductDashBoard');
       }
 
-      // bool isHotValue(dynamic v) {
-      //   if (v == null) return false;
-      //   if (v is bool) return v;
-      //   if (v is int) return v == 1;
-      //   if (v is String) {
-      //     final lower = v.toLowerCase();
-      //     return lower == 'true' ||
-      //         lower == '1' ||
-      //         lower == 'yes' ||
-      //         lower == 'y';
-      //   }
-      //   return false;
-      // }
-
-      // Filter for hot food items (supporting multiple key names & types)
-      // COMMENTED OUT: isHot filter - now showing all items
       final List<Map<String, dynamic>> hotItems = allItems.map((item) {
-        // final dynamic raw = item['is_hot'] ?? item['isHot'];
-        // final bool isHot = isHotValue(raw);
-        // Debug each item decision (you can remove or comment out this line later)
-        // developer.log(
-        //     'Checking item "${item['name'] ?? item['id'] ?? 'unknown'}": raw=$raw (${raw?.runtimeType}), isHot=$isHot',
-        //     name: 'ProductDashBoard');
-        // return isHot;
+        List<dynamic> parsedVariants = [];
+        try {
+          if (item['variants'] != null && item['variants'].toString().isNotEmpty) {
+            parsedVariants = jsonDecode(item['variants'].toString());
+          }
+        } catch (e) {
+          parsedVariants = [];
+        }
         return {
           'id': item['id'] ?? item['name'],
           'name': item['name'] ?? 'N/A',
           'price': PriceUtils.safePriceToString(item['price']),
           'imagePath': item['image_path'] ?? item['imagePath'] ?? 'N/A',
           'description': item['description'] ?? 'N/A',
+          'foodCode': item['foodCode'] ?? item['food_code'] ?? item['foodcode'] ?? 'N/A',
+          'stocks': item['stocks'] ?? 'N/A',
+          'baseVariant': item['baseVariant'] ?? '',
+          'variants': parsedVariants,
         };
       }).toList();
 
@@ -221,206 +215,6 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
       NetworkErrorHandler.logNetworkError(e, 'ProductDashBoard', 'fetchFoodItems');
       developer.log('Stack trace: $st', name: 'ProductDashBoard');
       return [];
-    }
-  }
-
-  Future<void> fetchUserData() async {
-    final phoneNo = widget.phoneNo;
-    if (mounted) {
-      setState(() {
-        isLoading = true;
-      });
-    }
-
-    final sqliteHelper = SQLiteHelper();
-
-    try {
-      // First try to get data from local SQLite cache
-      final localData = await sqliteHelper.getUserData(phoneNo);
-
-      if (localData != null) {
-        // Use local data first for faster loading
-        if (mounted) {
-          setState(() {
-            userData = {
-              'name': localData['name'] ?? 'User',
-              'phoneNumber': localData['phoneNumber'] ?? phoneNo,
-              'email': localData['email'],
-              'adminUid': localData['adminUid'],
-              'customerCode': localData['customerCode'],
-              'shopName': localData['shopName'],
-              'logoUrl': localData['shopLogoUrl'],
-              'contact': localData['shopContact'],
-              'address': localData['address'],
-            };
-          });
-        }
-        developer.log('Loaded user data from local cache', name: 'ProductDashBoard');
-      }
-
-      // Fetch from Firebase to get latest data
-      final DocumentSnapshot doc = await firestore.collection('AllCustomer').doc(phoneNo).get();
-      developer.log('Fetched Data: ${doc.data()}', name: 'ProductDashBoard');
-      developer.log('Phone Number: $phoneNo', name: 'ProductDashBoard');
-
-      if (doc.exists) {
-        final data = doc.data() as Map<String, dynamic>;
-        final fetchedAdminUid = data['adminUid'] ?? '';
-
-        if (mounted) {
-          setState(() {
-            userData = data;
-          });
-        }
-
-        // Also fetch shop data from customer collection
-        if (fetchedAdminUid.isNotEmpty) {
-          try {
-            final shopDoc =
-                await firestore.collection('AllAdmins').doc(fetchedAdminUid).collection('customer').doc(phoneNo).get();
-
-            if (shopDoc.exists) {
-              final shopData = shopDoc.data();
-              if (shopData != null && mounted) {
-                setState(() {
-                  userData = {
-                    ...userData,
-                    'shopName': shopData['shopName'],
-                    'logoUrl': shopData['logoUrl'],
-                    'contact': shopData['contact'],
-                    'address': shopData['address'],
-                  };
-                });
-              }
-
-              // Save all data to local SQLite for offline use
-              await sqliteHelper.saveUserData({
-                'phoneNumber': data['phoneNumber'] ?? phoneNo,
-                'adminUid': fetchedAdminUid,
-                'name': data['name'],
-                'email': data['email'],
-                'customerCode': data['customerCode'],
-                'shopName': shopData?['shopName'],
-                'logoUrl': shopData?['logoUrl'],
-                'contact': shopData?['contact'],
-                'address': shopData?['address'],
-                'gstNumber': shopData?['gstNo'],
-                'createdAt': data['createdAt'],
-              });
-              developer.log('Saved user and shop data to local cache', name: 'ProductDashBoard');
-            } else {
-              // Save basic user data without shop info
-              await sqliteHelper.saveUserData({
-                'phoneNumber': data['phoneNumber'] ?? phoneNo,
-                'adminUid': fetchedAdminUid,
-                'name': data['name'],
-                'email': data['email'],
-                'customerCode': data['customerCode'],
-                'createdAt': data['createdAt'],
-              });
-            }
-          } catch (shopError) {
-            developer.log('Error fetching shop data: $shopError', name: 'ProductDashBoard');
-            // Still save basic admin data
-            await sqliteHelper.saveUserData({
-              'phoneNumber': data['phoneNumber'] ?? phoneNo,
-              'adminUid': fetchedAdminUid,
-              'name': data['name'],
-              'email': data['email'],
-              'customerCode': data['customerCode'],
-              'createdAt': data['createdAt'],
-            });
-          }
-        }
-      } else {
-        developer.log('Vendor document not found', name: 'ProductDashBoard');
-        // Try to load cached data from SQLite if not already loaded
-        if (localData == null) {
-          await _loadCachedUserData(phoneNo);
-        }
-      }
-    } catch (e) {
-      NetworkErrorHandler.logNetworkError(e, 'ProductDashBoard', 'fetchUserData');
-      // Load cached data from SQLite when offline (if not already loaded)
-      final localData = await sqliteHelper.getUserData(phoneNo);
-      if (localData == null) {
-        await _loadCachedUserData(phoneNo);
-      }
-      // Show user-friendly message for network errors
-      if (mounted && NetworkErrorHandler.isNetworkError(e)) {
-        NetworkErrorHandler.showNetworkErrorSnackBar(context, e);
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          isLoading = false;
-        });
-      }
-    }
-  }
-
-  Future<void> _loadCachedUserData(String phoneNo) async {
-    try {
-      final sqliteHelper = SQLiteHelper();
-      final cachedUserData = await sqliteHelper.getUserData(phoneNo);
-
-      if (cachedUserData != null) {
-        developer.log('Loading cached user data from SQLite', name: 'ProductDashBoard');
-        if (mounted) {
-          setState(() {
-            userData = {
-              'name': cachedUserData['name'] ?? 'User',
-              'phoneNumber': cachedUserData['phoneNumber'] ?? phoneNo,
-              'email': cachedUserData['email'],
-              'adminUid': cachedUserData['adminUid'],
-              'customerCode': cachedUserData['customerCode'],
-              'shopName': cachedUserData['shopName'],
-              'logoUrl': cachedUserData['shopLogoUrl'],
-              'contact': cachedUserData['shopContact'],
-              'address': cachedUserData['address'],
-            };
-            developer.log('Cached user data loaded from SQLite: $userData', name: 'ProductDashBoard');
-          });
-        }
-      } else {
-        // Try admin_data table as fallback
-        final cachedAdminData = await sqliteHelper.getAdminData(phoneNo);
-        if (cachedAdminData != null) {
-          developer.log('Loading cached admin data from SQLite', name: 'ProductDashBoard');
-          if (mounted) {
-            setState(() {
-              userData = {
-                'name': cachedAdminData['name'] ?? 'User',
-                'phoneNumber': cachedAdminData['phoneNumber'] ?? phoneNo,
-                'email': cachedAdminData['email'],
-                'adminUid': cachedAdminData['adminUid'],
-                'customerCode': cachedAdminData['customerCode'],
-              };
-            });
-          }
-        } else {
-          // Set default values if no cache available
-          if (mounted) {
-            setState(() {
-              userData = {
-                'name': 'User',
-                'phoneNumber': phoneNo,
-              };
-            });
-          }
-        }
-      }
-    } catch (e) {
-      developer.log('Error loading cached user data from SQLite: $e', name: 'ProductDashBoard');
-      // Set minimal default values
-      if (mounted) {
-        setState(() {
-          userData = {
-            'name': 'User',
-            'phoneNumber': phoneNo,
-          };
-        });
-      }
     }
   }
 
@@ -495,803 +289,253 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
         }
       },
       child: Scaffold(
+        backgroundColor: Colors.green[50],
         appBar: AppBar(
-          backgroundColor: white,
+          backgroundColor: Colors.white,
           elevation: 0,
-          title: const Row(
-            children: [
-              SizedBox(width: 8),
-              OfflineStatusIndicator(showWhenOnline: true),
-            ],
-          ),
+          scrolledUnderElevation: 0,
+          title: isSearching
+              ? Container(
+                  height: 45,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(25),
+                  ),
+                  child: TextField(
+                    controller: searchController,
+                    autofocus: true,
+                    onChanged: (value) {
+                      search1 = value;
+                      setState(() {});
+                    },
+                    style: const TextStyle(fontSize: 14),
+                    decoration: const InputDecoration(
+                        hintText: "Search Item Name",
+                        prefixIcon: Icon(Icons.search, size: 18),
+                        border: InputBorder.none,
+                        isDense: true,
+                        contentPadding: EdgeInsets.all(15)),
+                  ),
+                )
+              : const OfflineStatusIndicator(showWhenOnline: true),
           actions: [
             Padding(
-              padding: const EdgeInsets.only(right: 10),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                width: isSearchExpanded ? MediaQuery.of(context).size.width * 0.75 : 50,
-                height: 45,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(25),
-                  color: Colors.white,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.withOpacity(0.3),
-                      spreadRadius: 1,
-                      blurRadius: 5,
-                      offset: const Offset(0, 2),
+              padding: const EdgeInsets.only(right: 10.0),
+              child: isSearching
+                  ? GestureDetector(
+                      child: CircleAvatar(
+                          maxRadius: 20,
+                          backgroundColor: appbar1,
+                          child: const Icon(
+                            Icons.search_off,
+                            size: 22,
+                            color: Colors.white,
+                          )),
+                      onTap: () {
+                        searchController.clear();
+                        search1 = '';
+                        isSearching = false;
+                        setState(() {});
+                      },
                     )
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: Icon(
-                        isSearchExpanded ? Icons.search : Icons.search,
-                        color: primaryColor,
-                      ),
-                      onPressed: () {
-                        setState(() {
-                          isSearchExpanded = !isSearchExpanded;
-                          if (!isSearchExpanded) {
-                            search1 = '';
-                            FocusScope.of(context).unfocus();
-                          }
-                        });
+                  : GestureDetector(
+                      child: CircleAvatar(
+                          maxRadius: 20,
+                          backgroundColor: appbar1,
+                          child: const Icon(
+                            Icons.search,
+                            size: 22,
+                            color: Colors.white,
+                          )),
+                      onTap: () {
+                        isSearching = true;
+                        setState(() {});
                       },
                     ),
-                    if (isSearchExpanded)
-                      Expanded(
-                        child: TextField(
-                          autofocus: true,
-                          onChanged: (value) {
-                            search1 = value;
-                            setState(() {});
-                          },
-                          decoration: InputDecoration(
-                            border: InputBorder.none,
-                            hintText: 'Search food items...',
-                            hintStyle: TextStyle(
-                              color: Colors.grey.withOpacity(0.7),
-                              fontSize: 14,
-                            ),
-                          ),
-                          style: const TextStyle(fontSize: 14),
-                        ),
-                      ),
-                    if (isSearchExpanded)
-                      IconButton(
-                        icon: const Icon(Icons.clear, size: 20),
-                        onPressed: () {
-                          setState(() {
-                            search1 = '';
-                            isSearchExpanded = !isSearchExpanded;
-                            if (!isSearchExpanded) {
-                              FocusScope.of(context).unfocus();
-                            }
-                          });
-                        },
-                      ),
-                  ],
-                ),
-              ),
             ),
           ],
         ),
-        drawer: Drawer(
-          child: ListView(
-            padding: EdgeInsets.zero,
-            children: [
-              DrawerHeader(
-                decoration: const BoxDecoration(
-                  color: primaryColor,
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      height: 90,
-                      width: 90,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(75),
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(75),
-                        child: userData['logoUrl'] != null && userData['logoUrl'].toString().isNotEmpty
-                            ? Image.network(
-                                userData['logoUrl'],
-                                fit: BoxFit.cover,
-                                loadingBuilder: (context, child, loadingProgress) {
-                                  if (loadingProgress == null) return child;
-                                  return Container(
-                                    color: primaryColor,
-                                    child: const Center(
-                                      child: CircularProgressIndicator(
-                                        color: primaryColor,
-                                        strokeWidth: 2,
-                                      ),
-                                    ),
-                                  );
-                                },
-                                errorBuilder: (context, error, stackTrace) {
-                                  // Handle network errors gracefully
-                                  if (error is SocketException) {
-                                    developer.log('Network error loading avatar: ${error.message}',
-                                        name: 'ProductDashBoard');
-                                  } else {
-                                    developer.log('Error loading avatar: $error', name: 'ProductDashBoard');
-                                  }
-                                  return Container(
-                                    color: primaryColor,
-                                    child: const Icon(
-                                      Icons.person,
-                                      color: Colors.white,
-                                      size: 40,
-                                    ),
-                                  );
-                                },
-                              )
-                            : Container(
-                                color: primaryColor,
-                                child: const Icon(
-                                  Icons.person,
-                                  color: Colors.white,
-                                  size: 40,
-                                ),
-                              ),
-                      ),
-                    ),
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.only(left: 16, right: 8),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '${userData['shopName']}',
-                              style: const TextStyle(
-                                fontFamily: 'tabfont',
-                                color: Colors.white,
-                                fontWeight: FontWeight.w500,
-                                // fontSize: 17,
-
-                                letterSpacing: 1,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            Text(
-                              '${userData['phoneNumber']}',
-                              style: const TextStyle(
-                                fontFamily: 'fontmain',
-                                color: Colors.white,
-                                fontWeight: FontWeight.w500,
-                                fontSize: 14,
-                                letterSpacing: 1,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              // Printer Connection Status
-              Consumer<PrintProvider>(
-                builder: (context, printProvider, child) {
-                  return Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: printProvider.isConnected ? Colors.green.shade50 : Colors.orange.shade50,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: printProvider.isConnected ? Colors.green : Colors.orange,
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          printProvider.isConnected ? Icons.check_circle : Icons.print_disabled,
-                          color: printProvider.isConnected ? Colors.green : Colors.orange,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                printProvider.isConnected ? 'Printer Connected' : 'Printer Not Connected',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: printProvider.isConnected ? Colors.green.shade900 : Colors.orange.shade900,
-                                ),
-                              ),
-                              if (printProvider.isConnected && printProvider.selectedPrinter != null)
-                                Text(
-                                  printProvider.selectedPrinter!.deviceName ?? 'Unknown',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey.shade700,
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-              // Connect/Disconnect Printer
-              Consumer<PrintProvider>(
-                builder: (context, printProvider, child) {
-                  return ListTile(
-                    leading: Icon(
-                      printProvider.isConnected ? Icons.link_off : Icons.link,
-                      color: printProvider.isConnected ? Colors.red : Colors.blue,
-                    ),
-                    title: Text(
-                      printProvider.isConnected ? 'Disconnect Printer' : 'Connect Printer',
-                    ),
-                    onTap: () async {
-                      if (printProvider.isConnected) {
-                        // Disconnect printer
-                        if (printProvider.selectedPrinter != null) {
-                          await PrinterManager.instance.disconnect(
-                            type: printProvider.selectedPrinter!.typePrinter,
-                          );
-                          printProvider.disconnectPrinter();
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Printer disconnected'),
-                              backgroundColor: Colors.orange,
-                            ),
-                          );
-                        }
-                      } else {
-                        // Show connection dialog
-                        Navigator.pop(context); // Close drawer
-                        showDialog(
-                          context: context,
-                          builder: (context) => const PrinterConnectionDialog(),
-                        );
-                      }
-                    },
-                  );
-                },
-              ),
-              const Divider(),
-              ListTile(
-                leading: const Icon(Icons.people, color: primaryColor),
-                title: const Text('My Customers'),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => CustomersListScreen(
-                        adminUid: adminUid,
-                        phoneNo: widget.phoneNo,
-                      ),
-                    ),
-                  );
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.save_as, color: primaryColor),
-                title: const Text('Saved Orders'),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const UsersScreen(),
-                    ),
-                  );
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.sync, color: primaryColor),
-                title: const Text('Offline Status & Bills'),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => OfflineBillStatusScreen(
-                        adminUid: adminUid,
-                      ),
-                    ),
-                  );
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.sync_problem, color: primaryColor),
-                title: const Text('Sync Diagnostics'),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => SyncStatusPage(
-                        adminUid: adminUid,
-                      ),
-                    ),
-                  );
-                },
-              ),
-              // ListTile(
-              //   leading: const Icon(Icons.speed),
-              //   title: const Text('Performance Dashboard'),
-              //   onTap: () {
-              //     Navigator.push(
-              //       context,
-              //       MaterialPageRoute(
-              //         builder: (context) => const PerformanceDashboardScreen(),
-              //       ),
-              //     );
-              //   },
-              // ),
-              // ListTile(
-              //   leading: const Icon(Icons.notifications_active),
-              //   title: const Text('System Notifications'),
-              //   onTap: () {
-              //     Navigator.push(
-              //       context,
-              //       MaterialPageRoute(
-              //         builder: (context) => const ErrorNotificationScreen(),
-              //       )
-              //     );
-              //   },
-              // ),
-              ListTile(
-                leading: Icon(MdiIcons.chartBar, color: primaryColor),
-                title: const Text('Sales Report'),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => SalesReportScreen(
-                        adminUid: widget.phoneNo,
-                      ),
-                    ),
-                  );
-                },
-              ),
-              ListTile(
-                leading: Icon(MdiIcons.fileDocumentOutline, color: primaryColor),
-                title: const Text('Billwise Report'),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => BillwiseReportScreen(
-                        adminUid: adminUid,
-                        uid: widget.phoneNo,
-                      ),
-                    ),
-                  );
-                },
-              ),
-              ListTile(
-                leading: Icon(MdiIcons.foodOutline, color: primaryColor),
-                title: const Text('Itemwise Report'),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => ItemwiseReportScreen(
-                        uid: widget.phoneNo,
-                        adminUid: adminUid,
-                      ),
-                    ),
-                  );
-                },
-              ),
-              ListTile(
-                leading: Icon(MdiIcons.calendarMonth, color: primaryColor),
-                title: const Text('Datewise Report'),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => DatewiseReportScreen(
-                        adminUid: adminUid,
-                        uid: widget.phoneNo,
-                      ),
-                    ),
-                  );
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.receipt, color: primaryColor),
-                title: const Text('Edit bill Receipt'),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => EditBillReceiptScreen(
-                        AdminUid: adminUid,
-                        phoneNo: widget.phoneNo,
-                      ),
-                    ),
-                  );
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.logout, color: Colors.red),
-                title: const Text('Log Out'),
-                onTap: () {
-                  showDialog(
-                    context: context,
-                    builder: (BuildContext) {
-                      return Dialog(
-                          // backgroundColor: Colors.amber.shade100,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(50.0)), //this right here
-                          child: SizedBox(
-                            height: 200,
-                            child: Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                                children: [
-                                  const Text(
-                                    "Are you sure ?",
-                                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w500),
-                                  ),
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                                    children: [
-                                      ElevatedButton(
-                                        style: ElevatedButton.styleFrom(backgroundColor: primaryColor),
-                                        child: const Text("Cancel", style: TextStyle(color: Colors.white)),
-                                        onPressed: () {
-                                          Navigator.pop(context);
-                                        },
-                                      ),
-                                      ElevatedButton(
-                                        style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                                        child: const Text(
-                                          "Logout",
-                                          style: TextStyle(color: Colors.white),
-                                        ),
-                                        onPressed: () async {
-                                          SharedPreferences prefs = await SharedPreferences.getInstance();
-                                          await prefs.setBool('isLogged', false);
-                                          FirebaseAuth.instance.signOut();
-                                          Navigator.pushReplacement(
-                                              context,
-                                              MaterialPageRoute(
-                                                builder: (context) => const Inception(),
-                                              ));
-                                        },
-                                      )
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ));
-                    },
-                  );
-                },
-              ),
-            ],
-          ),
-        ),
+        drawer: MyDrawer(phoneNo: widget.phoneNo),
         body: Column(
           children: [
             banner.OfflineStatusBanner(adminUid: adminUid),
             Expanded(
-              child: Stack(
-                alignment: Alignment.bottomCenter,
-                children: [
-                  FutureBuilder(
-                    future: foodItemsFuture,
-                    builder: (context, AsyncSnapshot<List<Map<String, dynamic>>> snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return Center(
-                          child: CircularProgressIndicator(
-                            color: appbar1,
-                          ),
-                        );
-                      } else if (snapshot.hasError) {
-                        return Center(
-                          child: Text('Error: ${snapshot.error}'),
-                        );
-                      } else {
-                        List<Map<String, dynamic>> foodItemsList = snapshot.data ?? [];
-                        // Filter items based on search
-                        List<Map<String, dynamic>> filteredItems = foodItemsList
-                            .where((item) => item['name'].toString().toLowerCase().contains(search1.toLowerCase()))
-                            .toList();
+              child: FutureBuilder(
+                future: foodItemsFuture,
+                builder: (context, AsyncSnapshot<List<Map<String, dynamic>>> snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return Center(
+                      child: CircularProgressIndicator(
+                        color: appbar1,
+                      ),
+                    );
+                  } else if (snapshot.hasError) {
+                    return Center(
+                      child: Text('Error: ${snapshot.error}'),
+                    );
+                  } else {
+                    List<Map<String, dynamic>> foodItemsList = snapshot.data ?? [];
+                    // Filter items based on search
+                    List<Map<String, dynamic>> filteredItems = foodItemsList
+                        .where((item) => item['name'].toString().toLowerCase().contains(search1.toLowerCase()))
+                        .toList();
 
-                        return Container(
-                          height: double.infinity,
+                    return Column(
+                      children: [
+                        Container(
+                          height: 50,
+                          margin: EdgeInsets.symmetric(vertical: 5, horizontal: 10),
                           width: double.infinity,
-                          color: Colors.green[50],
-                          child: Column(
-                            children: [
-                              Container(
-                                height: 50,
-                                margin: EdgeInsets.symmetric(vertical: 5, horizontal: 10),
-                                width: double.infinity,
-                                child: const OrderTypeSelector(),
+                          child: const OrderTypeSelector(),
+                        ),
+
+                        // billCountContainer(),
+                        Expanded(
+                          child: LayoutBuilder(builder: (context, constraints) {
+                            // Calculate number of columns based on screen width
+                            int crossAxisCount;
+                            double childAspectRatio;
+                            double horizontalPadding;
+                            double spacing;
+                            double availableWidth = constraints.maxWidth;
+
+                            if (availableWidth > 1400) {
+                              crossAxisCount = 5;
+                              childAspectRatio = 0.80;
+                              horizontalPadding = 16;
+                              spacing = 16;
+                            } else if (availableWidth > 1000) {
+                              crossAxisCount = 4;
+                              childAspectRatio = 0.78;
+                              horizontalPadding = 12;
+                              spacing = 12;
+                            } else if (availableWidth > 700) {
+                              crossAxisCount = 3;
+                              childAspectRatio = 0.75;
+                              horizontalPadding = 10;
+                              spacing = 10;
+                            } else {
+                              // For smaller screens (phones), always 2 columns
+                              crossAxisCount = 3;
+                              childAspectRatio = 0.6;
+                              horizontalPadding = 5;
+                              spacing = 10;
+                            }
+
+                            return Padding(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: horizontalPadding,
+                                vertical: 8,
                               ),
-                              printprovider.posts.isEmpty
-                                  ? const SizedBox()
-                                  : BillCart(
-                                      adminUid: adminUid,
-                                      phoneNo: widget.phoneNo,
-                                      onCartCleared: () {
-                                        setState(() {
-                                          selectedItemsDetails.clear();
-                                          subtotal = 0.0;
-                                        });
-                                      },
-                                      onCartUpdated: (List<Map<String, dynamic>> updatedItems, double updatedTotal) {
-                                        setState(() {
-                                          selectedItemsDetails = updatedItems;
-                                          subtotal = updatedTotal;
-                                        });
-                                      },
-                                      orderBottomSheet: () {
-                                        showSaveOrderBottomSheet(
-                                          context: context,
-                                          formKey: _formKey,
-                                          nameController: nameController,
-                                          mobileController: mobileController,
-                                          itemCount: selectedItemsDetails.length,
-                                          addressController: addressController,
-                                          gstController: gstController,
-                                          totalAmount: subtotal,
-                                          primaryColor: primaryColor,
-                                          onSave: () {
-                                            _saveDataAndNavigate();
-                                            printprovider.clearCart();
-                                            nameController.clear();
-                                            mobileController.clear();
-                                            developer.log(
-                                                'Order saved for ${nameController.text}, ${mobileController.text}',
-                                                name: 'ProductDashBoard');
-                                          },
-                                        );
-                                      },
-                                    ),
-
-                              // billCountContainer(),
-                              Expanded(
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                  child: LayoutBuilder(builder: (context, constraints) {
-                                    // Calculate number of columns based on screen width
-                                    int crossAxisCount;
-                                    double childAspectRatio;
-
-                                    if (constraints.maxWidth > 1200) {
-                                      // Large tablets/POS systems
-                                      crossAxisCount = 5;
-                                      childAspectRatio = 0.85;
-                                    } else if (constraints.maxWidth > 800) {
-                                      // Medium tablets
-                                      crossAxisCount = 4;
-                                      childAspectRatio = 0.80;
-                                    } else if (constraints.maxWidth > 600) {
-                                      // Small tablets
-                                      crossAxisCount = 3;
-                                      childAspectRatio = 0.75;
-                                    } else {
-                                      // Mobile phones
-                                      crossAxisCount = 2;
-                                      childAspectRatio = 0.70;
-                                    }
-
-                                    return GridView.builder(
-                                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                                        crossAxisCount: crossAxisCount,
-                                        childAspectRatio: childAspectRatio,
-                                        crossAxisSpacing: 12,
-                                        mainAxisSpacing: 12,
-                                      ),
-                                      itemCount: filteredItems.length,
-                                      itemBuilder: (context, index) {
-                                        final item = filteredItems[index];
-                                        return GestureDetector(
-                                          onTap: () {
-                                            audioPlayer.play(AssetSource('sounds/beep.mp3'));
-                                            setState(() {
-                                              isTapped = true;
-                                              selectedItemName = item['name'] ?? '';
-                                              selectedItemPrice = PriceUtils.safeParseInt(item['price']);
-
-                                              int existingIndex = selectedItemsDetails.indexWhere(
-                                                (element) =>
-                                                    element['name'] == selectedItemName &&
-                                                    element['price'] == selectedItemPrice,
-                                              );
-
-                                              if (existingIndex != -1) {
-                                                selectedItemsDetails[existingIndex]['quantity'] += 1;
-                                              } else {
-                                                selectedItemsDetails.add({
-                                                  'name': selectedItemName,
-                                                  'price': selectedItemPrice,
-                                                  'quantity': 1,
-                                                });
-                                              }
-                                              subtotal += selectedItemPrice;
-                                              printprovider.additem(selectedItemsDetails, subtotal);
-
-                                              // Safely scroll to bottom with proper checks
-                                              if (_listScrollController.hasClients &&
-                                                  _listScrollController.position.hasContentDimensions) {
-                                                try {
-                                                  _listScrollController.jumpTo(
-                                                    _listScrollController.position.maxScrollExtent,
-                                                  );
-                                                } catch (e) {
-                                                  developer.log('ScrollController error: $e', name: 'ProductDashBoard');
-                                                }
-                                              }
-                                            });
-                                          },
-                                          child: Container(
-                                            decoration: BoxDecoration(
-                                              color: Colors.white,
-                                              borderRadius: BorderRadius.circular(16),
-                                              boxShadow: [
-                                                BoxShadow(
-                                                  color: Colors.grey.withOpacity(0.2),
-                                                  spreadRadius: 1,
-                                                  blurRadius: 8,
-                                                  offset: const Offset(0, 3),
-                                                )
-                                              ],
-                                            ),
-                                            child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                // Image section - flexible height
-                                                Expanded(
-                                                  flex: 3,
-                                                  child: Stack(
-                                                    children: [
-                                                      ClipRRect(
-                                                        borderRadius: const BorderRadius.only(
-                                                          topLeft: Radius.circular(16),
-                                                          topRight: Radius.circular(16),
-                                                        ),
-                                                        child: CachedBlobImage(
-                                                          imageUrl: item['imagePath'],
-                                                          tableName: 'food_items',
-                                                          recordId: item['id'] ?? item['name'] ?? 'unknown',
-                                                          height: double.infinity,
-                                                          width: double.infinity,
-                                                          fit: BoxFit.cover,
-                                                          // placeholder:
-                                                          //     Container(
-                                                          //   color: Colors
-                                                          //       .grey[200],
-                                                          //   child: const Center(
-                                                          //     child:
-                                                          //         CircularProgressIndicator(
-                                                          //       color:
-                                                          //           primaryColor,
-                                                          //           // Colors.red,
-                                                          //           strokeWidth: 2,
-
-                                                          //     ),
-                                                          //   ),
-                                                          // ),
-                                                          // errorWidget:
-                                                          //     Container(
-                                                          //   color: Colors
-                                                          //       .grey[200],
-                                                          //   child: const Icon(
-                                                          //       Icons.error),
-                                                          // ),
-                                                        ),
-                                                      ),
-                                                      Positioned(
-                                                        top: 8,
-                                                        right: 8,
-                                                        child: Container(
-                                                          padding: const EdgeInsets.symmetric(
-                                                            horizontal: 6,
-                                                            vertical: 3,
-                                                          ),
-                                                          decoration: BoxDecoration(
-                                                            color: Colors.white,
-                                                            borderRadius: BorderRadius.circular(10),
-                                                            boxShadow: [
-                                                              BoxShadow(
-                                                                color: Colors.black.withOpacity(0.1),
-                                                                blurRadius: 4,
-                                                              )
-                                                            ],
-                                                          ),
-                                                          child: Text(
-                                                            "₹${(item['price'].split('.')[0])}",
-                                                            style: const TextStyle(
-                                                              color: primaryColor,
-                                                              fontWeight: FontWeight.bold,
-                                                              fontSize: 16,
-                                                            ),
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                                // Content section - flexible height
-                                                Expanded(
-                                                  flex: 2,
-                                                  child: Padding(
-                                                    padding: const EdgeInsets.all(8),
-                                                    child: Column(
-                                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                                      children: [
-                                                        Text(
-                                                          item['name'],
-                                                          maxLines: 2,
-                                                          overflow: TextOverflow.ellipsis,
-                                                          style: const TextStyle(
-                                                            fontFamily: 'fontmain',
-                                                            color: Colors.black87,
-                                                            fontWeight: FontWeight.w600,
-                                                            fontSize: 14,
-                                                            height: 1.2,
-                                                          ),
-                                                        ),
-                                                        const SizedBox(height: 4),
-                                                        Container(
-                                                          width: double.infinity,
-                                                          padding: const EdgeInsets.symmetric(
-                                                            vertical: 4,
-                                                          ),
-                                                          decoration: BoxDecoration(
-                                                            border: Border.all(color: appbar1),
-                                                            borderRadius: BorderRadius.circular(6),
-                                                          ),
-                                                          child: Row(
-                                                            mainAxisAlignment: MainAxisAlignment.center,
-                                                            children: [
-                                                              Icon(
-                                                                Icons.shopping_cart,
-                                                                color: appbar1,
-                                                                size: 16,
-                                                              ),
-                                                              Text(
-                                                                " Add to cart",
-                                                                style: TextStyle(
-                                                                  fontFamily: 'tabfont',
-                                                                  color: appbar1,
-                                                                  fontWeight: FontWeight.w600,
-                                                                  fontSize: 12,
-                                                                ),
-                                                              ),
-                                                            ],
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        );
-                                      },
-                                    );
-                                  }),
+                              child: GridView.builder(
+                                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: crossAxisCount,
+                                  childAspectRatio: childAspectRatio,
+                                  crossAxisSpacing: spacing,
+                                  mainAxisSpacing: spacing,
                                 ),
+                                itemCount: filteredItems.length,
+                                itemBuilder: (context, index) {
+                                  final item = filteredItems[index];
+                                  return MenuItem(
+                                    context: context,
+                                    imagePath: item['imagePath']?.toString() ?? '',
+                                    text: item['name']?.toString() ?? '',
+                                    code: item['foodCode']?.toString() ?? '',
+                                    price: item['price']?.toString() ?? '0',
+                                    imagerecordId: item['id'] ?? item['name'] ?? 'unknown',
+                                    stocks: item['stocks']?.toString() ?? 'N/A',
+                                    baseVariant: item['baseVariant']?.toString(),
+                                    variants: item['variants'] as List<dynamic>?,
+                                    onAdd: (name, price, quantity, unit, unitQty) {
+                                      audioPlayer.play(AssetSource('sounds/beep.mp3'));
+
+                                      setState(() {
+                                        isTapped = true;
+
+                                        final displayName = unit.isNotEmpty ? '$name ($unitQty $unit)' : name;
+
+                                        final parsedPrice = (double.tryParse(price) ?? 0).toInt();
+
+                                        // 🔍 Check if same item + same unit already exists
+                                        final existingIndex = selectedItemsDetails.indexWhere(
+                                          (element) =>
+                                              element['name'] == displayName && element['price'] == parsedPrice,
+                                        );
+
+                                        if (existingIndex != -1) {
+                                          selectedItemsDetails[existingIndex]['quantity'] += quantity;
+                                        } else {
+                                          selectedItemsDetails.add({
+                                            'name': displayName,
+                                            'price': parsedPrice,
+                                            'quantity': quantity,
+                                            'unit': unit,
+                                          });
+                                        }
+
+                                        subtotal += parsedPrice * quantity;
+
+                                        printprovider.additem(selectedItemsDetails, subtotal);
+
+                                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                                          if (_listScrollController.hasClients) {
+                                            _listScrollController.jumpTo(
+                                              _listScrollController.position.maxScrollExtent,
+                                            );
+                                          }
+                                        });
+                                      });
+                                    },
+                                  );
+                                },
                               ),
-                            ],
-                          ),
-                        );
-                      }
-                    },
-                  ),
-                ],
+                            );
+                          }),
+                        ),
+                        printprovider.posts.isEmpty
+                            ? const SizedBox()
+                            : BillCart(
+                                adminUid: adminUid,
+                                phoneNo: widget.phoneNo,
+                                onCartCleared: () {
+                                  setState(() {
+                                    selectedItemsDetails.clear();
+                                    subtotal = 0.0;
+                                  });
+                                },
+                                onCartUpdated: (List<Map<String, dynamic>> updatedItems, double updatedTotal) {
+                                  setState(() {
+                                    selectedItemsDetails = updatedItems;
+                                    subtotal = updatedTotal;
+                                  });
+                                },
+                                orderBottomSheet: () {
+                                  showSaveOrderBottomSheet(
+                                    context: context,
+                                    formKey: _formKey,
+                                    nameController: nameController,
+                                    mobileController: mobileController,
+                                    itemCount: selectedItemsDetails.length,
+                                    addressController: addressController,
+                                    gstController: gstController,
+                                    totalAmount: subtotal,
+                                    primaryColor: primaryColor,
+                                    onSave: () {
+                                      _saveDataAndNavigate();
+                                      printprovider.clearCart();
+                                      nameController.clear();
+                                      mobileController.clear();
+                                      developer.log('Order saved for ${nameController.text}, ${mobileController.text}',
+                                          name: 'ProductDashBoard');
+                                    },
+                                  );
+                                },
+                              ),
+                      ],
+                    );
+                  }
+                },
               ),
             ),
           ],

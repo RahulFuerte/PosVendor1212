@@ -1,9 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:pos/data/providers/order_type_provider.dart';
 import 'package:pos/view/home/navigation.dart';
-import 'package:pos/view/home/print_provider.dart';
+import 'package:pos/data/providers/print_provider.dart';
 import 'package:pos/view/home/screens/customer_list_screen.dart';
 import 'package:pos/view/home/screens/order_type_selector.dart';
+import 'package:pos/view/home/widgets/my_choiceChip.dart';
 import 'package:pos/view/local_DB/customerDB_helper.dart';
 import 'package:pos/view/local_DB/customer_model.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
@@ -37,10 +39,17 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
   final TextEditingController phoneCtrl = TextEditingController();
   final TextEditingController gstCtrl = TextEditingController();
   final TextEditingController addressCtrl = TextEditingController();
+  final TextEditingController discountCtrl = TextEditingController();
+  final TextEditingController discountRupeeCtrl = TextEditingController();
+  final TextEditingController noteCtrl = TextEditingController();
 
   final FocusNode nameFocus = FocusNode();
   final FocusNode phoneFocus = FocusNode();
   final FocusNode gstFocus = FocusNode();
+
+  double discountPercent = 0;
+  double discountAmount = 0;
+  double finalTotal = 0;
 
   void _updateQuantity(int index, bool increment, PrintProvider provider) {
     List<Map<String, dynamic>> items = List.from(provider.posts);
@@ -112,6 +121,10 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
         final cartItems = printProvider.posts;
         final subtotal = printProvider.total;
 
+        if (discountCtrl.text.isEmpty && discountRupeeCtrl.text.isEmpty) {
+          finalTotal = subtotal;
+        }
+
         return WillPopScope(
           onWillPop: () async {
             Navigator.pop(context);
@@ -120,7 +133,7 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
           child: Scaffold(
             backgroundColor: Colors.white,
             bottomNavigationBar: Container(
-              height: 160,
+              height: 200,
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -135,10 +148,10 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
               ),
               child: SafeArea(
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Total Section
                     Container(
-                      padding: const EdgeInsets.all(15),
+                      padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
                         color: appbar1.withOpacity(0.08),
                         borderRadius: BorderRadius.circular(12),
@@ -151,11 +164,39 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
                             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1),
                           ),
                           Text(
-                            '₹${subtotal.toStringAsFixed(2)}',
+                            '₹${numberFormat.format(finalTotal)}',
                             style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: appbar1),
                           ),
                         ],
                       ),
+                    ),
+                    const SizedBox(
+                      height: 10,
+                    ),
+                    Consumer<OrderTypeProvider>(
+                      builder: (context, provider, _) {
+                        return MyChoiceChip(
+                          options: const ['Cash', 'UPI', 'Debit', 'Complementory'],
+                          selectedValue: provider.paymentType == PaymentType.cash
+                              ? 'Cash'
+                              : provider.paymentType == PaymentType.upi
+                                  ? "UPI"
+                                  : provider.paymentType == PaymentType.debit
+                                      ? "Debit"
+                                      : "Complementory",
+                          onSelected: (value) {
+                            provider.setPaymentType(
+                              value == 'Cash'
+                                  ? PaymentType.cash
+                                  : value == 'UPI'
+                                      ? PaymentType.upi
+                                      : value == 'Debit'
+                                          ? PaymentType.debit
+                                          : PaymentType.complementory,
+                            );
+                          },
+                        );
+                      },
                     ),
                     const SizedBox(
                       height: 10,
@@ -315,14 +356,6 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                     child: Column(
                       children: [
-                        Container(
-                          height: 50,
-                          margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 10),
-                          width: double.infinity,
-                          child: const OrderTypeSelector(),
-                        ),
-                        const SizedBox(height: 12),
-
                         // Header
 
                         Text(
@@ -351,77 +384,92 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
                             color: Colors.grey[700],
                           ),
                         ),
-                        const SizedBox(height: 30),
+                        const SizedBox(height: 10),
 
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Center(
-                              child: Text(
-                                'Add Customer Details',
-                                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: appbar1),
-                              ),
+                        Container(
+                          height: 50,
+                          margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 10),
+                          width: double.infinity,
+                          child: const OrderTypeSelector(),
+                        ),
+                        const SizedBox(height: 12),
+
+                        Center(
+                          child: Text(
+                            'Add Customer Details',
+                            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: appbar1),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        customerAutoCompleteField(
+                          controller: nameCtrl,
+                          focusNode: nameFocus,
+                          label: 'Customer Name',
+                          filter: (text) {
+                            if (text.text.isEmpty) return const Iterable<CustomerModel>.empty();
+                            return allCustomers.where(
+                              (c) => c.name.toLowerCase().contains(text.text.toLowerCase()),
+                            );
+                          },
+                          displayText: (c) => c.name,
+                        ),
+                        const SizedBox(height: 10),
+                        customerAutoCompleteField(
+                          controller: phoneCtrl,
+                          focusNode: phoneFocus,
+                          label: 'Phone Number',
+                          keyboardType: TextInputType.phone,
+                          filter: (text) {
+                            if (text.text.isEmpty) return const Iterable<CustomerModel>.empty();
+                            return allCustomers.where(
+                              (c) => c.phone.contains(text.text),
+                            );
+                          },
+                          displayText: (c) => c.phone,
+                        ),
+                        const SizedBox(height: 10),
+                        customerAutoCompleteField(
+                          controller: gstCtrl,
+                          focusNode: gstFocus,
+                          label: 'GST Number',
+                          filter: (text) {
+                            if (text.text.isEmpty) return const Iterable<CustomerModel>.empty();
+                            return allCustomers.where(
+                              (c) => (c.gstNo ?? '').toLowerCase().contains(text.text.toLowerCase()),
+                            );
+                          },
+                          displayText: (c) => c.gstNo ?? '',
+                        ),
+                        const SizedBox(height: 10),
+                        TextField(
+                          controller: addressCtrl,
+                          maxLines: 2,
+                          decoration: InputDecoration(
+                            labelText: 'Address',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                            const SizedBox(height: 20),
-                            customerAutoCompleteField(
-                              controller: nameCtrl,
-                              focusNode: nameFocus,
-                              label: 'Customer Name',
-                              filter: (text) {
-                                if (text.text.isEmpty) return const Iterable<CustomerModel>.empty();
-                                return allCustomers.where(
-                                  (c) => c.name.toLowerCase().contains(text.text.toLowerCase()),
-                                );
-                              },
-                              displayText: (c) => c.name,
-                            ),
-                            const SizedBox(height: 10),
-                            customerAutoCompleteField(
-                              controller: phoneCtrl,
-                              focusNode: phoneFocus,
-                              label: 'Phone Number',
-                              keyboardType: TextInputType.phone,
-                              filter: (text) {
-                                if (text.text.isEmpty) return const Iterable<CustomerModel>.empty();
-                                return allCustomers.where(
-                                  (c) => c.phone.contains(text.text),
-                                );
-                              },
-                              displayText: (c) => c.phone,
-                            ),
-                            const SizedBox(height: 10),
-                            customerAutoCompleteField(
-                              controller: gstCtrl,
-                              focusNode: gstFocus,
-                              label: 'GST Number',
-                              filter: (text) {
-                                if (text.text.isEmpty) return const Iterable<CustomerModel>.empty();
-                                return allCustomers.where(
-                                  (c) => (c.gstNo ?? '').toLowerCase().contains(text.text.toLowerCase()),
-                                );
-                              },
-                              displayText: (c) => c.gstNo ?? '',
-                            ),
-                            const SizedBox(height: 10),
-                            TextField(
-                              controller: addressCtrl,
-                              maxLines: 2,
-                              decoration: InputDecoration(
-                                labelText: 'Address',
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
 
                         const SizedBox(height: 20),
 
                         Center(
-                          child: Text(
-                            'Item List',
-                            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: appbar1),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Item List',
+                                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: appbar1),
+                              ),
+                              Container(
+                                  padding: EdgeInsets.all(12),
+                                  decoration: BoxDecoration(color: appbar1, borderRadius: BorderRadius.circular(12)),
+                                  child: Text(
+                                    "Add Item",
+                                    style: TextStyle(color: Colors.white),
+                                  ))
+                            ],
                           ),
                         ),
                         const SizedBox(height: 20),
@@ -494,13 +542,13 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
                                           child: Container(
                                             padding: const EdgeInsets.all(3),
                                             decoration: BoxDecoration(
-                                              color: Colors.grey[200],
+                                              color: appbar1,
                                               borderRadius: BorderRadius.circular(4),
                                             ),
                                             child: Icon(
                                               Icons.remove,
                                               size: 22,
-                                              color: appbar1,
+                                              color: Colors.white,
                                             ),
                                           ),
                                         ),
@@ -565,14 +613,232 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
                         ),
 
                         const SizedBox(
+                          height: 30,
+                        ),
+                        Row(
+                          children: [
+                            Text(
+                              'Discount',
+                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: appbar1),
+                            ),
+                            const SizedBox(
+                              width: 10,
+                            ),
+                            Expanded(
+                              child: TextFormField(
+                                controller: discountCtrl,
+                                maxLength: 3,
+                                keyboardType: TextInputType.number,
+                                style: TextStyle(color: Colors.black, fontSize: 15),
+                                onChanged: (value) {
+                                  final subtotal = context.read<PrintProvider>().total;
+
+                                  // When user clears %
+                                  if (value.isEmpty) {
+                                    discountPercent = 0;
+                                    discountAmount = 0;
+                                    finalTotal = subtotal;
+
+                                    discountRupeeCtrl.clear(); // 🔥 clear rupees
+                                    setState(() {});
+                                    return;
+                                  }
+
+                                  final percent = double.tryParse(value) ?? 0;
+
+                                  discountPercent = percent;
+                                  discountAmount = (subtotal * percent) / 100;
+
+                                  if (discountAmount > subtotal) {
+                                    discountAmount = subtotal;
+                                    discountPercent = 100;
+                                  }
+
+                                  finalTotal = subtotal - discountAmount;
+
+                                  discountRupeeCtrl.text = discountAmount.toStringAsFixed(2);
+                                  setState(() {});
+                                },
+                                decoration: InputDecoration(
+                                  counterText: "",
+                                  isDense: true,
+                                  contentPadding: EdgeInsets.symmetric(vertical: 1, horizontal: 10),
+                                  suffixIcon: Container(
+                                    width: 50,
+                                    child: Icon(
+                                      Icons.percent,
+                                      color: Colors.white,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.only(
+                                          topRight: Radius.circular(12), bottomRight: Radius.circular(12)),
+                                      color: appbar1.withOpacity(0.8),
+                                    ),
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(
+                              width: 10,
+                            ),
+                            Expanded(
+                              child: TextFormField(
+                                controller: discountRupeeCtrl,
+                                keyboardType: TextInputType.number,
+                                style: const TextStyle(color: Colors.black, fontSize: 15),
+                                onChanged: (value) {
+                                  final subtotal = context.read<PrintProvider>().total;
+
+                                  // When user clears ₹
+                                  if (value.isEmpty) {
+                                    discountPercent = 0;
+                                    discountAmount = 0;
+                                    finalTotal = subtotal;
+
+                                    discountCtrl.clear(); // 🔥 clear percent
+                                    setState(() {});
+                                    return;
+                                  }
+
+                                  final rupees = double.tryParse(value) ?? 0;
+
+                                  discountAmount = rupees > subtotal ? subtotal : rupees;
+                                  discountPercent = (discountAmount / subtotal) * 100;
+                                  finalTotal = subtotal - discountAmount;
+
+                                  discountCtrl.text = discountPercent.toStringAsFixed(1);
+                                  setState(() {});
+                                },
+                                decoration: InputDecoration(
+                                  counterText: "",
+                                  isDense: true,
+                                  contentPadding: const EdgeInsets.symmetric(vertical: 1, horizontal: 10),
+                                  suffixIcon: Container(
+                                    width: 50,
+                                    child: const Icon(
+                                      Icons.currency_rupee,
+                                      color: Colors.white,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      borderRadius: const BorderRadius.only(
+                                          topRight: Radius.circular(12), bottomRight: Radius.circular(12)),
+                                      color: appbar1.withOpacity(0.8),
+                                    ),
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(
                           height: 20,
                         ),
+
+                        TextFormField(
+                          controller: noteCtrl,
+                          keyboardType: TextInputType.text,
+                          style: const TextStyle(color: Colors.black, fontSize: 15),
+                          decoration: InputDecoration(
+                            hintText: "Enter Note",
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(
+                          height: 20,
+                        ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 12),
+                            Text(
+                              'Bill Details',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: appbar1,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Card(
+                              elevation: 2,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(14),
+                                child: Column(
+                                  children: [
+                                    _billRow('Item Total', 2),
+                                    _billRow('Discount + Tax', 4),
+                                    _billRow('Total Tax', 6),
+                                    _billRow('Round Off', 7),
+                                    const Divider(thickness: 1),
+                                    _billRow(
+                                      'TO PAY',
+                                      8,
+                                      isBold: true,
+                                      valueColor: Colors.green,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        )
                       ],
                     ),
                   ),
           ),
         );
       },
+    );
+  }
+
+  Widget _billRow(
+    String title,
+    double amount, {
+    bool isBold = false,
+    Color? valueColor,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: isBold ? 16 : 14,
+              fontWeight: isBold ? FontWeight.bold : FontWeight.w500,
+            ),
+          ),
+          Text(
+            '₹ ${amount.toStringAsFixed(2)}',
+            style: TextStyle(
+              fontSize: isBold ? 16 : 14,
+              fontWeight: isBold ? FontWeight.bold : FontWeight.w600,
+              color: valueColor ?? Colors.black87,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
