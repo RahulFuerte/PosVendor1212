@@ -1,5 +1,6 @@
 // Dart imports:
 import 'dart:async';
+import 'dart:convert';
 import 'dart:developer' as developer;
 
 // Flutter imports:
@@ -11,6 +12,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:hive/hive.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:pos/view/home/screens/order_type_selector.dart';
+import 'package:pos/view/tab_screen/view-model/widgets/cached_blob_image.dart';
 import 'package:provider/provider.dart';
 
 // Project imports:
@@ -25,7 +28,6 @@ import 'package:pos/view/home/print_provider.dart';
 import 'package:pos/view/home/screens/users_data_screen.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:pos/view/tab_screen/view-model/frontend/menuItems.dart';
-import 'package:pos/view/tab_screen/view-model/widgets/cached_blob_image.dart';
 import '../widgets/bill_cart_widget.dart';
 import '../widgets/show_save_order_bottom_sheet.dart';
 
@@ -58,13 +60,13 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
   final ScrollController _listScrollController = ScrollController();
   final TextEditingController userNameController = TextEditingController();
   final TextEditingController userPhoneController = TextEditingController();
+  final TextEditingController addressController = TextEditingController();
+  final TextEditingController gstController = TextEditingController();
   final ScrollController _gridViewController = ScrollController();
 
   // Offline functionality
-  final CompleteOfflineDataManager _offlineDataManager =
-      CompleteOfflineDataManager();
-  final DataPreloadingCoordinator _preloadingCoordinator =
-      DataPreloadingCoordinator();
+  final CompleteOfflineDataManager _offlineDataManager = CompleteOfflineDataManager();
+  final DataPreloadingCoordinator _preloadingCoordinator = DataPreloadingCoordinator();
   final SmartDatabaseService _smartDB = SmartDatabaseService();
   final OfflineBillManager _offlineBillManager = OfflineBillManager();
   final ConnectionMonitor _connectionMonitor = ConnectionMonitor();
@@ -101,8 +103,7 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
       await _connectionMonitor.initialize();
       _isOnline = _connectionMonitor.isConnected;
 
-      _connectionSubscription =
-          _connectionMonitor.connectivityStream.listen((isConnected) {
+      _connectionSubscription = _connectionMonitor.connectivityStream.listen((isConnected) {
         if (mounted) {
           setState(() {
             _isOnline = isConnected;
@@ -113,11 +114,9 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
         }
       });
 
-      developer.log('Connection status initialized: $_isOnline',
-          name: 'RestaurantScreen');
+      developer.log('Connection status initialized: $_isOnline', name: 'RestaurantScreen');
     } catch (e) {
-      developer.log('Error setting up connection listener: $e',
-          name: 'RestaurantScreen');
+      developer.log('Error setting up connection listener: $e', name: 'RestaurantScreen');
       _isOnline = false; // Assume offline on error
     }
   }
@@ -125,11 +124,9 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
   Future<void> _initializeSmartDatabase() async {
     try {
       await _smartDB.initialize();
-      developer.log('Smart Database Service initialized successfully',
-          name: 'RestaurantScreen');
+      developer.log('Smart Database Service initialized successfully', name: 'RestaurantScreen');
     } catch (e) {
-      developer.log('Error initializing Smart Database Service: $e',
-          name: 'RestaurantScreen');
+      developer.log('Error initializing Smart Database Service: $e', name: 'RestaurantScreen');
     }
   }
 
@@ -140,9 +137,7 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
       await _connectionMonitor.initialize();
 
       final adminUid = await fetchAdminUid();
-      if (adminUid.isNotEmpty &&
-          !adminUid.contains('Error') &&
-          !adminUid.contains('Offline')) {
+      if (adminUid.isNotEmpty && !adminUid.contains('Error') && !adminUid.contains('Offline')) {
         _preloadingCoordinator.setUserPreloadingStrategy(
           adminUid,
           PreloadingStrategy(priority: PreloadingPriority.medium),
@@ -150,8 +145,7 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
         _preloadingCoordinator.triggerImmediatePreloading(adminUid);
       }
     } catch (e) {
-      developer.log('Error initializing offline data: $e',
-          name: 'RestaurantScreen');
+      developer.log('Error initializing offline data: $e', name: 'RestaurantScreen');
     }
   }
 
@@ -160,8 +154,7 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
       await _offlineBillManager.initialize();
       _updatePendingBillsCount();
     } catch (e) {
-      developer.log('Error initializing offline bill manager: $e',
-          name: 'RestaurantScreen');
+      developer.log('Error initializing offline bill manager: $e', name: 'RestaurantScreen');
     }
   }
 
@@ -170,6 +163,8 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
     required GlobalKey<FormState> formKey,
     required TextEditingController nameController,
     required TextEditingController mobileController,
+    required TextEditingController gstController,
+    required TextEditingController addressController,
     required int itemCount,
     required double totalAmount,
     required VoidCallback onSave,
@@ -184,6 +179,8 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
           formKey: formKey,
           nameController: nameController,
           mobileController: mobileController,
+          addressController: addressController,
+          gstController: gstController,
           itemCount: itemCount,
           totalAmount: totalAmount,
           primaryColor: primaryColor,
@@ -202,9 +199,7 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
   // Connection listener is now setup in _setupConnectionListenerAsync()
 
   Future<void> _updatePendingBillsCount() async {
-    if (adminUid.isNotEmpty &&
-        !adminUid.contains('Error') &&
-        !adminUid.contains('not found')) {
+    if (adminUid.isNotEmpty && !adminUid.contains('Error') && !adminUid.contains('not found')) {
       final count = await _offlineBillManager.getOfflineBillsCount(adminUid);
       if (mounted) {
         setState(() {
@@ -220,8 +215,6 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
       _updatePendingBillsCount();
     }
   }
-
-
 
   Future<void> _initializeFoodItems() async {
     try {
@@ -241,8 +234,7 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
     // Use SmartDatabaseService which handles online/offline automatically
     try {
       // Try Firebase with short timeout - SmartDatabaseService handles caching
-      DocumentSnapshot<Map<String, dynamic>> snapshot = await FirebaseFirestore
-          .instance
+      DocumentSnapshot<Map<String, dynamic>> snapshot = await FirebaseFirestore.instance
           .collection('AllCustomer')
           .doc(widget.phoneNo)
           .get()
@@ -264,8 +256,7 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
             'createdAt': data?['createdAt'],
           });
         } catch (cacheError) {
-          developer.log('Error caching adminUid in SQLite: $cacheError',
-              name: 'RestaurantScreen');
+          developer.log('Error caching adminUid in SQLite: $cacheError', name: 'RestaurantScreen');
         }
 
         setState(() {
@@ -290,8 +281,7 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
       final cachedAdminUid = await sqliteHelper.getAdminUid(widget.phoneNo);
 
       if (cachedAdminUid != null && cachedAdminUid.isNotEmpty) {
-        developer.log('Using cached adminUid from SQLite: $cachedAdminUid',
-            name: 'RestaurantScreen');
+        developer.log('Using cached adminUid from SQLite: $cachedAdminUid', name: 'RestaurantScreen');
         setState(() {
           adminUid = cachedAdminUid;
         });
@@ -299,15 +289,13 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
       }
 
       // Last resort: use phoneNo as adminUid (common pattern in this app)
-      developer.log('No cached adminUid found, using phoneNo as fallback',
-          name: 'RestaurantScreen');
+      developer.log('No cached adminUid found, using phoneNo as fallback', name: 'RestaurantScreen');
       setState(() {
         adminUid = widget.phoneNo;
       });
       return widget.phoneNo;
     } catch (e) {
-      developer.log('Error getting cached adminUid from SQLite: $e',
-          name: 'RestaurantScreen');
+      developer.log('Error getting cached adminUid from SQLite: $e', name: 'RestaurantScreen');
       // Ultimate fallback: use phoneNo
       setState(() {
         adminUid = widget.phoneNo;
@@ -329,16 +317,12 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
           .map((dept) => {
                 'id': dept['id'] ?? dept['name'],
                 'name': dept['name'] ?? 'N/A',
-                'imageUrl': dept['imageUrl'] ??
-                    dept['image_url'] ??
-                    dept['imageurl'] ??
-                    'N/A',
+                'imageUrl': dept['imageUrl'] ?? dept['image_url'] ?? dept['imageurl'] ?? 'N/A',
                 'status': dept['status'] ?? 'Active',
               })
           .toList();
 
-      developer.log('Fetched ${departments.length} departments via SmartDB',
-          name: 'RestaurantScreen');
+      developer.log('Fetched ${departments.length} departments via SmartDB', name: 'RestaurantScreen');
       return departments;
     } catch (e) {
       developer.log('Error fetching departments: $e', name: 'RestaurantScreen');
@@ -349,42 +333,42 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
   /// Fetch food items using SmartDatabaseService (handles online/offline automatically)
   Future<List<Map<String, dynamic>>> fetchFoodItems(String department) async {
     try {
-      final String currentAdminUid =
-          adminUid.isNotEmpty ? adminUid : await fetchAdminUid();
-      final String deptToFetch = department.isEmpty
-          ? (selectedDepartment.isEmpty ? 'Pizza' : selectedDepartment)
-          : department;
+      final String currentAdminUid = adminUid.isNotEmpty ? adminUid : await fetchAdminUid();
+      final String deptToFetch =
+          department.isEmpty ? (selectedDepartment.isEmpty ? 'Pizza' : selectedDepartment) : department;
 
-      // Use SmartDatabaseService - it handles online/offline automatically via SQLite
-      final rawItems =
-          await _smartDB.getFoodItems(currentAdminUid, department: deptToFetch);
+      final rawItems = await _smartDB.getFoodItems(currentAdminUid, department: deptToFetch);
 
       // Map SQLite field names to UI expected names
-      final items = rawItems
-          .map((item) => {
-                'id': item['id'] ?? item['name'],
-                'name': item['name'] ?? 'N/A',
-                'price': item['price']?.toString() ?? '0',
-                'imagePath': item['imagePath'] ??
-                    item['image_path'] ??
-                    item['imagepath'] ??
-                    'N/A',
-                'foodCode': item['foodCode'] ??
-                    item['food_code'] ??
-                    item['foodcode'] ??
-                    'N/A',
-                'department': item['department'] ?? 'N/A',
-                'stocks': item['stocks'] ?? 'N/A',
-              })
-          .toList();
+      final items = rawItems.map((item) {
+        // Parse variants safely
+        List<dynamic> parsedVariants = [];
+        try {
+          if (item['variants'] != null && item['variants'].toString().isNotEmpty) {
+            parsedVariants = jsonDecode(item['variants'].toString());
+          }
+        } catch (e) {
+          parsedVariants = [];
+        }
+
+        return {
+          'id': item['id'] ?? item['name'],
+          'name': item['name'] ?? 'N/A',
+          'price': item['price']?.toString() ?? '0',
+          'imagePath': item['imagePath'] ?? item['image_path'] ?? item['imagepath'] ?? 'N/A',
+          'foodCode': item['foodCode'] ?? item['food_code'] ?? item['foodcode'] ?? 'N/A',
+          'department': item['department'] ?? 'N/A',
+          'stocks': item['stocks'] ?? 'N/A',
+          'baseVariant': item['baseVariant'] ?? '',
+          'variants': parsedVariants,
+        };
+      }).toList();
 
       setState(() {
         isLoading = false;
       });
 
-      developer.log(
-          'Fetched ${items.length} food items for $deptToFetch via SmartDB',
-          name: 'RestaurantScreen');
+      developer.log('Fetched ${items.length} food items for $deptToFetch via SmartDB', name: 'RestaurantScreen');
       return items;
     } catch (e) {
       developer.log('Error fetching food items: $e', name: 'RestaurantScreen');
@@ -409,9 +393,7 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: _isOnline
-            ? Colors.green.withOpacity(0.1)
-            : Colors.orange.withOpacity(0.1),
+        color: _isOnline ? Colors.green.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: _isOnline ? Colors.green : Colors.orange,
@@ -467,9 +449,7 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
     return WillPopScope(
       onWillPop: () async {
         DateTime now = DateTime.now();
-        if (currentBackPressTime == null ||
-            now.difference(currentBackPressTime!) >
-                const Duration(seconds: 2)) {
+        if (currentBackPressTime == null || now.difference(currentBackPressTime!) > const Duration(seconds: 2)) {
           currentBackPressTime = now;
           Fluttertoast.showToast(
             msg: "Press back again to exit",
@@ -491,16 +471,13 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
             const SizedBox(width: 8),
             IconButton(
               onPressed: () {
-                Navigator.push(context,
-                    MaterialPageRoute(builder: (context) => const UsersScreen()));
+                Navigator.push(context, MaterialPageRoute(builder: (context) => const UsersScreen()));
               },
               icon: const Icon(Icons.save),
             ),
           ],
           leading: IconButton(
-            icon: isContainerVisible
-                ? Icon(MdiIcons.fullscreen)
-                : Icon(MdiIcons.fullscreenExit),
+            icon: isContainerVisible ? Icon(MdiIcons.fullscreen) : Icon(MdiIcons.fullscreenExit),
             onPressed: () {
               setState(() {
                 isContainerVisible = !isContainerVisible;
@@ -509,10 +486,11 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
             },
           ),
           backgroundColor: Colors.white,
+          elevation: 0,
+          scrolledUnderElevation: 0,
           title: const Text(
             'Restaurants',
-            style: TextStyle(
-                color: Colors.black, fontFamily: 'tabfont', fontSize: 19),
+            style: TextStyle(color: Colors.black, fontFamily: 'tabfont', fontSize: 19),
           ),
         ),
         body: isLoading
@@ -530,376 +508,131 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                 color: Colors.grey.withOpacity(0.1),
                 width: double.infinity,
                 height: double.infinity,
-                child: Row(
+                child: Column(
                   children: [
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      width: isContainerVisible
-                          ? MediaQuery.of(context).size.width * 0.21
-                          : 0,
-                      child: Container(
-                        decoration: const BoxDecoration(color: white),
-                        child: FutureBuilder<List<Map<String, dynamic>>>(
-                          future: foodDepartmentsFuture,
-                          builder: (context, snapshot) {
-                            if (snapshot.hasError) {
-                              return Center(
-                                  child: Text('Error: ${snapshot.error}'));
-                            } else {
-                              List<Map<String, dynamic>> departments =
-                                  snapshot.data ?? [];
-                              return ListView.builder(
-                                itemCount: departments.length,
-                                itemBuilder: (context, index) {
-                                  return Padding(
-                                    padding:
-                                        const EdgeInsets.symmetric(vertical: 7),
-                                    child: GestureDetector(
-                                      onTap: () {
-                                        setState(() {
-                                          currentCategoryIndex = index;
-                                          selectedDepartment =
-                                              departments[index]['name'] ?? '';
-                                        });
-                                        foodItemsFuture =
-                                            fetchFoodItems(selectedDepartment);
-                                      },
-                                      child: Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Column(
-                                            children: [
-                                              Stack(
-                                                children: [
-                                                  AnimatedContainer(
-                                                    duration: const Duration(
-                                                        milliseconds: 300),
-                                                    margin:
-                                                        const EdgeInsets.all(5),
-                                                    height: 60,
-                                                    width: 60,
-                                                    decoration: BoxDecoration(
-                                                      color:
-                                                          currentCategoryIndex ==
-                                                                  index
-                                                              ? const Color
-                                                                  .fromARGB(106,
-                                                                  133, 238, 187)
-                                                              : Colors.blueGrey
-                                                                  .shade50,
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              30),
-                                                    ),
-                                                  ),
-                                                  Positioned(
-                                                    bottom: 5,
-                                                    left: 6,
-                                                    right: 4,
-                                                    child: AnimatedContainer(
-                                                      height:
-                                                          currentCategoryIndex ==
-                                                                  index
-                                                              ? 65
-                                                              : 55,
-                                                      decoration: BoxDecoration(
-                                                        borderRadius:
-                                                            BorderRadius
-                                                                .circular(55),
-                                                      ),
-                                                      duration: const Duration(
-                                                          milliseconds: 400),
-                                                      child: CachedBlobImage(
-                                                        imageUrl:
-                                                            departments[index]
-                                                                ['imageUrl'],
-                                                        tableName:
-                                                            'departments',
-                                                        recordId: departments[
-                                                                index]['id'] ??
-                                                            departments[index]
-                                                                ['name'] ??
-                                                            departments[index]
-                                                                ['unknown'],
-                                                        width: 50,
-                                                        height: 50,
-                                                        borderRadius:
-                                                            BorderRadius
-                                                                .circular(100),
-                                                        placeholder:
-                                                            const SizedBox(
+                    Container(
+                      height: 50,
+                      margin: EdgeInsets.symmetric(vertical: 5, horizontal: 10),
+                      width: double.infinity,
+                      child: const OrderTypeSelector(),
+                    ),
+                    Expanded(
+                      child: Row(
+                        children: [
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            width: isContainerVisible ? MediaQuery.of(context).size.width * 0.22 : 0,
+                            child: Container(
+                              decoration: const BoxDecoration(color: Colors.white),
+                              padding: EdgeInsets.only(left: 5),
+                              child: FutureBuilder<List<Map<String, dynamic>>>(
+                                future: foodDepartmentsFuture,
+                                builder: (context, snapshot) {
+                                  if (snapshot.hasError) {
+                                    return Center(child: Text('Error: ${snapshot.error}'));
+                                  } else {
+                                    List<Map<String, dynamic>> departments = snapshot.data ?? [];
+                                    return ListView.builder(
+                                      itemCount: departments.length,
+                                      itemBuilder: (context, index) {
+                                        bool isSelected = currentCategoryIndex == index;
+                                        return GestureDetector(
+                                          onTap: () {
+                                            setState(() {
+                                              currentCategoryIndex = index;
+                                              selectedDepartment = departments[index]['name'] ?? '';
+                                              foodItemsFuture = fetchFoodItems(selectedDepartment);
+                                            });
+                                          },
+                                          child: Padding(
+                                            padding: const EdgeInsets.only(bottom: 15),
+                                            child: Row(
+                                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                              children: [
+                                                Column(
+                                                  children: [
+                                                    Stack(
+                                                      alignment: Alignment.center,
+                                                      children: [
+                                                        // Background Circle
+                                                        AnimatedContainer(
+                                                          duration: const Duration(milliseconds: 300),
+                                                          curve: Curves.easeOut,
+                                                          margin: const EdgeInsets.all(5),
+                                                          height: 60,
+                                                          width: 60,
+                                                          decoration: BoxDecoration(
+                                                            color: appbar1.withOpacity(0.15),
+                                                            borderRadius: BorderRadius.circular(30),
+                                                          ),
+                                                        ),
+
+                                                        // Image with scale animation
+                                                        AnimatedScale(
+                                                          scale: isSelected ? 1.1 : 1.0,
+                                                          duration: const Duration(milliseconds: 300),
+                                                          curve: Curves.easeIn,
+                                                          child: CachedBlobImage(
+                                                            imageUrl: departments[index]['imageUrl'],
+                                                            tableName: 'departments',
+                                                            recordId: departments[index]['id'] ??
+                                                                departments[index]['name'] ??
+                                                                'unknown',
+                                                            width: 50,
+                                                            height: 50,
+                                                            fit: BoxFit.fill,
+                                                            borderRadius: BorderRadius.circular(100),
+                                                            placeholder: const SizedBox(
                                                               width: 20,
                                                               height: 20,
                                                               child: CircularProgressIndicator(
                                                                 strokeWidth: 2,
                                                               ),
                                                             ),
-                                                      ),
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
 
-                                                      //  ImageNetwork(
-                                                      //   onTap: () {
-                                                      //     setState(() {
-                                                      //       currentCategoryIndex =
-                                                      //           index;
-                                                      //       selectedDepartment =
-                                                      //           departments[index]
-                                                      //                   [
-                                                      //                   'name'] ??
-                                                      //               '';
-                                                      //     });
-                                                      //     foodItemsFuture =
-                                                      //         fetchFoodItems(
-                                                      //             selectedDepartment);
-                                                      //   },
-                                                      //   image:
-                                                      //       departments[index]
-                                                      //           ['imageUrl'],
-                                                      //   imageCache:
-                                                      //       CachedNetworkImageProvider(
-                                                      //     departments[index]
-                                                      //         ['imageUrl'],
-                                                      //   ),
-                                                      //   height: 40,
-                                                      //   width: 30,
-                                                      //   borderRadius:
-                                                      //       BorderRadius
-                                                      //           .circular(100),
-                                                      //   fitWeb: BoxFitWeb.cover,
-                                                      // ),
+                                                    // Text with animation
+                                                    SizedBox(
+                                                      width: 60,
+                                                      child: AnimatedDefaultTextStyle(
+                                                        duration: const Duration(milliseconds: 300),
+                                                        curve: Curves.easeOut,
+                                                        style: TextStyle(
+                                                          fontSize: 13,
+                                                          // fontFamily: 'tabfont',
+                                                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w400,
+                                                          color: isSelected ? Colors.black : Colors.grey,
+                                                        ),
+                                                        child: Text(
+                                                          departments[index]['name'] ?? 'N/A',
+                                                          textAlign: TextAlign.center,
+                                                          maxLines: 2,
+                                                          overflow: TextOverflow.ellipsis,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+
+                                                // Side indicator
+                                                AnimatedContainer(
+                                                  duration: const Duration(milliseconds: 300),
+                                                  curve: Curves.easeOut,
+                                                  height: 70,
+                                                  width: 5,
+                                                  decoration: BoxDecoration(
+                                                    color: isSelected ? appbar1 : Colors.white,
+                                                    borderRadius: const BorderRadius.only(
+                                                      topLeft: Radius.circular(21),
+                                                      bottomLeft: Radius.circular(21),
                                                     ),
                                                   ),
-                                                ],
-                                              ),
-                                              Text(
-                                                departments[index]['name'] ??
-                                                    'N/A',
-                                                textAlign: TextAlign.center,
-                                                style: TextStyle(
-                                                  fontSize: 14,
-                                                  fontFamily: 'fontmain',
-                                                  fontWeight:
-                                                      currentCategoryIndex ==
-                                                              index
-                                                          ? FontWeight.bold
-                                                          : FontWeight.w400,
-                                                  color: currentCategoryIndex ==
-                                                          index
-                                                      ? Colors.black
-                                                      : Colors.grey,
                                                 ),
-                                              ),
-                                            ],
-                                          ),
-                                          Container(
-                                            height: 100,
-                                            width: 5,
-                                            decoration: BoxDecoration(
-                                              color:
-                                                  currentCategoryIndex == index
-                                                      ? appbar1
-                                                      : Colors.white,
-                                              borderRadius:
-                                                  const BorderRadius.only(
-                                                topLeft: Radius.circular(21),
-                                                bottomLeft: Radius.circular(21),
-                                              ),
+                                              ],
                                             ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  );
-                                },
-                              );
-                            }
-                          },
-                        ),
-                      ),
-                    ),
-                    // MAIN BODY
-                    Expanded(
-                      child: Column(
-                        children: [
-                          printprovider.posts.isNotEmpty
-                              ? BillCart(
-                                 isContainerVisible: isContainerVisible,
-                                 isRestaurantScreen: true,
-                                  adminUid: adminUid,
-                                  phoneNo: widget.phoneNo,
-                                  onCartCleared: () {
-                                    setState(() {
-                                      selectedItemsDetails.clear();
-                                      subtotal = 0.0;
-                                    });
-                                  },
-                                  onCartUpdated: (List<Map<String, dynamic>> updatedItems, double updatedTotal) {
-                                    setState(() {
-                                      selectedItemsDetails = updatedItems;
-                                      subtotal = updatedTotal;
-                                    });
-                                  },
-                                  orderBottomSheet: () {
-                                    showSaveOrderBottomSheet(
-                                      context: context,
-                                      formKey: _formKey,
-                                      nameController: userNameController,
-                                      mobileController: userPhoneController,
-                                      itemCount: selectedItemsDetails.length,
-                                      totalAmount: subtotal,
-                                      primaryColor: primaryColor,
-                                      onSave: () {
-                                        _saveDataAndNavigate();
-                                        printprovider.clearCart();
-                                        userNameController.clear();
-                                        userPhoneController.clear();
-                                      },
-                                    );
-                                  },
-                                )
-                              : const SizedBox(),
-                          Expanded(
-                            child: Container(
-                              child: FutureBuilder(
-                                future: foodItemsFuture,
-                                builder: (context,
-                                    AsyncSnapshot<List<Map<String, dynamic>>>
-                                        snapshot) {
-                                  if (snapshot.connectionState ==
-                                      ConnectionState.waiting) {
-                                    return const Center(
-                                      child: SizedBox(
-                                        width: 30,
-                                        height: 30,
-                                        child: CircularProgressIndicator(
-                                          color: primaryColor,
-                                          strokeWidth: 2,
-                                        ),
-                                      ),
-                                    );
-                                  } else if (snapshot.hasError) {
-                                    return Center(
-                                        child: Text('Error: ${snapshot.error}'));
-                                  } else {
-                                    List<Map<String, dynamic>> foodItemsList =
-                                        snapshot.data ?? [];
-                                    return LayoutBuilder(
-                                      builder: (context, constraints) {
-                                        int crossAxisCount;
-                                        double childAspectRatio;
-                                        double horizontalPadding;
-                                        double spacing;
-                                        double availableWidth =
-                                            constraints.maxWidth;
-
-                                        if (availableWidth > 1400) {
-                                          crossAxisCount =
-                                              isContainerVisible ? 4 : 5;
-                                          childAspectRatio = 0.80;
-                                          horizontalPadding = 16;
-                                          spacing = 16;
-                                        } else if (availableWidth > 1000) {
-                                          crossAxisCount =
-                                              isContainerVisible ? 3 : 4;
-                                          childAspectRatio = 0.78;
-                                          horizontalPadding = 12;
-                                          spacing = 12;
-                                        } else if (availableWidth > 700) {
-                                          crossAxisCount =
-                                              isContainerVisible ? 2 : 3;
-                                          childAspectRatio = 0.75;
-                                          horizontalPadding = 10;
-                                          spacing = 10;
-                                        } else {
-                                          // For smaller screens (phones), always 2 columns
-                                          crossAxisCount = 2;
-                                          childAspectRatio = 0.72;
-                                          horizontalPadding = 8;
-                                          spacing = 8;
-                                        }
-
-                                        return Padding(
-                                          padding: EdgeInsets.symmetric(
-                                            horizontal: horizontalPadding,
-                                            vertical: 8,
-                                          ),
-                                          child: GridView.builder(
-                                            controller: _gridViewController,
-                                            gridDelegate:
-                                                SliverGridDelegateWithFixedCrossAxisCount(
-                                              crossAxisCount: crossAxisCount,
-                                              childAspectRatio: childAspectRatio,
-                                              crossAxisSpacing: spacing,
-                                              mainAxisSpacing: spacing,
-                                            ),
-                                            itemCount: foodItemsList.length,
-                                            itemBuilder: (context, index) {
-                                              final item = foodItemsList[index];
-                                              return GestureDetector(
-                                                onTap: () {
-                                                  audioPlayer.play(AssetSource(
-                                                      'sounds/beep.mp3'));
-                                                  setState(() {
-                                                    isTapped = true;
-                                                    selectedItemName =
-                                                        item['name'] ?? '';
-                                                    selectedItemPrice = (double.tryParse(
-                                                        item['price']?.toString() ?? '0') ?? 0).toInt();
-
-                                                    int existingIndex =
-                                                        selectedItemsDetails
-                                                            .indexWhere(
-                                                      (element) =>
-                                                          element['name'] ==
-                                                              selectedItemName &&
-                                                          element['price'] ==
-                                                              selectedItemPrice,
-                                                    );
-
-                                                    if (existingIndex != -1) {
-                                                      selectedItemsDetails[
-                                                              existingIndex]
-                                                          ['quantity'] += 1;
-                                                    } else {
-                                                      selectedItemsDetails.add({
-                                                        'name': selectedItemName,
-                                                        'price':
-                                                            selectedItemPrice,
-                                                        'quantity': 1,
-                                                      });
-                                                    }
-
-                                                    subtotal += selectedItemPrice;
-                                                    printprovider.additem(
-                                                        selectedItemsDetails,
-                                                        subtotal);
-
-                                                    WidgetsBinding.instance
-                                                        .addPostFrameCallback(
-                                                            (_) {
-                                                      if (_listScrollController
-                                                          .hasClients) {
-                                                        _listScrollController
-                                                            .jumpTo(
-                                                          _listScrollController
-                                                              .position
-                                                              .maxScrollExtent,
-                                                        );
-                                                      }
-                                                    });
-                                                  });
-                                                },
-                                                child: MenuItem(
-                                                  context: context,
-                                                  imagePath:
-                                                      item['imagePath']?.toString() ?? '',
-                                                  text: item['name']?.toString() ?? '',
-                                                  code: item['foodCode']?.toString() ?? '',
-                                                  price: item['price']?.toString() ?? '0',
-                                                  stocks: item['stocks']?.toString() ?? 'N/A',
-                                                ),
-                                              );
-                                            },
                                           ),
                                         );
                                       },
@@ -907,6 +640,182 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                                   }
                                 },
                               ),
+                            ),
+                          ),
+
+                          // MAIN BODY
+                          Expanded(
+                            child: Column(
+                              children: [
+                                printprovider.posts.isNotEmpty
+                                    ? BillCart(
+                                        isContainerVisible: isContainerVisible,
+                                        isRestaurantScreen: true,
+                                        adminUid: adminUid,
+                                        phoneNo: widget.phoneNo,
+                                        onCartCleared: () {
+                                          setState(() {
+                                            selectedItemsDetails.clear();
+                                            subtotal = 0.0;
+                                          });
+                                        },
+                                        onCartUpdated: (List<Map<String, dynamic>> updatedItems, double updatedTotal) {
+                                          setState(() {
+                                            selectedItemsDetails = updatedItems;
+                                            subtotal = updatedTotal;
+                                          });
+                                        },
+                                        orderBottomSheet: () {
+                                          showSaveOrderBottomSheet(
+                                            context: context,
+                                            formKey: _formKey,
+                                            nameController: userNameController,
+                                            addressController: addressController,
+                                            gstController: gstController,
+                                            mobileController: userPhoneController,
+                                            itemCount: selectedItemsDetails.length,
+                                            totalAmount: subtotal,
+                                            primaryColor: primaryColor,
+                                            onSave: () {
+                                              _saveDataAndNavigate();
+                                              printprovider.clearCart();
+                                              userNameController.clear();
+                                              userPhoneController.clear();
+                                            },
+                                          );
+                                        },
+                                      )
+                                    : const SizedBox(),
+                                Expanded(
+                                  child: Container(
+                                    child: FutureBuilder(
+                                      future: foodItemsFuture,
+                                      builder: (context, AsyncSnapshot<List<Map<String, dynamic>>> snapshot) {
+                                        if (snapshot.connectionState == ConnectionState.waiting) {
+                                          return const Center(
+                                            child: SizedBox(
+                                              width: 30,
+                                              height: 30,
+                                              child: CircularProgressIndicator(
+                                                color: primaryColor,
+                                                strokeWidth: 2,
+                                              ),
+                                            ),
+                                          );
+                                        } else if (snapshot.hasError) {
+                                          return Center(child: Text('Error: ${snapshot.error}'));
+                                        } else {
+                                          List<Map<String, dynamic>> foodItemsList = snapshot.data ?? [];
+                                          return LayoutBuilder(
+                                            builder: (context, constraints) {
+                                              int crossAxisCount;
+                                              double childAspectRatio;
+                                              double horizontalPadding;
+                                              double spacing;
+                                              double availableWidth = constraints.maxWidth;
+
+                                              if (availableWidth > 1400) {
+                                                crossAxisCount = isContainerVisible ? 4 : 5;
+                                                childAspectRatio = 0.80;
+                                                horizontalPadding = 16;
+                                                spacing = 16;
+                                              } else if (availableWidth > 1000) {
+                                                crossAxisCount = isContainerVisible ? 3 : 4;
+                                                childAspectRatio = 0.78;
+                                                horizontalPadding = 12;
+                                                spacing = 12;
+                                              } else if (availableWidth > 700) {
+                                                crossAxisCount = isContainerVisible ? 2 : 3;
+                                                childAspectRatio = 0.75;
+                                                horizontalPadding = 10;
+                                                spacing = 10;
+                                              } else {
+                                                // For smaller screens (phones), always 2 columns
+                                                crossAxisCount = 2;
+                                                childAspectRatio = 0.65;
+                                                horizontalPadding = 8;
+                                                spacing = 10;
+                                              }
+
+                                              return Padding(
+                                                padding: EdgeInsets.symmetric(
+                                                  horizontal: horizontalPadding,
+                                                  vertical: 8,
+                                                ),
+                                                child: GridView.builder(
+                                                  controller: _gridViewController,
+                                                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                                    crossAxisCount: crossAxisCount,
+                                                    childAspectRatio: childAspectRatio,
+                                                    crossAxisSpacing: spacing,
+                                                    mainAxisSpacing: spacing,
+                                                  ),
+                                                  itemCount: foodItemsList.length,
+                                                  itemBuilder: (context, index) {
+                                                    final item = foodItemsList[index];
+                                                    return MenuItem(
+                                                      context: context,
+                                                      imagePath: item['imagePath']?.toString() ?? '',
+                                                      text: item['name']?.toString() ?? '',
+                                                      code: item['foodCode']?.toString() ?? '',
+                                                      price: item['price']?.toString() ?? '0',
+                                                      stocks: item['stocks']?.toString() ?? 'N/A',
+                                                      baseVariant: item['baseVariant']?.toString(),
+                                                      variants: item['variants'] as List<dynamic>?,
+                                                      onAdd: (name, price, quantity, unit, unitQty) {
+                                                        audioPlayer.play(AssetSource('sounds/beep.mp3'));
+
+                                                        setState(() {
+                                                          isTapped = true;
+
+                                                          final displayName =
+                                                              unit.isNotEmpty ? '$name ($unitQty $unit)' : name;
+
+                                                          final parsedPrice = (double.tryParse(price) ?? 0).toInt();
+
+                                                          // 🔍 Check if same item + same unit already exists
+                                                          final existingIndex = selectedItemsDetails.indexWhere(
+                                                            (element) =>
+                                                                element['name'] == displayName &&
+                                                                element['price'] == parsedPrice,
+                                                          );
+
+                                                          if (existingIndex != -1) {
+                                                            selectedItemsDetails[existingIndex]['quantity'] += quantity;
+                                                          } else {
+                                                            selectedItemsDetails.add({
+                                                              'name': displayName,
+                                                              'price': parsedPrice,
+                                                              'quantity': quantity,
+                                                              'unit': unit,
+                                                            });
+                                                          }
+
+                                                          subtotal += parsedPrice * quantity;
+
+                                                          printprovider.additem(selectedItemsDetails, subtotal);
+
+                                                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                                                            if (_listScrollController.hasClients) {
+                                                              _listScrollController.jumpTo(
+                                                                _listScrollController.position.maxScrollExtent,
+                                                              );
+                                                            }
+                                                          });
+                                                        });
+                                                      },
+                                                    );
+                                                  },
+                                                ),
+                                              );
+                                            },
+                                          );
+                                        }
+                                      },
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
@@ -967,7 +876,6 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
       'userName': userNameController.text,
       'details': selectedItemsDetails,
       'totalAmount': subtotal,
-      
     };
 
     final box = await Hive.openBox('userBox');
@@ -983,12 +891,11 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
   @override
   void dispose() {
     _connectionSubscription?.cancel();
-  
-  userNameController.dispose();
-  userPhoneController.dispose();
-  _listScrollController.dispose();
-  audioPlayer.dispose();
+
+    userNameController.dispose();
+    userPhoneController.dispose();
+    _listScrollController.dispose();
+    audioPlayer.dispose();
     super.dispose();
   }
- 
 }

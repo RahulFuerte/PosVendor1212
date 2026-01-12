@@ -170,6 +170,8 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
           formKey: formKey,
           nameController: nameController,
           mobileController: mobileController,
+          gstController: nameController,
+          addressController: mobileController,
           itemCount: itemCount,
           totalAmount: totalAmount,
           primaryColor: primaryColor,
