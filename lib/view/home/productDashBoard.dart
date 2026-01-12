@@ -267,746 +267,471 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
     selectedItemsDetails = printprovider.posts;
     subtotal = printprovider.total;
 
-    return PopScope(
-      canPop: false,
-      onPopInvoked: (bool didPop) async {
-        // Handle double back press to exit the app
-        DateTime now = DateTime.now();
-        if (currentBackPressTime == null || now.difference(currentBackPressTime!) > const Duration(seconds: 2)) {
-          currentBackPressTime = now;
-          Fluttertoast.showToast(
-            msg: "Press back again to exit",
-            toastLength: Toast.LENGTH_SHORT,
-            gravity: ToastGravity.BOTTOM,
-            timeInSecForIosWeb: 2,
-            backgroundColor: Colors.grey,
-            textColor: Colors.white,
-            fontSize: 16.0,
-          );
-        } else {
-          // Exit the app
-          exit(0);
-        }
-      },
-      child: Scaffold(
-        backgroundColor: Colors.green[50],
-        appBar: AppBar(
-          backgroundColor: Colors.white,
-          elevation: 0,
-          scrolledUnderElevation: 0,
-          title: isSearching
-              ? Container(
-                  height: 45,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(25),
-                  ),
-                  child: TextField(
-                    controller: searchController,
-                    autofocus: true,
-                    onChanged: (value) {
-                      search1 = value;
+    return Scaffold(
+      backgroundColor: Colors.green[50],
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        title: isSearching
+            ? Container(
+                height: 45,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(25),
+                ),
+                child: TextField(
+                  controller: searchController,
+                  autofocus: true,
+                  onChanged: (value) {
+                    search1 = value;
+                    setState(() {});
+                  },
+                  style: const TextStyle(fontSize: 14),
+                  decoration: const InputDecoration(
+                      hintText: "Search Item Name",
+                      prefixIcon: Icon(Icons.search, size: 18),
+                      border: InputBorder.none,
+                      isDense: true,
+                      contentPadding: EdgeInsets.all(15)),
+                ),
+              )
+            : const OfflineStatusIndicator(showWhenOnline: true),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 10.0),
+            child: isSearching
+                ? GestureDetector(
+                    child: CircleAvatar(
+                        maxRadius: 20,
+                        backgroundColor: appbar1,
+                        child: const Icon(
+                          Icons.search_off,
+                          size: 22,
+                          color: Colors.white,
+                        )),
+                    onTap: () {
+                      searchController.clear();
+                      search1 = '';
+                      isSearching = false;
                       setState(() {});
                     },
-                    style: const TextStyle(fontSize: 14),
-                    decoration: const InputDecoration(
-                        hintText: "Search Item Name",
-                        prefixIcon: Icon(Icons.search, size: 18),
-                        border: InputBorder.none,
-                        isDense: true,
-                        contentPadding: EdgeInsets.all(15)),
+                  )
+                : GestureDetector(
+                    child: CircleAvatar(
+                        maxRadius: 20,
+                        backgroundColor: appbar1,
+                        child: const Icon(
+                          Icons.search,
+                          size: 22,
+                          color: Colors.white,
+                        )),
+                    onTap: () {
+                      isSearching = true;
+                      setState(() {});
+                    },
                   ),
-                )
-              : const OfflineStatusIndicator(showWhenOnline: true),
-          actions: [
-            Padding(
-              padding: const EdgeInsets.only(right: 10.0),
-              child: isSearching
-                  ? GestureDetector(
-                      child: CircleAvatar(
-                          maxRadius: 20,
-                          backgroundColor: appbar1,
-                          child: const Icon(
-                            Icons.search_off,
-                            size: 22,
-                            color: Colors.white,
-                          )),
-                      onTap: () {
-                        searchController.clear();
-                        search1 = '';
-                        isSearching = false;
-                        setState(() {});
-                      },
-                    )
-                  : GestureDetector(
-                      child: CircleAvatar(
-                          maxRadius: 20,
-                          backgroundColor: appbar1,
-                          child: const Icon(
-                            Icons.search,
-                            size: 22,
-                            color: Colors.white,
-                          )),
-                      onTap: () {
-                        isSearching = true;
-                        setState(() {});
-                      },
-                    ),
-            ),
-          ],
-        ),
-        drawer: MyDrawer(phoneNo: widget.phoneNo),
-        body: Column(
-          children: [
-            banner.OfflineStatusBanner(adminUid: adminUid),
-            Expanded(
-              child: FutureBuilder(
-                future: foodItemsFuture,
-                builder: (context, AsyncSnapshot<List<Map<String, dynamic>>> snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return Center(
-                      child: CircularProgressIndicator(
-                        color: appbar1,
-                      ),
-                    );
-                  } else if (snapshot.hasError) {
-                    return Center(
-                      child: Text('Error: ${snapshot.error}'),
-                    );
-                  } else {
-                    List<Map<String, dynamic>> foodItemsList = snapshot.data ?? [];
-                    // Filter items based on search
-                    List<Map<String, dynamic>> filteredItems = foodItemsList
-                        .where((item) => item['name'].toString().toLowerCase().contains(search1.toLowerCase()))
-                        .toList();
-
-                    return Column(
-                      children: [
-                        Container(
-                          height: 50,
-                          margin: EdgeInsets.symmetric(vertical: 5, horizontal: 10),
-                          width: double.infinity,
-                          child: const OrderTypeSelector(),
-                        ),
-
-                        // billCountContainer(),
-                        Expanded(
-                          child: LayoutBuilder(builder: (context, constraints) {
-                            // Calculate number of columns based on screen width
-                            int crossAxisCount;
-                            double childAspectRatio;
-                            double horizontalPadding;
-                            double spacing;
-                            double availableWidth = constraints.maxWidth;
-
-                            if (availableWidth > 1400) {
-                              crossAxisCount = 5;
-                              childAspectRatio = 0.80;
-                              horizontalPadding = 16;
-                              spacing = 16;
-                            } else if (availableWidth > 1000) {
-                              crossAxisCount = 4;
-                              childAspectRatio = 0.78;
-                              horizontalPadding = 12;
-                              spacing = 12;
-                            } else if (availableWidth > 700) {
-                              crossAxisCount = 3;
-                              childAspectRatio = 0.75;
-                              horizontalPadding = 10;
-                              spacing = 10;
-                            } else {
-                              // For smaller screens (phones), always 2 columns
-                              crossAxisCount = 3;
-                              childAspectRatio = 0.6;
-                              horizontalPadding = 5;
-                              spacing = 10;
-                            }
-
-                            return Padding(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: horizontalPadding,
-                                vertical: 8,
-                              ),
-                              child: GridView.builder(
-                                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: crossAxisCount,
-                                  childAspectRatio: childAspectRatio,
-                                  crossAxisSpacing: spacing,
-                                  mainAxisSpacing: spacing,
-                                ),
-                                itemCount: filteredItems.length,
-                                itemBuilder: (context, index) {
-                                  final item = filteredItems[index];
-                                  return MenuItem(
-                                    context: context,
-                                    imagePath: item['imagePath']?.toString() ?? '',
-                                    text: item['name']?.toString() ?? '',
-                                    code: item['foodCode']?.toString() ?? '',
-                                    price: item['price']?.toString() ?? '0',
-                                    imagerecordId: item['id'] ?? item['name'] ?? 'unknown',
-                                    stocks: item['stocks']?.toString() ?? 'N/A',
-                                    baseVariant: item['baseVariant']?.toString(),
-                                    variants: item['variants'] as List<dynamic>?,
-                                    onAdd: (name, price, quantity, unit, unitQty) {
-                                      audioPlayer.play(AssetSource('sounds/beep.mp3'));
-
-                                      setState(() {
-                                        isTapped = true;
-
-                                        final displayName = unit.isNotEmpty ? '$name ($unitQty $unit)' : name;
-
-                                        final parsedPrice = (double.tryParse(price) ?? 0).toInt();
-
-                                        // 🔍 Check if same item + same unit already exists
-                                        final existingIndex = selectedItemsDetails.indexWhere(
-                                          (element) =>
-                                              element['name'] == displayName && element['price'] == parsedPrice,
-                                        );
-
-                                        if (existingIndex != -1) {
-                                          selectedItemsDetails[existingIndex]['quantity'] += quantity;
-                                        } else {
-                                          selectedItemsDetails.add({
-                                            'name': displayName,
-                                            'price': parsedPrice,
-                                            'quantity': quantity,
-                                            'unit': unit,
-                                          });
-                                        }
-
-                                        subtotal += parsedPrice * quantity;
-
-                                        printprovider.additem(selectedItemsDetails, subtotal);
-
-                                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                                          if (_listScrollController.hasClients) {
-                                            _listScrollController.jumpTo(
-                                              _listScrollController.position.maxScrollExtent,
-                                            );
-                                          }
-                                        });
-                                      });
-                                    },
-                                  );
-                                },
-                              ),
-                            );
-                          }),
-                        ),
-                        printprovider.posts.isEmpty
-                            ? const SizedBox()
-                            : BillCart(
-                                adminUid: adminUid,
-                                phoneNo: widget.phoneNo,
-                                onCartCleared: () {
-                                  setState(() {
-                                    selectedItemsDetails.clear();
-                                    subtotal = 0.0;
-                                  });
-                                },
-                                onCartUpdated: (List<Map<String, dynamic>> updatedItems, double updatedTotal) {
-                                  setState(() {
-                                    selectedItemsDetails = updatedItems;
-                                    subtotal = updatedTotal;
-                                  });
-                                },
-                                orderBottomSheet: () {
-                                  showSaveOrderBottomSheet(
-                                    context: context,
-                                    formKey: _formKey,
-                                    nameController: nameController,
-                                    mobileController: mobileController,
-                                    itemCount: selectedItemsDetails.length,
-                                    addressController: addressController,
-                                    gstController: gstController,
-                                    totalAmount: subtotal,
-                                    primaryColor: primaryColor,
-                                    onSave: () {
-                                      _saveDataAndNavigate();
-                                      printprovider.clearCart();
-                                      nameController.clear();
-                                      mobileController.clear();
-                                      developer.log('Order saved for ${nameController.text}, ${mobileController.text}',
-                                          name: 'ProductDashBoard');
-                                    },
-                                  );
-                                },
-                              ),
-                      ],
-                    );
-                  }
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget billCountContainer() {
-    final printprovider = Provider.of<PrintProvider>(
-      context,
-    );
-
-    return Container(
-      margin: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        gradient: LinearGradient(
-          colors: [Colors.white, Colors.grey[50]!],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.3),
-            spreadRadius: 2,
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          )
+          ),
         ],
       ),
-      child: Column(
+      drawer: MyDrawer(phoneNo: widget.phoneNo),
+      body: Column(
         children: [
-          // Header
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: primaryColor.withOpacity(0.1),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(20),
-                topRight: Radius.circular(20),
-              ),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Row(
-                  children: [
-                    Icon(
-                      Icons.shopping_cart_outlined,
-                      color: primaryColor,
-                      size: 20,
+          banner.OfflineStatusBanner(adminUid: adminUid),
+          Expanded(
+            child: FutureBuilder(
+              future: foodItemsFuture,
+              builder: (context, AsyncSnapshot<List<Map<String, dynamic>>> snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return Center(
+                    child: CircularProgressIndicator(
+                      color: appbar1,
                     ),
-                    Text(
-                      ' My Cart',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontFamily: 'tabfont',
-                        fontWeight: FontWeight.bold,
-                        color: primaryColor,
-                      ),
-                    ),
-                  ],
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: primaryColor,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    '${selectedItemsDetails.length} Items',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Items List
-          Container(
-            height: MediaQuery.of(context).size.height * 0.15,
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: ListView.builder(
-              controller: _listScrollController,
-              itemCount: printprovider.posts.length,
-              itemBuilder: (context, index) {
-                return Container(
-                  margin: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 4,
-                  ),
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: Colors.grey.withOpacity(0.2),
-                    ),
-                  ),
-                  child: Row(
+                  );
+                } else if (snapshot.hasError) {
+                  return Center(
+                    child: Text('Error: ${snapshot.error}'),
+                  );
+                } else {
+                  List<Map<String, dynamic>> foodItemsList = snapshot.data ?? [];
+                  // Filter items based on search
+                  List<Map<String, dynamic>> filteredItems = foodItemsList
+                      .where((item) => item['name'].toString().toLowerCase().contains(search1.toLowerCase()))
+                      .toList();
+    
+                  return Column(
                     children: [
                       Container(
-                        width: 4,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: appbar1,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
+                        height: 50,
+                        margin: EdgeInsets.symmetric(vertical: 5, horizontal: 10),
+                        width: double.infinity,
+                        child: const OrderTypeSelector(),
                       ),
-                      const SizedBox(width: 12),
+    
+                      // billCountContainer(),
                       Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              selectedItemsDetails[index]['name'],
-                              style: const TextStyle(
-                                overflow: TextOverflow.ellipsis,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.black87,
-                              ),
+                        child: LayoutBuilder(builder: (context, constraints) {
+                          // Calculate number of columns based on screen width
+                          int crossAxisCount;
+                          double childAspectRatio;
+                          double horizontalPadding;
+                          double spacing;
+                          double availableWidth = constraints.maxWidth;
+    
+                          if (availableWidth > 1400) {
+                            crossAxisCount = 5;
+                            childAspectRatio = 0.80;
+                            horizontalPadding = 16;
+                            spacing = 16;
+                          } else if (availableWidth > 1000) {
+                            crossAxisCount = 4;
+                            childAspectRatio = 0.78;
+                            horizontalPadding = 12;
+                            spacing = 12;
+                          } else if (availableWidth > 700) {
+                            crossAxisCount = 3;
+                            childAspectRatio = 0.75;
+                            horizontalPadding = 10;
+                            spacing = 10;
+                          } else {
+                            // For smaller screens (phones), always 2 columns
+                            crossAxisCount = 3;
+                            childAspectRatio = 0.7;
+                            horizontalPadding = 8;
+                            spacing = 8;
+                          }
+    
+                          return Padding(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: horizontalPadding,
+                              vertical: 8,
                             ),
-                            const SizedBox(height: 2),
-                            Text(
-                              '₹${selectedItemsDetails[index]['price']} × ${selectedItemsDetails[index]['quantity']}',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey[600],
-                                fontWeight: FontWeight.w500,
+                            child: GridView.builder(
+                              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: crossAxisCount,
+                                childAspectRatio: childAspectRatio,
+                                crossAxisSpacing: spacing,
+                                mainAxisSpacing: spacing,
                               ),
+                              itemCount: filteredItems.length,
+                              itemBuilder: (context, index) {
+                                final item = filteredItems[index];
+                                return MenuItem(
+                                  context: context,
+                                  imagePath: item['imagePath']?.toString() ?? '',
+                                  text: item['name']?.toString() ?? '',
+                                  code: item['foodCode']?.toString() ?? '',
+                                  price: item['price']?.toString() ?? '0',
+                                  imagerecordId: item['id'] ?? item['name'] ?? 'unknown',
+                                  stocks: item['stocks']?.toString() ?? 'N/A',
+                                  baseVariant: item['baseVariant']?.toString(),
+                                  variants: item['variants'] as List<dynamic>?,
+                                  onAdd: (name, price, quantity, unit, unitQty) {
+                                    audioPlayer.play(AssetSource('sounds/beep.mp3'));
+    
+                                    setState(() {
+                                      isTapped = true;
+    
+                                      final displayName = unit.isNotEmpty ? '$name ($unitQty $unit)' : name;
+    
+                                      final parsedPrice = (double.tryParse(price) ?? 0).toInt();
+    
+                                      // 🔍 Check if same item + same unit already exists
+                                      final existingIndex = selectedItemsDetails.indexWhere(
+                                        (element) =>
+                                            element['name'] == displayName && element['price'] == parsedPrice,
+                                      );
+    
+                                      if (existingIndex != -1) {
+                                        selectedItemsDetails[existingIndex]['quantity'] += quantity;
+                                      } else {
+                                        selectedItemsDetails.add({
+                                          'name': displayName,
+                                          'price': parsedPrice,
+                                          'quantity': quantity,
+                                          'unit': unit,
+                                        });
+                                      }
+    
+                                      subtotal += parsedPrice * quantity;
+    
+                                      printprovider.additem(selectedItemsDetails, subtotal);
+    
+                                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                                        if (_listScrollController.hasClients) {
+                                          _listScrollController.jumpTo(
+                                            _listScrollController.position.maxScrollExtent,
+                                          );
+                                        }
+                                      });
+                                    });
+                                  },
+                                );
+                              },
                             ),
-                          ],
-                        ),
+                          );
+                        }),
                       ),
-                      // Quantity Controls
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 4,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.grey[100],
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Row(
-                          children: [
-                            InkWell(
-                              onTap: () {
+                      printprovider.posts.isEmpty
+                          ? const SizedBox()
+                          : BillCart(
+                              adminUid: adminUid,
+                              phoneNo: widget.phoneNo,
+                              onCartCleared: () {
                                 setState(() {
-                                  if (selectedItemsDetails[index]['quantity'] > 1) {
-                                    // Just decrease quantity
-                                    selectedItemsDetails[index]['quantity']--;
-                                    subtotal -= selectedItemsDetails[index]['price'];
-                                  } else {
-                                    // Quantity is 1 → remove item entirely
-                                    subtotal -= selectedItemsDetails[index]['price'];
-                                    selectedItemsDetails.removeAt(index);
-                                  }
-                                  // Update provider
-                                  printprovider.additem(selectedItemsDetails, subtotal);
+                                  selectedItemsDetails.clear();
+                                  subtotal = 0.0;
                                 });
                               },
-                              child: Container(
-                                padding: const EdgeInsets.all(4),
-                                child: Icon(
-                                  Icons.remove,
-                                  color: appbar1,
-                                  size: 18,
-                                ),
-                              ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 8),
-                              child: Text(
-                                "${selectedItemsDetails[index]['quantity']}",
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black,
-                                ),
-                              ),
-                            ),
-                            InkWell(
-                              onTap: () {
+                              onCartUpdated: (List<Map<String, dynamic>> updatedItems, double updatedTotal) {
                                 setState(() {
-                                  selectedItemsDetails[index]['quantity']++;
-                                  subtotal += selectedItemsDetails[index]['price'];
-                                  printprovider.additem(
-                                    selectedItemsDetails,
-                                    subtotal,
-                                  );
+                                  selectedItemsDetails = updatedItems;
+                                  subtotal = updatedTotal;
                                 });
                               },
-                              child: Container(
-                                padding: const EdgeInsets.all(4),
-                                child: Icon(
-                                  Icons.add,
-                                  color: appbar1,
-                                  size: 18,
-                                ),
-                              ),
+                              orderBottomSheet: () {
+                                showSaveOrderBottomSheet(
+                                  context: context,
+                                  formKey: _formKey,
+                                  nameController: nameController,
+                                  mobileController: mobileController,
+                                  itemCount: selectedItemsDetails.length,
+                                  addressController: addressController,
+                                  gstController: gstController,
+                                  totalAmount: subtotal,
+                                  primaryColor: primaryColor,
+                                  onSave: () {
+                                    _saveDataAndNavigate();
+                                    printprovider.clearCart();
+                                    nameController.clear();
+                                    mobileController.clear();
+                                    developer.log('Order saved for ${nameController.text}, ${mobileController.text}',
+                                        name: 'ProductDashBoard');
+                                  },
+                                );
+                              },
                             ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      // Delete Button
-                      InkWell(
-                        onTap: () {
-                          setState(() {
-                            subtotal -= selectedItemsDetails[index]['price'] * selectedItemsDetails[index]['quantity'];
-                            selectedItemsDetails.removeAt(index);
-                            printprovider.additem(selectedItemsDetails, subtotal);
-                          });
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: Colors.red.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(
-                            Icons.delete_outline,
-                            color: Colors.red,
-                            size: 20,
-                          ),
-                        ),
-                      ),
                     ],
-                  ),
-                );
+                  );
+                }
               },
             ),
           ),
-
-          // Footer with Total and Actions
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: Colors.grey[100],
-              borderRadius: const BorderRadius.only(
-                bottomLeft: Radius.circular(20),
-                bottomRight: Radius.circular(20),
-              ),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Total Amount',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[600],
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    Text(
-                      "₹$subtotal",
-                      style: const TextStyle(
-                        fontSize: 20,
-                        color: Colors.black,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-                Row(
-                  children: [
-                    const SizedBox(width: 10),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.grey.withOpacity(0.3),
-                            blurRadius: 4,
-                            offset: const Offset(0, 2),
-                          )
-                        ],
-                      ),
-                      child: IconButton(
-                        icon: Icon(
-                          Icons.bookmark_outline,
-                          color: appbar1,
-                          size: 25,
-                        ),
-                        onPressed: () async {
-                          // showSaveOrderBottomSheet(
-                          //   context: context,
-                          //   formKey: _formKey,
-                          //   nameController: userNameController,
-                          //   mobileController: mobileController,
-                          //   itemCount: selectedItemsDetails.length,
-                          //   totalAmount: subtotal,
-                          //   primaryColor: primaryColor,
-                          //   onSave: () {
-                          //     _saveDataAndNavigate();
-                          //     printprovider.clearCart();
-                          //     userNameController.clear();
-                          //   },
-                          // );
-                          showSaveOrderBottomSheet(
-                            context: context,
-                            formKey: _formKey,
-                            nameController: nameController,
-                            mobileController: mobileController,
-                            addressController: addressController,
-                            gstController: gstController,
-                            itemCount: selectedItemsDetails.length,
-                            totalAmount: subtotal,
-                            primaryColor: primaryColor,
-                            onSave: () {
-                              _saveDataAndNavigate();
-                              printprovider.clearCart();
-                              nameController.clear();
-                              mobileController.clear();
-                            },
-                          );
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [appbar1, appbar1.withOpacity(0.8)],
-                        ),
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: appbar1.withOpacity(0.4),
-                            blurRadius: 8,
-                            offset: const Offset(0, 4),
-                          )
-                        ],
-                      ),
-                      child: Consumer<PrintProvider>(
-                        builder: (context, printProvider, child) {
-                          return IconButton(
-                            icon: Icon(
-                              Icons.print,
-                              color: printProvider.isConnected ? Colors.green : Colors.white,
-                              size: 24,
-                            ),
-                            onPressed: () async {
-                              // Check if printer is connected
-                              if (!printProvider.isConnected || printProvider.selectedPrinter == null) {
-                                // Show connection dialog
-                                showDialog(
-                                  context: context,
-                                  builder: (context) => const PrinterConnectionDialog(),
-                                );
-
-                                // Show info message
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Please connect a printer first'),
-                                    backgroundColor: Colors.orange,
-                                    duration: Duration(seconds: 2),
-                                  ),
-                                );
-                                return;
-                              }
-
-                              // Check if there are items to print
-                              if (selectedItemsDetails.isEmpty) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('No items to print'),
-                                    backgroundColor: Colors.orange,
-                                    duration: Duration(seconds: 2),
-                                  ),
-                                );
-                                return;
-                              }
-
-                              // Show loading indicator
-                              showDialog(
-                                context: context,
-                                barrierDismissible: false,
-                                builder: (context) => const Center(
-                                  child: CircularProgressIndicator(),
-                                ),
-                              );
-
-                              try {
-                                // Fetch shop data
-                                final doc = await FirebaseFirestore.instance
-                                    .collection('AllAdmins')
-                                    .doc(adminUid)
-                                    .collection('customer')
-                                    .doc(widget.phoneNo)
-                                    .get();
-
-                                String shopName = 'N/A';
-                                String contact = 'N/A';
-                                String address = 'N/A';
-
-                                if (doc.exists) {
-                                  final data = doc.data();
-                                  if (data != null) {
-                                    shopName = data['shopName'] ?? 'N/A';
-                                    contact = data['contact'] ?? 'N/A';
-                                    address = data['address'] ?? 'N/A';
-                                  }
-                                }
-
-                                // Close loading dialog
-                                if (context.mounted) {
-                                  Navigator.pop(context);
-                                }
-
-                                // Print receipt directly (also saves bill)
-                                await DirectPrintHelper.printReceipt(
-                                  adminUid: widget.phoneNo,
-                                  context: context,
-                                  printer: printProvider.selectedPrinter!,
-                                  paperSize: printProvider.selectedPaperSize,
-                                  items: selectedItemsDetails,
-                                  total: subtotal,
-                                  shopName: shopName,
-                                  contact: contact,
-                                  address: address,
-                                  saveBill: true, // Save bill since it's not saved elsewhere
-                                );
-
-                                printprovider.clearCart();
-                              } catch (e) {
-                                // Close loading dialog
-                                if (context.mounted) {
-                                  Navigator.pop(context);
-                                }
-
-                                debugPrint('Error printing receipt: $e');
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text('Printing failed: $e'),
-                                      backgroundColor: Colors.red,
-                                      duration: const Duration(seconds: 3),
-                                    ),
-                                  );
-                                }
-                              }
-                            },
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
         ],
       ),
     );
   }
+
+  
+  // static Future<void> printReceipt({
+  //   required BuildContext context,
+  //   required BluetoothPrinter printer,
+  //   required PaperSize paperSize,
+  //   required List<Map<String, dynamic>> items,
+  //   required double total,
+  //   required String shopName,
+  //   required String logoUrl,
+  //   required String contact,
+  //   required String address,
+  //   required String adminUid,
+  //   String? tableNumber,
+  //   String? receiptNo, // Optional: pass existing receipt number, otherwise generate new one
+  //   bool taxEnabled = false,
+  //   double cgstPercent = 2.5,
+  //   double sgstPercent = 2.5,
+  //   bool saveBill = false, // Set to false by default since bill is usually saved before calling this
+  // }) async {
+  //   try {
+  //     // Use provided receipt number or generate a new one
+  //     final String finalReceiptNo = receiptNo ?? generateReceiptNumber();
+
+  //     final profile = await CapabilityProfile.load(name: 'XP-N160I');
+  //     final Generator generator = Generator(paperSize, profile);
+
+  //     List<int> bytes = [];
+  //     bytes += generator.setGlobalCodeTable('CP1252');
+
+  //     // Paper configuration
+  //     bool is58mm = paperSize == PaperSize.mm58;
+  //     int totalCols = is58mm ? 31 : 48;
+  //     String separator = '-' * totalCols;
+
+  //     // Smart dynamic columns
+  //     int desc = is58mm ? 12 : 22;
+  //     int qty = is58mm ? 5 : 6;
+  //     int rate = is58mm ? 6 : 8;
+  //     int amt = is58mm ? 7 : 10;
+
+  //     // Small font style
+  //     const smallFontCenter = PosStyles(align: PosAlign.center);
+  //     const smallFontLeft = PosStyles(align: PosAlign.left);
+
+  //     String timeText = "Time: ${DateFormat('hh:mm a').format(DateTime.now())}";
+  //     String receiptText = "Receipt No: $finalReceiptNo";
+
+  //     // Calculate spaces needed between left and right
+  //     int spaceCount = totalCols - timeText.length - receiptText.length;
+  //     if (spaceCount < 1) spaceCount = 1;
+
+  //     String line = timeText + ' ' * spaceCount + receiptText;
+
+  //     // Header
+
+  //     if (logoUrl.isNotEmpty) {
+  //       final logoBytes = await _loadLogoForPrinter(logoUrl, generator);
+  //       bytes += logoBytes;
+  //       bytes += generator.feed(1); // small gap after logo
+  //     }
+  //     bytes += generator.emptyLines(1);
+  //     bytes += generator.text(shopName, styles: const PosStyles(width: PosTextSize.size2, height: PosTextSize.size2));
+  //     bytes += generator.text(address, styles: smallFontCenter);
+  //     bytes += generator.text("Mob.No : $contact", styles: smallFontCenter);
+  //     bytes += generator.text(separator, styles: smallFontLeft);
+  //     // bytes += generator.text(
+  //     //   "Date : ${DateFormat('dd/MM/yyyy').format(DateTime.now())}",
+  //     //   styles: smallFontLeft,
+  //     // );
+  //     // bytes += generator.text(
+  //     //   line,
+  //     //   styles: smallFontLeft,
+  //     // );
+  //     // bytes += generator.text(separator, styles: smallFontLeft);
+  //     // // bytes += generator.text('RECEIPT', styles: smallFontCenter);
+  //     // // bytes += generator.text('Receipt No: $finalReceiptNo', styles: smallFontCenter);
+
+  //     // // // Table number (show N/A if not provided)
+  //     // if (tableNumber != null && tableNumber.isNotEmpty) {
+  //     //   bytes += generator.text(
+  //     //     'Table No: $tableNumber ',
+  //     //     styles: smallFontLeft,
+  //     //   );
+  //     // }
+
+  //     // bytes += generator.text(separator, styles: smallFontLeft);
+
+  //     // // Table header
+  //     // bytes += generator.text(
+  //     //   '${"Item".padRight(desc)}'
+  //     //   '${"Qty".padLeft(qty)}'
+  //     //   '${"Price".padLeft(rate)}'
+  //     //   '${"Amt".padLeft(amt)}',
+  //     //   styles: smallFontLeft,
+  //     // );
+
+  //     // Items
+  //     // for (var item in items) {
+  //     //   String name = item['name'].toString();
+  //     //   if (name.length > desc) {
+  //     //     name = name.substring(0, desc - 3) + "...";
+  //     //   }
+
+  //     //   int qtyValue = int.tryParse(item['quantity'].toString()) ?? 1;
+  //     //   double rateValue = double.tryParse(item['price'].toString()) ?? 0;
+  //     //   double amtValue = qtyValue * rateValue;
+
+  //     //   bytes += generator.text(
+  //     //     '${name.padRight(desc)}'
+  //     //     '${qtyValue.toString().padLeft(qty)}'
+  //     //     '${rateValue.toStringAsFixed(2).padLeft(rate)}'
+  //     //     '${amtValue.toStringAsFixed(2).padLeft(amt)}',
+  //     //     styles: smallFontLeft,
+  //     //   );
+  //     // }
+
+  //     // Calculate totals
+  //     double subtotal = total;
+  //     double grandTotal = subtotal;
+
+  //     // Subtotal
+  //     // bytes += generator.text(separator, styles: smallFontLeft);
+  //     // bytes += generator.text(
+  //     //   'SUBTOTAL'.padRight(totalCols - 8) + subtotal.toStringAsFixed(2).padLeft(8),
+  //     //   styles: smallFontLeft,
+  //     // );
+
+  //     // Only show tax if enabled
+  //     // if (taxEnabled) {
+  //     //   double cgst = subtotal * (cgstPercent / 100);
+  //     //   double sgst = subtotal * (sgstPercent / 100);
+  //     //   grandTotal = subtotal + cgst + sgst;
+
+  //     //   // CGST
+  //     //   bytes += generator.text(
+  //     //     'CGST (${cgstPercent.toStringAsFixed(1)}%)'.padRight(totalCols - 8) + cgst.toStringAsFixed(2).padLeft(8),
+  //     //     styles: smallFontLeft,
+  //     //   );
+
+  //     //   // SGST
+  //     //   bytes += generator.text(
+  //     //     'SGST (${sgstPercent.toStringAsFixed(1)}%)'.padRight(totalCols - 8) + sgst.toStringAsFixed(2).padLeft(8),
+  //     //     styles: smallFontLeft,
+  //     //   );
+  //     // }
+
+  //     // Grand Total
+  //     // bytes += generator.text(separator, styles: smallFontLeft);
+  //     // bytes += generator.text(
+  //     //   'GRAND TOTAL'.padRight(totalCols - 8) + grandTotal.toStringAsFixed(2).padLeft(8),
+  //     //   styles: smallFontLeft,
+  //     // );
+
+  //     // Footer
+  //     // bytes += generator.text(separator, styles: smallFontLeft);
+  //     // bytes += generator.text('Thank you! Visit Again', styles: smallFontCenter);
+  //     // bytes += generator.cut();
+
+  //     final isConnected = await isOnline();
+
+  //     // Send to printer
+  //     await PrinterManager.instance.send(
+  //       type: printer.typePrinter,
+  //       bytes: bytes,
+  //     );
+
+  //     // Only save bill if saveBill flag is true (to avoid duplicate saves)
+  //     // When called from bill_cart_widget.dart, bill is already saved via SmartDatabaseService
+  //     if (saveBill) {
+  //       await saveBillToFirebase(
+  //         adminUid: adminUid,
+  //         receiptNo: finalReceiptNo,
+  //         items: items,
+  //         subTotal: subtotal,
+  //       );
+  //     }
+
+  //     if (context.mounted) {
+  //       final message = isConnected
+  //           ? 'Receipt printed & saved online! Receipt No: $receiptNo'
+  //           : 'Receipt printed & saved offline! Will sync when online. Receipt No: $receiptNo';
+
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         SnackBar(
+  //           content: Text(message),
+  //           backgroundColor: isConnected ? Colors.green : Colors.orange,
+  //           duration: const Duration(seconds: 4),
+  //         ),
+  //       );
+  //       // ScaffoldMessenger.of(context).showSnackBar(
+  //       //   SnackBar(
+  //       //     content: Text('Receipt printed! Receipt No: $finalReceiptNo'),
+  //       //     backgroundColor: Colors.green,
+  //       //     duration: const Duration(seconds: 2),
+  //       //   ),
+  //       // );
+  //     }
+  //   } catch (e) {
+  //     debugPrint("Printing error: $e");
+  //     if (context.mounted) {
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         SnackBar(
+  //           content: Text('Printing failed: $e'),
+  //           backgroundColor: Colors.red,
+  //         ),
+  //       );
+  //     }
+  //   }
+  // }
+
 
   void _saveDataAndNavigate() async {
     final userMap = {

@@ -72,7 +72,7 @@ class MenuItem extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 /// IMAGE
-                Expanded(
+                Flexible(
                   child: ClipRRect(
                     borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
                     child: CachedBlobImage(
@@ -99,94 +99,28 @@ class MenuItem extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                 ),
-
-                /// VARIANT BADGE
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  child: Wrap(
-                    spacing: 8, // horizontal space
-                    runSpacing: 6, // vertical space when it wraps
-                    alignment: WrapAlignment.spaceBetween,
-                    crossAxisAlignment: WrapCrossAlignment.start,
-                    children: [
-                      variants != null && variants!.isNotEmpty
-                          ? Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: appbar1.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(color: appbar1.withOpacity(0.5)),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    baseVariant ?? '',
-                                    style: const TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: appbar1,
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: Text(
-                                      '${variants!.length}',
-                                      style: const TextStyle(
-                                        fontSize: 10,
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            )
-                          : const SizedBox.shrink(),
-                      _codeBadge(),
-                    ],
-                  ),
-                ),
-
-                const Divider(thickness: 0.3),
 
                 /// PRICE + ADD
                 Padding(
                   padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       Expanded(
                         child: Text(
                           '₹${numberFormat.format(double.tryParse(price) ?? 0)}',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: appbar1,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: const Text(
-                          'ADD',
+                          maxLines: 1,
+                          textAlign: TextAlign.end,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
+                            fontSize: 17.5,
+                            color: appbar1,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
                       ),
@@ -199,38 +133,12 @@ class MenuItem extends StatelessWidget {
         ),
 
         /// STOCK BADGE
-        Positioned(
-          top: 8,
-          left: 8,
-          child: _stockBadge(),
-        ),
+        // Positioned(
+        //   top: 8,
+        //   left: 8,
+        //   child: _stockBadge(),
+        // ),
       ],
-    );
-  }
-
-  /// CODE BADGE
-  Widget _codeBadge() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: Colors.grey.shade300),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.tag, size: 12),
-          const SizedBox(width: 4),
-          Text(
-            code.toUpperCase(),
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
     );
   }
 

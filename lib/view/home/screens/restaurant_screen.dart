@@ -451,489 +451,470 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
     selectedItemsDetails = printprovider.posts;
     subtotal = printprovider.total;
 
-    return WillPopScope(
-      onWillPop: () async {
-        DateTime now = DateTime.now();
-        if (currentBackPressTime == null || now.difference(currentBackPressTime!) > const Duration(seconds: 2)) {
-          currentBackPressTime = now;
-          Fluttertoast.showToast(
-            msg: "Press back again to exit",
-            toastLength: Toast.LENGTH_SHORT,
-            gravity: ToastGravity.BOTTOM,
-            timeInSecForIosWeb: 2,
-            backgroundColor: Colors.grey,
-            textColor: Colors.white,
-            fontSize: 16.0,
-          );
-          return false;
-        }
-        return true;
-      },
-      child: Scaffold(
-        // appBar: AppBar(
-        //   actions: [
-        //     _buildConnectionStatusIndicator(),
-        //     const SizedBox(width: 15),
-        //     InkWell(
-        //       child: isContainerVisible ? Icon(MdiIcons.fullscreen) : Icon(MdiIcons.fullscreenExit),
-        //       onTap: () {
-        //         setState(() {
-        //           isContainerVisible = !isContainerVisible;
-        //           _gridViewController.jumpTo(0.0);
-        //         });
-        //       },
-        //     ),
-        //     const SizedBox(width: 15),
-        //     InkWell(
-        //       onTap: () {
-        //         Navigator.push(context, MaterialPageRoute(builder: (context) => const UsersScreen()));
-        //       },
-        //       child: const Icon(Icons.save),
-        //     ),
-        //     const SizedBox(width: 15),
-        //   ],
-        //   backgroundColor: Colors.white,
-        //   elevation: 0,
-        //   scrolledUnderElevation: 0,
-        //   title: const Text(
-        //     'Restaurants',
-        //     style: TextStyle(color: Colors.black, fontFamily: 'tabfont', fontSize: 19),
-        //   ),
-        // ),
-
-        appBar: AppBar(
-          backgroundColor: Colors.white,
-          elevation: 0,
-          scrolledUnderElevation: 0,
-          title: isSearching
-              ? Container(
-                  height: 45,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(25),
-                  ),
-                  child: TextField(
-                    controller: restaurantSearch,
-                    autofocus: true,
-                    onChanged: (value) {
-                      search1 = value;
-                      setState(() {});
-                    },
-                    style: const TextStyle(fontSize: 14),
-                    decoration: const InputDecoration(
-                        hintText: "Search Item Name",
-                        prefixIcon: Icon(Icons.search, size: 18),
-                        border: InputBorder.none,
-                        isDense: true,
-                        contentPadding: EdgeInsets.all(15)),
-                  ),
-                )
-              : const Text(
-                  'Restaurants',
-                  style: TextStyle(color: Colors.black, fontFamily: 'tabfont', fontSize: 17),
+    return Scaffold(
+      // appBar: AppBar(
+      //   actions: [
+      //     _buildConnectionStatusIndicator(),
+      //     const SizedBox(width: 15),
+      //     InkWell(
+      //       child: isContainerVisible ? Icon(MdiIcons.fullscreen) : Icon(MdiIcons.fullscreenExit),
+      //       onTap: () {
+      //         setState(() {
+      //           isContainerVisible = !isContainerVisible;
+      //           _gridViewController.jumpTo(0.0);
+      //         });
+      //       },
+      //     ),
+      //     const SizedBox(width: 15),
+      //     InkWell(
+      //       onTap: () {
+      //         Navigator.push(context, MaterialPageRoute(builder: (context) => const UsersScreen()));
+      //       },
+      //       child: const Icon(Icons.save),
+      //     ),
+      //     const SizedBox(width: 15),
+      //   ],
+      //   backgroundColor: Colors.white,
+      //   elevation: 0,
+      //   scrolledUnderElevation: 0,
+      //   title: const Text(
+      //     'Restaurants',
+      //     style: TextStyle(color: Colors.black, fontFamily: 'tabfont', fontSize: 19),
+      //   ),
+      // ),
+    
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        title: isSearching
+            ? Container(
+                height: 45,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(25),
                 ),
-          actions: [
-            if (!isSearching)
-              Padding(
-                padding: const EdgeInsets.only(right: 12.0),
-                child: _buildConnectionStatusIndicator(),
-              ),
-
-            // Fullscreen
-            if (!isSearching)
-              Padding(
-                padding: const EdgeInsets.only(right: 12.0),
-                child: GestureDetector(
-                  child: Icon(isContainerVisible ? MdiIcons.fullscreen : MdiIcons.fullscreenExit),
-                  onTap: () {
-                    setState(() {
-                      isContainerVisible = !isContainerVisible;
-                      _gridViewController.jumpTo(0.0);
-                    });
+                child: TextField(
+                  controller: restaurantSearch,
+                  autofocus: true,
+                  onChanged: (value) {
+                    search1 = value;
+                    setState(() {});
                   },
+                  style: const TextStyle(fontSize: 14),
+                  decoration: const InputDecoration(
+                      hintText: "Search Item Name",
+                      prefixIcon: Icon(Icons.search, size: 18),
+                      border: InputBorder.none,
+                      isDense: true,
+                      contentPadding: EdgeInsets.all(15)),
                 ),
+              )
+            : const Text(
+                'Restaurants',
+                style: TextStyle(color: Colors.black, fontFamily: 'tabfont', fontSize: 17),
               ),
-
-            // Users
-            if (!isSearching)
-              Padding(
-                padding: const EdgeInsets.only(right: 12.0),
-                child: GestureDetector(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const UsersScreen()),
-                    );
-                  },
-                  child: const Icon(Icons.save),
-                ),
-              ),
-
+        actions: [
+          if (!isSearching)
+            Padding(
+              padding: const EdgeInsets.only(right: 12.0),
+              child: _buildConnectionStatusIndicator(),
+            ),
+    
+          // Fullscreen
+          if (!isSearching)
             Padding(
               padding: const EdgeInsets.only(right: 12.0),
               child: GestureDetector(
-                child: CircleAvatar(
-                  maxRadius: 20,
-                  backgroundColor: appbar1,
-                  child: Icon(
-                    isSearching ? Icons.search_off : Icons.search,
-                    size: 22,
-                    color: white,
-                  ),
-                ),
+                child: Icon(isContainerVisible ? MdiIcons.fullscreen : MdiIcons.fullscreenExit),
                 onTap: () {
-                  if (isSearching) {
-                    restaurantSearch.clear();
-                    search1 = '';
-                  }
-                  setState(() => isSearching = !isSearching);
+                  setState(() {
+                    isContainerVisible = !isContainerVisible;
+                    _gridViewController.jumpTo(0.0);
+                  });
                 },
               ),
             ),
-          ],
-        ),
-
-        drawer: MyDrawer(phoneNo: widget.phoneNo),
-        body: isLoading
-            ? Center(
-                child: SizedBox(
-                  width: 30,
-                  height: 30,
-                  child: CircularProgressIndicator(
-                    color: appbar1,
-                    strokeWidth: 3,
-                  ),
+    
+          // Users
+          if (!isSearching)
+            Padding(
+              padding: const EdgeInsets.only(right: 12.0),
+              child: GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const UsersScreen()),
+                  );
+                },
+                child: const Icon(Icons.save),
+              ),
+            ),
+    
+          Padding(
+            padding: const EdgeInsets.only(right: 12.0),
+            child: GestureDetector(
+              child: CircleAvatar(
+                maxRadius: 20,
+                backgroundColor: appbar1,
+                child: Icon(
+                  isSearching ? Icons.search_off : Icons.search,
+                  size: 22,
+                  color: white,
                 ),
-              )
-            : Container(
-                color: Colors.grey.withOpacity(0.1),
-                width: double.infinity,
-                height: double.infinity,
-                child: Column(
-                  children: [
-                    Container(
-                      height: 50,
-                      margin: EdgeInsets.symmetric(vertical: 5, horizontal: 10),
-                      width: double.infinity,
-                      child: const OrderTypeSelector(),
-                    ),
-                    Expanded(
-                      child: Row(
-                        children: [
-                          if (isContainerVisible)
-                            SizedBox(
-                              width: 80,
-                              child: Container(
-                                decoration: const BoxDecoration(color: Colors.white),
-                                padding: EdgeInsets.only(left: 5),
-                                child: FutureBuilder<List<Map<String, dynamic>>>(
-                                  future: foodDepartmentsFuture,
-                                  builder: (context, snapshot) {
-                                    if (snapshot.hasError) {
-                                      return Center(child: Text('Error: ${snapshot.error}'));
-                                    } else {
-                                      List<Map<String, dynamic>> departments = snapshot.data ?? [];
-                                      return ListView.builder(
-                                        itemCount: departments.length,
-                                        itemBuilder: (context, index) {
-                                          bool isSelected = currentCategoryIndex == index;
-                                          return GestureDetector(
-                                            onTap: () {
-                                              setState(() {
-                                                currentCategoryIndex = index;
-                                                selectedDepartment = departments[index]['name'] ?? '';
-                                                foodItemsFuture = fetchFoodItems(selectedDepartment);
-                                              });
-                                            },
-                                            child: Padding(
-                                              padding: const EdgeInsets.only(bottom: 15),
-                                              child: Row(
-                                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                                children: [
-                                                  Column(
-                                                    children: [
-                                                      Stack(
-                                                        alignment: Alignment.center,
-                                                        children: [
-                                                          // Background Circle
-                                                          AnimatedContainer(
-                                                            duration: const Duration(milliseconds: 300),
-                                                            curve: Curves.easeOut,
-                                                            margin: const EdgeInsets.all(5),
-                                                            height: 60,
-                                                            width: 60,
-                                                            decoration: BoxDecoration(
-                                                              color: appbar1.withOpacity(0.15),
-                                                              borderRadius: BorderRadius.circular(30),
-                                                            ),
+              ),
+              onTap: () {
+                if (isSearching) {
+                  restaurantSearch.clear();
+                  search1 = '';
+                }
+                setState(() => isSearching = !isSearching);
+              },
+            ),
+          ),
+        ],
+      ),
+    
+      drawer: MyDrawer(phoneNo: widget.phoneNo),
+      body: isLoading
+          ? Center(
+              child: SizedBox(
+                width: 30,
+                height: 30,
+                child: CircularProgressIndicator(
+                  color: appbar1,
+                  strokeWidth: 3,
+                ),
+              ),
+            )
+          : Container(
+              color: Colors.grey.withOpacity(0.1),
+              width: double.infinity,
+              height: double.infinity,
+              child: Column(
+                children: [
+                  Container(
+                    height: 50,
+                    margin: EdgeInsets.symmetric(vertical: 5, horizontal: 10),
+                    width: double.infinity,
+                    child: const OrderTypeSelector(),
+                  ),
+                  Expanded(
+                    child: Row(
+                      children: [
+                        if (isContainerVisible)
+                          SizedBox(
+                            width: 80,
+                            child: Container(
+                              decoration: const BoxDecoration(color: Colors.white),
+                              padding: EdgeInsets.only(left: 5),
+                              child: FutureBuilder<List<Map<String, dynamic>>>(
+                                future: foodDepartmentsFuture,
+                                builder: (context, snapshot) {
+                                  if (snapshot.hasError) {
+                                    return Center(child: Text('Error: ${snapshot.error}'));
+                                  } else {
+                                    List<Map<String, dynamic>> departments = snapshot.data ?? [];
+                                    return ListView.builder(
+                                      itemCount: departments.length,
+                                      itemBuilder: (context, index) {
+                                        bool isSelected = currentCategoryIndex == index;
+                                        return GestureDetector(
+                                          onTap: () {
+                                            setState(() {
+                                              currentCategoryIndex = index;
+                                              selectedDepartment = departments[index]['name'] ?? '';
+                                              foodItemsFuture = fetchFoodItems(selectedDepartment);
+                                            });
+                                          },
+                                          child: Padding(
+                                            padding: const EdgeInsets.only(bottom: 15),
+                                            child: Row(
+                                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                              children: [
+                                                Column(
+                                                  children: [
+                                                    Stack(
+                                                      alignment: Alignment.center,
+                                                      children: [
+                                                        // Background Circle
+                                                        AnimatedContainer(
+                                                          duration: const Duration(milliseconds: 300),
+                                                          curve: Curves.easeOut,
+                                                          margin: const EdgeInsets.all(5),
+                                                          height: 60,
+                                                          width: 60,
+                                                          decoration: BoxDecoration(
+                                                            color: appbar1.withOpacity(0.15),
+                                                            borderRadius: BorderRadius.circular(30),
                                                           ),
-
-                                                          // Image with scale animation
-                                                          AnimatedScale(
-                                                            scale: isSelected ? 1.1 : 1.0,
-                                                            duration: const Duration(milliseconds: 300),
-                                                            curve: Curves.easeIn,
-                                                            child: CachedBlobImage(
-                                                              imageUrl: departments[index]['imageUrl'],
-                                                              tableName: 'departments',
-                                                              recordId: departments[index]['id'] ??
-                                                                  departments[index]['name'] ??
-                                                                  'unknown',
-                                                              width: 50,
-                                                              height: 50,
-                                                              fit: BoxFit.fill,
-                                                              borderRadius: BorderRadius.circular(100),
-                                                              placeholder: const SizedBox(
-                                                                width: 20,
-                                                                height: 20,
-                                                                child: CircularProgressIndicator(
-                                                                  strokeWidth: 2,
-                                                                ),
+                                                        ),
+    
+                                                        // Image with scale animation
+                                                        AnimatedScale(
+                                                          scale: isSelected ? 1.1 : 1.0,
+                                                          duration: const Duration(milliseconds: 300),
+                                                          curve: Curves.easeIn,
+                                                          child: CachedBlobImage(
+                                                            imageUrl: departments[index]['imageUrl'],
+                                                            tableName: 'departments',
+                                                            recordId: departments[index]['id'] ??
+                                                                departments[index]['name'] ??
+                                                                'unknown',
+                                                            width: 50,
+                                                            height: 50,
+                                                            fit: BoxFit.fill,
+                                                            borderRadius: BorderRadius.circular(100),
+                                                            placeholder: const SizedBox(
+                                                              width: 20,
+                                                              height: 20,
+                                                              child: CircularProgressIndicator(
+                                                                strokeWidth: 2,
                                                               ),
                                                             ),
                                                           ),
-                                                        ],
-                                                      ),
-
-                                                      // Text with animation
-                                                      SizedBox(
-                                                        width: 60,
-                                                        child: AnimatedDefaultTextStyle(
-                                                          duration: const Duration(milliseconds: 300),
-                                                          curve: Curves.easeOut,
-                                                          style: TextStyle(
-                                                            fontSize: 13,
-                                                            // fontFamily: 'tabfont',
-                                                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w400,
-                                                            color: isSelected ? Colors.black : Colors.grey,
-                                                          ),
-                                                          child: Text(
-                                                            departments[index]['name'] ?? 'N/A',
-                                                            textAlign: TextAlign.center,
-                                                            maxLines: 2,
-                                                            overflow: TextOverflow.ellipsis,
-                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+    
+                                                    // Text with animation
+                                                    SizedBox(
+                                                      width: 60,
+                                                      child: AnimatedDefaultTextStyle(
+                                                        duration: const Duration(milliseconds: 300),
+                                                        curve: Curves.easeOut,
+                                                        style: TextStyle(
+                                                          fontSize: 13,
+                                                          // fontFamily: 'tabfont',
+                                                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w400,
+                                                          color: isSelected ? Colors.black : Colors.grey,
+                                                        ),
+                                                        child: Text(
+                                                          departments[index]['name'] ?? 'N/A',
+                                                          textAlign: TextAlign.center,
+                                                          maxLines: 2,
+                                                          overflow: TextOverflow.ellipsis,
                                                         ),
                                                       ),
-                                                    ],
-                                                  ),
-
-                                                  // Side indicator
-                                                  AnimatedContainer(
-                                                    duration: const Duration(milliseconds: 300),
-                                                    curve: Curves.easeOut,
-                                                    height: 50,
-                                                    width: 5,
-                                                    decoration: BoxDecoration(
-                                                      color: isSelected ? appbar1 : Colors.white,
-                                                      borderRadius: const BorderRadius.only(
-                                                        topLeft: Radius.circular(21),
-                                                        bottomLeft: Radius.circular(21),
-                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+    
+                                                // Side indicator
+                                                AnimatedContainer(
+                                                  duration: const Duration(milliseconds: 300),
+                                                  curve: Curves.easeOut,
+                                                  height: 50,
+                                                  width: 5,
+                                                  decoration: BoxDecoration(
+                                                    color: isSelected ? appbar1 : Colors.white,
+                                                    borderRadius: const BorderRadius.only(
+                                                      topLeft: Radius.circular(21),
+                                                      bottomLeft: Radius.circular(21),
                                                     ),
                                                   ),
-                                                ],
-                                              ),
+                                                ),
+                                              ],
                                             ),
-                                          );
-                                        },
-                                      );
-                                    }
-                                  },
-                                ),
+                                          ),
+                                        );
+                                      },
+                                    );
+                                  }
+                                },
                               ),
                             ),
-
-                          // MAIN BODY
-                          Expanded(
-                            child: FutureBuilder(
-                              future: foodItemsFuture,
-                              builder: (context, AsyncSnapshot<List<Map<String, dynamic>>> snapshot) {
-                                if (snapshot.connectionState == ConnectionState.waiting) {
-                                  return const Center(
-                                    child: SizedBox(
-                                      width: 30,
-                                      height: 30,
-                                      child: CircularProgressIndicator(
-                                        color: primaryColor,
-                                        strokeWidth: 2,
-                                      ),
-                                    ),
-                                  );
-                                } else if (snapshot.hasError) {
-                                  return Center(child: Text('Error: ${snapshot.error}'));
-                                } else {
-                                  List<Map<String, dynamic>> allFoodItems = snapshot.data ?? [];
-
-                                  List<Map<String, dynamic>> filteredFoodItems;
-
-                                  if (search1.isEmpty) {
-                                    filteredFoodItems = allFoodItems;
-                                  } else {
-                                    final query = search1.toLowerCase();
-
-                                    filteredFoodItems = allFoodItems.where((item) {
-                                      final name = item['name']?.toString().toLowerCase() ?? '';
-                                      final code = item['foodCode']?.toString().toLowerCase() ?? '';
-
-                                      return name.contains(query) || code.contains(query);
-                                    }).toList();
-                                  }
-
-                                  return LayoutBuilder(
-                                    builder: (context, constraints) {
-                                      int crossAxisCount;
-                                      double childAspectRatio;
-                                      double horizontalPadding;
-                                      double spacing;
-                                      double availableWidth = constraints.maxWidth;
-
-                                      if (availableWidth > 1400) {
-                                        crossAxisCount = isContainerVisible ? 4 : 5;
-                                        childAspectRatio = 0.80;
-                                        horizontalPadding = 16;
-                                        spacing = 16;
-                                      } else if (availableWidth > 1000) {
-                                        crossAxisCount = isContainerVisible ? 3 : 4;
-                                        childAspectRatio = 0.78;
-                                        horizontalPadding = 12;
-                                        spacing = 12;
-                                      } else if (availableWidth > 700) {
-                                        crossAxisCount = isContainerVisible ? 2 : 3;
-                                        childAspectRatio = 0.75;
-                                        horizontalPadding = 10;
-                                        spacing = 10;
-                                      } else {
-                                        // For smaller screens (phones), always 2 columns
-                                        crossAxisCount = isContainerVisible ? 2 : 3;
-                                        childAspectRatio = isContainerVisible ? 0.65 : 0.6;
-                                        horizontalPadding = isContainerVisible ? 8 : 4;
-                                        spacing = isContainerVisible ? 10 : 5;
-                                      }
-
-                                      return Padding(
-                                        padding: EdgeInsets.symmetric(
-                                          horizontal: horizontalPadding,
-                                          vertical: 8,
-                                        ),
-                                        child: GridView.builder(
-                                          controller: _gridViewController,
-                                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                                            crossAxisCount: crossAxisCount,
-                                            childAspectRatio: childAspectRatio,
-                                            crossAxisSpacing: spacing,
-                                            mainAxisSpacing: spacing,
-                                          ),
-                                          itemCount: filteredFoodItems.length,
-                                          itemBuilder: (context, index) {
-                                            final item = filteredFoodItems[index];
-                                            return MenuItem(
-                                              context: context,
-                                              imagePath: item['imagePath']?.toString() ?? '',
-                                              text: item['name']?.toString() ?? '',
-                                              code: item['foodCode']?.toString() ?? '',
-                                              imagerecordId: item['id']?.toString(),
-                                              price: item['price']?.toString() ?? '0',
-                                              stocks: item['stocks']?.toString() ?? 'N/A',
-                                              baseVariant: item['baseVariant']?.toString(),
-                                              variants: item['variants'] as List<dynamic>?,
-                                              onAdd: (name, price, quantity, unit, unitQty) {
-                                                audioPlayer.play(AssetSource('sounds/beep.mp3'));
-
-                                                setState(() {
-                                                  isTapped = true;
-
-                                                  final displayName = unit.isNotEmpty ? '$name ($unitQty $unit)' : name;
-
-                                                  final parsedPrice = (double.tryParse(price) ?? 0).toInt();
-
-                                                  // 🔍 Check if same item + same unit already exists
-                                                  final existingIndex = selectedItemsDetails.indexWhere(
-                                                    (element) =>
-                                                        element['name'] == displayName &&
-                                                        element['price'] == parsedPrice,
-                                                  );
-
-                                                  if (existingIndex != -1) {
-                                                    selectedItemsDetails[existingIndex]['quantity'] += quantity;
-                                                  } else {
-                                                    selectedItemsDetails.add({
-                                                      'name': displayName,
-                                                      'price': parsedPrice,
-                                                      'quantity': quantity,
-                                                      'unit': unit,
-                                                    });
-                                                  }
-
-                                                  subtotal += parsedPrice * quantity;
-
-                                                  printprovider.additem(selectedItemsDetails, subtotal);
-
-                                                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                                                    if (_listScrollController.hasClients) {
-                                                      _listScrollController.jumpTo(
-                                                        _listScrollController.position.maxScrollExtent,
-                                                      );
-                                                    }
-                                                  });
-                                                });
-                                              },
-                                            );
-                                          },
-                                        ),
-                                      );
-                                    },
-                                  );
-                                }
-                              },
-                            ),
                           ),
-                        ],
-                      ),
+    
+                        // MAIN BODY
+                        Expanded(
+                          child: FutureBuilder(
+                            future: foodItemsFuture,
+                            builder: (context, AsyncSnapshot<List<Map<String, dynamic>>> snapshot) {
+                              if (snapshot.connectionState == ConnectionState.waiting) {
+                                return const Center(
+                                  child: SizedBox(
+                                    width: 30,
+                                    height: 30,
+                                    child: CircularProgressIndicator(
+                                      color: primaryColor,
+                                      strokeWidth: 2,
+                                    ),
+                                  ),
+                                );
+                              } else if (snapshot.hasError) {
+                                return Center(child: Text('Error: ${snapshot.error}'));
+                              } else {
+                                List<Map<String, dynamic>> allFoodItems = snapshot.data ?? [];
+    
+                                List<Map<String, dynamic>> filteredFoodItems;
+    
+                                if (search1.isEmpty) {
+                                  filteredFoodItems = allFoodItems;
+                                } else {
+                                  final query = search1.toLowerCase();
+    
+                                  filteredFoodItems = allFoodItems.where((item) {
+                                    final name = item['name']?.toString().toLowerCase() ?? '';
+                                    final code = item['foodCode']?.toString().toLowerCase() ?? '';
+    
+                                    return name.contains(query) || code.contains(query);
+                                  }).toList();
+                                }
+    
+                                return LayoutBuilder(
+                                  builder: (context, constraints) {
+                                    int crossAxisCount;
+                                    double childAspectRatio;
+                                    double horizontalPadding;
+                                    double spacing;
+                                    double availableWidth = constraints.maxWidth;
+    
+                                    if (availableWidth > 1400) {
+                                      crossAxisCount = isContainerVisible ? 4 : 5;
+                                      childAspectRatio = 0.80;
+                                      horizontalPadding = 16;
+                                      spacing = 16;
+                                    } else if (availableWidth > 1000) {
+                                      crossAxisCount = isContainerVisible ? 3 : 4;
+                                      childAspectRatio = 0.78;
+                                      horizontalPadding = 12;
+                                      spacing = 12;
+                                    } else if (availableWidth > 700) {
+                                      crossAxisCount = isContainerVisible ? 2 : 3;
+                                      childAspectRatio = 0.75;
+                                      horizontalPadding = 10;
+                                      spacing = 10;
+                                    } else {
+                                      // For smaller screens (phones), always 2 columns
+                                      crossAxisCount = isContainerVisible ? 2 : 3;
+                                      childAspectRatio = isContainerVisible ? 0.82: 0.7;
+                                      horizontalPadding = 8;
+                                      spacing =  8;
+                                    }
+    
+                                    return Padding(
+                                      padding: EdgeInsets.symmetric(
+                                        horizontal: horizontalPadding,
+                                        vertical: 8,
+                                      ),
+                                      child: GridView.builder(
+                                        controller: _gridViewController,
+                                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                          crossAxisCount: crossAxisCount,
+                                          childAspectRatio: childAspectRatio,
+                                          crossAxisSpacing: spacing,
+                                          mainAxisSpacing: spacing,
+                                        ),
+                                        itemCount: filteredFoodItems.length,
+                                        itemBuilder: (context, index) {
+                                          final item = filteredFoodItems[index];
+                                          return MenuItem(
+                                            context: context,
+                                            imagePath: item['imagePath']?.toString() ?? '',
+                                            text: item['name']?.toString() ?? '',
+                                            code: item['foodCode']?.toString() ?? '',
+                                            imagerecordId: item['id']?.toString(),
+                                            price: item['price']?.toString() ?? '0',
+                                            stocks: item['stocks']?.toString() ?? 'N/A',
+                                            baseVariant: item['baseVariant']?.toString(),
+                                            variants: item['variants'] as List<dynamic>?,
+                                            onAdd: (name, price, quantity, unit, unitQty) {
+                                              audioPlayer.play(AssetSource('sounds/beep.mp3'));
+    
+                                              setState(() {
+                                                isTapped = true;
+    
+                                                final displayName = unit.isNotEmpty ? '$name ($unitQty $unit)' : name;
+    
+                                                final parsedPrice = (double.tryParse(price) ?? 0).toInt();
+    
+                                                // 🔍 Check if same item + same unit already exists
+                                                final existingIndex = selectedItemsDetails.indexWhere(
+                                                  (element) =>
+                                                      element['name'] == displayName &&
+                                                      element['price'] == parsedPrice,
+                                                );
+    
+                                                if (existingIndex != -1) {
+                                                  selectedItemsDetails[existingIndex]['quantity'] += quantity;
+                                                } else {
+                                                  selectedItemsDetails.add({
+                                                    'name': displayName,
+                                                    'price': parsedPrice,
+                                                    'quantity': quantity,
+                                                    'unit': unit,
+                                                  });
+                                                }
+    
+                                                subtotal += parsedPrice * quantity;
+    
+                                                printprovider.additem(selectedItemsDetails, subtotal);
+    
+                                                WidgetsBinding.instance.addPostFrameCallback((_) {
+                                                  if (_listScrollController.hasClients) {
+                                                    _listScrollController.jumpTo(
+                                                      _listScrollController.position.maxScrollExtent,
+                                                    );
+                                                  }
+                                                });
+                                              });
+                                            },
+                                          );
+                                        },
+                                      ),
+                                    );
+                                  },
+                                );
+                              }
+                            },
+                          ),
+                        ),
+                      ],
                     ),
-                    printprovider.posts.isNotEmpty
-                        ? BillCart(
-                            isContainerVisible: isContainerVisible,
-                            isRestaurantScreen: true,
-                            adminUid: adminUid,
-                            phoneNo: widget.phoneNo,
-                            onCartCleared: () {
-                              setState(() {
-                                selectedItemsDetails.clear();
-                                subtotal = 0.0;
-                              });
-                            },
-                            onCartUpdated: (List<Map<String, dynamic>> updatedItems, double updatedTotal) {
-                              setState(() {
-                                selectedItemsDetails = updatedItems;
-                                subtotal = updatedTotal;
-                              });
-                            },
-                            orderBottomSheet: () {
-                              showSaveOrderBottomSheet(
-                                context: context,
-                                formKey: _formKey,
-                                nameController: userNameController,
-                                addressController: addressController,
-                                gstController: gstController,
-                                mobileController: userPhoneController,
-                                itemCount: selectedItemsDetails.length,
-                                totalAmount: subtotal,
-                                primaryColor: primaryColor,
-                                onSave: () {
-                                  _saveDataAndNavigate();
-                                  printprovider.clearCart();
-                                  userNameController.clear();
-                                  userPhoneController.clear();
-                                },
-                              );
-                            },
-                          )
-                        : const SizedBox(),
-                  ],
-                ),
+                  ),
+                  printprovider.posts.isNotEmpty
+                      ? BillCart(
+                          isContainerVisible: isContainerVisible,
+                          isRestaurantScreen: true,
+                          adminUid: adminUid,
+                          phoneNo: widget.phoneNo,
+                          onCartCleared: () {
+                            setState(() {
+                              selectedItemsDetails.clear();
+                              subtotal = 0.0;
+                            });
+                          },
+                          onCartUpdated: (List<Map<String, dynamic>> updatedItems, double updatedTotal) {
+                            setState(() {
+                              selectedItemsDetails = updatedItems;
+                              subtotal = updatedTotal;
+                            });
+                          },
+                          orderBottomSheet: () {
+                            showSaveOrderBottomSheet(
+                              context: context,
+                              formKey: _formKey,
+                              nameController: userNameController,
+                              addressController: addressController,
+                              gstController: gstController,
+                              mobileController: userPhoneController,
+                              itemCount: selectedItemsDetails.length,
+                              totalAmount: subtotal,
+                              primaryColor: primaryColor,
+                              onSave: () {
+                                _saveDataAndNavigate();
+                                printprovider.clearCart();
+                                userNameController.clear();
+                                userPhoneController.clear();
+                              },
+                            );
+                          },
+                        )
+                      : const SizedBox(),
+                ],
               ),
-      ),
+            ),
     );
   }
 

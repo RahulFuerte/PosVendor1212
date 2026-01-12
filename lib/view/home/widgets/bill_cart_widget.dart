@@ -92,6 +92,7 @@ class _BillCartState extends State<BillCart> {
     String shopName = 'N/A';
     String contact = 'N/A';
     String address = 'N/A';
+    String logoUrl = '';
 
     try {
       // First try to get from local SQLite
@@ -101,6 +102,7 @@ class _BillCartState extends State<BillCart> {
         shopName = localData['shopName'] ?? 'N/A';
         contact = localData['shopContact'] ?? 'N/A';
         address = localData['address'] ?? 'N/A';
+        logoUrl = localData['shopLogoUrl'] ?? '';
         debugPrint('Shop data loaded from local cache');
       } else {
         // Not found locally, fetch from Firebase
@@ -144,6 +146,7 @@ class _BillCartState extends State<BillCart> {
       'shopName': shopName,
       'contact': contact,
       'address': address,
+      'logoUrl': logoUrl,
     };
   }
 
@@ -266,6 +269,7 @@ class _BillCartState extends State<BillCart> {
       String shopName = shopData['shopName']!;
       String contact = shopData['contact']!;
       String address = shopData['address']!;
+      String logoUrl = shopData['logoUrl']!;
 
       if (!mounted) return;
       Navigator.pop(parentContext);
@@ -281,6 +285,7 @@ class _BillCartState extends State<BillCart> {
         shopName: shopName,
         contact: contact,
         address: address,
+        logoUrl: logoUrl,
         tableNumber: tableNumber,
         receiptNo: generatedReceiptNo, // Pass the already-saved receipt number
         taxEnabled: printProvider.taxEnabled,
@@ -410,6 +415,7 @@ class _BillCartState extends State<BillCart> {
       String shopName = shopData['shopName']!;
       String contact = shopData['contact']!;
       String address = shopData['address']!;
+      String logoUrl = shopData['logoUrl']!;
 
       if (!mounted) return;
       Navigator.pop(context);
@@ -424,6 +430,7 @@ class _BillCartState extends State<BillCart> {
         shopName: shopName,
         contact: contact,
         address: address,
+        logoUrl: logoUrl,
         receiptNo: generatedReceiptNo, // Pass the already-saved receipt number
         taxEnabled: printProvider.taxEnabled,
         cgstPercent: printProvider.cgstPercent,
@@ -746,20 +753,45 @@ class _BillCartState extends State<BillCart> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-            decoration: BoxDecoration(
-              color: primaryColor,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              '${selectedItemsDetails.length} Items',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                decoration: BoxDecoration(
+                  color: primaryColor,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '${selectedItemsDetails.length} Items',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
-            ),
+              const Spacer(),
+              Text(
+                'Grand Total :',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[600],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(
+                width: 10,
+              ),
+              Text(
+                "₹${numberFormat.format(subtotal)}",
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
           ),
           Consumer<OrderTypeProvider>(
             builder: (context, provider, _) {
@@ -787,82 +819,44 @@ class _BillCartState extends State<BillCart> {
             },
           ),
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-      
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Grand Total',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[600],
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  Text(
-                    "₹${numberFormat.format(subtotal)}",
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-
-              
-              Flexible(
-                flex: 3,
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: Wrap(
-                    spacing: 5,
-                    runSpacing: 6,
-                    alignment: WrapAlignment.end,
-                    children: [
-                      _buildIconButton(
-                        icon: MdiIcons.tableChair,
-                        onPressed: () async {
-                          if (!printProvider.isConnected || printProvider.selectedPrinter == null) {
-                            showDialog(
-                              context: context,
-                              builder: (context) => const PrinterConnectionDialog(),
-                            );
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Please connect a printer first'),
-                                backgroundColor: Colors.orange,
-                                duration: Duration(seconds: 2),
-                              ),
-                            );
-                            return;
-                          }
-
-                          if (selectedItemsDetails.isEmpty) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('No items in cart'),
-                                backgroundColor: Colors.orange,
-                                duration: Duration(seconds: 2),
-                              ),
-                            );
-                            return;
-                          }
-
-                          await _showTableNumberBottomSheet(context);
-                        },
+              _buildIconButton(
+                icon: Icons.table_bar,
+                onPressed: () async {
+                  if (!printProvider.isConnected || printProvider.selectedPrinter == null) {
+                    showDialog(
+                      context: context,
+                      builder: (context) => const PrinterConnectionDialog(),
+                    );
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Please connect a printer first'),
+                        backgroundColor: Colors.orange,
+                        duration: Duration(seconds: 2),
                       ),
-                      _buildIconButton(icon: Icons.bookmark_outline, onPressed: () => widget.orderBottomSheet.call()),
-                      _buildIconButton(imagePath: "assets/images/kot.png", onPressed: () {}),
-                      _buildIconButton(imagePath: "assets/images/kot2.png", onPressed: () {}),
-                      _buildIconButton(imagePath: "assets/images/save.png", onPressed: _handlePreview),
-                      _buildIconButton(imagePath: "assets/images/save2.png", onPressed: _handlePrint),
-                    ],
-                  ),
-                ),
+                    );
+                    return;
+                  }
+
+                  if (selectedItemsDetails.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('No items in cart'),
+                        backgroundColor: Colors.orange,
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                    return;
+                  }
+
+                  await _showTableNumberBottomSheet(context);
+                },
               ),
+              _buildIconButton(icon: Icons.person, onPressed: () => widget.orderBottomSheet.call()),
+              _buildIconButton(imagePath: "assets/images/kot2.png", onPressed: () {}),
+              _buildIconButton(imagePath: "assets/images/save.png", onPressed: _handlePreview),
+              _buildIconButton(imagePath: "assets/images/save2.png", onPressed: _handlePrint),
             ],
           ),
         ],
@@ -874,35 +868,31 @@ class _BillCartState extends State<BillCart> {
     IconData? icon,
     String? imagePath,
     required VoidCallback onPressed,
-    double size = 30,
-    double buttonSize = 44, // ⬅ total square size
+    double size = 35,
   }) {
     assert(icon != null || imagePath != null);
 
-    return SizedBox(
-      width: buttonSize,
-      height: buttonSize,
-      child: Material(
+    return Container(
+      padding: EdgeInsets.all(12),
+      decoration: BoxDecoration(
         color: appbar1,
         borderRadius: BorderRadius.circular(12),
-        elevation: 3,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: onPressed,
-          child: Center(
-            child: icon != null
-                ? Icon(
-                    icon,
-                    size: size,
-                    color: Colors.white,
-                  )
-                : Image.asset(
-                    imagePath!,
-                    width: size,
-                    height: size,
-                    fit: BoxFit.contain,
-                  ),
-          ),
+      ),
+      child: GestureDetector(
+        onTap: onPressed,
+        child: Center(
+          child: icon != null
+              ? Icon(
+                  icon,
+                  size: size,
+                  color: Colors.white,
+                )
+              : Image.asset(
+                  imagePath!,
+                  width: size,
+                  height: size,
+                  fit: BoxFit.contain,
+                ),
         ),
       ),
     );

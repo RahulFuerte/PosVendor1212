@@ -34,6 +34,7 @@ class MyDrawer extends StatefulWidget {
 
 class _MyDrawerState extends State<MyDrawer> {
   Map<String, dynamic> userData = {};
+  bool isUserLoading = true;
   final FirebaseFirestore firestore = FirebaseFirestore.instance;
   String adminUid = '';
 
@@ -48,11 +49,14 @@ class _MyDrawerState extends State<MyDrawer> {
     final sqliteHelper = SQLiteHelper();
 
     try {
-      // Try to get data from local SQLite cache first
+      setState(() {
+        isUserLoading = true;
+      });
+
+      // 1️⃣ Try local cache first
       final localData = await sqliteHelper.getUserData(phoneNo);
 
       if (localData != null) {
-        // Use local data if available
         if (mounted) {
           setState(() {
             userData = {
@@ -67,52 +71,55 @@ class _MyDrawerState extends State<MyDrawer> {
               'address': localData['address'],
             };
             adminUid = localData['adminUid'] ?? '';
+            isUserLoading = false;
           });
         }
-        return; // **Stop here if local data exists**
+        return;
       }
 
-      // No local data -> fetch from Firebase
-      DocumentSnapshot<Map<String, dynamic>> snapshot =
-          await FirebaseFirestore.instance.collection('AllCustomer').doc(phoneNo).get();
+      // 2️⃣ Fetch from Firebase
+      final doc = await FirebaseFirestore.instance
+          .collection('AllAdmins')
+          .doc(phoneNo)
+          .collection('customer')
+          .doc(phoneNo)
+          .get();
 
-      if (snapshot.exists) {
-        final data = snapshot.data();
-        final fetchedAdminUid = data?['adminUid'] ?? '';
-
-        if (mounted) {
-          setState(() {
-            userData = {
-              'name': data?['name'] ?? 'User',
-              'phoneNumber': data?['phoneNumber'] ?? phoneNo,
-              'email': data?['email'],
-              'adminUid': fetchedAdminUid,
-              'customerCode': data?['customerCode'],
-              'shopName': '',
-              'logoUrl': '',
-              'contact': '',
-              'address': '',
-            };
-            adminUid = fetchedAdminUid;
+      if (doc.exists) {
+        final data = doc.data();
+        if (data != null) {
+          await sqliteHelper.saveUserData({
+            'phoneNumber': data['phoneNumber'] ?? widget.phoneNo,
+            'adminUid': data['adminUid'] ?? widget.phoneNo,
+            'shopName': data['shopName'],
+            'logoUrl': data['logoUrl'],
+            'contact': data['contact'],
+            'address': data['address'],
+            'name': data['name'],
+            'email': data['email'],
+            'customerCode': data['customerCode'],
+            'gstNumber': data['gstNo'],
+            'createdAt': data['createdAt'],
           });
-        }
 
-        // Cache data locally
-        await sqliteHelper.saveUserData({
-          'phoneNumber': data?['phoneNumber'] ?? phoneNo,
-          'adminUid': fetchedAdminUid,
-          'name': data?['name'],
-          'email': data?['email'],
-          'customerCode': data?['customerCode'],
-          'shopName': '',
-          'logoUrl': '',
-          'contact': '',
-          'address': '',
-          'createdAt': data?['createdAt'],
-        });
+          if (mounted) {
+            setState(() {
+              userData = data;
+              adminUid = data['adminUid'] ?? '';
+              isUserLoading = false;
+            });
+          }
+        }
+      } else {
+        if (mounted) {
+          setState(() => isUserLoading = false);
+        }
       }
     } catch (e) {
       print("Error fetching user data: $e");
+      if (mounted) {
+        setState(() => isUserLoading = false);
+      }
     }
   }
 
@@ -126,92 +133,96 @@ class _MyDrawerState extends State<MyDrawer> {
             decoration: const BoxDecoration(
               color: primaryColor,
             ),
-            child: Row(
-              children: [
-                Container(
-                  height: 90,
-                  width: 90,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(75),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(75),
-                    child: userData['logoUrl'] != null && userData['logoUrl'].toString().isNotEmpty
-                        ? Image.network(
-                            userData['logoUrl'],
-                            fit: BoxFit.cover,
-                            loadingBuilder: (context, child, loadingProgress) {
-                              if (loadingProgress == null) return child;
-                              return Container(
-                                color: primaryColor,
-                                child: const Center(
-                                  child: CircularProgressIndicator(
-                                    color: primaryColor,
-                                    strokeWidth: 2,
+            child: isUserLoading
+                ? const Center(
+                    child: CircularProgressIndicator(color: Colors.white),
+                  )
+                : Row(
+                    children: [
+                      Container(
+                        height: 90,
+                        width: 90,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(75),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(75),
+                          child: userData['logoUrl'] != null && userData['logoUrl'].toString().isNotEmpty
+                              ? Image.network(
+                                  userData['logoUrl'],
+                                  fit: BoxFit.contain,
+                                  loadingBuilder: (context, child, loadingProgress) {
+                                    if (loadingProgress == null) return child;
+                                    return Container(
+                                      color: primaryColor,
+                                      child: const Center(
+                                        child: CircularProgressIndicator(
+                                          color: primaryColor,
+                                          strokeWidth: 2,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                  errorBuilder: (context, error, stackTrace) {
+                                    // Handle network errors gracefully
+
+                                    return Container(
+                                      color: primaryColor,
+                                      child: const Icon(
+                                        Icons.person,
+                                        color: Colors.white,
+                                        size: 40,
+                                      ),
+                                    );
+                                  },
+                                )
+                              : Container(
+                                  color: primaryColor,
+                                  child: const Icon(
+                                    Icons.person,
+                                    color: Colors.white,
+                                    size: 40,
                                   ),
                                 ),
-                              );
-                            },
-                            errorBuilder: (context, error, stackTrace) {
-                              // Handle network errors gracefully
-
-                              return Container(
-                                color: primaryColor,
-                                child: const Icon(
-                                  Icons.person,
+                        ),
+                      ),
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.only(left: 16, right: 8),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${userData['shopName']}',
+                                style: const TextStyle(
+                                  fontFamily: 'tabfont',
                                   color: Colors.white,
-                                  size: 40,
-                                ),
-                              );
-                            },
-                          )
-                        : Container(
-                            color: primaryColor,
-                            child: const Icon(
-                              Icons.person,
-                              color: Colors.white,
-                              size: 40,
-                            ),
-                          ),
-                  ),
-                ),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.only(left: 16, right: 8),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '${userData['shopName']}',
-                          style: const TextStyle(
-                            fontFamily: 'tabfont',
-                            color: Colors.white,
-                            fontWeight: FontWeight.w500,
-                            // fontSize: 17,
+                                  fontWeight: FontWeight.w500,
+                                  // fontSize: 17,
 
-                            letterSpacing: 1,
+                                  letterSpacing: 1,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              Text(
+                                '${userData['phoneNumber']}',
+                                style: const TextStyle(
+                                  fontFamily: 'fontmain',
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w500,
+                                  fontSize: 14,
+                                  letterSpacing: 1,
+                                ),
+                              ),
+                            ],
                           ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
                         ),
-                        Text(
-                          '${userData['phoneNumber']}',
-                          style: const TextStyle(
-                            fontFamily: 'fontmain',
-                            color: Colors.white,
-                            fontWeight: FontWeight.w500,
-                            fontSize: 14,
-                            letterSpacing: 1,
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                ),
-              ],
-            ),
           ),
 
           // Printer Connection Status
@@ -304,23 +315,17 @@ class _MyDrawerState extends State<MyDrawer> {
             leading: const Icon(Icons.dashboard, color: primaryColor),
             title: const Text('Dashboard'),
             onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => Dashboard(phoneNo: widget.phoneNo,)),
-              );
+              _navigate(Dashboard(phoneNo: widget.phoneNo));
             },
           ),
           ListTile(
             leading: const Icon(Icons.person, color: primaryColor),
             title: const Text('My Customers'),
             onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => CustomersListScreen(
-                    adminUid: adminUid,
-                    phoneNo: widget.phoneNo,
-                  ),
+              _navigate(
+                CustomersListScreen(
+                  adminUid: adminUid,
+                  phoneNo: widget.phoneNo,
                 ),
               );
             },
@@ -329,24 +334,16 @@ class _MyDrawerState extends State<MyDrawer> {
             leading: const Icon(Icons.save_as, color: primaryColor),
             title: const Text('Saved Orders'),
             onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const UsersScreen(),
-                ),
-              );
+              _navigate(const UsersScreen());
             },
           ),
           ListTile(
             leading: const Icon(Icons.sync, color: primaryColor),
             title: const Text('Offline Status & Bills'),
             onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => OfflineBillStatusScreen(
-                    adminUid: adminUid,
-                  ),
+              _navigate(
+                OfflineBillStatusScreen(
+                  adminUid: adminUid,
                 ),
               );
             },
@@ -355,12 +352,9 @@ class _MyDrawerState extends State<MyDrawer> {
             leading: const Icon(Icons.sync_problem, color: primaryColor),
             title: const Text('Sync Diagnostics'),
             onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => SyncStatusPage(
-                    adminUid: adminUid,
-                  ),
+              _navigate(
+                SyncStatusPage(
+                  adminUid: adminUid,
                 ),
               );
             },
@@ -370,12 +364,9 @@ class _MyDrawerState extends State<MyDrawer> {
             leading: Icon(MdiIcons.chartBar, color: primaryColor),
             title: const Text('Sales Report'),
             onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => SalesReportScreen(
-                    adminUid: widget.phoneNo,
-                  ),
+              _navigate(
+                SalesReportScreen(
+                  adminUid: widget.phoneNo,
                 ),
               );
             },
@@ -384,12 +375,9 @@ class _MyDrawerState extends State<MyDrawer> {
             leading: const Icon(Icons.people, color: primaryColor),
             title: const Text('Customerwise Report'),
             onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => CustomerWiseReport(
-                    adminUid: adminUid,
-                  ),
+              _navigate(
+                CustomerWiseReport(
+                  adminUid: adminUid,
                 ),
               );
             },
@@ -398,13 +386,10 @@ class _MyDrawerState extends State<MyDrawer> {
             leading: Icon(MdiIcons.fileDocumentOutline, color: primaryColor),
             title: const Text('Billwise Report'),
             onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => BillwiseReportScreen(
-                    adminUid: adminUid,
-                    uid: widget.phoneNo,
-                  ),
+              _navigate(
+                BillwiseReportScreen(
+                  adminUid: adminUid,
+                  uid: widget.phoneNo,
                 ),
               );
             },
@@ -413,13 +398,10 @@ class _MyDrawerState extends State<MyDrawer> {
             leading: Icon(MdiIcons.foodOutline, color: primaryColor),
             title: const Text('Itemwise Report'),
             onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => ItemwiseReportScreen(
-                    uid: widget.phoneNo,
-                    adminUid: adminUid,
-                  ),
+              _navigate(
+                ItemwiseReportScreen(
+                  uid: widget.phoneNo,
+                  adminUid: adminUid,
                 ),
               );
             },
@@ -428,13 +410,10 @@ class _MyDrawerState extends State<MyDrawer> {
             leading: Icon(MdiIcons.calendarMonth, color: primaryColor),
             title: const Text('Datewise Report'),
             onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => DatewiseReportScreen(
-                    adminUid: adminUid,
-                    uid: widget.phoneNo,
-                  ),
+              _navigate(
+                DatewiseReportScreen(
+                  adminUid: adminUid,
+                  uid: widget.phoneNo,
                 ),
               );
             },
@@ -443,13 +422,10 @@ class _MyDrawerState extends State<MyDrawer> {
             leading: const Icon(Icons.receipt, color: primaryColor),
             title: const Text('Edit bill Receipt'),
             onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => EditBillReceiptScreen(
-                    AdminUid: adminUid,
-                    phoneNo: widget.phoneNo,
-                  ),
+              _navigate(
+                EditBillReceiptScreen(
+                  AdminUid: adminUid,
+                  phoneNo: widget.phoneNo,
                 ),
               );
             },
@@ -514,5 +490,15 @@ class _MyDrawerState extends State<MyDrawer> {
         ],
       ),
     );
+  }
+
+  void _navigate(Widget page) {
+    Navigator.pop(context);
+    Future.delayed(const Duration(milliseconds: 250), () {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => page),
+      );
+    });
   }
 }

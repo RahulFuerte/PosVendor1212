@@ -9,6 +9,8 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'package:pos/view/home/navigation.dart';
+import 'package:pos/view/home/screens/search_receipt_screen.dart';
 import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 
@@ -21,9 +23,7 @@ import 'package:pos/view/tab_screen/view-model/widgets/printers/printer.dart';
 class BillwiseReportScreen extends StatefulWidget {
   final String uid;
   final String adminUid;
-  const BillwiseReportScreen(
-      {Key? key, required this.uid, required this.adminUid})
-      : super(key: key);
+  const BillwiseReportScreen({Key? key, required this.uid, required this.adminUid}) : super(key: key);
 
   @override
   State<BillwiseReportScreen> createState() => _BillwiseReportScreenState();
@@ -50,8 +50,7 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
       final savedPrinterData = box.get('selectedPrinter');
 
       if (savedPrinterData != null && mounted) {
-        final printProvider =
-            Provider.of<PrintProvider>(context, listen: false);
+        final printProvider = Provider.of<PrintProvider>(context, listen: false);
 
         // Reconstruct BluetoothPrinter from saved data
         final savedPrinter = BluetoothPrinter(
@@ -60,8 +59,7 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
           isBle: savedPrinterData['isBle'] ?? false,
           vendorId: savedPrinterData['vendorId'],
           productId: savedPrinterData['productId'],
-          typePrinter: PrinterType
-              .values[savedPrinterData['typePrinter'] ?? 0], // This is enum, OK
+          typePrinter: PrinterType.values[savedPrinterData['typePrinter'] ?? 0], // This is enum, OK
         );
 
         // ------------------------
@@ -88,8 +86,7 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
     }
   }
 
-  Future<void> _reconnectPrinter(
-      BluetoothPrinter printer, PrintProvider printProvider) async {
+  Future<void> _reconnectPrinter(BluetoothPrinter printer, PrintProvider printProvider) async {
     try {
       final printerManager = PrinterManager.instance;
 
@@ -134,9 +131,7 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
   Future<void> _selectDate(BuildContext context, bool isFromDate) async {
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: isFromDate
-          ? (fromDate ?? DateTime.now())
-          : (toDate ?? DateTime.now()),
+      initialDate: isFromDate ? (fromDate ?? DateTime.now()) : (toDate ?? DateTime.now()),
       firstDate: DateTime(2020),
       lastDate: DateTime.now(),
     );
@@ -178,8 +173,7 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
 
     try {
       // Normalize dates to start of day
-      final startDate =
-          DateTime(fromDate!.year, fromDate!.month, fromDate!.day);
+      final startDate = DateTime(fromDate!.year, fromDate!.month, fromDate!.day);
       final endDate = DateTime(toDate!.year, toDate!.month, toDate!.day);
 
       // Get all unique months between fromDate and toDate
@@ -193,15 +187,11 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
       }
 
       for (String month in monthsToQuery) {
-        final collectionRef = FirebaseFirestore.instance
-            .collection('AllBills')
-            .doc(widget.uid)
-            .collection('myBills')
-            .doc(month);
+        final collectionRef =
+            FirebaseFirestore.instance.collection('AllBills').doc(widget.uid).collection('myBills').doc(month);
 
         // Iterate through each day in the range for this month
-        DateTime currentDate =
-            DateTime(startDate.year, startDate.month, startDate.day);
+        DateTime currentDate = DateTime(startDate.year, startDate.month, startDate.day);
 
         // If this is not the first month, start from day 1
         if (month != DateFormat('yyyyMM').format(startDate)) {
@@ -211,8 +201,7 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
         }
 
         // Determine the last day to check for this month
-        DateTime lastDayOfMonth = DateTime(int.parse(month.substring(0, 4)),
-            int.parse(month.substring(4, 6)) + 1, 0);
+        DateTime lastDayOfMonth = DateTime(int.parse(month.substring(0, 4)), int.parse(month.substring(4, 6)) + 1, 0);
         DateTime lastDate = endDate;
 
         // If this is not the last month, go to end of month
@@ -220,8 +209,7 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
           lastDate = lastDayOfMonth;
         }
 
-        while (currentDate.isBefore(lastDate) ||
-            currentDate.isAtSameMomentAs(lastDate)) {
+        while (currentDate.isBefore(lastDate) || currentDate.isAtSameMomentAs(lastDate)) {
           String dateStr = DateFormat('yyyyMMdd').format(currentDate);
 
           try {
@@ -305,8 +293,7 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
         'vendorId': printer.vendorId,
         'productId': printer.productId,
         'typePrinter': printer.typePrinter.index,
-        'paperSize':
-            printProvider.selectedPaperSize.value, // Save as value, not index
+        'paperSize': printProvider.selectedPaperSize.value, // Save as value, not index
       });
     } catch (e) {
       print('Error saving printer to Hive: $e');
@@ -341,28 +328,23 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
         DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now()),
         styles: const PosStyles(align: PosAlign.center),
       );
-      bytes += generator.text('Bill Wise Sales Report',
-          styles: const PosStyles(align: PosAlign.center, bold: true));
-      bytes += generator.text("-" * 32,
-          styles: const PosStyles(align: PosAlign.center));
+      bytes += generator.text('Bill Wise Sales Report', styles: const PosStyles(align: PosAlign.center, bold: true));
+      bytes += generator.text("-" * 32, styles: const PosStyles(align: PosAlign.center));
 
       // Date range
       bytes += generator.text(
         'From: ${DateFormat('dd/MM/yy').format(fromDate!)}     To: ${DateFormat('dd/MM/yy').format(toDate!)}',
         styles: const PosStyles(align: PosAlign.left),
       );
-      bytes += generator.text("-" * 32,
-          styles: const PosStyles(align: PosAlign.center));
+      bytes += generator.text("-" * 32, styles: const PosStyles(align: PosAlign.center));
 
       // Table header
       bytes += generator.row([
         PosColumn(text: 'Bill', width: 4, styles: const PosStyles(bold: true)),
         PosColumn(text: 'Qty', width: 3, styles: const PosStyles(bold: true)),
-        PosColumn(
-            text: 'Amount', width: 5, styles: const PosStyles(bold: true)),
+        PosColumn(text: 'Amount', width: 5, styles: const PosStyles(bold: true)),
       ]);
-      bytes += generator.text("-" * 32,
-          styles: const PosStyles(align: PosAlign.center));
+      bytes += generator.text("-" * 32, styles: const PosStyles(align: PosAlign.center));
 
       // Bills data
       for (var bill in billsData) {
@@ -383,107 +365,69 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
           PosColumn(text: bill['billNo'].toString(), width: 4),
           PosColumn(text: bill['totalItems'].toStringAsFixed(1), width: 3),
           PosColumn(
-              text: bill['totalAmount'].toStringAsFixed(2),
-              width: 5,
-              styles: const PosStyles(align: PosAlign.right)),
+              text: bill['totalAmount'].toStringAsFixed(2), width: 5, styles: const PosStyles(align: PosAlign.right)),
         ]);
       }
 
-      bytes += generator.text("-" * 32,
-          styles: const PosStyles(align: PosAlign.center));
+      bytes += generator.text("-" * 32, styles: const PosStyles(align: PosAlign.center));
 
       // Subtotal
       bytes += generator.row([
         PosColumn(text: 'Sub Total :', width: 6),
-        PosColumn(
-            text: totalAmount.toStringAsFixed(2),
-            width: 6,
-            styles: const PosStyles(align: PosAlign.right)),
+        PosColumn(text: totalAmount.toStringAsFixed(2), width: 6, styles: const PosStyles(align: PosAlign.right)),
       ]);
-      bytes += generator.text("-" * 32,
-          styles: const PosStyles(align: PosAlign.center));
+      bytes += generator.text("-" * 32, styles: const PosStyles(align: PosAlign.center));
 
       // Additional charges
       bytes += generator.row([
         PosColumn(text: 'Packing Charges (+) :', width: 9),
-        PosColumn(
-            text: '0.00',
-            width: 3,
-            styles: const PosStyles(align: PosAlign.right)),
+        PosColumn(text: '0.00', width: 3, styles: const PosStyles(align: PosAlign.right)),
       ]);
       bytes += generator.row([
         PosColumn(text: 'Service Charge (+) :', width: 9),
-        PosColumn(
-            text: '0.00',
-            width: 3,
-            styles: const PosStyles(align: PosAlign.right)),
+        PosColumn(text: '0.00', width: 3, styles: const PosStyles(align: PosAlign.right)),
       ]);
       bytes += generator.emptyLines(1);
 
       bytes += generator.row([
         PosColumn(text: 'Rounding Amt (+) :', width: 9),
-        PosColumn(
-            text: '0.00',
-            width: 3,
-            styles: const PosStyles(align: PosAlign.right)),
+        PosColumn(text: '0.00', width: 3, styles: const PosStyles(align: PosAlign.right)),
       ]);
       bytes += generator.row([
         PosColumn(text: 'Rounding Amt (-) :', width: 9),
-        PosColumn(
-            text: '0.00',
-            width: 3,
-            styles: const PosStyles(align: PosAlign.right)),
+        PosColumn(text: '0.00', width: 3, styles: const PosStyles(align: PosAlign.right)),
       ]);
       bytes += generator.row([
         PosColumn(text: 'Discount (-) :', width: 9),
-        PosColumn(
-            text: '0.00',
-            width: 3,
-            styles: const PosStyles(align: PosAlign.right)),
+        PosColumn(text: '0.00', width: 3, styles: const PosStyles(align: PosAlign.right)),
       ]);
       bytes += generator.row([
         PosColumn(text: 'Cancel Amt (-) :', width: 9),
-        PosColumn(
-            text: '0.00',
-            width: 3,
-            styles: const PosStyles(align: PosAlign.right)),
+        PosColumn(text: '0.00', width: 3, styles: const PosStyles(align: PosAlign.right)),
       ]);
-      bytes += generator.text("-" * 32,
-          styles: const PosStyles(align: PosAlign.center));
+      bytes += generator.text("-" * 32, styles: const PosStyles(align: PosAlign.center));
 
       // Net Amount
       bytes += generator.row([
+        PosColumn(text: 'Net Amount :', width: 6, styles: const PosStyles(bold: true)),
         PosColumn(
-            text: 'Net Amount :',
-            width: 6,
-            styles: const PosStyles(bold: true)),
-        PosColumn(
-            text: totalAmount.toStringAsFixed(2),
-            width: 6,
-            styles: const PosStyles(align: PosAlign.right, bold: true)),
+            text: totalAmount.toStringAsFixed(2), width: 6, styles: const PosStyles(align: PosAlign.right, bold: true)),
       ]);
-      bytes += generator.text("-" * 32,
-          styles: const PosStyles(align: PosAlign.center));
+      bytes += generator.text("-" * 32, styles: const PosStyles(align: PosAlign.center));
 
       // Payment Summary
-      bytes += generator.text('Payment Summary',
-          styles: const PosStyles(bold: true));
-      bytes += generator.text("-" * 32,
-          styles: const PosStyles(align: PosAlign.center));
+      bytes += generator.text('Payment Summary', styles: const PosStyles(bold: true));
+      bytes += generator.text("-" * 32, styles: const PosStyles(align: PosAlign.center));
       bytes += generator.row([
         PosColumn(text: 'CASH', width: 6),
-        PosColumn(
-            text: totalAmount.toStringAsFixed(2),
-            width: 6,
-            styles: const PosStyles(align: PosAlign.right)),
+        PosColumn(text: totalAmount.toStringAsFixed(2), width: 6, styles: const PosStyles(align: PosAlign.right)),
       ]);
 
       bytes += generator.emptyLines(3);
       bytes += generator.cut();
 
       // Send to printer
-      await printerManager.send(
-          type: printProvider.selectedPrinter!.typePrinter, bytes: bytes);
+      await printerManager.send(type: printProvider.selectedPrinter!.typePrinter, bytes: bytes);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -514,8 +458,7 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
     if (billsData.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-              'No data available. Please select dates and wait for data to load.'),
+          content: Text('No data available. Please select dates and wait for data to load.'),
           backgroundColor: Colors.orange,
         ),
       );
@@ -574,8 +517,7 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
                 pw.Center(
                   child: pw.Text(
                     shopName,
-                    style: pw.TextStyle(
-                        fontSize: 20, fontWeight: pw.FontWeight.bold),
+                    style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold),
                   ),
                 ),
                 if (address.isNotEmpty) pw.SizedBox(height: 4),
@@ -618,8 +560,7 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
                 pw.Center(
                   child: pw.Text(
                     'Bill Wise Sales Report',
-                    style: pw.TextStyle(
-                        fontWeight: pw.FontWeight.bold, fontSize: 16),
+                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 16),
                   ),
                 ),
 
@@ -630,13 +571,11 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
                   padding: const pw.EdgeInsets.all(8),
                   decoration: pw.BoxDecoration(
                     border: pw.Border.all(color: PdfColors.grey400),
-                    borderRadius:
-                        const pw.BorderRadius.all(pw.Radius.circular(4)),
+                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
                   ),
                   child: pw.Text(
                     'Period: ${DateFormat('dd/MM/yyyy').format(fromDate!)} to ${DateFormat('dd/MM/yyyy').format(toDate!)}',
-                    style: pw.TextStyle(
-                        fontWeight: pw.FontWeight.bold, fontSize: 11),
+                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11),
                   ),
                 ),
 
@@ -644,10 +583,8 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
 
                 // Bills Table
                 pw.Table.fromTextArray(
-                  headerStyle: pw.TextStyle(
-                      fontWeight: pw.FontWeight.bold, fontSize: 11),
-                  headerDecoration:
-                      const pw.BoxDecoration(color: PdfColors.grey300),
+                  headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11),
+                  headerDecoration: const pw.BoxDecoration(color: PdfColors.grey300),
                   cellStyle: const pw.TextStyle(fontSize: 10),
                   cellAlignments: {
                     0: pw.Alignment.centerLeft,
@@ -655,12 +592,7 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
                     2: pw.Alignment.centerRight,
                     3: pw.Alignment.centerRight,
                   },
-                  headers: [
-                    'Bill No',
-                    'Total Items',
-                    'Total Amount',
-                    'Order Date'
-                  ],
+                  headers: ['Bill No', 'Total Items', 'Total Amount', 'Order Date'],
                   data: billsData.map((bill) {
                     // Format date safely
                     String dateDisplay = '';
@@ -692,8 +624,7 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
                   padding: const pw.EdgeInsets.all(10),
                   decoration: const pw.BoxDecoration(
                     color: PdfColors.grey200,
-                    borderRadius:
-                        pw.BorderRadius.all(pw.Radius.circular(4)),
+                    borderRadius: pw.BorderRadius.all(pw.Radius.circular(4)),
                   ),
                   child: pw.Column(
                     children: [
@@ -702,13 +633,11 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
                         children: [
                           pw.Text(
                             'Total Bills: ${billsData.length}',
-                            style: pw.TextStyle(
-                                fontWeight: pw.FontWeight.bold, fontSize: 11),
+                            style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11),
                           ),
                           pw.Text(
                             'Total Items: ${billsData.fold<double>(0, (sum, bill) => sum + (bill['totalItems'] as double? ?? 0)).toStringAsFixed(0)}',
-                            style: pw.TextStyle(
-                                fontWeight: pw.FontWeight.bold, fontSize: 11),
+                            style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11),
                           ),
                         ],
                       ),
@@ -720,8 +649,7 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
                         children: [
                           pw.Text(
                             'Grand Total: ',
-                            style: pw.TextStyle(
-                                fontWeight: pw.FontWeight.bold, fontSize: 14),
+                            style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 14),
                           ),
                           pw.Text(
                             'Rs ${totalAmount.toStringAsFixed(2)}',
@@ -743,8 +671,7 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
                 pw.Center(
                   child: pw.Text(
                     'Generated by POS System',
-                    style: const pw.TextStyle(
-                        fontSize: 8, color: PdfColors.grey600),
+                    style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600),
                   ),
                 ),
               ],
@@ -753,8 +680,7 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
 
           return pdf.save();
         },
-        name:
-            'BillwiseReport_${DateFormat('ddMMyyyy_HHmmss').format(DateTime.now())}.pdf',
+        name: 'BillwiseReport_${DateFormat('ddMMyyyy_HHmmss').format(DateTime.now())}.pdf',
       );
 
       if (mounted) {
@@ -792,8 +718,7 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: primaryColor,
-        title: const Text('Billwise report',
-            style: TextStyle(color: Colors.white)),
+        title: const Text('Billwise report', style: TextStyle(color: Colors.white)),
         iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: Column(
@@ -816,31 +741,19 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
                           ),
                           child: Row(
                             children: [
-                              const Icon(Icons.calendar_today,
-                                  color: Colors.red, size: 20),
+                              const Icon(Icons.calendar_today, color: Colors.red, size: 20),
                               const SizedBox(width: 8),
                               Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text('From date:',
-                                      style: TextStyle(
-                                          fontSize: 12, color: Colors.grey)),
+                                  const Text('From date:', style: TextStyle(fontSize: 12, color: Colors.grey)),
                                   Text(
-                                    fromDate == null
-                                        ? 'Select date'
-                                        : DateFormat('dd MMM yyyy')
-                                            .format(fromDate!),
-                                    style: const TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.bold),
+                                    fromDate == null ? 'Select date' : DateFormat('dd MMM yyyy').format(fromDate!),
+                                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                                   ),
                                   Text(
-                                    fromDate == null
-                                        ? ''
-                                        : DateFormat('hh:mm:ss a')
-                                            .format(fromDate!),
-                                    style: const TextStyle(
-                                        fontSize: 12, color: Colors.blue),
+                                    fromDate == null ? '' : DateFormat('hh:mm:ss a').format(fromDate!),
+                                    style: const TextStyle(fontSize: 12, color: Colors.blue),
                                   ),
                                 ],
                               ),
@@ -861,31 +774,19 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
                           ),
                           child: Row(
                             children: [
-                              const Icon(Icons.calendar_today,
-                                  color: Colors.red, size: 20),
+                              const Icon(Icons.calendar_today, color: Colors.red, size: 20),
                               const SizedBox(width: 8),
                               Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text('To date:',
-                                      style: TextStyle(
-                                          fontSize: 12, color: Colors.grey)),
+                                  const Text('To date:', style: TextStyle(fontSize: 12, color: Colors.grey)),
                                   Text(
-                                    toDate == null
-                                        ? 'Select date'
-                                        : DateFormat('dd MMM yyyy')
-                                            .format(toDate!),
-                                    style: const TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.bold),
+                                    toDate == null ? 'Select date' : DateFormat('dd MMM yyyy').format(toDate!),
+                                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                                   ),
                                   Text(
-                                    toDate == null
-                                        ? ''
-                                        : DateFormat('hh:mm:ss a')
-                                            .format(toDate!),
-                                    style: const TextStyle(
-                                        fontSize: 12, color: Colors.blue),
+                                    toDate == null ? '' : DateFormat('hh:mm:ss a').format(toDate!),
+                                    style: const TextStyle(fontSize: 12, color: Colors.blue),
                                   ),
                                 ],
                               ),
@@ -907,15 +808,13 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.receipt_long,
-                                size: 64, color: Colors.grey.shade400),
+                            Icon(Icons.receipt_long, size: 64, color: Colors.grey.shade400),
                             const SizedBox(height: 16),
                             Text(
                               fromDate == null || toDate == null
                                   ? 'Please select date range'
                                   : 'No bills found for selected dates',
-                              style: TextStyle(
-                                  color: Colors.grey.shade600, fontSize: 16),
+                              style: TextStyle(color: Colors.grey.shade600, fontSize: 16),
                             ),
                           ],
                         ),
@@ -926,34 +825,23 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
                             SingleChildScrollView(
                               scrollDirection: Axis.horizontal,
                               child: DataTable(
-                                headingRowColor:
-                                    MaterialStateProperty.all(Colors.black),
+                                headingRowColor: MaterialStateProperty.all(Colors.black),
                                 columns: const [
                                   DataColumn(
-                                      label: Text('',
-                                          style: TextStyle(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.bold))),
+                                      label:
+                                          Text('', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
                                   DataColumn(
                                       label: Text('Bill No.',
-                                          style: TextStyle(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.bold))),
+                                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
                                   DataColumn(
                                       label: Text('Total Items',
-                                          style: TextStyle(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.bold))),
+                                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
                                   DataColumn(
                                       label: Text('Total Amount',
-                                          style: TextStyle(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.bold))),
+                                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
                                   DataColumn(
                                       label: Text('Order Date',
-                                          style: TextStyle(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.bold))),
+                                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
                                 ],
                                 rows: billsData.asMap().entries.map((entry) {
                                   final index = entry.key;
@@ -975,10 +863,8 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
                                     cells: [
                                       DataCell(Text('${index + 1}')),
                                       DataCell(Text(bill['billNo'].toString())),
-                                      DataCell(Text(bill['totalItems']
-                                          .toStringAsFixed(1))),
-                                      DataCell(Text(bill['totalAmount']
-                                          .toStringAsFixed(1))),
+                                      DataCell(Text(bill['totalItems'].toStringAsFixed(1))),
+                                      DataCell(Text(bill['totalAmount'].toStringAsFixed(1))),
                                       DataCell(Text(displayDate)),
                                     ],
                                   );
@@ -1003,14 +889,9 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Text('View Summary',
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold)),
+                        style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
                     Icon(
-                      showSummary
-                          ? Icons.keyboard_arrow_up
-                          : Icons.keyboard_arrow_down,
+                      showSummary ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
                       color: Colors.white,
                     ),
                   ],
@@ -1027,79 +908,169 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Total Bills:',
-                          style: TextStyle(fontSize: 16)),
+                      const Text('Total Bills:', style: TextStyle(fontSize: 16)),
                       Text(billsData.length.toString(),
-                          style: const TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.bold)),
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                     ],
                   ),
                   const SizedBox(height: 8),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Total Items:',
-                          style: TextStyle(fontSize: 16)),
+                      const Text('Total Items:', style: TextStyle(fontSize: 16)),
                       Text(totalItems.toStringAsFixed(0),
-                          style: const TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.bold)),
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                     ],
                   ),
                   const SizedBox(height: 8),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Total Amount:',
-                          style: TextStyle(fontSize: 16)),
+                      const Text('Total Amount:', style: TextStyle(fontSize: 16)),
                       Text('₹${totalAmount.toStringAsFixed(2)}',
-                          style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.green)),
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.green)),
                     ],
                   ),
                 ],
               ),
             ),
           Container(
-            padding: const EdgeInsets.all(16),
-            color: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.06),
+                  blurRadius: 12,
+                  offset: const Offset(0, -4),
+                )
+              ],
+            ),
             child: Row(
               children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    icon: const Icon(Icons.print),
-                    label: const Text('PRINT REPORT'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: primaryColor,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      textStyle: const TextStyle(
-                          fontSize: 13, fontWeight: FontWeight.bold),
-                    ),
-                    onPressed: billsData.isEmpty ? null : _printReport,
-                  ),
+                _actionButton(
+                  icon: Icons.print_rounded,
+                  label: "PRINT",
+                  color: appbar1,
+                  enabled: billsData.isNotEmpty,
+                  onTap: _printReport,
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    icon: const Icon(Icons.share),
-                    label: const Text('DOWNLOAD & SHARE'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: primaryColor,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      textStyle: const TextStyle(
-                          fontSize: 13, fontWeight: FontWeight.bold),
-                    ),
-                    onPressed:
-                        billsData.isEmpty ? null : _downloadAndShareReport,
-                  ),
+                const SizedBox(width: 10),
+                _actionButton(
+                  icon: Icons.download_rounded,
+                  label: "SAVE PDF",
+                  color: appbar1,
+                  enabled: billsData.isNotEmpty,
+                  onTap: _downloadAndShareReport,
+                ),
+                const SizedBox(width: 10),
+                _actionButton(
+                  icon: Icons.search_rounded,
+                  label: "SEARCH BILL",
+                  color: appbar1,
+                  enabled: true,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => SearchReceiptScreen(
+                          phoneNumber: widget.uid,
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ],
             ),
           ),
+
+          // Container(
+          //   padding: const EdgeInsets.all(16),
+          //   color: Colors.white,
+          //   child: Row(
+          //     children: [
+          //       Expanded(
+          //         child: ElevatedButton.icon(
+          //           icon: const Icon(Icons.print),
+          //           label: const Text('PRINT REPORT'),
+          //           style: ElevatedButton.styleFrom(
+          //             backgroundColor: primaryColor,
+          //             foregroundColor: Colors.white,
+          //             padding: const EdgeInsets.symmetric(vertical: 16),
+          //             textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+          //           ),
+          //           onPressed: billsData.isEmpty ? null : _printReport,
+          //         ),
+          //       ),
+          //       const SizedBox(width: 12),
+          //       Expanded(
+          //         child: ElevatedButton.icon(
+          //           icon: const Icon(Icons.share),
+          //           label: const Text('DOWNLOAD & SHARE'),
+          //           style: ElevatedButton.styleFrom(
+          //             backgroundColor: primaryColor,
+          //             foregroundColor: Colors.white,
+          //             padding: const EdgeInsets.symmetric(vertical: 16),
+          //             textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+          //           ),
+          //           onPressed: billsData.isEmpty ? null : _downloadAndShareReport,
+          //         ),
+          //       ),
+          //       const SizedBox(width: 12),
+          //       Expanded(
+          //         child: ElevatedButton.icon(
+          //           icon: const Icon(Icons.search),
+          //           label: const Text('SEARCH BILL'),
+          //           style: ElevatedButton.styleFrom(
+          //             backgroundColor: primaryColor,
+          //             foregroundColor: Colors.white,
+          //             padding: const EdgeInsets.symmetric(vertical: 16),
+          //             textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+          //           ),
+          //           onPressed: _printReport,
+          //         ),
+          //       ),
+          //     ],
+          //   ),
+          // ),
         ],
+      ),
+    );
+  }
+
+  Widget _actionButton({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required bool enabled,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: enabled ? onTap : null,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 250),
+          height: 50,
+          decoration: BoxDecoration(
+            color: enabled ? color : Colors.grey.shade300,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: Colors.white, size: 20),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

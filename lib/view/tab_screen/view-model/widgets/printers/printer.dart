@@ -747,7 +747,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_pos_printer_platform_image_3/flutter_pos_printer_platform_image_3.dart';
 import 'package:intl/intl.dart';
 import 'package:pos/data/providers/print_provider.dart';
-
+import 'package:image/image.dart' as img_lib;
+import 'package:http/http.dart' as http;
 
 import '../../../../../core/network/connection_monitor.dart';
 import '../../../../../data/datasources/offline_bill_manager.dart';
@@ -759,6 +760,32 @@ class DirectPrintHelper {
     return (10000000 + random.nextInt(90000000)).toString();
   }
 
+  static Future<List<int>> _loadLogoForPrinter(
+    String logoUrl,
+    Generator generator,
+  ) async {
+    try {
+      if (logoUrl.isEmpty) return [];
+
+      final response = await http.get(Uri.parse(logoUrl));
+      if (response.statusCode != 200) return [];
+
+      final img = img_lib.decodeImage(response.bodyBytes);
+      if (img == null) return [];
+
+      // Resize for thermal printer width
+      final resized = img_lib.copyResize(
+        img,
+        width: 220, // works for 58mm & 80mm
+      );
+
+      return generator.imageRaster(resized, align: PosAlign.center);
+    } catch (e) {
+      debugPrint("Logo load failed: $e");
+      return [];
+    }
+  }
+
   static Future<void> printReceipt({
     required BuildContext context,
     required BluetoothPrinter printer,
@@ -766,6 +793,7 @@ class DirectPrintHelper {
     required List<Map<String, dynamic>> items,
     required double total,
     required String shopName,
+    required String logoUrl,
     required String contact,
     required String address,
     required String adminUid,
@@ -790,6 +818,7 @@ class DirectPrintHelper {
       bool is58mm = paperSize == PaperSize.mm58;
       int totalCols = is58mm ? 31 : 48;
       String separator = '-' * totalCols;
+      int totalQty = 0;
 
       // Smart dynamic columns
       int desc = is58mm ? 12 : 22;
@@ -801,38 +830,66 @@ class DirectPrintHelper {
       const smallFontCenter = PosStyles(align: PosAlign.center);
       const smallFontLeft = PosStyles(align: PosAlign.left);
 
-      // Header
-      bytes += generator.text(shopName, styles: smallFontCenter);
-      bytes += generator.text(address, styles: smallFontCenter);
-      bytes += generator.text(contact, styles: smallFontCenter);
-      bytes += generator.text(
-        DateFormat('dd-MM-yyyy | hh:mm a').format(DateTime.now()),
-        styles: smallFontCenter,
-      );
-
-      bytes += generator.text(separator, styles: smallFontLeft);
-      bytes += generator.text('RECEIPT', styles: smallFontCenter);
-      bytes +=
-          generator.text('Receipt No: $finalReceiptNo', styles: smallFontCenter);
-
-      // Table number (show N/A if not provided)
-      if (tableNumber != null || tableNumber != 'N/A') {
-        bytes += generator.text(
-          'Table No: ${tableNumber ?? 'N/A'}',
-          styles: smallFontCenter,
-        );
+      String centerText(String text, int width) {
+        int spaces = width - text.length;
+        if (spaces <= 0) return text;
+        int left = (spaces / 2).floor();
+        int right = spaces - left;
+        return ' ' * left + text + ' ' * right;
       }
 
+      // Header
+
+      if (logoUrl.isNotEmpty) {
+        final logoBytes = await _loadLogoForPrinter(logoUrl, generator);
+        bytes += logoBytes;
+        bytes += generator.feed(1);
+      }
+      bytes += generator.emptyLines(1);
+      bytes += generator.text(shopName,
+          styles: const PosStyles(bold: true, align: PosAlign.center));
+      bytes += generator.text(address, styles: smallFontCenter);
+      bytes += generator.text("Mob.No : $contact", styles: smallFontCenter);
       bytes += generator.text(separator, styles: smallFontLeft);
+      bytes += generator.text(
+        "Date : ${DateFormat('dd/MM/yyyy').format(DateTime.now())}",
+        styles: smallFontLeft,
+      );
+      bytes += generator.text(
+        "Time : ${DateFormat('hh:mm a').format(DateTime.now())}",
+        styles: smallFontLeft,
+      );
+      bytes += generator.text(
+        "Receipt No : $finalReceiptNo",
+        styles: smallFontLeft,
+      );
+
+      // // Table number (show N/A if not provided)
+      if (tableNumber != null && tableNumber.isNotEmpty) {
+        bytes += generator.text(
+          'Table No: $tableNumber ',
+          styles: smallFontLeft,
+        );
+      }
+      bytes += generator.text(separator, styles: smallFontLeft);
+      // bytes += generator.text('RECEIPT', styles: smallFontCenter);
+      // bytes += generator.text('Receipt No: $finalReceiptNo', styles: smallFontCenter);
 
       // Table header
       bytes += generator.text(
-        '${"Description".padRight(desc)}'
-        '${"Qty".padLeft(qty)}'
-        '${"Rate".padLeft(rate)}'
+        '${"Item".padRight(desc)}'
+        '${centerText("Qty", qty)}'
+        '${"Price".padLeft(rate)}'
         '${"Amt".padLeft(amt)}',
         styles: smallFontLeft,
       );
+
+      bytes += generator.text(separator, styles: smallFontLeft);
+
+      String fmt(num v) {
+        if (v % 1 == 0) return v.toInt().toString();
+        return v.toStringAsFixed(2);
+      }
 
       // Items
       for (var item in items) {
@@ -844,12 +901,13 @@ class DirectPrintHelper {
         int qtyValue = int.tryParse(item['quantity'].toString()) ?? 1;
         double rateValue = double.tryParse(item['price'].toString()) ?? 0;
         double amtValue = qtyValue * rateValue;
+        totalQty += int.tryParse(item['quantity'].toString()) ?? 0;
 
         bytes += generator.text(
           '${name.padRight(desc)}'
-          '${qtyValue.toString().padLeft(qty)}'
-          '${rateValue.toStringAsFixed(2).padLeft(rate)}'
-          '${amtValue.toStringAsFixed(2).padLeft(amt)}',
+          '${centerText("x ${qtyValue.toString()}", qty)}'
+          '${centerText(fmt(rateValue), rate)}'
+          '${amtValue.toString().padLeft(amt)}',
           styles: smallFontLeft,
         );
       }
@@ -858,11 +916,17 @@ class DirectPrintHelper {
       double subtotal = total;
       double grandTotal = subtotal;
 
+      // Total Qty
+      bytes += generator.text(separator, styles: smallFontLeft);
+      bytes += generator.text(
+        'TOTAL QTY'.padRight(totalCols - 8) + totalQty.toStringAsFixed(2).padLeft(8),
+        styles: smallFontLeft,
+      );
+
       // Subtotal
       bytes += generator.text(separator, styles: smallFontLeft);
       bytes += generator.text(
-        'SUBTOTAL'.padRight(totalCols - 8) +
-            subtotal.toStringAsFixed(2).padLeft(8),
+        'SUBTOTAL'.padRight(totalCols - 8) + subtotal.toStringAsFixed(2).padLeft(8),
         styles: smallFontLeft,
       );
 
@@ -874,15 +938,13 @@ class DirectPrintHelper {
 
         // CGST
         bytes += generator.text(
-          'CGST (${cgstPercent.toStringAsFixed(1)}%)'.padRight(totalCols - 8) +
-              cgst.toStringAsFixed(2).padLeft(8),
+          'CGST (${cgstPercent.toStringAsFixed(1)}%)'.padRight(totalCols - 8) + cgst.toStringAsFixed(2).padLeft(8),
           styles: smallFontLeft,
         );
 
         // SGST
         bytes += generator.text(
-          'SGST (${sgstPercent.toStringAsFixed(1)}%)'.padRight(totalCols - 8) +
-              sgst.toStringAsFixed(2).padLeft(8),
+          'SGST (${sgstPercent.toStringAsFixed(1)}%)'.padRight(totalCols - 8) + sgst.toStringAsFixed(2).padLeft(8),
           styles: smallFontLeft,
         );
       }
@@ -890,18 +952,24 @@ class DirectPrintHelper {
       // Grand Total
       bytes += generator.text(separator, styles: smallFontLeft);
       bytes += generator.text(
-        'GRAND TOTAL'.padRight(totalCols - 8) +
-            grandTotal.toStringAsFixed(2).padLeft(8),
+        'GRAND TOTAL'.padRight(totalCols - 8) + grandTotal.toStringAsFixed(2).padLeft(8),
         styles: smallFontLeft,
       );
 
+      // 🔥 UPI QR
+      String upiId = "richeyrichinfotech@icici";
+      String upiUrl = "upi://pay?pa=$upiId&pn=$shopName&am=${fmt(grandTotal)}&cu=INR";
+
+      bytes += generator.emptyLines(1);
+      bytes += generator.qrcode(upiUrl, size: QRSize.Size6, align: PosAlign.center);
+      bytes += generator.emptyLines(1);
+
       // Footer
       bytes += generator.text(separator, styles: smallFontLeft);
-      bytes +=
-          generator.text('Thank you! Visit Again', styles: smallFontCenter);
+      bytes += generator.text('Thank you! Visit Again', styles: smallFontCenter);
       bytes += generator.cut();
 
-       final isConnected = await isOnline();
+      final isConnected = await isOnline();
 
       // Send to printer
       await PrinterManager.instance.send(
@@ -921,7 +989,7 @@ class DirectPrintHelper {
       }
 
       if (context.mounted) {
-                final message = isConnected
+        final message = isConnected
             ? 'Receipt printed & saved online! Receipt No: $receiptNo'
             : 'Receipt printed & saved offline! Will sync when online. Receipt No: $receiptNo';
 
@@ -953,6 +1021,200 @@ class DirectPrintHelper {
     }
   }
 
+  // static Future<void> printReceipt({
+  //   required BuildContext context,
+  //   required BluetoothPrinter printer,
+  //   required PaperSize paperSize,
+  //   required List<Map<String, dynamic>> items,
+  //   required double total,
+  //   required String shopName,
+  //   required String logoUrl,
+  //   required String contact,
+  //   required String address,
+  //   required String adminUid,
+  //   String? tableNumber,
+  //   String? receiptNo, // Optional: pass existing receipt number, otherwise generate new one
+  //   bool taxEnabled = false,
+  //   double cgstPercent = 2.5,
+  //   double sgstPercent = 2.5,
+  //   bool saveBill = false, // Set to false by default since bill is usually saved before calling this
+  // }) async {
+  //   try {
+  //     // Use provided receipt number or generate a new one
+  //     final String finalReceiptNo = receiptNo ?? generateReceiptNumber();
+
+  //     final profile = await CapabilityProfile.load(name: 'XP-N160I');
+  //     final Generator generator = Generator(paperSize, profile);
+
+  //     List<int> bytes = [];
+  //     bytes += generator.setGlobalCodeTable('CP1252');
+
+  //     // Paper configuration
+  //     bool is58mm = paperSize == PaperSize.mm58;
+  //     int totalCols = is58mm ? 31 : 48;
+  //     String separator = '-' * totalCols;
+
+  //     // Smart dynamic columns
+  //     int desc = is58mm ? 12 : 22;
+  //     int qty = is58mm ? 5 : 6;
+  //     int rate = is58mm ? 6 : 8;
+  //     int amt = is58mm ? 7 : 10;
+
+  //     // Small font style
+  //     const smallFontCenter = PosStyles(align: PosAlign.center);
+  //     const smallFontLeft = PosStyles(align: PosAlign.left);
+
+  //     // Header
+  //     if (logoUrl.isNotEmpty) {
+  //       final logoBytes = await _loadLogoForPrinter(logoUrl, generator);
+  //       bytes += logoBytes;
+  //       bytes += generator.feed(1); // small gap after logo
+  //     }
+  //     bytes += generator.text(shopName, styles: smallFontCenter);
+  //     bytes += generator.text(address, styles: smallFontCenter);
+  //     bytes += generator.text(contact, styles: smallFontCenter);
+  //     bytes += generator.text(
+  //       DateFormat('dd-MM-yyyy | hh:mm a').format(DateTime.now()),
+  //       styles: smallFontCenter,
+  //     );
+
+  //     bytes += generator.text(separator, styles: smallFontLeft);
+  //     bytes += generator.text('RECEIPT', styles: smallFontCenter);
+  //     bytes += generator.text('Receipt No: $finalReceiptNo', styles: smallFontCenter);
+
+  //     // Table number (show N/A if not provided)
+  //     if (tableNumber != null || tableNumber != 'N/A') {
+  //       bytes += generator.text(
+  //         'Table No: ${tableNumber ?? 'N/A'}',
+  //         styles: smallFontCenter,
+  //       );
+  //     }
+
+  //     bytes += generator.text(separator, styles: smallFontLeft);
+
+  //     // Table header
+  //     bytes += generator.text(
+  //       '${"Description".padRight(desc)}'
+  //       '${"Qty".padLeft(qty)}'
+  //       '${"Rate".padLeft(rate)}'
+  //       '${"Amt".padLeft(amt)}',
+  //       styles: smallFontLeft,
+  //     );
+
+  //     // Items
+  //     for (var item in items) {
+  //       String name = item['name'].toString();
+  //       if (name.length > desc) {
+  //         name = name.substring(0, desc - 3) + "...";
+  //       }
+
+  //       int qtyValue = int.tryParse(item['quantity'].toString()) ?? 1;
+  //       double rateValue = double.tryParse(item['price'].toString()) ?? 0;
+  //       double amtValue = qtyValue * rateValue;
+
+  //       bytes += generator.text(
+  //         '${name.padRight(desc)}'
+  //         '${qtyValue.toString().padLeft(qty)}'
+  //         '${rateValue.toStringAsFixed(2).padLeft(rate)}'
+  //         '${amtValue.toStringAsFixed(2).padLeft(amt)}',
+  //         styles: smallFontLeft,
+  //       );
+  //     }
+
+  //     // Calculate totals
+  //     double subtotal = total;
+  //     double grandTotal = subtotal;
+
+  //     // Subtotal
+  //     bytes += generator.text(separator, styles: smallFontLeft);
+  //     bytes += generator.text(
+  //       'SUBTOTAL'.padRight(totalCols - 8) + subtotal.toStringAsFixed(2).padLeft(8),
+  //       styles: smallFontLeft,
+  //     );
+
+  //     // Only show tax if enabled
+  //     if (taxEnabled) {
+  //       double cgst = subtotal * (cgstPercent / 100);
+  //       double sgst = subtotal * (sgstPercent / 100);
+  //       grandTotal = subtotal + cgst + sgst;
+
+  //       // CGST
+  //       bytes += generator.text(
+  //         'CGST (${cgstPercent.toStringAsFixed(1)}%)'.padRight(totalCols - 8) + cgst.toStringAsFixed(2).padLeft(8),
+  //         styles: smallFontLeft,
+  //       );
+
+  //       // SGST
+  //       bytes += generator.text(
+  //         'SGST (${sgstPercent.toStringAsFixed(1)}%)'.padRight(totalCols - 8) + sgst.toStringAsFixed(2).padLeft(8),
+  //         styles: smallFontLeft,
+  //       );
+  //     }
+
+  //     // Grand Total
+  //     bytes += generator.text(separator, styles: smallFontLeft);
+  //     bytes += generator.text(
+  //       'GRAND TOTAL'.padRight(totalCols - 8) + grandTotal.toStringAsFixed(2).padLeft(8),
+  //       styles: smallFontLeft,
+  //     );
+
+  //     // Footer
+  //     bytes += generator.text(separator, styles: smallFontLeft);
+  //     bytes += generator.text('Thank you! Visit Again', styles: smallFontCenter);
+  //     bytes += generator.cut();
+
+  //     final isConnected = await isOnline();
+
+  //     // Send to printer
+  //     await PrinterManager.instance.send(
+  //       type: printer.typePrinter,
+  //       bytes: bytes,
+  //     );
+
+  //     // Only save bill if saveBill flag is true (to avoid duplicate saves)
+  //     // When called from bill_cart_widget.dart, bill is already saved via SmartDatabaseService
+  //     if (saveBill) {
+  //       await saveBillToFirebase(
+  //         adminUid: adminUid,
+  //         receiptNo: finalReceiptNo,
+  //         items: items,
+  //         subTotal: subtotal,
+  //       );
+  //     }
+
+  //     if (context.mounted) {
+  //       final message = isConnected
+  //           ? 'Receipt printed & saved online! Receipt No: $receiptNo'
+  //           : 'Receipt printed & saved offline! Will sync when online. Receipt No: $receiptNo';
+
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         SnackBar(
+  //           content: Text(message),
+  //           backgroundColor: isConnected ? Colors.green : Colors.orange,
+  //           duration: const Duration(seconds: 4),
+  //         ),
+  //       );
+  //       // ScaffoldMessenger.of(context).showSnackBar(
+  //       //   SnackBar(
+  //       //     content: Text('Receipt printed! Receipt No: $finalReceiptNo'),
+  //       //     backgroundColor: Colors.green,
+  //       //     duration: const Duration(seconds: 2),
+  //       //   ),
+  //       // );
+  //     }
+  //   } catch (e) {
+  //     debugPrint("Printing error: $e");
+  //     if (context.mounted) {
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         SnackBar(
+  //           content: Text('Printing failed: $e'),
+  //           backgroundColor: Colors.red,
+  //         ),
+  //       );
+  //     }
+  //   }
+  // }
+
   static Future<void> saveBillToFirebase({
     required String adminUid,
     required String receiptNo,
@@ -968,8 +1230,7 @@ class DirectPrintHelper {
       final now = DateTime.now();
       final monthDoc = DateFormat('yyyyMM').format(now); // e.g., "202512"
       final dateDoc = DateFormat('yyyyMMdd').format(now); // e.g., "20251209"
-      final dateString =
-          DateFormat('MMM dd, yyyy').format(now); // e.g., "Dec 09, 2025"
+      final dateString = DateFormat('MMM dd, yyyy').format(now); // e.g., "Dec 09, 2025"
 
       // Prepare items array - ensure each item has name, price, quantity
       final List<Map<String, dynamic>> itemsData = items.map((item) {
@@ -1064,92 +1325,12 @@ class DirectPrintHelper {
     }
   }
 
-  static Future<void> printReceiptWithProvider({
-    required BuildContext context,
-    required PrintProvider printProvider,
-    required String adminUid,
-    required String userId,
-  }) async {
-    // Check if printer is connected
-    if (!printProvider.isConnected || printProvider.selectedPrinter == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please connect a printer first'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
-
-    // Check if there are items to print
-    if (printProvider.posts.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No items to print'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
-
-    try {
-      // Fetch shop data
-      final doc = await FirebaseFirestore.instance
-          .collection('AllAdmins')
-          .doc(adminUid)
-          .collection('customer')
-          .doc(userId)
-          .get();
-
-      String shopName = 'N/A';
-      String contact = 'N/A';
-      String address = 'N/A';
-
-      if (doc.exists) {
-        final data = doc.data();
-        if (data != null) {
-          shopName = data['shopName'] ?? 'N/A';
-          contact = data['contact'] ?? 'N/A';
-          address = data['address'] ?? 'N/A';
-        }
-      }
-
-      // Print receipt
-      await printReceipt(
-        adminUid: adminUid,
-        context: context,
-        printer: printProvider.selectedPrinter!,
-        paperSize: printProvider.selectedPaperSize,
-        items: printProvider.posts,
-        total: printProvider.total,
-        shopName: shopName,
-        contact: contact,
-        address: address,
-      );
-
-      // Clear cart after successful print
-      printProvider.clearCart();
-    } catch (e) {
-      debugPrint('Error printing receipt: $e');
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-
   /// Get offline bill statistics for display
-  static Future<Map<String, dynamic>> getOfflineBillStats(
-      String adminUid) async {
+  static Future<Map<String, dynamic>> getOfflineBillStats(String adminUid) async {
     try {
       final offlineBillManager = OfflineBillManager();
       await offlineBillManager.initialize();
-      return await offlineBillManager
-          .getDetailedOfflineBillStatistics(adminUid);
+      return await offlineBillManager.getDetailedOfflineBillStatistics(adminUid);
     } catch (e) {
       debugPrint('Error getting offline bill stats: $e');
       return {
