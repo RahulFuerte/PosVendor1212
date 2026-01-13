@@ -816,27 +816,20 @@ class DirectPrintHelper {
 
       // Paper configuration
       bool is58mm = paperSize == PaperSize.mm58;
-      int totalCols = is58mm ? 31 : 48;
+      int totalCols = is58mm ? 32 : 48;
       String separator = '-' * totalCols;
       int totalQty = 0;
+      double addonsTotal = 0;
 
       // Smart dynamic columns
-      int desc = is58mm ? 12 : 22;
-      int qty = is58mm ? 5 : 6;
+      int desc = is58mm ? 13 : 22;
+      int qty = is58mm ? 4 : 6;
       int rate = is58mm ? 6 : 8;
       int amt = is58mm ? 7 : 10;
 
       // Small font style
       const smallFontCenter = PosStyles(align: PosAlign.center);
       const smallFontLeft = PosStyles(align: PosAlign.left);
-
-      String centerText(String text, int width) {
-        int spaces = width - text.length;
-        if (spaces <= 0) return text;
-        int left = (spaces / 2).floor();
-        int right = spaces - left;
-        return ' ' * left + text + ' ' * right;
-      }
 
       // Header
 
@@ -846,8 +839,7 @@ class DirectPrintHelper {
         bytes += generator.feed(1);
       }
       bytes += generator.emptyLines(1);
-      bytes += generator.text(shopName,
-          styles: const PosStyles(bold: true, align: PosAlign.center));
+      bytes += generator.text(shopName, styles: const PosStyles(bold: true, align: PosAlign.center));
       bytes += generator.text(address, styles: smallFontCenter);
       bytes += generator.text("Mob.No : $contact", styles: smallFontCenter);
       bytes += generator.text(separator, styles: smallFontLeft);
@@ -878,7 +870,7 @@ class DirectPrintHelper {
       // Table header
       bytes += generator.text(
         '${"Item".padRight(desc)}'
-        '${centerText("Qty", qty)}'
+        '${"Qty".padLeft(qty)}'
         '${"Price".padLeft(rate)}'
         '${"Amt".padLeft(amt)}',
         styles: smallFontLeft,
@@ -901,20 +893,41 @@ class DirectPrintHelper {
         int qtyValue = int.tryParse(item['quantity'].toString()) ?? 1;
         double rateValue = double.tryParse(item['price'].toString()) ?? 0;
         double amtValue = qtyValue * rateValue;
-        totalQty += int.tryParse(item['quantity'].toString()) ?? 0;
+        totalQty += qtyValue;
 
         bytes += generator.text(
           '${name.padRight(desc)}'
-          '${centerText("x ${qtyValue.toString()}", qty)}'
-          '${centerText(fmt(rateValue), rate)}'
+          '${"x ${qtyValue.toString()}".padLeft(qty)}'
+          '${fmt(rateValue).padLeft(rate)}'
           '${amtValue.toString().padLeft(amt)}',
           styles: smallFontLeft,
         );
+        if (item['addons'] != null && (item['addons'] as List).isNotEmpty) {
+          for (var addon in item['addons']) {
+            String addonName = " ${addon['name']}";
+            if (addonName.length > desc) {
+              addonName = addonName.substring(0, desc - 3) + "...";
+            }
+
+            double addonPrice = double.tryParse(addon['price'].toString()) ?? 0;
+            addonsTotal += addonPrice * qtyValue;
+
+            bytes += generator.text(
+              '${addonName.padRight(desc)}'
+              '${"".padLeft(qty)}'
+              '${fmt(addonPrice).padLeft(rate)}'
+              '${"".padLeft(amt)}',
+              styles: smallFontLeft,
+            );
+          }
+        }
       }
 
       // Calculate totals
       double subtotal = total;
-      double grandTotal = subtotal;
+      double addons = addonsTotal;
+      double taxTotal = 0;
+      double grandTotal = subtotal + addons;
 
       // Total Qty
       bytes += generator.text(separator, styles: smallFontLeft);
@@ -925,6 +938,7 @@ class DirectPrintHelper {
 
       // Subtotal
       bytes += generator.text(separator, styles: smallFontLeft);
+
       bytes += generator.text(
         'SUBTOTAL'.padRight(totalCols - 8) + subtotal.toStringAsFixed(2).padLeft(8),
         styles: smallFontLeft,
@@ -934,7 +948,8 @@ class DirectPrintHelper {
       if (taxEnabled) {
         double cgst = subtotal * (cgstPercent / 100);
         double sgst = subtotal * (sgstPercent / 100);
-        grandTotal = subtotal + cgst + sgst;
+        taxTotal = cgst + sgst;
+        grandTotal += taxTotal;
 
         // CGST
         bytes += generator.text(
@@ -948,14 +963,14 @@ class DirectPrintHelper {
           styles: smallFontLeft,
         );
       }
+      if (addonsTotal > 0) {
+        bytes += generator.text('ADD-ONS'.padRight(totalCols - 8) + fmt(addonsTotal).padLeft(8));
+      }
 
       // Grand Total
-      bytes += generator.text(separator, styles: smallFontLeft);
-      bytes += generator.text(
-        'GRAND TOTAL'.padRight(totalCols - 8) + grandTotal.toStringAsFixed(2).padLeft(8),
-        styles: smallFontLeft,
-      );
-
+      bytes += generator.text(separator);
+      bytes += generator.text('GRAND TOTAL'.padRight(totalCols - 8) + fmt(grandTotal).padLeft(8),
+          styles: const PosStyles(bold: true));
       // 🔥 UPI QR
       String upiId = "richeyrichinfotech@icici";
       String upiUrl = "upi://pay?pa=$upiId&pn=$shopName&am=${fmt(grandTotal)}&cu=INR";

@@ -92,6 +92,9 @@ class SQLiteHelper {
         admin_uid TEXT NOT NULL,
         name TEXT NOT NULL,
         price REAL NOT NULL,
+        price2 REAL,
+        price3 REAL,
+        priceType TEXT,
         image_path TEXT,
         image_blob BLOB,
         description TEXT,
@@ -105,6 +108,7 @@ class SQLiteHelper {
         sync_status INTEGER DEFAULT 0,
         firebase_id TEXT,
         baseVariant TEXT,
+        addons TEXT,
         variants TEXT
       )
     ''');
@@ -398,6 +402,9 @@ class SQLiteHelper {
         admin_uid TEXT NOT NULL,
         name TEXT NOT NULL,
         price REAL NOT NULL,
+        price2 REAL,
+        price3 REAL,
+        priceType TEXT,
         image_path TEXT,
         image_blob BLOB,
         description TEXT,
@@ -411,6 +418,7 @@ class SQLiteHelper {
         sync_status INTEGER DEFAULT 0,
         firebase_id TEXT,
         baseVariant TEXT,
+        addons TEXT,
         variants TEXT
       )
     ''');
@@ -844,6 +852,9 @@ class SQLiteHelper {
             'admin_uid': adminUid,
             'name': item['name'],
             'price': item['price'],
+            'price2': item['price2'],
+            'price3': item['price3'],
+            'priceType': item['priceType'],
             'image_path': item['imagePath'] ?? item['image_path'],
             'description': item['description'],
             'food_code': item['foodCode'] ?? item['food_code'],
@@ -857,12 +868,11 @@ class SQLiteHelper {
             'firebase_id': item['firebase_id'] ?? item['id'],
             'baseVariant': item['baseVariant'] ?? '',
             'variants': item['variants'],
+            'addons': item['addons'],
           },
           conflictAlgorithm: ConflictAlgorithm.replace,
         );
       }
-
-  
     } catch (e) {
       print('Error migrating food items: $e');
     }

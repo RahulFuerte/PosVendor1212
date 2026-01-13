@@ -185,9 +185,14 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
 
       final List<Map<String, dynamic>> hotItems = allItems.map((item) {
         List<dynamic> parsedVariants = [];
+        List<dynamic> parsedAddons = [];
+
         try {
           if (item['variants'] != null && item['variants'].toString().isNotEmpty) {
             parsedVariants = jsonDecode(item['variants'].toString());
+          }
+          if (item['addons'] != null && item['addons'].toString().isNotEmpty) {
+            parsedAddons = jsonDecode(item['addons'].toString());
           }
         } catch (e) {
           parsedVariants = [];
@@ -195,13 +200,17 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
         return {
           'id': item['id'] ?? item['name'],
           'name': item['name'] ?? 'N/A',
-          'price': PriceUtils.safePriceToString(item['price']),
-          'imagePath': item['image_path'] ?? item['imagePath'] ?? 'N/A',
-          'description': item['description'] ?? 'N/A',
+          'price': item['price']?.toString() ?? '0',
+          'price2': item['price2']?.toString() ?? '0',
+          'price3': item['price3']?.toString() ?? '0',
+          'priceType': item['priceType']?.toString(),
+          'imagePath': item['imagePath'] ?? item['image_path'] ?? item['imagepath'] ?? 'N/A',
           'foodCode': item['foodCode'] ?? item['food_code'] ?? item['foodcode'] ?? 'N/A',
+          'department': item['department'] ?? 'N/A',
           'stocks': item['stocks'] ?? 'N/A',
           'baseVariant': item['baseVariant'] ?? '',
           'variants': parsedVariants,
+          'addons': parsedAddons,
         };
       }).toList();
 
@@ -358,7 +367,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                   List<Map<String, dynamic>> filteredItems = foodItemsList
                       .where((item) => item['name'].toString().toLowerCase().contains(search1.toLowerCase()))
                       .toList();
-    
+
                   return Column(
                     children: [
                       Container(
@@ -367,7 +376,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                         width: double.infinity,
                         child: const OrderTypeSelector(),
                       ),
-    
+
                       // billCountContainer(),
                       Expanded(
                         child: LayoutBuilder(builder: (context, constraints) {
@@ -377,7 +386,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                           double horizontalPadding;
                           double spacing;
                           double availableWidth = constraints.maxWidth;
-    
+
                           if (availableWidth > 1400) {
                             crossAxisCount = 5;
                             childAspectRatio = 0.80;
@@ -400,7 +409,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                             horizontalPadding = 8;
                             spacing = 8;
                           }
-    
+
                           return Padding(
                             padding: EdgeInsets.symmetric(
                               horizontal: horizontalPadding,
@@ -421,42 +430,47 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                                   imagePath: item['imagePath']?.toString() ?? '',
                                   text: item['name']?.toString() ?? '',
                                   code: item['foodCode']?.toString() ?? '',
+                                  imagerecordId: item['id']?.toString(),
                                   price: item['price']?.toString() ?? '0',
-                                  imagerecordId: item['id'] ?? item['name'] ?? 'unknown',
+                                  price2: item['price2']?.toString() ?? '0',
+                                  price3: item['price3']?.toString() ?? '0',
+                                  priceType: item['priceType']?.toString() ?? 'Fixed',
                                   stocks: item['stocks']?.toString() ?? 'N/A',
                                   baseVariant: item['baseVariant']?.toString(),
                                   variants: item['variants'] as List<dynamic>?,
-                                  onAdd: (name, price, quantity, unit, unitQty) {
+                                  addons: item['addons'] as List<dynamic>?,
+                                  onAdd: (name, price, quantity, unit, unitQty, addOnList) {
                                     audioPlayer.play(AssetSource('sounds/beep.mp3'));
-    
+
                                     setState(() {
                                       isTapped = true;
-    
+
                                       final displayName = unit.isNotEmpty ? '$name ($unitQty $unit)' : name;
-    
+
                                       final parsedPrice = (double.tryParse(price) ?? 0).toInt();
-    
+
                                       // 🔍 Check if same item + same unit already exists
                                       final existingIndex = selectedItemsDetails.indexWhere(
-                                        (element) =>
-                                            element['name'] == displayName && element['price'] == parsedPrice,
+                                        (element) => element['name'] == displayName && element['price'] == parsedPrice,
                                       );
-    
+
                                       if (existingIndex != -1) {
                                         selectedItemsDetails[existingIndex]['quantity'] += quantity;
+                                        selectedItemsDetails[existingIndex]['addons'] = addOnList;
                                       } else {
                                         selectedItemsDetails.add({
                                           'name': displayName,
                                           'price': parsedPrice,
                                           'quantity': quantity,
                                           'unit': unit,
+                                          'addons': addOnList,
                                         });
                                       }
-    
+
                                       subtotal += parsedPrice * quantity;
-    
+
                                       printprovider.additem(selectedItemsDetails, subtotal);
-    
+
                                       WidgetsBinding.instance.addPostFrameCallback((_) {
                                         if (_listScrollController.hasClients) {
                                           _listScrollController.jumpTo(
@@ -522,7 +536,6 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
     );
   }
 
-  
   // static Future<void> printReceipt({
   //   required BuildContext context,
   //   required BluetoothPrinter printer,
@@ -731,7 +744,6 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
   //     }
   //   }
   // }
-
 
   void _saveDataAndNavigate() async {
     final userMap = {

@@ -348,24 +348,33 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
       final items = rawItems.map((item) {
         // Parse variants safely
         List<dynamic> parsedVariants = [];
+        List<dynamic> parsedAddons = [];
         try {
           if (item['variants'] != null && item['variants'].toString().isNotEmpty) {
             parsedVariants = jsonDecode(item['variants'].toString());
           }
+          if (item['addons'] != null && item['addons'].toString().isNotEmpty) {
+            parsedAddons = jsonDecode(item['addons'].toString());
+          }
         } catch (e) {
           parsedVariants = [];
+          parsedAddons = [];
         }
 
         return {
           'id': item['id'] ?? item['name'],
           'name': item['name'] ?? 'N/A',
           'price': item['price']?.toString() ?? '0',
+          'price2': item['price2']?.toString() ?? '0',
+          'price3': item['price3']?.toString() ?? '0',
+          'priceType': item['priceType']?.toString(),
           'imagePath': item['imagePath'] ?? item['image_path'] ?? item['imagepath'] ?? 'N/A',
           'foodCode': item['foodCode'] ?? item['food_code'] ?? item['foodcode'] ?? 'N/A',
           'department': item['department'] ?? 'N/A',
           'stocks': item['stocks'] ?? 'N/A',
           'baseVariant': item['baseVariant'] ?? '',
           'variants': parsedVariants,
+          'addons': parsedAddons,
         };
       }).toList();
 
@@ -482,7 +491,7 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
       //     style: TextStyle(color: Colors.black, fontFamily: 'tabfont', fontSize: 19),
       //   ),
       // ),
-    
+
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
@@ -520,7 +529,7 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
               padding: const EdgeInsets.only(right: 12.0),
               child: _buildConnectionStatusIndicator(),
             ),
-    
+
           // Fullscreen
           if (!isSearching)
             Padding(
@@ -535,7 +544,7 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                 },
               ),
             ),
-    
+
           // Users
           if (!isSearching)
             Padding(
@@ -550,7 +559,7 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                 child: const Icon(Icons.save),
               ),
             ),
-    
+
           Padding(
             padding: const EdgeInsets.only(right: 12.0),
             child: GestureDetector(
@@ -574,7 +583,7 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
           ),
         ],
       ),
-    
+
       drawer: MyDrawer(phoneNo: widget.phoneNo),
       body: isLoading
           ? Center(
@@ -649,7 +658,7 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                                                             borderRadius: BorderRadius.circular(30),
                                                           ),
                                                         ),
-    
+
                                                         // Image with scale animation
                                                         AnimatedScale(
                                                           scale: isSelected ? 1.1 : 1.0,
@@ -676,7 +685,7 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                                                         ),
                                                       ],
                                                     ),
-    
+
                                                     // Text with animation
                                                     SizedBox(
                                                       width: 60,
@@ -699,7 +708,7 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                                                     ),
                                                   ],
                                                 ),
-    
+
                                                 // Side indicator
                                                 AnimatedContainer(
                                                   duration: const Duration(milliseconds: 300),
@@ -725,7 +734,7 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                               ),
                             ),
                           ),
-    
+
                         // MAIN BODY
                         Expanded(
                           child: FutureBuilder(
@@ -746,22 +755,22 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                                 return Center(child: Text('Error: ${snapshot.error}'));
                               } else {
                                 List<Map<String, dynamic>> allFoodItems = snapshot.data ?? [];
-    
+
                                 List<Map<String, dynamic>> filteredFoodItems;
-    
+
                                 if (search1.isEmpty) {
                                   filteredFoodItems = allFoodItems;
                                 } else {
                                   final query = search1.toLowerCase();
-    
+
                                   filteredFoodItems = allFoodItems.where((item) {
                                     final name = item['name']?.toString().toLowerCase() ?? '';
                                     final code = item['foodCode']?.toString().toLowerCase() ?? '';
-    
+
                                     return name.contains(query) || code.contains(query);
                                   }).toList();
                                 }
-    
+
                                 return LayoutBuilder(
                                   builder: (context, constraints) {
                                     int crossAxisCount;
@@ -769,7 +778,7 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                                     double horizontalPadding;
                                     double spacing;
                                     double availableWidth = constraints.maxWidth;
-    
+
                                     if (availableWidth > 1400) {
                                       crossAxisCount = isContainerVisible ? 4 : 5;
                                       childAspectRatio = 0.80;
@@ -788,11 +797,11 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                                     } else {
                                       // For smaller screens (phones), always 2 columns
                                       crossAxisCount = isContainerVisible ? 2 : 3;
-                                      childAspectRatio = isContainerVisible ? 0.82: 0.7;
+                                      childAspectRatio = isContainerVisible ? 0.82 : 0.7;
                                       horizontalPadding = 8;
-                                      spacing =  8;
+                                      spacing = 8;
                                     }
-    
+
                                     return Padding(
                                       padding: EdgeInsets.symmetric(
                                         horizontal: horizontalPadding,
@@ -816,41 +825,46 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                                             code: item['foodCode']?.toString() ?? '',
                                             imagerecordId: item['id']?.toString(),
                                             price: item['price']?.toString() ?? '0',
+                                            price2: item['price2']?.toString() ?? '0',
+                                            price3: item['price3']?.toString() ?? '0',
+                                            priceType: item['priceType']?.toString() ?? 'Fixed',
                                             stocks: item['stocks']?.toString() ?? 'N/A',
                                             baseVariant: item['baseVariant']?.toString(),
                                             variants: item['variants'] as List<dynamic>?,
-                                            onAdd: (name, price, quantity, unit, unitQty) {
+                                            addons: item['addons'] as List<dynamic>?,
+                                            onAdd: (name, price, quantity, unit, unitQty, addOnList) {
                                               audioPlayer.play(AssetSource('sounds/beep.mp3'));
-    
+
                                               setState(() {
                                                 isTapped = true;
-    
+
                                                 final displayName = unit.isNotEmpty ? '$name ($unitQty $unit)' : name;
-    
+
                                                 final parsedPrice = (double.tryParse(price) ?? 0).toInt();
-    
+
                                                 // 🔍 Check if same item + same unit already exists
                                                 final existingIndex = selectedItemsDetails.indexWhere(
                                                   (element) =>
-                                                      element['name'] == displayName &&
-                                                      element['price'] == parsedPrice,
+                                                      element['name'] == displayName && element['price'] == parsedPrice,
                                                 );
-    
+
                                                 if (existingIndex != -1) {
                                                   selectedItemsDetails[existingIndex]['quantity'] += quantity;
+                                                  selectedItemsDetails[existingIndex]['addons'] = addOnList;
                                                 } else {
                                                   selectedItemsDetails.add({
                                                     'name': displayName,
                                                     'price': parsedPrice,
                                                     'quantity': quantity,
                                                     'unit': unit,
+                                                    'addons': addOnList,
                                                   });
                                                 }
-    
+
                                                 subtotal += parsedPrice * quantity;
-    
+
                                                 printprovider.additem(selectedItemsDetails, subtotal);
-    
+
                                                 WidgetsBinding.instance.addPostFrameCallback((_) {
                                                   if (_listScrollController.hasClients) {
                                                     _listScrollController.jumpTo(
@@ -861,6 +875,7 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                                               });
                                             },
                                           );
+                                        
                                         },
                                       ),
                                     );

@@ -363,6 +363,7 @@ class _BillCartState extends State<BillCart> {
   Future<void> _handlePrint() async {
     final printProvider = Provider.of<PrintProvider>(context, listen: false);
 
+
     if (!printProvider.isConnected || printProvider.selectedPrinter == null) {
       showDialog(
         context: context,
@@ -649,6 +650,23 @@ class _BillCartState extends State<BillCart> {
                       fontWeight: FontWeight.w500,
                     ),
                   ),
+                  if (item['addons'] != null && item['addons'].isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 7),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: (item['addons'] as List).map((a) {
+                          return Text(
+                            "${a['name']} (${a['price']} ₹)",
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.black54,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
                 ],
               ),
             ),
