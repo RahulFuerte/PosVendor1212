@@ -1004,6 +1004,47 @@ class SQLiteDAO implements DatabaseService {
     });
   }
 
+  @override
+  Future<void> saveOrder(String adminUid, Map<String, dynamic> orderData) async {
+    await _integrityService.executeInTransaction((txn) async {
+      final now = DateTime.now().millisecondsSinceEpoch;
+
+      final Map<String, dynamic> order = {
+        ...orderData,
+        'admin_uid': adminUid,
+        'created_at': now,
+        'updated_at': now,
+        'sync_status': SyncStatus.pending.value,
+      };
+
+      await txn.insert(
+        'orders',
+        order,
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+
+      // Log the operation for sync tracking within the same transaction
+      await _logSyncOperationInTransaction(txn, 'orders', orderData['id'], DatabaseOperation.insert);
+
+      // Clear relevant cache entries
+      _clearCacheForQuery('getOrders');
+    });
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getOrders(String adminUid) async {
+    final db = await _sqliteHelper.database;
+
+    final List<Map<String, dynamic>> results = await db.query(
+      'orders',
+      where: 'admin_uid = ?',
+      whereArgs: [adminUid],
+      orderBy: 'created_at DESC',
+    );
+
+    return results;
+  }
+
   // Sync operations
   @override
   Future<void> syncPendingData() async {

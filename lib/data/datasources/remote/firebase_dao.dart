@@ -390,6 +390,75 @@ class FirebaseDAO implements DatabaseService {
     }
   }
 
+  // Orders operations
+  Future<void> saveOrder(String adminUid, Map<String, dynamic> orderData) async {
+    try {
+      final now = Timestamp.now();
+      final orderId = orderData['id'] ?? DateTime.now().millisecondsSinceEpoch.toString();
+      
+      // Prepare order data for Firebase
+      final Map<String, dynamic> firebaseData = {
+        'orderType': orderData['order_type'] ?? orderData['orderType'] ?? 'Dine In',
+        'customerName': orderData['customer_name'] ?? orderData['customerName'],
+        'customerPhone': orderData['customer_phone'] ?? orderData['customerPhone'],
+        'gstNumber': orderData['gst_number'] ?? orderData['gstNumber'],
+        'address': orderData['address'],
+        'paymentType': orderData['payment_type'] ?? orderData['paymentType'] ?? 'Cash',
+        'customerPaymentType': orderData['customer_payment_type'] ?? orderData['customerPaymentType'] ?? 'Paid',
+        'totalAmount': orderData['total_amount'] ?? orderData['totalAmount'] ?? 0.0,
+        'items': orderData['items'],
+        'adminId': adminUid,
+        'createdAt': now,
+        'updatedAt': now,
+      };
+
+      // Save to Firebase: AllOrders/{adminUid}/orders/{orderId}
+      await _firestore
+          .collection('AllOrders')
+          .doc(adminUid)
+          .collection('orders')
+          .doc(orderId)
+          .set(firebaseData);
+    } catch (e) {
+      throw Exception('Failed to save order to Firebase: $e');
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getOrders(String adminUid) async {
+    try {
+      final QuerySnapshot querySnapshot = await _firestore
+          .collection('AllOrders')
+          .doc(adminUid)
+          .collection('orders')
+          .orderBy('createdAt', descending: true)
+          .get();
+
+      return querySnapshot.docs.map((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        // Map Firebase fields to SQLite fields for the orders table
+        return {
+          'id': doc.id,
+          'admin_uid': data['adminId'] ?? adminUid,
+          'order_type': data['orderType'],
+          'customer_name': data['customerName'],
+          'customer_phone': data['customerPhone'],
+          'gst_number': data['gstNumber'],
+          'address': data['address'],
+          'payment_type': data['paymentType'],
+          'customer_payment_type': data['customerPaymentType'],
+          'total_amount': data['totalAmount']?.toDouble() ?? 0.0,
+          'items': data['items'],
+          'created_at': (data['createdAt'] as Timestamp?)?.millisecondsSinceEpoch ?? DateTime.now().millisecondsSinceEpoch,
+          'updated_at': (data['updatedAt'] as Timestamp?)?.millisecondsSinceEpoch ?? DateTime.now().millisecondsSinceEpoch,
+          'sync_status': 1, // Already synced
+          'firebase_id': doc.id,
+        };
+      }).toList();
+    } catch (e) {
+      throw Exception('Failed to fetch orders from Firebase: $e');
+    }
+  }
+
   // Bills operations
   @override
   Future<List<Map<String, dynamic>>> getBills(String adminUid, {DateTime? startDate, DateTime? endDate}) async {

@@ -13,7 +13,7 @@ import '../shared_preferences.dart';
 class SQLiteHelper {
   static final SQLiteHelper _instance = SQLiteHelper._internal();
   static Database? _database;
-  static const int _currentVersion = 1; // Testing phase - fresh database each install
+  static const int _currentVersion = 8; // Testing phase - fresh database each install
   static const String _migrationCompleteKey = 'initial_migration_complete';
 
   // Database maintenance service (lazy initialization to avoid circular dependency)
@@ -224,6 +224,27 @@ class SQLiteHelper {
       )
     ''');
 
+    // Create orders table for storing order information
+    await db.execute('''
+      CREATE TABLE orders (
+        id TEXT PRIMARY KEY,
+        admin_uid TEXT NOT NULL,
+        order_type TEXT NOT NULL,
+        customer_name TEXT,
+        customer_phone TEXT,
+        gst_number TEXT,
+        address TEXT,
+        payment_type TEXT,
+        customer_payment_type TEXT,
+        total_amount REAL,
+        items TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        sync_status INTEGER DEFAULT 0,
+        firebase_id TEXT
+      )
+    ''');
+
     // Create migration_log table for tracking database migrations
     await db.execute('''
       CREATE TABLE IF NOT EXISTS migration_log (
@@ -282,10 +303,25 @@ class SQLiteHelper {
       case 7:
         await _migrateToVersion7(db);
         break;
+      case 8:
+        await _migrateToVersion8(db);
+        break;
       // Add future migration cases here
       default:
         print('No migration needed for version $version');
     }
+  }
+
+  Future<void> _dropAllTables(Database db) async {
+    await db.execute('DROP TABLE IF EXISTS food_items');
+    await db.execute('DROP TABLE IF EXISTS departments');
+    await db.execute('DROP TABLE IF EXISTS bills');
+    await db.execute('DROP TABLE IF EXISTS sync_log');
+    await db.execute('DROP TABLE IF EXISTS image_cache');
+    await db.execute('DROP TABLE IF EXISTS user_data');
+    await db.execute('DROP TABLE IF EXISTS admin_data');
+    await db.execute('DROP TABLE IF EXISTS customer_data');
+    await db.execute('DROP TABLE IF EXISTS orders');
   }
 
   Future<void> _migrateToVersion2(Database db) async {
@@ -748,15 +784,56 @@ class SQLiteHelper {
     }
   }
 
-  Future<void> _dropAllTables(Database db) async {
-    await db.execute('DROP TABLE IF EXISTS food_items');
-    await db.execute('DROP TABLE IF EXISTS departments');
-    await db.execute('DROP TABLE IF EXISTS bills');
-    await db.execute('DROP TABLE IF EXISTS sync_log');
-    await db.execute('DROP TABLE IF EXISTS image_cache');
-    await db.execute('DROP TABLE IF EXISTS user_data');
-    await db.execute('DROP TABLE IF EXISTS admin_data');
-    await db.execute('DROP TABLE IF EXISTS customer_data');
+  Future<void> _migrateToVersion8(Database db) async {
+    // Migration to version 8: Add orders table
+    try {
+      print('Migrating to version 8: Adding orders table...');
+
+      // Create orders table for storing order information
+      await db.execute('''
+        CREATE TABLE orders (
+          id TEXT PRIMARY KEY,
+          admin_uid TEXT NOT NULL,
+          order_type TEXT NOT NULL,
+          customer_name TEXT,
+          customer_phone TEXT,
+          gst_number TEXT,
+          address TEXT,
+          payment_type TEXT,
+          customer_payment_type TEXT,
+          total_amount REAL,
+          items TEXT,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL,
+          sync_status INTEGER DEFAULT 0,
+          firebase_id TEXT
+        )
+      ''');
+
+      // Log this migration
+      await db.insert('migration_log', {
+        'version': 8,
+        'migration_name': 'add_orders_table',
+        'executed_at': DateTime.now().millisecondsSinceEpoch,
+        'success': 1,
+      });
+
+      print('Successfully migrated to version 8');
+    } catch (e) {
+      print('Error migrating to version 8: $e');
+      // Log failed migration
+      try {
+        await db.insert('migration_log', {
+          'version': 8,
+          'migration_name': 'add_orders_table',
+          'executed_at': DateTime.now().millisecondsSinceEpoch,
+          'success': 0,
+        });
+      } catch (logError) {
+        print('Error logging failed migration: $logError');
+      }
+      rethrow;
+    }
   }
 
   // Database initialization method
@@ -1429,6 +1506,190 @@ class SQLiteHelper {
       print('All admin data cleared');
     } catch (e) {
       print('Error clearing admin data: $e');
+    }
+  }
+
+  // ==================== Orders Data CRUD Operations ====================
+
+  /// Save or update order data
+  Future<void> saveOrder(Map<String, dynamic> orderData) async {
+    try {
+      final db = await database;
+      final orderId = orderData['id'] ?? DateTime.now().millisecondsSinceEpoch.toString();
+      final adminUid = orderData['admin_uid'] ?? orderData['adminUid'];
+
+      if (adminUid == null || adminUid.toString().isEmpty) {
+        print('Cannot save order data: admin UID is required');
+        return;
+      }
+
+      final now = DateTime.now().millisecondsSinceEpoch;
+
+      await db.insert(
+        'orders',
+        {
+          'id': orderId.toString(),
+          'admin_uid': adminUid.toString(),
+          'order_type': orderData['order_type'] ?? orderData['orderType'] ?? 'Dine In',
+          'customer_name': orderData['customer_name'] ?? orderData['customerName'],
+          'customer_phone': orderData['customer_phone'] ?? orderData['customerPhone'],
+          'gst_number': orderData['gst_number'] ?? orderData['gstNumber'],
+          'address': orderData['address'],
+          'payment_type': orderData['payment_type'] ?? orderData['paymentType'] ?? 'Cash',
+          'customer_payment_type': orderData['customer_payment_type'] ?? orderData['customerPaymentType'] ?? 'Paid',
+          'total_amount': orderData['total_amount'] ?? orderData['totalAmount'] ?? 0.0,
+          'items': orderData['items'],
+          'created_at': orderData['created_at'] ?? orderData['createdAt'] ?? now,
+          'updated_at': now,
+          'sync_status': orderData['sync_status'] ?? orderData['syncStatus'] ?? 0,
+          'firebase_id': orderData['firebase_id'] ?? orderData['firebaseId'],
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+
+      print('Order data saved with ID: $orderId');
+    } catch (e) {
+      print('Error saving order data: $e');
+    }
+  }
+
+  /// Get order by ID
+  Future<Map<String, dynamic>?> getOrder(String orderId) async {
+    try {
+      final db = await database;
+      final results = await db.query(
+        'orders',
+        where: 'id = ?',
+        whereArgs: [orderId],
+        limit: 1,
+      );
+
+      if (results.isNotEmpty) {
+        final row = results.first;
+        return {
+          'id': row['id'],
+          'admin_uid': row['admin_uid'],
+          'order_type': row['order_type'],
+          'customer_name': row['customer_name'],
+          'customer_phone': row['customer_phone'],
+          'gst_number': row['gst_number'],
+          'address': row['address'],
+          'payment_type': row['payment_type'],
+          'customer_payment_type': row['customer_payment_type'],
+          'total_amount': row['total_amount'],
+          'items': row['items'],
+          'created_at': row['created_at'],
+          'updated_at': row['updated_at'],
+          'sync_status': row['sync_status'],
+          'firebase_id': row['firebase_id'],
+        };
+      }
+      return null;
+    } catch (e) {
+      print('Error getting order: $e');
+      return null;
+    }
+  }
+
+  /// Get all orders for an admin
+  Future<List<Map<String, dynamic>>> getOrders(String adminUid) async {
+    try {
+      final db = await database;
+      final results = await db.query(
+        'orders',
+        where: 'admin_uid = ?',
+        whereArgs: [adminUid],
+        orderBy: 'created_at DESC',
+      );
+
+      return results
+          .map((row) => {
+                'id': row['id'],
+                'admin_uid': row['admin_uid'],
+                'order_type': row['order_type'],
+                'customer_name': row['customer_name'],
+                'customer_phone': row['customer_phone'],
+                'gst_number': row['gst_number'],
+                'address': row['address'],
+                'payment_type': row['payment_type'],
+                'customer_payment_type': row['customer_payment_type'],
+                'total_amount': row['total_amount'],
+                'items': row['items'],
+                'created_at': row['created_at'],
+                'updated_at': row['updated_at'],
+                'sync_status': row['sync_status'],
+                'firebase_id': row['firebase_id'],
+              })
+          .toList();
+    } catch (e) {
+      print('Error getting orders: $e');
+      return [];
+    }
+  }
+
+  /// Get pending sync orders
+  Future<List<Map<String, dynamic>>> getPendingSyncOrders() async {
+    try {
+      final db = await database;
+      final results = await db.query(
+        'orders',
+        where: 'sync_status = ?',
+        whereArgs: [0],
+        orderBy: 'created_at DESC',
+      );
+
+      return results
+          .map((row) => {
+                'id': row['id'],
+                'admin_uid': row['admin_uid'],
+                'order_type': row['order_type'],
+                'customer_name': row['customer_name'],
+                'customer_phone': row['customer_phone'],
+                'gst_number': row['gst_number'],
+                'address': row['address'],
+                'payment_type': row['payment_type'],
+                'customer_payment_type': row['customer_payment_type'],
+                'total_amount': row['total_amount'],
+                'items': row['items'],
+                'created_at': row['created_at'],
+                'updated_at': row['updated_at'],
+                'sync_status': row['sync_status'],
+                'firebase_id': row['firebase_id'],
+              })
+          .toList();
+    } catch (e) {
+      print('Error getting pending sync orders: $e');
+      return [];
+    }
+  }
+
+  /// Update order sync status
+  Future<void> updateOrderSyncStatus(String orderId, int syncStatus) async {
+    try {
+      final db = await database;
+      await db.update(
+        'orders',
+        {'sync_status': syncStatus, 'updated_at': DateTime.now().millisecondsSinceEpoch},
+        where: 'id = ?',
+        whereArgs: [orderId],
+      );
+    } catch (e) {
+      print('Error updating order sync status: $e');
+    }
+  }
+
+  /// Delete order by ID
+  Future<void> deleteOrder(String orderId) async {
+    try {
+      final db = await database;
+      await db.delete(
+        'orders',
+        where: 'id = ?',
+        whereArgs: [orderId],
+      );
+      print('Order deleted with ID: $orderId');
+    } catch (e) {
+      print('Error deleting order: $e');
     }
   }
 
