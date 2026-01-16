@@ -565,7 +565,8 @@ class UnifiedDatabaseService implements DatabaseService {
         
         // Cache new Firebase bills locally
         for (Map<String, dynamic> bill in firebaseBills) {
-          Map<String, dynamic>? existingBill = await _sqliteDAO.getBill(adminUid, bill['id']);
+          await _sqliteDAO.saveBill(adminUid, bill);
+          await _sqliteDAO.markAsSynced('bills', bill['id'].toString());
         }
         
         // Return updated local bills
@@ -708,6 +709,120 @@ class UnifiedDatabaseService implements DatabaseService {
         await _firebaseDAO.deleteBill(adminUid, billId);
       } catch (e) {
         // Firebase sync failed, deletion will be synced later
+      }
+    }
+  }
+
+  // Orders operations
+  @override
+  Future<void> saveOrder(String adminUid, Map<String, dynamic> orderData) async {
+    await _ensureInitialized();
+    
+    try {
+      _validateInput({'adminUid': adminUid, 'id': orderData['id']}, 'saveOrder');
+      
+      // Always save to SQLite first (offline-first approach)
+      await _sqliteDAO.saveOrder(adminUid, orderData);
+      developer.log('Order ${orderData['id']} saved to local database', name: 'DatabaseService');
+      
+      // If online, try to sync to Firebase immediately
+      if (await isOnline()) {
+        try {
+          await _firebaseDAO.saveOrder(adminUid, orderData);
+          await _sqliteDAO.markAsSynced('orders', orderData['id']);
+          developer.log('Order ${orderData['id']} synced to Firebase', name: 'DatabaseService');
+        } catch (e) {
+          developer.log('Failed to sync order ${orderData['id']} to Firebase: $e', name: 'DatabaseService');
+          // Firebase sync failed, order remains marked as pending
+          // Will be synced later by SyncManager - this is expected behavior
+        }
+      } else {
+        developer.log('Offline mode: Order ${orderData['id']} will be synced when connection is restored', name: 'DatabaseService');
+      }
+    } catch (e) {
+      developer.log('Error saving order: $e', name: 'DatabaseService');
+      throw DatabaseServiceException(
+        'Failed to save order. Please check your data and try again.',
+        operation: 'saveOrder',
+        originalError: e,
+      );
+    }
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getOrders(String adminUid) async {
+    await _ensureInitialized();
+    
+    try {
+      // Always return from SQLite for immediate response (offline-first approach)
+      List<Map<String, dynamic>> localOrders = await _sqliteDAO.getOrders(adminUid);
+      
+      // Check if we're offline
+      final bool isOfflineMode = !await isOnline();
+      
+      if (isOfflineMode) {
+        // Offline mode: Display offline indicator and return local data
+        await _offlineManager.displayOfflineIndicator();
+        developer.log('Offline mode: Returning ${localOrders.length} orders from local database', name: 'DatabaseService');
+        return localOrders;
+      }
+      
+      // Online mode: If local data is empty, try to fetch from Firebase and cache locally
+      if (localOrders.isEmpty) {
+        try {
+          developer.log('Fetching orders from Firebase (local cache empty)', name: 'DatabaseService');
+          List<Map<String, dynamic>> firebaseOrders = await _firebaseDAO.getOrders(adminUid);
+          
+          // Cache Firebase data locally for offline access
+          for (Map<String, dynamic> order in firebaseOrders) {
+            try {
+              await _sqliteDAO.saveOrder(adminUid, order);
+              await _sqliteDAO.markAsSynced('orders', order['id']);
+            } catch (e) {
+              developer.log('Failed to cache order ${order['id']}: $e', name: 'DatabaseService');
+              // Continue with other orders
+            }
+          }
+          
+          // Update offline manager with fresh data
+          await _offlineManager.refreshOfflineStatus();
+          
+          return firebaseOrders;
+        } catch (e) {
+          developer.log('Failed to fetch orders from Firebase: $e', name: 'DatabaseService');
+          // Fallback to local data (graceful degradation)
+          await _errorHandler.handleWarning(
+            component: 'UnifiedDatabaseService',
+            message: 'Firebase fetch failed, using local data',
+            context: {'error': e.toString()},
+            userMessage: 'Using offline data. Some orders may not be up to date.',
+          );
+          return localOrders;
+        }
+      }
+      
+      // Return local data (we have data and we're online)
+      return localOrders;
+    } catch (e) {
+      await _errorHandler.handleRecoverableError(
+        component: 'UnifiedDatabaseService',
+        message: 'Failed to retrieve orders',
+        error: e,
+        userMessage: 'Unable to load orders. Using offline data if available.',
+        errorType: UserErrorType.databaseError,
+      );
+      
+      // Try to return local data as fallback
+      try {
+        final fallbackOrders = await _sqliteDAO.getOrders(adminUid);
+        developer.log('Returning ${fallbackOrders.length} orders from fallback local data', name: 'DatabaseService');
+        return fallbackOrders;
+      } catch (fallbackError) {
+        throw DatabaseServiceException(
+          'Failed to retrieve orders from both online and offline sources.',
+          operation: 'getOrders',
+          originalError: e,
+        );
       }
     }
   }
@@ -974,31 +1089,6 @@ class UnifiedDatabaseService implements DatabaseService {
           operation: 'ensureInitialized',
           originalError: e,
           isRecoverable: false,
-        );
-      }
-    }
-  }
-
-  /// Provides backward compatibility with existing Firebase-only operations
-  /// This method ensures existing code continues to work without modification
-  Future<T> _executeWithFallback<T>(
-    Future<T> Function() primaryOperation,
-    Future<T> Function() fallbackOperation,
-    String operationName,
-  ) async {
-    try {
-      return await primaryOperation();
-    } catch (e) {
-      developer.log('Primary operation failed for $operationName, trying fallback: $e', name: 'DatabaseService');
-      
-      try {
-        return await fallbackOperation();
-      } catch (fallbackError) {
-        developer.log('Fallback operation also failed for $operationName: $fallbackError', name: 'DatabaseService');
-        throw DatabaseServiceException(
-          'Both primary and fallback operations failed for $operationName',
-          operation: operationName,
-          originalError: e,
         );
       }
     }

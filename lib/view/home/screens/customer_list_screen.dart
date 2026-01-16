@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
 import 'package:pos/view/home/navigation.dart';
-import 'package:pos/view/local_DB/customerDB_helper.dart';
-import 'package:pos/view/local_DB/customer_model.dart';
+import 'package:pos/data/datasources/local/sqlite_helper.dart';
+import 'package:pos/data/models/customer_model.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
@@ -35,9 +35,21 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
   Future<void> _loadCustomers() async {
     setState(() => isLoading = true);
     try {
-      // Load local customers
-      final allCustomers = await CustomerDatabase.instance.getAllCustomers();
-      final notUploaded = await CustomerDatabase.instance.getNotUploadedCustomers();
+      // Load local customers from unified database
+      final allCustomers = await SQLiteHelper().getAllCustomers();
+      
+      // Convert to CustomerModel format
+      final convertedCustomers = allCustomers.map((customerMap) {
+        return CustomerModel(
+          id: customerMap['id'] != null ? int.tryParse(customerMap['id'].toString()) : null,
+          name: customerMap['name'] ?? '',
+          phone: customerMap['mobile_no'] ?? '',
+          gstNo: customerMap['gst_no'],
+          address: customerMap['address'],
+          createdAt: DateTime.fromMillisecondsSinceEpoch(customerMap['created_at']),
+          isUploaded: true, // All customers in unified DB are considered uploaded
+        );
+      }).toList();
 
       // Load customers from Firebase
       final firebaseCustomers = await _loadCustomersFromFirebase();
@@ -46,7 +58,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
       final mergedCustomers = <String, CustomerModel>{};
 
       // Add local customers first
-      for (var customer in allCustomers) {
+      for (var customer in convertedCustomers) {
         mergedCustomers[customer.phone] = customer;
       }
 
@@ -59,7 +71,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
 
       setState(() {
         customers = mergedCustomers.values.toList();
-        notUploadedCustomers = notUploaded;
+        notUploadedCustomers = []; // No more separate upload concept
         isLoading = false;
       });
     } catch (e) {
@@ -145,8 +157,8 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
               .doc(customer.phone)
               .set(customerData, SetOptions(merge: true));
 
-          // Mark as uploaded in local database
-          await CustomerDatabase.instance.markAsUploaded(customer.id!);
+          // Customer is already considered uploaded in the unified database
+          // No action needed for marking as uploaded
           successCount++;
         } catch (e) {
           debugPrint('Error uploading customer ${customer.name}: $e');
@@ -247,7 +259,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
 
     if (confirm == true) {
       try {
-        await CustomerDatabase.instance.deleteCustomer(customer.id!);
+        await SQLiteHelper().deleteCustomerData(customer.phone);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Row(
@@ -452,7 +464,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                   isUploaded: false,
                 );
 
-                await CustomerDatabase.instance.insertCustomer(customer);
+                await SQLiteHelper().saveCustomerData(customer.toMap());
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
