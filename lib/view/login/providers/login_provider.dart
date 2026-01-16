@@ -16,10 +16,7 @@ class LoginProvider extends ChangeNotifier {
   final bool _isLoading = false;
   bool get isLoading => _isLoading;
   bool get _isAdmin => isAdmin;
-  bool _isProcessing = false,
-      _isVerified = false,
-      _isVerifying = false,
-      isAdmin = false;
+  bool _isProcessing = false, _isVerified = false, _isVerifying = false, isAdmin = false;
   FocusNode lastFocusNode = FocusNode(), firstFocusNode = FocusNode();
   String? _verificationID, _phone, _smsCode = "", _employerName;
 
@@ -103,13 +100,9 @@ class LoginProvider extends ChangeNotifier {
   }
 
   Future getDataFromFirestore(String phoneNumber) async {
-    print("testing uid ");
+    print("testing uid........................................................   $phoneNumber ");
     print(phoneNumber); // Use the phoneNumber parameter
-    await _firebaseFirestore
-        .collection("AllUsers")
-        .doc(phoneNumber)
-        .get()
-        .then((DocumentSnapshot snapshot) {
+    await _firebaseFirestore.collection("AllUsers").doc(phoneNumber).get().then((DocumentSnapshot snapshot) {
       _employerName = snapshot['name'];
       _phone = snapshot['phone'];
 

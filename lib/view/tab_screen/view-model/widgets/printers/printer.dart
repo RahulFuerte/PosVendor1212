@@ -740,12 +740,14 @@
 //   }
 // }
 
+import 'dart:io';
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_pos_printer_platform_image_3/flutter_pos_printer_platform_image_3.dart';
 import 'package:intl/intl.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:pos/data/providers/print_provider.dart';
 import 'package:image/image.dart' as img_lib;
 import 'package:http/http.dart' as http;
@@ -760,28 +762,43 @@ class DirectPrintHelper {
     return (10000000 + random.nextInt(90000000)).toString();
   }
 
-  static Future<List<int>> _loadLogoForPrinter(
+  static Future<List<int>> loadLogoOfflineSafe(
     String logoUrl,
     Generator generator,
   ) async {
     try {
-      if (logoUrl.isEmpty) return [];
+      final dir = await getApplicationDocumentsDirectory();
+      final file = File('${dir.path}/printer_logo.png');
 
-      final response = await http.get(Uri.parse(logoUrl));
-      if (response.statusCode != 200) return [];
+      img_lib.Image? image;
 
-      final img = img_lib.decodeImage(response.bodyBytes);
-      if (img == null) return [];
+      // ✅ 1. If file exists → use it (OFFLINE SAFE)
+      if (await file.exists()) {
+        final bytes = await file.readAsBytes();
+        image = img_lib.decodeImage(bytes);
+      }
 
-      // Resize for thermal printer width
-      final resized = img_lib.copyResize(
-        img,
-        width: 220, // works for 58mm & 80mm
+      // ✅ 2. If file missing → try downloading (ONLINE ONLY)
+      if (image == null && logoUrl.isNotEmpty) {
+        final response = await http.get(Uri.parse(logoUrl));
+        if (response.statusCode == 200) {
+          await file.writeAsBytes(response.bodyBytes);
+          image = img_lib.decodeImage(response.bodyBytes);
+        }
+      }
+
+      if (image == null) return [];
+
+      // 🔧 Printer-friendly resize + grayscale
+      final resized = img_lib.copyResize(image, width: 200);
+      final mono = img_lib.grayscale(resized);
+
+      return generator.imageRaster(
+        mono,
+        align: PosAlign.center,
       );
-
-      return generator.imageRaster(resized, align: PosAlign.center);
     } catch (e) {
-      debugPrint("Logo load failed: $e");
+      debugPrint("Logo offline load failed: $e");
       return [];
     }
   }
@@ -834,7 +851,9 @@ class DirectPrintHelper {
       // Header
 
       if (logoUrl.isNotEmpty) {
-        final logoBytes = await _loadLogoForPrinter(logoUrl, generator);
+        // final logoBytes = await _loadLogoForPrinter(logoUrl, generator);
+        final logoBytes = await loadLogoOfflineSafe(logoUrl, generator);
+
         bytes += logoBytes;
         bytes += generator.feed(1);
       }

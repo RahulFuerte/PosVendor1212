@@ -1,7 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:pos/view/home/navigation.dart';
 import 'package:pos/view/local_DB/customer_model.dart';
+import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 
 class CustomerWiseReport extends StatefulWidget {
   final String adminUid;
@@ -12,26 +14,12 @@ class CustomerWiseReport extends StatefulWidget {
 }
 
 class _CustomerWiseReportState extends State<CustomerWiseReport> {
-  /// Customer Dropdown
-  String selectedCustomer = "Rahul Patel";
+  bool isLoading = false;
+  DateTime? startDate = DateTime.now();
+  DateTime? endDate = DateTime.now();
 
   List<CustomerModel> allCustomers = [];
-
-  final List<String> customers = [
-    "Rahul Patel",
-    "Amit Shah",
-    "Neha Joshi",
-  ];
-
-  /// Date Range
-  DateTime? startDate;
-  DateTime? endDate;
-
-  @override
-  void initState() {
-    super.initState();
-    fetchCustomers();
-  }
+  CustomerModel? selectedCustomer;
 
   Future<void> fetchCustomers() async {
     final snapshot = await FirebaseFirestore.instance
@@ -42,22 +30,27 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
         .collection('myCustomers')
         .get();
 
+    final customers = snapshot.docs.map((doc) {
+      final data = doc.data();
+      return CustomerModel(
+        name: data['name'] ?? '',
+        phone: data['phone'] ?? doc.id,
+        gstNo: (data['gstNo'] == null || data['gstNo'].toString().isEmpty) ? null : data['gstNo'],
+        address: data['address'],
+        createdAt: (data['createdAt'] is Timestamp) ? (data['createdAt'] as Timestamp).toDate() : DateTime.now(),
+        isUploaded: true,
+      );
+    }).toList();
+
     setState(() {
-      allCustomers = snapshot.docs.map((doc) {
-        final data = doc.data();
-
-        return CustomerModel(
-          name: data['name'] ?? '',
-          phone: data['phone'] ?? doc.id,
-          gstNo: (data['gstNo'] == null || data['gstNo'].toString().isEmpty) ? null : data['gstNo'],
-          address: data['address'],
-          createdAt: (data['createdAt'] is Timestamp) ? (data['createdAt'] as Timestamp).toDate() : DateTime.now(),
-          isUploaded: true,
-        );
-      }).toList();
-
-      debugPrint('These Are All Customers: ${allCustomers.length}');
+      allCustomers = customers;
     });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    fetchCustomers();
   }
 
   /// Selected Customer Summary (dummy)
@@ -71,6 +64,60 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
 
   /// Bills (dummy)
   final List<Map<String, dynamic>> bills = [
+    {
+      "billNo": "BILL-101",
+      "time": "10:45 AM",
+      "items": 5,
+      "amount": 450.0,
+    },
+    {
+      "billNo": "BILL-102",
+      "time": "01:20 PM",
+      "items": 3,
+      "amount": 300.0,
+    },
+    {
+      "billNo": "BILL-103",
+      "time": "06:15 PM",
+      "items": 6,
+      "amount": 500.0,
+    },
+    {
+      "billNo": "BILL-101",
+      "time": "10:45 AM",
+      "items": 5,
+      "amount": 450.0,
+    },
+    {
+      "billNo": "BILL-102",
+      "time": "01:20 PM",
+      "items": 3,
+      "amount": 300.0,
+    },
+    {
+      "billNo": "BILL-103",
+      "time": "06:15 PM",
+      "items": 6,
+      "amount": 500.0,
+    },
+    {
+      "billNo": "BILL-101",
+      "time": "10:45 AM",
+      "items": 5,
+      "amount": 450.0,
+    },
+    {
+      "billNo": "BILL-102",
+      "time": "01:20 PM",
+      "items": 3,
+      "amount": 300.0,
+    },
+    {
+      "billNo": "BILL-103",
+      "time": "06:15 PM",
+      "items": 6,
+      "amount": 500.0,
+    },
     {
       "billNo": "BILL-101",
       "time": "10:45 AM",
@@ -117,19 +164,33 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
         elevation: 0,
+        scrolledUnderElevation: 0,
         backgroundColor: Colors.white,
         title: const Text(
           'Customer Wise Report',
           style: TextStyle(
             color: Colors.black87,
             fontWeight: FontWeight.bold,
-            fontSize: 20,
+            fontSize: 18,
           ),
         ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, size: 18, color: Colors.black87),
-          onPressed: () => Navigator.pop(context),
-        ),
+        actions: [
+          IconButton(
+              onPressed: () {},
+              icon: Icon(
+                Icons.share,
+                color: appbar1,
+              )),
+          IconButton(
+              onPressed: () {},
+              icon: Icon(
+                Icons.print,
+                color: appbar1,
+              )),
+          const SizedBox(
+            width: 10,
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -139,27 +200,26 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             decoration: _cardDecoration(),
             child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
+              child: DropdownButton<CustomerModel>(
                 value: selectedCustomer,
                 isExpanded: true,
+                hint: const Text("Select Customer"),
                 icon: const Icon(Icons.keyboard_arrow_down),
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
                   color: Colors.black87,
                 ),
-                items: customers.map((customer) {
-                  return DropdownMenuItem<String>(
+                items: allCustomers.map((customer) {
+                  return DropdownMenuItem<CustomerModel>(
                     value: customer,
-                    child: Text(customer),
+                    child: Text("${customer.name} (${customer.phone})"),
                   );
                 }).toList(),
                 onChanged: (value) {
-                  if (value != null) {
-                    setState(() {
-                      selectedCustomer = value;
-                    });
-                  }
+                  setState(() {
+                    selectedCustomer = value;
+                  });
                 },
               ),
             ),
@@ -191,40 +251,76 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
 
           const SizedBox(height: 16),
 
-          /// Customer Summary Card
+          Container(
+            padding: EdgeInsets.symmetric(vertical: 15),
+            margin: EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(25),
+              color: appbar1,
+            ),
+            child: const Center(
+              child: Text(
+                "Find Bills",
+                style: TextStyle(color: white, fontSize: 18, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 16),
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Colors.green[400]!, Colors.green[700]!],
-              ),
+              color: appbar1,
               borderRadius: BorderRadius.circular(16),
             ),
             child: Column(
               children: [
                 /// Top Row – Customer Info
-                Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 26,
-                      backgroundColor: Colors.white,
-                      child: Text(
-                        customer['name'][0],
-                        style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.green,
+                if (selectedCustomer != null)
+                  Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 26,
+                        backgroundColor: Colors.white,
+                        child: Text(
+                          selectedCustomer!.name.isNotEmpty ? selectedCustomer!.name[0].toUpperCase() : "?",
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green,
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              selectedCustomer!.name,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Text(
+                              selectedCustomer!.phone,
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           Text(
-                            customer['name'],
+                            "₹${totalAmount.toStringAsFixed(0)}",
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 18,
@@ -232,37 +328,16 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
                             ),
                           ),
                           Text(
-                            customer['mobile'],
+                            "${customer['orders']} orders",
                             style: const TextStyle(
                               color: Colors.white70,
-                              fontSize: 14,
+                              fontSize: 13,
                             ),
                           ),
                         ],
-                      ),
-                    ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          "₹${totalAmount.toStringAsFixed(0)}",
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Text(
-                          "${customer['orders']} orders",
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
-                    )
-                  ],
-                ),
+                      )
+                    ],
+                  ),
 
                 const SizedBox(height: 16),
                 const Divider(color: Colors.white24),

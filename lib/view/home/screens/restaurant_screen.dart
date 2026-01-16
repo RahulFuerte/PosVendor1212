@@ -809,11 +809,11 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                                       ),
                                       child: GridView.builder(
                                         controller: _gridViewController,
-                                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                                          crossAxisCount: crossAxisCount,
-                                          childAspectRatio: childAspectRatio,
-                                          crossAxisSpacing: spacing,
-                                          mainAxisSpacing: spacing,
+                                        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                                          maxCrossAxisExtent: 150,
+                                          childAspectRatio: 0.85,
+                                          crossAxisSpacing: 5,
+                                          mainAxisSpacing: 6,
                                         ),
                                         itemCount: filteredFoodItems.length,
                                         itemBuilder: (context, index) {
@@ -875,7 +875,6 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                                               });
                                             },
                                           );
-                                        
                                         },
                                       ),
                                     );
