@@ -11,7 +11,7 @@ import 'package:flutter_pos_printer_platform_image_3/flutter_pos_printer_platfor
 import 'package:provider/provider.dart';
 
 // Project imports:
-import 'package:pos/view/home/print_provider.dart';
+import 'package:pos/data/providers/print_provider.dart';
 import 'package:pos/view/tab_screen/view-model/widgets/printers/printer.dart';
 
 class PrinterConnectionDialog extends StatefulWidget {

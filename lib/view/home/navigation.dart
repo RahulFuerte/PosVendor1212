@@ -5,7 +5,6 @@ import 'screens/calculator_screen.dart';
 import 'screens/restaurant_screen.dart';
 import 'screens/search_receipt_screen.dart';
 
-
 Color appbar1 = const Color.fromARGB(255, 12, 107, 15);
 
 // ignore: must_be_immutable
@@ -40,151 +39,80 @@ class _AdminDashboardState extends State<Navigation> {
     return Scaffold(
       body: pageview[currentIndex],
       bottomNavigationBar: SizedBox(
-        height: 55,
-        width: 20,
-        child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
-          Expanded(
-              child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () {
-              setState(
-                () {
-                  currentIndex = 0;
+          height: 50,
+          child: Row(
+            children: List.generate(listOfIcons.length, (index) {
+              return BottomNavItem(
+                index: index,
+                currentIndex: currentIndex,
+                icon: listOfIcons[index],
+                activeColor: appbar1,
+                onTap: () {
+                  setState(() {
+                    currentIndex = index;
+                  });
                 },
               );
-            },
-            child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 600),
-                    curve: Curves.bounceOut,
-                    width: currentIndex == 0 ? 25 : 0,
-                    height: 4,
-                    decoration: BoxDecoration(
-                        color: appbar1,
-                        borderRadius: BorderRadius.circular(10)),
-                  ),
-                  Icon(
-                    listOfIcons[0],
-                    size: 22,
-                    color: currentIndex == 0 ? appbar1 : Colors.black,
-                  ),
-                  const SizedBox(
-                    height: 10,
-                  ),
-                ]),
+            }),
           )),
-          Expanded(
-              child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () {
-              setState(
-                () {
-                  currentIndex = 1;
-                },
-              );
-            },
-            child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 600),
-                    curve: Curves.bounceOut,
-                    width: currentIndex == 1 ? 25 : 0,
-                    height: 4,
-                    decoration: BoxDecoration(
-                        color: appbar1,
-                        borderRadius: BorderRadius.circular(10)),
-                  ),
-                  Icon(
-                    listOfIcons[1],
-                    size: 22,
-                    color: currentIndex == 1 ? appbar1 : Colors.black,
-                  ),
-                  const SizedBox(
-                    height: 10,
-                  ),
-                ]),
-          )),
-          Expanded(
-              child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () {
-              setState(
-                () {
-                  currentIndex = 2;
-                },
-              );
-            },
-            child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 600),
-                    curve: Curves.bounceOut,
-                    width: currentIndex == 2 ? 25 : 0,
-                    height: 4,
-                    decoration: BoxDecoration(
-                        color: appbar1,
-                        borderRadius: BorderRadius.circular(10)),
-                  ),
-                  Icon(
-                    listOfIcons[2],
-                    size: 22,
-                    color: currentIndex == 2 ? appbar1 : Colors.black,
-                  ),
-                  const SizedBox(
-                    height: 10,
-                  ),
-                ]),
-          )),
-          Expanded(
-              child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () {
-              setState(
-                () {
-                  currentIndex = 3;
-                },
-              );
-            },
-            child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 600),
-                    curve: Curves.bounceOut,
-                    width: currentIndex == 3 ? 25 : 0,
-                    height: 4,
-                    decoration: BoxDecoration(
-                        color: appbar1,
-                        borderRadius: BorderRadius.circular(10)),
-                  ),
-                  Icon(
-                    listOfIcons[3],
-                    size: 22,
-                    color: currentIndex == 3 ? appbar1 : Colors.black,
-                  ),
-                  const SizedBox(
-                    height: 10,
-                  ),
-                ]),
-          ))
-        ]),
-      ),
     );
   }
 
   List<IconData> listOfIcons = [
-    
     Icons.local_fire_department,
     Icons.restaurant,
     Icons.calculate,
-    Icons.search,
   ];
+}
+
+class BottomNavItem extends StatelessWidget {
+  final int index;
+  final int currentIndex;
+  final IconData icon;
+  final Color activeColor;
+  final VoidCallback onTap;
+
+  const BottomNavItem({
+    super.key,
+    required this.index,
+    required this.currentIndex,
+    required this.icon,
+    required this.activeColor,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isActive = currentIndex == index;
+
+    return Expanded(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 600),
+              curve: Curves.bounceOut,
+              width: isActive ? 25 : 0,
+              height: 4,
+              decoration: BoxDecoration(
+                color: activeColor,
+                borderRadius:
+                    const BorderRadius.only(bottomLeft: Radius.circular(10), bottomRight: Radius.circular(10)),
+              ),
+            ),
+            Icon(
+              icon,
+              size: 22,
+              color: isActive ? activeColor : Colors.black,
+            ),
+            const SizedBox(height: 5),
+          ],
+        ),
+      ),
+    );
+  }
 }

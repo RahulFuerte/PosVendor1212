@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:pos/view/home/providers/order_type_provider.dart';
+import 'package:pos/data/providers/order_type_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:pos/view/home/navigation.dart';
 

@@ -1,5 +1,6 @@
 // Flutter imports:
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 const red = Colors.red;
 const pink = Colors.pink;
@@ -83,7 +84,7 @@ const lottiePath = "assets/lottie";
 const imagesPath = "assets/images";
 
 const infinity = double.infinity;
-
+final NumberFormat numberFormat = NumberFormat("#,##,##0", "en_IN");
 const String KEYLOGIN = "Login";
 RegExp regExpEmojis = RegExp(
   '(\u00a9|\u00ae|[\u2000-\u3300]|\ud83c[\ud000-\udfff]|\ud83d[\ud000-\udfff]|\ud83e[\ud000-\udfff])',
