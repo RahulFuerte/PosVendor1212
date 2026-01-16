@@ -1,13 +1,16 @@
+import 'dart:convert';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:pos/data/datasources/local/sqlite_helper.dart';
+import 'package:pos/data/datasources/smart_database_service.dart';
+import 'package:pos/data/models/customer_model.dart';
 import 'package:pos/data/providers/order_type_provider.dart';
-import 'package:pos/view/home/navigation.dart';
 import 'package:pos/data/providers/print_provider.dart';
+import 'package:pos/view/home/navigation.dart';
 import 'package:pos/view/home/screens/customer_list_screen.dart';
 import 'package:pos/view/home/screens/order_type_selector.dart';
 import 'package:pos/view/home/widgets/my_choiceChip.dart';
-import 'package:pos/data/datasources/local/sqlite_helper.dart';
-import 'package:pos/data/models/customer_model.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:pos/view/tab_screen/view-model/widgets/printers/printer.dart';
 import 'package:provider/provider.dart';
@@ -34,6 +37,8 @@ class ReceiptPreviewScreen extends StatefulWidget {
 }
 
 class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
+  final SmartDatabaseService _databaseService = SmartDatabaseService();
+  final SQLiteHelper _sqliteHelper = SQLiteHelper();
   List<CustomerModel> allCustomers = [];
 
   final TextEditingController nameCtrl = TextEditingController();
@@ -113,6 +118,208 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
   void initState() {
     super.initState();
     fetchCustomers();
+  }
+
+  /// Save bill with automatic online/offline handling
+  /// Online: Saves to Firebase and local SQLite
+  /// Offline: Saves to local SQLite, syncs when online
+  Future<void> saveBill({
+    required String adminUid,
+    required String receiptNo,
+    required List<Map<String, dynamic>> items,
+    required double subTotal,
+    String? tableNumber,
+    bool taxEnabled = false,
+    double cgstPercent = 0.0,
+    double sgstPercent = 0.0,
+    String? customerName,
+    String? customerPhone,
+    String? customerGst,
+    String? customerAddress,
+    String? customerNote,
+    double discountPercent = 0.0,
+    double discountAmount = 0.0,
+    String? paymentType,
+  }) async {
+    try {
+      final now = DateTime.now();
+
+      final List<Map<String, dynamic>> itemsData = items.map((item) {
+        return {
+          'name': item['name'] ?? '',
+          'price': double.tryParse(item['price'].toString()) ?? 0.0,
+          'quantity': int.tryParse(item['quantity'].toString()) ?? 1,
+        };
+      }).toList();
+
+      // Calculate tax amounts if enabled
+      double cgstAmount = 0.0;
+      double sgstAmount = 0.0;
+      double totalWithTax = subTotal;
+
+      if (taxEnabled) {
+        cgstAmount = subTotal * (cgstPercent / 100);
+        sgstAmount = subTotal * (sgstPercent / 100);
+        totalWithTax = subTotal + cgstAmount + sgstAmount;
+      }
+      
+      // Calculate final total with discount
+      double finalTotal = totalWithTax - discountAmount;
+
+      // Prepare bill data for SmartDatabaseService
+      // Note: items must be JSON encoded string for SQLite storage
+      // Schema: id, admin_uid, customer_phone, items, total_amount, bill_date, created_at, updated_at, sync_status, firebase_id
+      final billData = {
+        'id': receiptNo,
+        'bill_date': now.millisecondsSinceEpoch, // Store as integer for proper sorting
+        'items': jsonEncode(itemsData), // Convert to JSON string for SQLite
+        'total_amount': finalTotal,
+        'sub_total': subTotal,
+        'table_number': tableNumber ?? 'N/A',
+        'tax_enabled': taxEnabled ? 1 : 0, // SQLite doesn't support bool, use int
+        'cgst_percent': cgstPercent,
+        'sgst_percent': sgstPercent,
+        'cgst_amount': cgstAmount,
+        'sgst_amount': sgstAmount,
+        'customer_name': customerName ?? '',
+        'customer_phone': customerPhone ?? '',
+        'customer_gst': customerGst ?? '',
+        'customer_address': customerAddress ?? '',
+        'customer_note': customerNote ?? '',
+        'discount_percent': discountPercent,
+        'discount_amount': discountAmount,
+        'final_total': finalTotal,
+        'payment_type': paymentType ?? '',
+      };
+
+      // Save using SmartDatabaseService (handles online/offline automatically)
+      // This already saves to Firebase when online, no need for separate Firebase call
+      await _databaseService.saveBill(adminUid, billData);
+
+      debugPrint(
+          '[ReceiptPreview] Bill saved successfully - receiptNo: $receiptNo (${_databaseService.isOnline ? "online" : "offline"})');
+    } catch (e) {
+      debugPrint('Error saving bill: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> _handleSaveWithoutPrint() async {
+    bool? confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
+              SizedBox(width: 12),
+              Text('Confirm Action', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: const Text(
+            'Are you sure you want to save this bill without printing?',
+            style: TextStyle(fontSize: 16),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              style: TextButton.styleFrom(foregroundColor: Colors.grey[700]),
+              child: const Text('Cancel', style: TextStyle(fontSize: 16)),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: appbar1,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+              child: const Text('Yes, Save', style: TextStyle(fontSize: 16, color: Colors.white)),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    final printProvider = Provider.of<PrintProvider>(context, listen: false);
+
+    // Generate sequential receipt number (returns 8-digit padded string like "00000001")
+    String generatedReceiptNo = await _sqliteHelper.getNextReceiptNumber(widget.phoneNo);
+
+    try {
+      // Get tax parameters (already have default values in PrintProvider)
+      final bool taxEnabled = printProvider.taxEnabled;
+      final double cgstPercent = printProvider.cgstPercent;
+      final double sgstPercent = printProvider.sgstPercent;
+
+      // Get payment type from OrderTypeProvider
+      final orderTypeProvider = Provider.of<OrderTypeProvider>(context, listen: false);
+      String paymentType = orderTypeProvider.paymentType.toString().split('.').last; // Convert enum to string
+      
+      await saveBill(
+        adminUid: widget.phoneNo,
+        receiptNo: generatedReceiptNo,
+        items: printProvider.posts,
+        subTotal: printProvider.total,
+        taxEnabled: taxEnabled,
+        cgstPercent: cgstPercent,
+        sgstPercent: sgstPercent,
+        customerName: nameCtrl.text,
+        customerPhone: phoneCtrl.text,
+        customerGst: gstCtrl.text,
+        customerAddress: addressCtrl.text,
+        customerNote: noteCtrl.text,
+        discountPercent: discountPercent,
+        discountAmount: discountAmount,
+        paymentType: paymentType,
+      );
+
+      if (!mounted) return;
+      final isOnline = _databaseService.isOnline;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Icon(
+                isOnline ? Icons.cloud_done : Icons.cloud_off,
+                color: Colors.white,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  isOnline
+                      ? 'Bill saved! Receipt No: $generatedReceiptNo'
+                      : 'Bill saved offline! Receipt No: $generatedReceiptNo (will sync when online)',
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+      
+      // Clear cart after successful save
+      printProvider.clearCart();
+      
+      // Navigate back to previous screen
+      Navigator.pop(context);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to save bill: $e'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
   }
 
   @override
@@ -217,39 +424,7 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
                         const SizedBox(width: 10),
                         _buildIconButton(
                           imagePath: "assets/images/save.png",
-                          onPressed: () async {
-                            try {
-                              await DirectPrintHelper.printReceipt(
-                                adminUid: widget.phoneNo,
-                                context: context,
-                                printer: printProvider.selectedPrinter!,
-                                paperSize: printProvider.selectedPaperSize,
-                                items: cartItems,
-                                total: subtotal,
-                                shopName: widget.shopName,
-                                logoUrl: widget.shopName,
-                                contact: widget.contact,
-                                address: widget.address,
-                                saveBill: false,
-                              );
-
-                              if (context.mounted) {
-                                Navigator.pop(context);
-
-                                printProvider.clearCart();
-                              }
-                            } catch (e) {
-                              if (context.mounted) {
-                                Navigator.pop(context);
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('Printing failed: $e'),
-                                    backgroundColor: Colors.red,
-                                  ),
-                                );
-                              }
-                            }
-                          },
+                          onPressed: _handleSaveWithoutPrint,
                         ),
                         const SizedBox(width: 10),
                         _buildIconButton(

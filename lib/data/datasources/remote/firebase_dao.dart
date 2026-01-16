@@ -45,6 +45,29 @@ class FirebaseDAO implements DatabaseService {
     return DateTime.now().millisecondsSinceEpoch;
   }
 
+  /// Get valid SQLite column names for a table
+  Set<String> _getValidSqliteColumns(bool isFoodItem) {
+    if (isFoodItem) {
+      return {
+        'id', 'admin_uid', 'name', 'price', 'price2', 'price3', 'priceType',
+        'image_path', 'image_blob', 'description', 'food_code', 'department',
+        'stocks', 'is_hot', 'tax', 'created_at', 'updated_at', 'sync_status',
+        'firebase_id', 'baseVariant', 'addons', 'variants'
+      };
+    } else {
+      // For other tables (departments, bills, etc.)
+      return {
+        'id', 'admin_uid', 'name', 'image_path', 'image_blob', 'description',
+        'status', 'created_at', 'updated_at', 'sync_status', 'firebase_id',
+        'customer_phone', 'items', 'total_amount', 'sub_total', 'table_number',
+        'tax_enabled', 'cgst_percent', 'sgst_percent', 'cgst_amount', 'sgst_amount',
+        'customer_name', 'customer_gst', 'customer_address', 'customer_note',
+        'discount_percent', 'discount_amount', 'final_total', 'payment_type',
+        'bill_date', 'order_type', 'gst_number', 'address', 'customer_payment_type'
+      };
+    }
+  }
+
   /// Transform Firebase data to SQLite-compatible format
   Map<String, dynamic> transformFirebaseToSQLite(
     Map<String, dynamic> firebaseData,
@@ -120,14 +143,28 @@ class FirebaseDAO implements DatabaseService {
     transformed['created_at'] = parseTimestamp(firebaseData['createdAt']);
     transformed['updated_at'] = parseTimestamp(firebaseData['updatedAt']);
 
-    // Copy any remaining fields that don't need transformation
+    // Get valid SQLite column names for the table
+    final validColumns = _getValidSqliteColumns(isFood);
+      
+    // Copy only valid fields that exist in the SQLite table schema
     for (final entry in firebaseData.entries) {
       final key = entry.key;
-      if (!fieldMappings.containsKey(key) &&
-          key != 'createdAt' &&
-          key != 'updatedAt' &&
-          !transformed.containsKey(key)) {
-        transformed[key] = entry.value;
+      final value = entry.value;
+        
+      // Skip fields we've already processed
+      if (fieldMappings.containsKey(key) ||
+          key == 'createdAt' ||
+          key == 'updatedAt' ||
+          transformed.containsKey(key)) {
+        continue;
+      }
+        
+      // Only include fields that exist in the SQLite table
+      if (validColumns.contains(key)) {
+        transformed[key] = value;
+      } else {
+        // Log unknown fields for debugging
+        print('Skipping unknown field: $key (value: $value)');
       }
     }
 
@@ -550,6 +587,15 @@ class FirebaseDAO implements DatabaseService {
         'sgstPercent': billData['sgst_percent'] ?? 0.0,
         'cgstAmount': billData['cgst_amount'] ?? 0.0,
         'sgstAmount': billData['sgst_amount'] ?? 0.0,
+        'customerName': billData['customer_name'] ?? '',
+        'customerPhone': billData['customer_phone'] ?? '',
+        'customerGst': billData['customer_gst'] ?? '',
+        'customerAddress': billData['customer_address'] ?? '',
+        'customerNote': billData['customer_note'] ?? '',
+        'discountPercent': billData['discount_percent'] ?? 0.0,
+        'discountAmount': billData['discount_amount'] ?? 0.0,
+        'finalTotal': billData['final_total'] ?? billData['total_amount'],
+        'paymentType': billData['payment_type'] ?? '',
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       };
