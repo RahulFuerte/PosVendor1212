@@ -1,4 +1,4 @@
-// Flutter imports:
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:pos/data/datasources/local/sqlite_helper.dart';
