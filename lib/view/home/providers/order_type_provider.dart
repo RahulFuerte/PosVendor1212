@@ -2,14 +2,24 @@ import 'package:flutter/material.dart';
 
 enum OrderType { dineIn, pickUp, delivery }
 
-class OrderTypeProvider extends ChangeNotifier {
-  OrderType _selected = OrderType.dineIn;
+enum PaymentType { cash, upi, debit, complementory }
 
-  OrderType get selected => _selected;
+class OrderTypeProvider extends ChangeNotifier {
+  OrderType _orderType = OrderType.dineIn;
+  PaymentType _paymentType = PaymentType.cash;
+
+  OrderType get orderType => _orderType;
+  PaymentType get paymentType => _paymentType;
 
   void setOrderType(OrderType type) {
-    if (_selected == type) return;
-    _selected = type;
+    if (_orderType == type) return;
+    _orderType = type;
+    notifyListeners();
+  }
+
+  void setPaymentType(PaymentType type) {
+    if (_paymentType == type) return;
+    _paymentType = type;
     notifyListeners();
   }
 }

@@ -9,7 +9,7 @@ class OrderTypeSelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<OrderTypeProvider>();
-    final selected = provider.selected;
+    final selected = provider.orderType;
 
     return Row(
       children: [

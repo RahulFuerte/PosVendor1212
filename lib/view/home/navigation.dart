@@ -31,7 +31,7 @@ class _AdminDashboardState extends State<Navigation> {
       PLUCalculatorScreen(
         phoneNumber: widget.uId,
       ),
-      SearchReceiptScreen(phoneNumber: widget.uId)
+      // SearchReceiptScreen(phoneNumber: widget.uId)
     ];
   }
 
