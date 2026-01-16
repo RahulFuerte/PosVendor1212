@@ -16,7 +16,7 @@ import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 // Project imports:
-import 'package:pos/view/home/print_provider.dart';
+import 'package:pos/data/providers/print_provider.dart';
 import 'package:pos/view/home/printer_connectionDialog.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 

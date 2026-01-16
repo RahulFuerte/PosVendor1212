@@ -17,7 +17,7 @@ import 'package:pos/core/utils/price_utils.dart';
 import 'package:pos/data/datasources/database_service.dart';
 import 'package:pos/data/datasources/local/sqlite_helper.dart';
 import 'package:pos/view/home/navigation.dart';
-import 'package:pos/view/home/print_provider.dart';
+import 'package:pos/data/providers/print_provider.dart';
 import 'package:pos/view/home/screens/users_data_screen.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import '../widgets/bill_cart_widget.dart';
@@ -130,8 +130,7 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
     } else if (value == '⌫') {
       // Backspace - remove last character
       if (_textEditingController.text.isNotEmpty) {
-        _textEditingController.text = _textEditingController.text
-            .substring(0, _textEditingController.text.length - 1);
+        _textEditingController.text = _textEditingController.text.substring(0, _textEditingController.text.length - 1);
       }
     } else if (value == 'PLU') {
       String enteredCode = _textEditingController.text;
@@ -189,8 +188,7 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
 
   Future<String> fetchAdminUid() async {
     try {
-      DocumentSnapshot<Map<String, dynamic>> snapshot = await FirebaseFirestore
-          .instance
+      DocumentSnapshot<Map<String, dynamic>> snapshot = await FirebaseFirestore.instance
           .collection('AllCustomer')
           .doc(widget.phoneNumber)
           .get()
@@ -212,8 +210,7 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
             'createdAt': data?['createdAt'],
           });
         } catch (cacheError) {
-          developer.log('Error caching adminUid in SQLite: $cacheError',
-              name: 'CalculatorScreen');
+          developer.log('Error caching adminUid in SQLite: $cacheError', name: 'CalculatorScreen');
         }
 
         setState(() {
@@ -238,8 +235,7 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
       final cachedAdminUid = await sqliteHelper.getAdminUid(widget.phoneNumber);
 
       if (cachedAdminUid != null && cachedAdminUid.isNotEmpty) {
-        developer.log('Using cached adminUid from SQLite: $cachedAdminUid',
-            name: 'CalculatorScreen');
+        developer.log('Using cached adminUid from SQLite: $cachedAdminUid', name: 'CalculatorScreen');
         setState(() {
           adminUid = cachedAdminUid;
         });
@@ -247,15 +243,13 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
       }
 
       // Last resort: use phoneNumber as adminUid
-      developer.log('No cached adminUid found, using phoneNumber as fallback',
-          name: 'CalculatorScreen');
+      developer.log('No cached adminUid found, using phoneNumber as fallback', name: 'CalculatorScreen');
       setState(() {
         adminUid = widget.phoneNumber;
       });
       return widget.phoneNumber;
     } catch (e) {
-      developer.log('Error getting cached adminUid from SQLite: $e',
-          name: 'CalculatorScreen');
+      developer.log('Error getting cached adminUid from SQLite: $e', name: 'CalculatorScreen');
       setState(() {
         adminUid = widget.phoneNumber;
       });
@@ -266,24 +260,21 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
   Future<List<Map<String, dynamic>>> fetchFoodItems() async {
     try {
       final String adminUid = await fetchAdminUid();
-      final DatabaseService databaseService =
-          Provider.of<DatabaseService>(context, listen: false);
+      final DatabaseService databaseService = Provider.of<DatabaseService>(context, listen: false);
 
       // Get all food items using DatabaseService
-      List<Map<String, dynamic>> allItems =
-          await databaseService.getFoodItems(adminUid);
+      List<Map<String, dynamic>> allItems = await databaseService.getFoodItems(adminUid);
 
       List<Map<String, dynamic>> items = allItems
           .map((item) => {
                 'name': PriceUtils.safeStringConversion(item['name']),
                 'price': PriceUtils.safeStringConversion(item['price']),
-                'foodCode': PriceUtils.safeStringConversion(item['food_code'] ??
-                    item['foodCode']) // Support both formats
+                'foodCode':
+                    PriceUtils.safeStringConversion(item['food_code'] ?? item['foodCode']) // Support both formats
               })
           .toList();
 
-      developer.log('Fetched food items of cs: $items',
-          name: 'CalculatorScreen');
+      developer.log('Fetched food items of cs: $items', name: 'CalculatorScreen');
 
       return items;
     } catch (e) {
@@ -313,9 +304,7 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
             _textEditingController.clear(); // Clear input after adding
             return;
           } else {
-            developer.log(
-                'Invalid item data: name=$itemName, price=${item['price']}',
-                name: 'CalculatorScreen');
+            developer.log('Invalid item data: name=$itemName, price=${item['price']}', name: 'CalculatorScreen');
             Fluttertoast.showToast(
               msg: "Invalid item data for code: $foodCode",
               toastLength: Toast.LENGTH_SHORT,
@@ -328,8 +317,7 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
         }
       }
 
-      developer.log('Food Item not found for code: $foodCode',
-          name: 'CalculatorScreen');
+      developer.log('Food Item not found for code: $foodCode', name: 'CalculatorScreen');
       Fluttertoast.showToast(
         msg: "No item exists with code: $foodCode",
         toastLength: Toast.LENGTH_SHORT,
@@ -354,35 +342,34 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
     final printprovider = Provider.of<PrintProvider>(context, listen: true);
 
     return PopScope(
-      canPop: false,
-      onPopInvoked: (bool didPop) async {
-        DateTime now = DateTime.now();
-        if (currentBackPressTime == null ||
-            now.difference(currentBackPressTime!) >
-                const Duration(seconds: 2)) {
-          currentBackPressTime = now;
-          Fluttertoast.showToast(
-            msg: "Press back again to exit",
-            toastLength: Toast.LENGTH_SHORT,
-            gravity: ToastGravity.BOTTOM,
-            timeInSecForIosWeb: 2,
-            backgroundColor: Colors.grey,
-            textColor: Colors.white,
-            fontSize: 16.0,
-          );
-        } else {
-          // Exit the app
-          exit(0); // Exit the app
-        }
-      },
+      // canPop: false,
+      // onPopInvoked: (bool didPop) async {
+      //   DateTime now = DateTime.now();
+      //   if (currentBackPressTime == null ||
+      //       now.difference(currentBackPressTime!) >
+      //           const Duration(seconds: 2)) {
+      //     currentBackPressTime = now;
+      //     Fluttertoast.showToast(
+      //       msg: "Press back again to exit",
+      //       toastLength: Toast.LENGTH_SHORT,
+      //       gravity: ToastGravity.BOTTOM,
+      //       timeInSecForIosWeb: 2,
+      //       backgroundColor: Colors.grey,
+      //       textColor: Colors.white,
+      //       fontSize: 16.0,
+      //     );
+      //   } else {
+      //     // Exit the app
+      //     exit(0); // Exit the app
+      //   }
+      // },
       child: Scaffold(
         appBar: AppBar(
           centerTitle: true,
           elevation: 1,
           title: const Text(
             'Enter Food code',
-            style: TextStyle(
-                color: Colors.black, fontFamily: 'tabfont', fontSize: 19),
+            style: TextStyle(color: Colors.black, fontFamily: 'tabfont', fontSize: 19),
           ),
           backgroundColor: Colors.white,
         ),
@@ -430,15 +417,9 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
                                         size: 24,
                                       ),
                                       onPressed: () {
-                                        if (_textEditingController
-                                            .text.isNotEmpty) {
-                                          _textEditingController.text =
-                                              _textEditingController.text
-                                                  .substring(
-                                                      0,
-                                                      _textEditingController
-                                                              .text.length -
-                                                          1);
+                                        if (_textEditingController.text.isNotEmpty) {
+                                          _textEditingController.text = _textEditingController.text
+                                              .substring(0, _textEditingController.text.length - 1);
                                         }
                                       },
                                     ),
@@ -472,8 +453,7 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
                       'PLU',
                     ])
                       Padding(
-                        padding: const EdgeInsets.only(
-                            left: 5, right: 5, top: 4, bottom: 4),
+                        padding: const EdgeInsets.only(left: 5, right: 5, top: 4, bottom: 4),
                         child: ElevatedButton(
                           onPressed: () {
                             audioPlayer.play(AssetSource('sounds/beep.mp3'));
@@ -482,9 +462,7 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
                           style: ElevatedButton.styleFrom(
                             foregroundColor: primaryColor,
                             elevation: 5,
-                            backgroundColor: buttonValue == 'PLU'
-                                ? primaryColor
-                                : Colors.white,
+                            backgroundColor: buttonValue == 'PLU' ? primaryColor : Colors.white,
                             shadowColor: primaryColor,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),
@@ -494,8 +472,7 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
                             buttonValue,
                             style: TextStyle(
                               fontFamily: "tabfont",
-                              color:
-                                  buttonValue == 'PLU' ? Colors.white : appbar1,
+                              color: buttonValue == 'PLU' ? Colors.white : appbar1,
                               fontSize: 25,
                             ),
                           ),
@@ -516,8 +493,7 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
                           totalSum = 0.0;
                         });
                       },
-                      onCartUpdated: (List<Map<String, dynamic>> updatedItems,
-                          double updatedTotal) {
+                      onCartUpdated: (List<Map<String, dynamic>> updatedItems, double updatedTotal) {
                         setState(() {
                           cartItems = updatedItems;
                           totalSum = updatedTotal;
@@ -614,8 +590,7 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
     );
   }
 
-  List<Map<String, dynamic>> _encodeDetails(
-      List<Map<String, dynamic>> details) {
+  List<Map<String, dynamic>> _encodeDetails(List<Map<String, dynamic>> details) {
     return details.map((item) {
       return {
         'name': item['name'],

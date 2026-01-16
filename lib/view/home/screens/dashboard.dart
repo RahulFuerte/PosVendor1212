@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:pos/view/home/navigation.dart';
+import 'package:pos/view/home/widgets/mydrawer.dart';
 
 class Dashboard extends StatefulWidget {
-  const Dashboard({super.key});
+  final String phoneNo;
+  const Dashboard({super.key, required this.phoneNo});
 
   @override
   State<Dashboard> createState() => _DashboardState();
@@ -28,7 +30,6 @@ class _DashboardState extends State<Dashboard> {
         elevation: 0,
         scrolledUnderElevation: 0,
         backgroundColor: Colors.white,
-        leading: const Icon(Icons.menu, color: Colors.black),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: const [
@@ -43,6 +44,7 @@ class _DashboardState extends State<Dashboard> {
           ],
         ),
       ),
+      drawer: MyDrawer(phoneNo: widget.phoneNo),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: Column(
@@ -50,10 +52,10 @@ class _DashboardState extends State<Dashboard> {
             Row(
               children: [
                 _InfoCard(
-                  title: "Today's Sales",
+                  title: "Sales",
                   value: '₹0',
                   icon: Icons.point_of_sale,
-                  color: Colors.blue.shade900,
+                  color: Colors.teal,
                 ),
               ],
             ),
@@ -63,41 +65,19 @@ class _DashboardState extends State<Dashboard> {
             Row(
               children: [
                 _InfoCard(
-                  title: "Money In",
+                  title: "Total Bills",
                   value: '₹0',
-                  icon: Icons.arrow_downward,
-                  color: Colors.green,
+                  icon: Icons.receipt,
+                  color: appbar1,
                 ),
                 const SizedBox(
                   width: 10,
                 ),
                 _InfoCard(
-                  title: "Money Out",
-                  value: '₹0',
-                  icon: Icons.arrow_upward,
-                  color: Colors.red,
-                ),
-              ],
-            ),
-            const SizedBox(
-              height: 10,
-            ),
-            Row(
-              children: [
-                _InfoCard(
-                  title: "Income",
-                  value: '₹0',
-                  icon: Icons.trending_up,
-                  color: Colors.deepPurple,
-                ),
-                const SizedBox(
-                  width: 10,
-                ),
-                _InfoCard(
-                  title: "Expenses",
+                  title: "Total Expenses",
                   value: '₹0',
                   icon: Icons.trending_down,
-                  color: Colors.blue,
+                  color: Colors.red.shade600,
                 ),
               ],
             ),
@@ -397,7 +377,7 @@ class KOTTile extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border(
-          left:  BorderSide(color:appbar1 , width: 6),
+          left: BorderSide(color: appbar1, width: 6),
         ),
         boxShadow: [
           BoxShadow(
@@ -468,7 +448,7 @@ class KOTTile extends StatelessWidget {
             ),
             child: Text(
               '$items Items',
-              style:  TextStyle(
+              style: TextStyle(
                 fontWeight: FontWeight.w600,
                 color: appbar1,
               ),

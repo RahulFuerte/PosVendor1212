@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 
 // Package imports:
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:pos/view/home/navigation.dart';
 
 /// Widget that displays the current offline status
 class OfflineStatusIndicator extends StatefulWidget {
@@ -82,12 +83,12 @@ class _OfflineStatusIndicatorState extends State<OfflineStatusIndicator> {
       decoration: BoxDecoration(
         color: !_isOnline 
             ? (widget.offlineColor ?? Colors.orange.withOpacity(0.1))
-            : (widget.onlineColor ?? Colors.green.withOpacity(0.1)),
+            : (widget.onlineColor ?? appbar1.withOpacity(0.1)),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: !_isOnline 
               ? (widget.offlineColor ?? Colors.orange)
-              : (widget.onlineColor ?? Colors.green),
+              : (widget.onlineColor ?? appbar1),
           width: 1,
         ),
       ),
@@ -101,7 +102,7 @@ class _OfflineStatusIndicatorState extends State<OfflineStatusIndicator> {
             size: 16,
             color: !_isOnline 
                 ? (widget.offlineColor ?? Colors.orange)
-                : (widget.onlineColor ?? Colors.green),
+                : (widget.onlineColor ?? appbar1),
           ),
           const SizedBox(width: 4),
           Text(
@@ -111,7 +112,7 @@ class _OfflineStatusIndicatorState extends State<OfflineStatusIndicator> {
               fontWeight: FontWeight.w500,
               color: !_isOnline 
                   ? (widget.offlineColor ?? Colors.orange)
-                  : (widget.onlineColor ?? Colors.green),
+                  : (widget.onlineColor ?? appbar1),
             ),
           ),
           if (!_isOnline && _pendingItemsCount > 0) ...[

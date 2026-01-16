@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:pos/view/home/providers/order_type_provider.dart';
+import 'package:pos/data/providers/order_type_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:pos/view/home/navigation.dart';
 
@@ -9,7 +9,7 @@ class OrderTypeSelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<OrderTypeProvider>();
-    final selected = provider.selected;
+    final selected = provider.orderType;
 
     return Row(
       children: [

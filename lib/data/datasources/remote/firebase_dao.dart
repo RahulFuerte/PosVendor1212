@@ -101,11 +101,18 @@ class FirebaseDAO implements DatabaseService {
     final bool isFood = isFoodItem ?? false;
 
     if (isFood) {
-      transformed['baseVariant'] = firebaseData['baseVariant'] ?? '';
+      transformed['price2'] = firebaseData['price2'] ?? '';
+      transformed['price3'] = firebaseData['price3'] ?? '';
+      transformed['priceType'] = firebaseData['priceType'] ?? '';
 
       final variants = firebaseData['variants'];
       transformed['variants'] = jsonEncode(
         variants is List ? variants.map((v) => Map<String, dynamic>.from(v)).toList() : [],
+      );
+
+      final addons = firebaseData['addons'];
+      transformed['addons'] = jsonEncode(
+        addons is List ? addons.map((v) => Map<String, dynamic>.from(v)).toList() : [],
       );
     }
 
