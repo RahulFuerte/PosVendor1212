@@ -28,6 +28,9 @@ void main() async {
   await Firebase.initializeApp();
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+    DeviceOrientation.landscapeLeft,
+    DeviceOrientation.landscapeRight,
   ]);
   runApp(const MyApp());
 }
@@ -67,12 +70,9 @@ class MyApp extends StatelessWidget {
       ],
       child: const MaterialApp(
         title: 'POS',
-        // theme: ThemeData(
-        //   colorScheme: ColorScheme.fromSeed(seedColor: Colors.white),
-        //   useMaterial3: true,
-        // ),
+      
         home: SplashScreen(),
-        // home: CustomerWiseReport(),
+      
         debugShowCheckedModeBanner: false,
       ),
     );
