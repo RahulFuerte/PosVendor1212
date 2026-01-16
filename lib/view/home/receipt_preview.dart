@@ -18,6 +18,7 @@ class ReceiptPreviewScreen extends StatefulWidget {
   final String address;
   final String adminUid;
   final String phoneNo;
+  
 
   const ReceiptPreviewScreen({
     Key? key,

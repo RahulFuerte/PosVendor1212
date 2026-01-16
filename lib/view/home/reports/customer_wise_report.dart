@@ -2,7 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:pos/view/home/navigation.dart';
-import 'package:pos/view/local_DB/customer_model.dart';
+import 'package:pos/data/models/customer_model.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 
 class CustomerWiseReport extends StatefulWidget {
