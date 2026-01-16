@@ -49,6 +49,8 @@ class _OTPState extends State<OTP> {
       backgroundColor: white,
       appBar: AppBar(
         automaticallyImplyLeading: true,
+        elevation: 0,
+        scrolledUnderElevation: 0,
         backgroundColor: white,
        // iconTheme: const IconThemeData(color: black),
         leading: IconButton(
@@ -64,116 +66,112 @@ class _OTPState extends State<OTP> {
         builder: (context, lp, _) => Padding(
           padding: EdgeInsets.all(20 * s.customWidth),
           child: SingleChildScrollView(
-            child: SizedBox(
-              height: MediaQuery.of(context).size.height - 170,
-              width: double.infinity,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  Text(
-                    "Verify OTP",
-                    style: Theme.of(context)
-                        .textTheme
-                        .headlineLarge!
-                        .copyWith(color: black, fontWeight: FontWeight.bold),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.only(top: 21, bottom: 31),
-                    child: SizedBox(
-                      height: 250,
-                      width: 250,
-                      child: Center(
-                        child: Lottie.asset('assets/login.json',
-                            fit: BoxFit.cover, repeat: true),
-                      ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                Text(
+                  "Verify OTP",
+                  style: Theme.of(context)
+                      .textTheme
+                      .headlineLarge!
+                      .copyWith(color: black, fontWeight: FontWeight.bold),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 21, bottom: 31),
+                  child: SizedBox(
+                    height: 250,
+                    width: 250,
+                    child: Center(
+                      child: Lottie.asset('assets/login.json',
+                          fit: BoxFit.cover, repeat: true),
                     ),
                   ),
-                  SizedBox(height: 12 * s.customWidth),
-                  const Text(
-                      "We have sent the verification code to your mobile number",
-                      style: TextStyle(color: Colors.grey)),
-                  Padding(
-                    padding: EdgeInsets.symmetric(vertical: 10 * s.customWidth),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          lp.phone,
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        GestureDetector(
-                          onTap: () => goBack(),
-                          child: Padding(
-                            padding: EdgeInsets.only(left: 10 * s.customWidth),
-                            child: Icon(
-                              MdiIcons.pencilCircle,
-                              color: black,
-                            ),
-                          ),
-                        )
-                      ],
-                    ),
-                  ),
-                  SizedBox(height: 10 * s.customWidth),
-                  Row(
+                ),
+                SizedBox(height: 12 * s.customWidth),
+                const Text(
+                    "We have sent the verification code to your mobile number",
+                    style: TextStyle(color: Colors.grey)),
+                Padding(
+                  padding: EdgeInsets.symmetric(vertical: 10 * s.customWidth),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      otpBox(
-                        lp.controllers[0],
-                        focusNode: lp.firstFocusNode,
+                      Text(
+                        lp.phone,
+                        style: Theme.of(context).textTheme.titleMedium,
                       ),
-                      otpBox(lp.controllers[1]),
-                      otpBox(lp.controllers[2]),
-                      otpBox(lp.controllers[3]),
-                      otpBox(lp.controllers[4]),
-                      otpBox(
-                        lp.controllers[5],
-                        isLast: true,
-                        focusNode: lp.lastFocusNode,
-                      ),
+                      GestureDetector(
+                        onTap: () => goBack(),
+                        child: Padding(
+                          padding: EdgeInsets.only(left: 10 * s.customWidth),
+                          child: Icon(
+                            MdiIcons.pencilCircle,
+                            color: black,
+                          ),
+                        ),
+                      )
                     ],
                   ),
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () {
-                      for (TextEditingController controller in lp.controllers) {
-                        controller.clear();
-                      }
-                      FocusScope.of(context).unfocus();
-                      FocusScope.of(context).requestFocus(lp.firstFocusNode);
-                    },
-                    child: Container(
-                      alignment: Alignment.centerRight,
-                      padding: const EdgeInsets.all(20),
-                      child: Text(
-                        "Clear",
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleSmall!
-                            .copyWith(color: black),
-                      ),
+                ),
+                SizedBox(height: 10 * s.customWidth),
+                Row(
+                  children: [
+                    otpBox(
+                      lp.controllers[0],
+                      focusNode: lp.firstFocusNode,
+                    ),
+                    otpBox(lp.controllers[1]),
+                    otpBox(lp.controllers[2]),
+                    otpBox(lp.controllers[3]),
+                    otpBox(lp.controllers[4]),
+                    otpBox(
+                      lp.controllers[5],
+                      isLast: true,
+                      focusNode: lp.lastFocusNode,
+                    ),
+                  ],
+                ),
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {
+                    for (TextEditingController controller in lp.controllers) {
+                      controller.clear();
+                    }
+                    FocusScope.of(context).unfocus();
+                    FocusScope.of(context).requestFocus(lp.firstFocusNode);
+                  },
+                  child: Container(
+                    alignment: Alignment.centerRight,
+                    padding: const EdgeInsets.all(20),
+                    child: Text(
+                      "Clear",
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleSmall!
+                          .copyWith(color: black),
                     ),
                   ),
-                  CustomButton(
-                    isLoading: lp.isProcessing,
-                    label: "Verify OTP",
-                    backgroundColor:
-                        const Color.fromARGB(255, 5, 93, 8).withOpacity(0.6),
-                    borderRadius: 10,
-                    onTap: () async {
-                      String result = await PhoneAuthentication(
-                        context: context,
-                        mounted: mounted,
-                        lp: lp,
-                      ).verifyPhoneOTP();
-            
-                      if (mounted) {
-                        CustomSnackBar(context).build(result);
-                      }
-                    },
-                  ),
-                ],
-              ),
+                ),
+                CustomButton(
+                  isLoading: lp.isProcessing,
+                  label: "Verify OTP",
+                  backgroundColor:
+                      const Color.fromARGB(255, 5, 93, 8).withOpacity(0.6),
+                  borderRadius: 10,
+                  onTap: () async {
+                    String result = await PhoneAuthentication(
+                      context: context,
+                      mounted: mounted,
+                      lp: lp,
+                    ).verifyPhoneOTP();
+                        
+                    if (mounted) {
+                      CustomSnackBar(context).build(result);
+                    }
+                  },
+                ),
+              ],
             ),
           ),
         ),

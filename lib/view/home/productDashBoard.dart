@@ -416,11 +416,11 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                               vertical: 8,
                             ),
                             child: GridView.builder(
-                              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: crossAxisCount,
-                                childAspectRatio: childAspectRatio,
-                                crossAxisSpacing: spacing,
-                                mainAxisSpacing: spacing,
+                              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                                maxCrossAxisExtent: 170, 
+                                childAspectRatio: 0.75,
+                                crossAxisSpacing: 8,
+                                mainAxisSpacing: 8,
                               ),
                               itemCount: filteredItems.length,
                               itemBuilder: (context, index) {

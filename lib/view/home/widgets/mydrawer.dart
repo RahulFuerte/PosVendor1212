@@ -17,6 +17,7 @@ import 'package:pos/view/home/reports/sales_report_screen.dart';
 import 'package:pos/view/home/screens/customer_list_screen.dart';
 import 'package:pos/view/home/screens/dashboard.dart';
 import 'package:pos/view/home/screens/edit_bill_receipt.dart';
+import 'package:pos/view/home/screens/settings/setting_main.dart';
 import 'package:pos/view/home/screens/users_data_screen.dart';
 import 'package:pos/view/login/screens/inception_screen.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
@@ -427,6 +428,16 @@ class _MyDrawerState extends State<MyDrawer> {
                   AdminUid: adminUid,
                   phoneNo: widget.phoneNo,
                 ),
+              );
+            },
+          ),
+
+          ListTile(
+            leading: const Icon(Icons.settings, color: primaryColor),
+            title: const Text('Setting'),
+            onTap: () {
+              _navigate(
+                Setting(),
               );
             },
           ),
