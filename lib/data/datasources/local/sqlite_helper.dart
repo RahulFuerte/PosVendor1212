@@ -13,7 +13,7 @@ import '../shared_preferences.dart';
 class SQLiteHelper {
   static final SQLiteHelper _instance = SQLiteHelper._internal();
   static Database? _database;
-  static const int _currentVersion = 8; // Testing phase - fresh database each install
+  static const int _currentVersion = 1; // Testing phase - fresh database each install
   static const String _migrationCompleteKey = 'initial_migration_complete';
 
   // Database maintenance service (lazy initialization to avoid circular dependency)
@@ -48,8 +48,6 @@ class SQLiteHelper {
       onCreate: _createTables,
       onUpgrade: _migrateTables,
     );
-    // Ensure tax columns exist for existing databases
-    await _ensureTaxColumnsExist(db);
     return db;
   }
 
@@ -144,6 +142,14 @@ class SQLiteHelper {
         sgst_percent REAL DEFAULT 0.0,
         cgst_amount REAL DEFAULT 0.0,
         sgst_amount REAL DEFAULT 0.0,
+        customer_name TEXT,
+        customer_gst TEXT,
+        customer_address TEXT,
+        customer_note TEXT,
+        discount_percent REAL DEFAULT 0.0,
+        discount_amount REAL DEFAULT 0.0,
+        final_total REAL,
+        payment_type TEXT,
         bill_date INTEGER NOT NULL,
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL,
@@ -302,9 +308,6 @@ class SQLiteHelper {
         break;
       case 7:
         await _migrateToVersion7(db);
-        break;
-      case 8:
-        await _migrateToVersion8(db);
         break;
       // Add future migration cases here
       default:
@@ -784,57 +787,7 @@ class SQLiteHelper {
     }
   }
 
-  Future<void> _migrateToVersion8(Database db) async {
-    // Migration to version 8: Add orders table
-    try {
-      print('Migrating to version 8: Adding orders table...');
 
-      // Create orders table for storing order information
-      await db.execute('''
-        CREATE TABLE orders (
-          id TEXT PRIMARY KEY,
-          admin_uid TEXT NOT NULL,
-          order_type TEXT NOT NULL,
-          customer_name TEXT,
-          customer_phone TEXT,
-          gst_number TEXT,
-          address TEXT,
-          payment_type TEXT,
-          customer_payment_type TEXT,
-          total_amount REAL,
-          items TEXT,
-          created_at INTEGER NOT NULL,
-          updated_at INTEGER NOT NULL,
-          sync_status INTEGER DEFAULT 0,
-          firebase_id TEXT
-        )
-      ''');
-
-      // Log this migration
-      await db.insert('migration_log', {
-        'version': 8,
-        'migration_name': 'add_orders_table',
-        'executed_at': DateTime.now().millisecondsSinceEpoch,
-        'success': 1,
-      });
-
-      print('Successfully migrated to version 8');
-    } catch (e) {
-      print('Error migrating to version 8: $e');
-      // Log failed migration
-      try {
-        await db.insert('migration_log', {
-          'version': 8,
-          'migration_name': 'add_orders_table',
-          'executed_at': DateTime.now().millisecondsSinceEpoch,
-          'success': 0,
-        });
-      } catch (logError) {
-        print('Error logging failed migration: $logError');
-      }
-      rethrow;
-    }
-  }
 
   // Database initialization method
   Future<void> initializeDatabase() async {
@@ -1026,6 +979,8 @@ class SQLiteHelper {
       await performInitialDataMigration();
     }
   }
+
+
 
   // Get migration status
   Future<bool> isMigrationComplete() async {

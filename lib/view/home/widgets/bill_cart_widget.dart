@@ -252,6 +252,11 @@ class _BillCartState extends State<BillCart> {
       // Generate sequential receipt number (returns 8-digit padded string like "00000001")
       String generatedReceiptNo = await _sqliteHelper.getNextReceiptNumber(widget.phoneNo);
 
+      // Get tax parameters (already have default values in PrintProvider)
+      final bool taxEnabled = printProvider.taxEnabled;
+      final double cgstPercent = printProvider.cgstPercent;
+      final double sgstPercent = printProvider.sgstPercent;
+
       // Save bill
       await saveBill(
         adminUid: widget.phoneNo,
@@ -259,9 +264,9 @@ class _BillCartState extends State<BillCart> {
         items: selectedItemsDetails,
         subTotal: subtotal,
         tableNumber: tableNumber,
-        taxEnabled: printProvider.taxEnabled,
-        cgstPercent: printProvider.cgstPercent,
-        sgstPercent: printProvider.sgstPercent,
+        taxEnabled: taxEnabled,
+        cgstPercent: cgstPercent,
+        sgstPercent: sgstPercent,
       );
 
       // Fetch shop data (local-first)
@@ -400,15 +405,20 @@ class _BillCartState extends State<BillCart> {
       // Generate sequential receipt number (returns 8-digit padded string like "00000001")
       String generatedReceiptNo = await _sqliteHelper.getNextReceiptNumber(widget.phoneNo);
 
+      // Get tax parameters (already have default values in PrintProvider)
+      final bool taxEnabled = printProvider.taxEnabled;
+      final double cgstPercent = printProvider.cgstPercent;
+      final double sgstPercent = printProvider.sgstPercent;
+
       // Save bill to local database (and Firebase if online)
       await saveBill(
         adminUid: widget.phoneNo,
         receiptNo: generatedReceiptNo,
         items: selectedItemsDetails,
         subTotal: subtotal,
-        taxEnabled: printProvider.taxEnabled,
-        cgstPercent: printProvider.cgstPercent,
-        sgstPercent: printProvider.sgstPercent,
+        taxEnabled: taxEnabled,
+        cgstPercent: cgstPercent,
+        sgstPercent: sgstPercent,
       );
 
       // Fetch shop data (local-first)
@@ -550,14 +560,19 @@ class _BillCartState extends State<BillCart> {
     String generatedReceiptNo = await _sqliteHelper.getNextReceiptNumber(widget.phoneNo);
 
     try {
+      // Get tax parameters (already have default values in PrintProvider)
+      final bool taxEnabled = printProvider.taxEnabled;
+      final double cgstPercent = printProvider.cgstPercent;
+      final double sgstPercent = printProvider.sgstPercent;
+
       await saveBill(
         adminUid: widget.phoneNo,
         receiptNo: generatedReceiptNo,
         items: selectedItemsDetails,
         subTotal: subtotal,
-        taxEnabled: printProvider.taxEnabled,
-        cgstPercent: printProvider.cgstPercent,
-        sgstPercent: printProvider.sgstPercent,
+        taxEnabled: taxEnabled,
+        cgstPercent: cgstPercent,
+        sgstPercent: sgstPercent,
       );
 
       if (!mounted) return;
