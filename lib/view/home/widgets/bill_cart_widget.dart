@@ -719,7 +719,7 @@ class _BillCartState extends State<BillCart> {
                 });
               },
               child: Container(
-                padding: EdgeInsets.all(2),
+                padding: const EdgeInsets.all(2),
                 decoration: BoxDecoration(color: appbar1, borderRadius: BorderRadius.circular(5)),
                 child: const Icon(Icons.remove, color: white, size: 25),
               ),
@@ -748,7 +748,7 @@ class _BillCartState extends State<BillCart> {
                 });
               },
               child: Container(
-                padding: EdgeInsets.all(2),
+                padding: const EdgeInsets.all(2),
                 decoration: BoxDecoration(color: appbar1, borderRadius: BorderRadius.circular(5)),
                 child: const Icon(Icons.add, color: white, size: 25),
               ),
@@ -906,7 +906,7 @@ class _BillCartState extends State<BillCart> {
     assert(icon != null || imagePath != null);
 
     return Container(
-      padding: EdgeInsets.all(12),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: appbar1,
         borderRadius: BorderRadius.circular(12),

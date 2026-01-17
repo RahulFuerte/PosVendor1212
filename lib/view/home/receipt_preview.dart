@@ -8,12 +8,12 @@ import 'package:pos/data/models/customer_model.dart';
 import 'package:pos/data/providers/order_type_provider.dart';
 import 'package:pos/data/providers/print_provider.dart';
 import 'package:pos/view/home/navigation.dart';
-import 'package:pos/view/home/screens/customer_list_screen.dart';
 import 'package:pos/view/home/screens/order_type_selector.dart';
 import 'package:pos/view/home/widgets/my_choiceChip.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:pos/view/tab_screen/view-model/widgets/printers/printer.dart';
 import 'package:provider/provider.dart';
+import 'dart:developer' as developer;
 
 class ReceiptPreviewScreen extends StatefulWidget {
   final String shopName;
@@ -120,6 +120,71 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
     fetchCustomers();
   }
 
+/// Function to save new customer data to Firebase if not already stored
+  Future<void> saveCustomerToFirebase(CustomerModel customer) async {
+    try {
+      // Check if customer already exists in Firebase
+      final customerDoc = await FirebaseFirestore.instance
+          .collection('AllAdmins')
+          .doc(widget.adminUid)
+          .collection('customer')
+          .doc(widget.adminUid)
+          .collection('myCustomers')
+          .doc(customer.phone)
+          .get();
+      
+      if (!customerDoc.exists) {
+        // Customer doesn't exist, save it to Firebase
+        await FirebaseFirestore.instance
+            .collection('AllAdmins')
+            .doc(widget.adminUid)
+            .collection('customer')
+            .doc(widget.adminUid)
+            .collection('myCustomers')
+            .doc(customer.phone)
+            .set({
+              'name': customer.name,
+              'phone': customer.phone,
+              'gstNo': customer.gstNo,
+              'address': customer.address,
+              'createdAt': Timestamp.fromDate(customer.createdAt),
+              'isUploaded': customer.isUploaded,
+              'updatedAt': Timestamp.fromDate(DateTime.now()),
+            });
+        
+        developer.log('Customer ${customer.name} saved to Firebase with phone ${customer.phone}', name: 'CustomerWiseReport');
+        
+        // Refresh the customer list to include the new customer
+        fetchCustomers();
+      } else {
+        developer.log('Customer with phone ${customer.phone} already exists in Firebase', name: 'CustomerWiseReport');
+      }
+    } catch (e) {
+      developer.log('Error saving customer to Firebase: $e', name: 'CustomerWiseReport');
+      throw e; // Re-throw to handle at calling location
+    }
+  }
+
+  /// Function to check if a customer exists in Firebase
+  Future<bool> doesCustomerExistInFirebase(String phone) async {
+    try {
+      final customerDoc = await FirebaseFirestore.instance
+          .collection('AllAdmins')
+          .doc(widget.adminUid)
+          .collection('customer')
+          .doc(widget.adminUid)
+          .collection('myCustomers')
+          .doc(phone)
+          .get();
+      
+      return customerDoc.exists;
+    } catch (e) {
+      developer.log('Error checking if customer exists in Firebase: $e', name: 'CustomerWiseReport');
+      return false;
+    }
+  }
+
+
   /// Save bill with automatic online/offline handling
   /// Online: Saves to Firebase and local SQLite
   /// Offline: Saves to local SQLite, syncs when online
@@ -195,6 +260,8 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
       // Save using SmartDatabaseService (handles online/offline automatically)
       // This already saves to Firebase when online, no need for separate Firebase call
       await _databaseService.saveBill(adminUid, billData);
+
+      await saveCustomerToFirebase(CustomerModel(name: customerName ?? '', phone: customerPhone ?? '', createdAt: now, isUploaded: true, gstNo: customerGst ?? ''));
 
       debugPrint(
           '[ReceiptPreview] Bill saved successfully - receiptNo: $receiptNo (${_databaseService.isOnline ? "online" : "offline"})');
