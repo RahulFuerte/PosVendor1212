@@ -584,7 +584,7 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
         ],
       ),
 
-      drawer: MyDrawer(phoneNo: widget.phoneNo),
+      drawer: MyDrawer(phoneNo: widget.phoneNo , adminPhoneNo: adminUid,),
       body: isLoading
           ? Center(
               child: SizedBox(

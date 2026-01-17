@@ -47,6 +47,7 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
   @override
   void initState() {
     super.initState();
+
     _fetchExistingData();
   }
 
@@ -55,68 +56,68 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
       final sqliteHelper = SQLiteHelper();
 
       // First try to get data from local SQLite cache
-      final localData = await sqliteHelper.getUserData(widget.phoneNo);
-      print("These Is The Local Data ................................$localData");
+      // final localData = await sqliteHelper.getUserData(widget.phoneNo);
+      // print("These Is The Local Data ................................$localData");
 
-      if (localData != null && mounted) {
-        // Use local data
-        _shopNameController.text = localData['shopName'] ?? '';
-        _imageUrl = localData['shopLogoUrl'];
+      // if (localData != null && mounted) {
+      //   // Use local data
+      //   _shopNameController.text = localData['shopName'] ?? '';
+      //   _imageUrl = localData['shopLogoUrl'];
 
-        // Remove +91 prefix if present for display
-        String contact = localData['shopContact'] ?? '';
-        if (contact.startsWith('+91')) {
-          contact = contact.substring(3);
-        }
-        _contactController.text = contact;
+      //   // Remove +91 prefix if present for display
+      //   String contact = localData['shopContact'] ?? '';
+      //   if (contact.startsWith('+91')) {
+      //     contact = contact.substring(3);
+      //   }
+      //   _contactController.text = contact;
 
-        _addressController.text = localData['address'] ?? '';
-        _gstNumberController.text = localData['gstNumber'] ?? '';
+      //   _addressController.text = localData['address'] ?? '';
+      //   _gstNumberController.text = localData['gstNumber'] ?? '';
 
-        print('Loaded receipt data from local cache');
-      } else {
-        // Local data not found, fetch from Firebase
-        final doc = await FirebaseFirestore.instance
-            .collection('AllAdmins')
-            .doc(widget.AdminUid)
-            .collection('customer')
-            .doc(widget.phoneNo)
-            .get();
+      //   print('Loaded receipt data from local cache');
+      // } else {
+      // Local data not found, fetch from Firebase
+      final doc = await FirebaseFirestore.instance
+          .collection('AllAdmins')
+          .doc(widget.AdminUid)
+          .collection('customer')
+          .doc(widget.phoneNo)
+          .get();
 
-        if (doc.exists && mounted) {
-          final data = doc.data();
-          if (data != null) {
-            _shopNameController.text = data['shopName'] ?? '';
-            _imageUrl = data['logoUrl'];
+      if (doc.exists && mounted) {
+        final data = doc.data();
+        if (data != null) {
+          _shopNameController.text = data['shopName'] ?? '';
+          _imageUrl = data['logoUrl'];
 
-            // Remove +91 prefix if present for display
-            String contact = data['contact'] ?? '';
-            if (contact.startsWith('+91')) {
-              contact = contact.substring(3);
-            }
-            _contactController.text = contact;
-
-            _addressController.text = data['address'] ?? '';
-            _gstNumberController.text = data['gstNo'] ?? '';
-
-            // Save all fields to local SQLite for future use
-            await sqliteHelper.saveUserData({
-              'phoneNumber': data['phoneNumber'] ?? widget.phoneNo,
-              'adminUid': data['adminUid'] ?? widget.AdminUid,
-              'shopName': data['shopName'],
-              'logoUrl': data['logoUrl'],
-              'contact': data['contact'],
-              'address': data['address'],
-              'name': data['name'],
-              'email': data['email'],
-              'customerCode': data['customerCode'],
-              'gstNumber': data['gstNo'],
-              'createdAt': data['createdAt'],
-            });
-
-            print('Loaded receipt data from Firebase and saved locally');
+          // Remove +91 prefix if present for display
+          String contact = data['contact'] ?? '';
+          if (contact.startsWith('+91')) {
+            contact = contact.substring(3);
           }
+          _contactController.text = contact;
+
+          _addressController.text = data['address'] ?? '';
+          _gstNumberController.text = data['gstNo'] ?? '';
+
+          // // Save all fields to local SQLite for future use
+          // await sqliteHelper.saveUserData({
+          //   'phoneNumber': data['phoneNumber'] ?? widget.phoneNo,
+          //   'adminUid': data['adminUid'] ?? widget.AdminUid,
+          //   'shopName': data['shopName'],
+          //   'logoUrl': data['logoUrl'],
+          //   'contact': data['contact'],
+          //   'address': data['address'],
+          //   'name': data['name'],
+          //   'email': data['email'],
+          //   'customerCode': data['customerCode'],
+          //   'gstNumber': data['gstNo'],
+          //   'createdAt': data['createdAt'],
+          // });
+
+          print('Loaded receipt data from Firebase and saved locally');
         }
+        // }
       }
     } catch (e) {
       if (mounted) {

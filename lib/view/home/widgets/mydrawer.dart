@@ -27,7 +27,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class MyDrawer extends StatefulWidget {
   final String phoneNo;
-  const MyDrawer({super.key, required this.phoneNo});
+  final String adminPhoneNo;
+  const MyDrawer({
+    super.key,
+    required this.phoneNo,
+    required this.adminPhoneNo,
+  });
 
   @override
   State<MyDrawer> createState() => _MyDrawerState();
@@ -81,7 +86,7 @@ class _MyDrawerState extends State<MyDrawer> {
       // 2️⃣ Fetch from Firebase
       final doc = await FirebaseFirestore.instance
           .collection('AllAdmins')
-          .doc(phoneNo)
+          .doc(widget.adminPhoneNo)
           .collection('customer')
           .doc(phoneNo)
           .get();
@@ -425,7 +430,7 @@ class _MyDrawerState extends State<MyDrawer> {
             onTap: () {
               _navigate(
                 EditBillReceiptScreen(
-                  AdminUid: adminUid,
+                  AdminUid: widget.adminPhoneNo,
                   phoneNo: widget.phoneNo,
                 ),
               );

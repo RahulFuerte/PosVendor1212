@@ -831,6 +831,18 @@ class DirectPrintHelper {
       List<int> bytes = [];
       bytes += generator.setGlobalCodeTable('CP1252');
 
+      List<String> splitTextByLength(String text, int maxLength) {
+        List<String> lines = [];
+        while (text.length > maxLength) {
+          lines.add(text.substring(0, maxLength));
+          text = text.substring(maxLength);
+        }
+        if (text.isNotEmpty) {
+          lines.add(text);
+        }
+        return lines;
+      }
+
       // Paper configuration
       bool is58mm = paperSize == PaperSize.mm58;
       int totalCols = is58mm ? 32 : 48;
@@ -905,9 +917,7 @@ class DirectPrintHelper {
       // Items
       for (var item in items) {
         String name = item['name'].toString();
-        if (name.length > desc) {
-          name = name.substring(0, desc - 3) + "...";
-        }
+        List<String> nameLines = splitTextByLength(name, desc);
 
         int qtyValue = int.tryParse(item['quantity'].toString()) ?? 1;
         double rateValue = double.tryParse(item['price'].toString()) ?? 0;
@@ -915,12 +925,22 @@ class DirectPrintHelper {
         totalQty += qtyValue;
 
         bytes += generator.text(
-          '${name.padRight(desc)}'
+          '${nameLines.first.padRight(desc)}'
           '${"x ${qtyValue.toString()}".padLeft(qty)}'
           '${fmt(rateValue).padLeft(rate)}'
           '${amtValue.toString().padLeft(amt)}',
           styles: smallFontLeft,
         );
+
+        for (int i = 1; i < nameLines.length; i++) {
+          bytes += generator.text(
+            '${nameLines[i].padRight(desc)}'
+            '${"".padLeft(qty)}'
+            '${"".padLeft(rate)}'
+            '${"".padLeft(amt)}',
+            styles: smallFontLeft,
+          );
+        }
         if (item['addons'] != null && (item['addons'] as List).isNotEmpty) {
           for (var addon in item['addons']) {
             String addonName = " ${addon['name']}";

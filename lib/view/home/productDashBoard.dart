@@ -343,7 +343,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
           ),
         ],
       ),
-      drawer: MyDrawer(phoneNo: widget.phoneNo),
+      drawer: MyDrawer(phoneNo: widget.phoneNo ,  adminPhoneNo: adminUid,),
       body: Column(
         children: [
           banner.OfflineStatusBanner(adminUid: adminUid),
