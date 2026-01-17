@@ -6,6 +6,7 @@ import 'package:pos/data/models/customer_model.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:pos/data/datasources/unified_database_service.dart';
 import 'package:pos/core/network/connection_monitor.dart';
+import 'dart:developer' as developer;
 
 class CustomerWiseReport extends StatefulWidget {
   final String adminUid;
@@ -54,7 +55,7 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
         await _fetchCustomersFromFirebaseAndCache();
       }
     } catch (e) {
-      print('Error fetching customers: $e');
+      developer.log('Error fetching customers: $e', name: 'CustomerWiseReport');
       // Show error but don't crash
     } finally {
       setState(() => isLoading = false);
@@ -77,8 +78,8 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
           customerMap[phone] = CustomerModel(
             name: name,
             phone: phone,
-            gstNo: bill['customer_gst']?.toString().isEmpty ?? true ? null : bill['customer_gst'].toString(),
-            address: bill['customer_address']?.toString(),
+            gstNo: bill['customerGst']?.toString().isEmpty ?? true ? null : bill['customer_gst'].toString(),
+            address: bill['customerAddress']?.toString(),
             createdAt: DateTime.now(),
             isUploaded: true,
           );
@@ -87,7 +88,7 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
       
       return customerMap.values.toList();
     } catch (e) {
-      print('Error getting customers from local: $e');
+      developer.log('Error getting customers from local: $e', name: 'CustomerWiseReport');
       return [];
     }
   }
@@ -121,7 +122,7 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
       // Cache customers locally if we have a way to store them
       // This would require adding a customers table to SQLite
     } catch (e) {
-      print('Error fetching customers from Firebase: $e');
+      developer.log('Error fetching customers from Firebase: $e', name: 'CustomerWiseReport');
     }
   }
 
@@ -138,8 +139,8 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
   }
 
   Future<void> fetchCustomerTransactions(CustomerModel customer) async {
-    print('=== DEBUG: Starting fetchCustomerTransactions ===');
-    print('Customer: ${customer.name}, Phone: ${customer.phone}');
+    developer.log('Starting fetchCustomerTransactions', name: 'CustomerWiseReport');
+    developer.log('Customer: ${customer.name}, Phone: ${customer.phone}', name: 'CustomerWiseReport');
     
     setState(() => isLoading = true);
     
@@ -151,55 +152,66 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
         endDt = DateTime(endDate!.year, endDate!.month, endDate!.day, 23, 59, 59);
       }
       
-      print('DEBUG: Calculated date range: $startDt to $endDt');
+      developer.log('Calculated date range: $startDt to $endDt', name: 'CustomerWiseReport');
       
       // Check connection status
       final isConnected = await _connectionMonitor.isConnected;
-      print('DEBUG: Connection status: $isConnected');
+      developer.log('Connection status: $isConnected', name: 'CustomerWiseReport');
       
-      // First try local database
-      print('DEBUG: Attempting to fetch bills from local database...');
+      // First try local database (LOCAL-FIRST STRATEGY)
+      developer.log('LOCAL-FIRST DATA FETCH STARTED', name: 'CustomerWiseReport');
+      developer.log('Attempting to fetch bills from local database...', name: 'CustomerWiseReport');
       List<Map<String, dynamic>> bills = await _getCustomerBillsFromLocal(
         customer.phone, 
         startDt, 
         endDt
       );
       
-      print('DEBUG: Bills from local: ${bills.length}');
+      developer.log('Bills from local: ${bills.length}', name: 'CustomerWiseReport');
       if (bills.isNotEmpty) {
-        print('DEBUG: Local bills sample: ${bills.take(2).toList()}');
+        developer.log('Local bills sample: ${bills.take(2).toList()}', name: 'CustomerWiseReport');
+        developer.log('SUCCESS: Found ${bills.length} bills in local database', name: 'CustomerWiseReport');
+      } else {
+        developer.log('WARNING: No bills found in local database', name: 'CustomerWiseReport');
       }
       
       // If no local data and online, fetch from Firebase
       if (bills.isEmpty && isConnected) {
-        print('DEBUG: No local bills found (${bills.length}), connection available ($isConnected), fetching from Firebase...');
+        developer.log('FALLBACK: Local database empty (${bills.length} bills), connection available ($isConnected), fetching from Firebase...', name: 'CustomerWiseReport');
         bills = await _getCustomerBillsFromFirebase(
           customer.phone, 
           startDt, 
           endDt
         );
         
-        print('DEBUG: Bills from Firebase: ${bills.length}');
+        developer.log('Bills from Firebase: ${bills.length}', name: 'CustomerWiseReport');
         if (bills.isNotEmpty) {
-          print('DEBUG: Firebase bills sample: ${bills.take(2).toList()}');
+          developer.log('Firebase bills sample: ${bills.take(2).toList()}', name: 'CustomerWiseReport');
+          developer.log('SUCCESS: Retrieved ${bills.length} bills from Firebase', name: 'CustomerWiseReport');
+          
+          // Cache Firebase data locally for future offline use
+          developer.log('CACHING: Saving ${bills.length} bills to local database for offline access...', name: 'CustomerWiseReport');
+          await _cacheBillsLocally(bills);
+          developer.log('SUCCESS: Cached ${bills.length} bills locally', name: 'CustomerWiseReport');
+        } else {
+          developer.log('WARNING: No bills found in Firebase either', name: 'CustomerWiseReport');
         }
-        
-        // Cache Firebase data locally
-        await _cacheBillsLocally(bills);
       } else {
-        print('DEBUG: Skipping Firebase fetch - local bills: ${bills.isNotEmpty}, connected: $isConnected');
+        developer.log('SKIPPED: Firebase fetch - local bills: ${bills.isNotEmpty}, connected: $isConnected', name: 'CustomerWiseReport');
       }
       
-      print('DEBUG: Total bills before processing: ${bills.length}');
+      developer.log('LOCAL-FIRST DATA FETCH COMPLETED', name: 'CustomerWiseReport');
+      
+      developer.log('Total bills before processing: ${bills.length}', name: 'CustomerWiseReport');
       
       // Process bills for payment type categorization
-      print('DEBUG: Starting bill processing...');
+      developer.log('Starting bill processing...', name: 'CustomerWiseReport');
       final processedData = _processBillsForPaymentTypes(bills);
       
-      print('DEBUG: Final processed data - Paid: ${processedData.totalPaid}, Due: ${processedData.totalDue}, Orders: ${processedData.totalOrders}');
-      print('DEBUG: Processed bills: ${processedData.bills.length}');
+      developer.log('Final processed data - Paid: ${processedData.totalPaid}, Due: ${processedData.totalDue}, Orders: ${processedData.totalOrders}', name: 'CustomerWiseReport');
+      developer.log('Processed bills: ${processedData.bills.length}', name: 'CustomerWiseReport');
       if (processedData.bills.isNotEmpty) {
-        print('DEBUG: Sample processed bill: ${processedData.bills.first}');
+        developer.log('Sample processed bill: ${processedData.bills.first}', name: 'CustomerWiseReport');
       }
       
       setState(() {
@@ -209,18 +221,18 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
         totalOrders = processedData.totalOrders;
       });
       
-      print('DEBUG: UI updated with ${customerBills.length} bills');
-      print('=== DEBUG: Completed fetchCustomerTransactions ===');
+      developer.log('UI updated with ${customerBills.length} bills', name: 'CustomerWiseReport');
+      developer.log('COMPLETED fetchCustomerTransactions', name: 'CustomerWiseReport');
       
     } catch (e) {
-      print('ERROR: Fetching customer transactions: $e');
-      print('ERROR DETAILS: Stack trace: ${StackTrace.current}');
+      developer.log('ERROR: Fetching customer transactions: $e', name: 'CustomerWiseReport');
+      developer.log('ERROR DETAILS: Stack trace: ${StackTrace.current}', name: 'CustomerWiseReport');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error loading customer data: $e')),
       );
     } finally {
       setState(() => isLoading = false);
-      print('DEBUG: Loading state set to false');
+      developer.log('Loading state set to false', name: 'CustomerWiseReport');
     }
   }
   
@@ -230,41 +242,41 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
     DateTime? endDate,
   ) async {
     try {
-      print('=== DEBUG: Starting local bill fetch ===');
-      print('Customer phone: $customerPhone, date range: $startDate to $endDate');
+      developer.log('STARTING local bill fetch', name: 'CustomerWiseReport');
+      developer.log('Customer phone: $customerPhone, date range: $startDate to $endDate', name: 'CustomerWiseReport');
       
       // Use UnifiedDatabaseService to get bills
-      print('DEBUG: Calling _databaseService.getBills with adminUid: ${widget.adminUid}');
+      developer.log('_databaseService.getBills with adminUid: ${widget.adminUid}', name: 'CustomerWiseReport');
       final bills = await _databaseService.getBills(widget.adminUid, startDate: startDate, endDate: endDate);
       
-      print('DEBUG: Total bills from UnifiedDatabaseService: ${bills.length}');
+      developer.log('Total bills from UnifiedDatabaseService: ${bills.length}', name: 'CustomerWiseReport');
       if (bills.isNotEmpty) {
-        print('DEBUG: Sample of raw bills: ${bills.take(2).toList()}');
+        developer.log('Sample of raw bills: ${bills.take(2).toList()}', name: 'CustomerWiseReport');
       }
       
       // Filter bills for the specific customer
-      print('DEBUG: Filtering bills for customer phone: $customerPhone');
+      developer.log('Filtering bills for customer phone: $customerPhone', name: 'CustomerWiseReport');
       final filteredBills = bills.where((bill) {
         final billPhone = bill['customer_phone']?.toString();
-        print('DEBUG: Checking bill: ${bill['id'] ?? 'NO_ID'}, phone: $billPhone, matches: ${billPhone == customerPhone}');
+        developer.log('Checking bill: ${bill['id'] ?? 'NO_ID'}, phone: $billPhone, matches: ${billPhone == customerPhone}', name: 'CustomerWiseReport');
         return billPhone == customerPhone;
       }).toList();
       
-      print('DEBUG: Filtered bills for customer $customerPhone: ${filteredBills.length}');
+      developer.log('Filtered bills for customer $customerPhone: ${filteredBills.length}', name: 'CustomerWiseReport');
       filteredBills.forEach((bill) {
-        print('DEBUG: - Bill data: $bill');
-        print('DEBUG:   - customer_phone: ${bill['customer_phone']}');
-        print('DEBUG:   - total_amount: ${bill['total_amount']}');
-        print('DEBUG:   - final_total: ${bill['final_total']}');
-        print('DEBUG:   - payment_type: ${bill['payment_type']}');
-        print('DEBUG:   - amount fields: total_amount=${bill['total_amount']}, final_total=${bill['final_total']}, finalTotal=${bill['finalTotal']}, totalAmount=${bill['totalAmount']}');
+        developer.log('- Bill data: $bill', name: 'CustomerWiseReport');
+        developer.log('  - customer_phone: ${bill['customer_phone']}', name: 'CustomerWiseReport');
+        developer.log('  - total_amount: ${bill['total_amount']}', name: 'CustomerWiseReport');
+        developer.log('  - final_total: ${bill['final_total']}', name: 'CustomerWiseReport');
+        developer.log('  - payment_type: ${bill['payment_type']}', name: 'CustomerWiseReport');
+        developer.log('  - amount fields: total_amount=${bill['total_amount']}, final_total=${bill['final_total']}, finalTotal=${bill['finalTotal']}, totalAmount=${bill['totalAmount']}', name: 'CustomerWiseReport');
       });
       
-      print('=== DEBUG: Completed local bill fetch ===');
+      developer.log('COMPLETED local bill fetch', name: 'CustomerWiseReport');
       return filteredBills;
     } catch (e) {
-      print('ERROR: Getting bills from local: $e');
-      print('ERROR DETAILS: Stack trace: ${StackTrace.current}');
+      developer.log('ERROR: Getting bills from local: $e', name: 'CustomerWiseReport');
+      developer.log('ERROR DETAILS: Stack trace: ${StackTrace.current}', name: 'CustomerWiseReport');
       return [];
     }
   }
@@ -275,10 +287,10 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
     DateTime? endDate,
   ) async {
     try {
-      print('=== DEBUG: Starting Firebase bill fetch ===');
-      print('Customer phone: $customerPhone');
-      print('Date range: $startDate to $endDate');
-      print('Admin UID: ${widget.adminUid}');
+      developer.log('STARTING Firebase bill fetch', name: 'CustomerWiseReport');
+      developer.log('Customer phone: $customerPhone', name: 'CustomerWiseReport');
+      developer.log('Date range: $startDate to $endDate', name: 'CustomerWiseReport');
+      developer.log('Admin UID: ${widget.adminUid}', name: 'CustomerWiseReport');
       
       final List<Map<String, dynamic>> allBills = [];
       
@@ -288,368 +300,181 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
           .doc(widget.adminUid)
           .collection('myBills');
       
-      print('Firebase reference created: AllBills/${widget.adminUid}/myBills');
+      developer.log('Firebase reference created: AllBills/${widget.adminUid}/myBills', name: 'CustomerWiseReport');
       
-      // First, let's check what year-month collections exist
-      print('DEBUG: Checking available year-month collections...');
-      final topLevelDocs = await billsRef.get();
-      print('DEBUG: Found ${topLevelDocs.size} top-level year-month documents');
-      for (final doc in topLevelDocs.docs) {
-        print('DEBUG: Year-month doc: ${doc.id}');
+      // Iterate through each day in the date range
+      DateTime current = startDate ?? DateTime.now();
+      final endDateTime = endDate ?? DateTime.now();
+      
+      while (!current.isAfter(endDateTime)) {
+        developer.log('Checking date: ${DateFormat('yyyy-MM-dd').format(current)}', name: 'CustomerWiseReport');
         
-        // Check the subcollections of each year-month by trying to access them
+        final yearMonth = DateFormat('yyyyMM').format(current);
+        final dateId = DateFormat('yyyyMMdd').format(current);
+        
+        developer.log('Checking year-month: $yearMonth, date: $dateId', name: 'CustomerWiseReport');
+
         try {
-          final dateDocs = await billsRef.doc(doc.id).collection(doc.id).get();
-          print('DEBUG: Date documents in collection ${doc.id}: ${dateDocs.size}');
-          for (final dateDoc in dateDocs.docs) {
-            print('DEBUG: Date doc: ${dateDoc.id}');
+          // Direct access to the date collection
+          final snapshot = await billsRef.doc(yearMonth).collection(dateId).get();
+          developer.log('Found ${snapshot.size} bills for date $dateId', name: 'CustomerWiseReport');
+
+          for (final doc in snapshot.docs) {
+            final data = doc.data();
+            developer.log('Processing bill ${doc.id}, data keys: ${data.keys.toList()}', name: 'CustomerWiseReport');
+
+            // Check customer phone with multiple possible field names
+            String billCustomerPhone = '';
+            if (data.containsKey('customerPhone')) {
+              billCustomerPhone = data['customerPhone']?.toString() ?? '';
+            } else if (data.containsKey('customer_phone')) {
+              billCustomerPhone = data['customer_phone']?.toString() ?? '';
+            } else if (data.containsKey('phone')) {
+              billCustomerPhone = data['phone']?.toString() ?? '';
+            }
             
-            // Check bills in this date
-            try {
-              final bills = await dateDoc.reference.collection(dateDoc.id).get();
-              print('DEBUG: Bills in date ${dateDoc.id}: ${bills.size}');
-              for (final bill in bills.docs) {
-                final billData = bill.data();
-                print('DEBUG: Bill ${bill.id} customerPhone: ${billData['customerPhone']}, looking for: $customerPhone');
-              }
-            } catch (e) {
-              print('DEBUG: Could not access bills collection for date ${dateDoc.id}: $e');
+            developer.log('Bill customer phone: $billCustomerPhone, Looking for: $customerPhone, Match: ${billCustomerPhone == customerPhone}', name: 'CustomerWiseReport');
+
+            if (billCustomerPhone == customerPhone) {
+              developer.log('Found matching bill: ${doc.id}', name: 'CustomerWiseReport');
+              allBills.add({
+                ...data,
+                'id': doc.id,
+              });
+            } else {
+              developer.log('Skipping bill ${doc.id} - phone mismatch', name: 'CustomerWiseReport');
             }
           }
         } catch (e) {
-          print('DEBUG: Could not access date collection for ${doc.id}: $e');
+          developer.log('Could not access date $dateId in year-month $yearMonth: $e', name: 'CustomerWiseReport');
         }
+
+        current = current.add(const Duration(days: 1));
       }
-      
-      // If we have a date range, we need to traverse the hierarchy
-      if (startDate != null && endDate != null) {
-        print('DEBUG: Using date range filtering');
-        // Generate year-month combinations for the date range
-        final yearMonths = _generateYearMonthsInRange(startDate, endDate);
-        print('DEBUG: Year-months to check: $yearMonths');
-        
-        for (final yearMonth in yearMonths) {
-          print('DEBUG: Checking year-month: $yearMonth');
-          
-          try {
-            // Get documents for this year-month
-            final yearMonthDocs = await billsRef.doc(yearMonth).collection(yearMonth).get();
-            print('DEBUG: Year-month $yearMonth has ${yearMonthDocs.size} date documents');
-            
-            for (final dateDoc in yearMonthDocs.docs) {
-              final billDateStr = dateDoc.id; // This should be the date like '20260116'
-              print('DEBUG: Processing date document: $billDateStr');
-              
-              // Parse the date string to check if it's in range
-              final billDate = _parseBillDateString(billDateStr);
-              print('DEBUG: Parsed date: $billDate');
-              
-              if (billDate != null && billDate.isAfter(startDate.subtract(Duration(days: 1))) && 
-                  billDate.isBefore(endDate.add(Duration(days: 1)))) {
-                
-                print('DEBUG: Date $billDate is in range, fetching bills...');
-                
-                // Get all bills for this date - bills are stored in a collection named after the date
-                final billDocs = await dateDoc.reference.collection(dateDoc.id).get();
-                print('DEBUG: Found ${billDocs.size} bills for date $billDateStr');
-                
-                for (final billDoc in billDocs.docs) {
-                  final data = billDoc.data();
-                  print('DEBUG: Raw bill data for ${billDoc.id}: $data');
-                  
-                  // Check different possible field names for customer phone
-                  String billCustomerPhone = '';
-                  if (data.containsKey('customerPhone')) {
-                    billCustomerPhone = data['customerPhone']?.toString() ?? '';
-                  } else if (data.containsKey('customer_phone')) {
-                    billCustomerPhone = data['customer_phone']?.toString() ?? '';
-                  } else if (data.containsKey('phone')) {
-                    billCustomerPhone = data['phone']?.toString() ?? '';
-                  }
-                  print('DEBUG: Bill customer phone: $billCustomerPhone, Looking for: $customerPhone, Match: ${billCustomerPhone == customerPhone}');
-                  
-                  // Only include bills for the requested customer
-                  if (billCustomerPhone == customerPhone) {
-                    print('DEBUG: Found matching bill: ${billDoc.id}');
-                    print('DEBUG: Raw bill data before mapping: $data');
-                    final mappedBill = _mapFirebaseBillData(billDoc, data);
-                    print('DEBUG: Mapped bill data: $mappedBill');
-                    allBills.add(mappedBill);
-                  } else {
-                    print('DEBUG: Skipping bill ${billDoc.id} - phone mismatch');
-                  }
-                }
-              } else {
-                print('DEBUG: Date $billDate is NOT in range [$startDate, $endDate], skipping');
-              }
-            }
-          } catch (e) {
-            print('DEBUG: Error processing year-month $yearMonth: $e');
-          }
-        }
-      } else {
-        // No date filtering - scan all possible dates
-        print('DEBUG: No date range specified, scanning all bills');
-        
-        // This is inefficient but necessary without knowing all possible dates
-        // In production, you might want to maintain an index or use a different structure
-        final now = DateTime.now();
-        final startDateScan = DateTime(now.year - 1, 1, 1); // Scan last year
-        final endDateScan = now;
-        
-        final yearMonths = _generateYearMonthsInRange(startDateScan, endDateScan);
-        print('DEBUG: All year-months to scan: $yearMonths');
-        
-        for (final yearMonth in yearMonths) {
-          try {
-            print('DEBUG: Scanning year-month: $yearMonth');
-            
-            // First, check if the year-month collection exists
-            try {
-              final yearMonthCheck = await billsRef.doc(yearMonth).get();
-              if (!yearMonthCheck.exists) {
-                print('DEBUG: Year-month $yearMonth does not exist as a document');
-                
-                // Try to get the collection directly
-                final yearMonthDocs = await billsRef.doc(yearMonth).collection(yearMonth).get();
-                print('DEBUG: Year-month $yearMonth collection has ${yearMonthDocs.size} date documents');
-                
-                for (final dateDoc in yearMonthDocs.docs) {
-                  print('DEBUG: Processing date document: ${dateDoc.id}');
-                  final billDocs = await dateDoc.reference.collection(dateDoc.id).get();
-                  print('DEBUG: Found ${billDocs.size} bills for date ${dateDoc.id}');
-                  
-                  for (final billDoc in billDocs.docs) {
-                    final data = billDoc.data();
-                    print('DEBUG: Raw bill data for ${billDoc.id}: ${data.keys}');
-                    
-                    // Check different possible field names for customer phone
-                    String billCustomerPhone = '';
-                    if (data.containsKey('customerPhone')) {
-                      billCustomerPhone = data['customerPhone']?.toString() ?? '';
-                    } else if (data.containsKey('customer_phone')) {
-                      billCustomerPhone = data['customer_phone']?.toString() ?? '';
-                    } else if (data.containsKey('phone')) {
-                      billCustomerPhone = data['phone']?.toString() ?? '';
-                    }
-                    print('DEBUG: Checking bill ${billDoc.id} - phone: $billCustomerPhone, looking for: $customerPhone, match: ${billCustomerPhone == customerPhone}');
-                    
-                    if (billCustomerPhone == customerPhone) {
-                      print('DEBUG: Adding matching bill: ${billDoc.id}');
-                      final mappedBill = _mapFirebaseBillData(billDoc, data);
-                      print('DEBUG: Mapped bill: $mappedBill');
-                      allBills.add(mappedBill);
-                    }
-                  }
-                }
-              } else {
-                print('DEBUG: Year-month $yearMonth exists as a document');
-                
-                // Get date documents from the collection
-                final yearMonthDocs = await billsRef.doc(yearMonth).collection(yearMonth).get();
-                print('DEBUG: Year-month $yearMonth collection has ${yearMonthDocs.size} date documents');
-                
-                for (final dateDoc in yearMonthDocs.docs) {
-                  print('DEBUG: Processing date document: ${dateDoc.id}');
-                  final billDocs = await dateDoc.reference.collection(dateDoc.id).get();
-                  print('DEBUG: Found ${billDocs.size} bills for date ${dateDoc.id}');
-                  
-                  for (final billDoc in billDocs.docs) {
-                    final data = billDoc.data();
-                    print('DEBUG: Raw bill data for ${billDoc.id}: ${data.keys}');
-                    
-                    // Check different possible field names for customer phone
-                    String billCustomerPhone = '';
-                    if (data.containsKey('customerPhone')) {
-                      billCustomerPhone = data['customerPhone']?.toString() ?? '';
-                    } else if (data.containsKey('customer_phone')) {
-                      billCustomerPhone = data['customer_phone']?.toString() ?? '';
-                    } else if (data.containsKey('phone')) {
-                      billCustomerPhone = data['phone']?.toString() ?? '';
-                    }
-                    print('DEBUG: Checking bill ${billDoc.id} - phone: $billCustomerPhone, looking for: $customerPhone, match: ${billCustomerPhone == customerPhone}');
-                    
-                    if (billCustomerPhone == customerPhone) {
-                      print('DEBUG: Adding matching bill: ${billDoc.id}');
-                      final mappedBill = _mapFirebaseBillData(billDoc, data);
-                      print('DEBUG: Mapped bill: $mappedBill');
-                      allBills.add(mappedBill);
-                    }
-                  }
-                }
-              }
-            } catch (collectionError) {
-              print('DEBUG: Error accessing year-month $yearMonth as collection: $collectionError');
-            }
-          } catch (e) {
-            // Some year-month combinations might not exist, that's fine
-            print('DEBUG: Year-month $yearMonth not found or error: $e');
-          }
-        }
-      }
-      
-      print('=== DEBUG: Completed Firebase bill fetch ===');
-      print('Total bills found in Firebase: ${allBills.length}');
-      print('DEBUG: Returning bills: ${allBills.map((b) => b['id']).toList()}');
+
+      developer.log('COMPLETED Firebase bill fetch', name: 'CustomerWiseReport');
+      developer.log('Total bills found in Firebase: ${allBills.length}', name: 'CustomerWiseReport');
+      developer.log('Returning bills: ${allBills.map((b) => b['id']).toList()}', name: 'CustomerWiseReport');
       return allBills;
     } catch (e) {
-      print('ERROR: Getting bills from Firebase: $e');
-      print('ERROR DETAILS: Stack trace: ${StackTrace.current}');
+      developer.log('ERROR: Getting bills from Firebase: $e', name: 'CustomerWiseReport');
+      developer.log('ERROR DETAILS: Stack trace: ${StackTrace.current}', name: 'CustomerWiseReport');
       return [];
     }
   }
   
-  // Helper method to generate year-month combinations in a date range
-  List<String> _generateYearMonthsInRange(DateTime start, DateTime end) {
-    final yearMonths = <String>[];
-    DateTime current = DateTime(start.year, start.month, 1);
-    
-    while (current.isBefore(end) || 
-           (current.year == end.year && current.month == end.month)) {
-      final yearMonth = '${current.year}${current.month.toString().padLeft(2, '0')}';
-      yearMonths.add(yearMonth);
-      
-      // Move to next month
-      if (current.month == 12) {
-        current = DateTime(current.year + 1, 1, 1);
-      } else {
-        current = DateTime(current.year, current.month + 1, 1);
-      }
-    }
-    
-    return yearMonths.toSet().toList(); // Remove duplicates
-  }
-  
-  // Helper method to parse bill date string (e.g., '20260116' -> DateTime)
-  DateTime? _parseBillDateString(String dateStr) {
-    try {
-      if (dateStr.length == 8) { // YYYYMMDD format
-        final year = int.parse(dateStr.substring(0, 4));
-        final month = int.parse(dateStr.substring(4, 6));
-        final day = int.parse(dateStr.substring(6, 8));
-        return DateTime(year, month, day);
-      }
-    } catch (e) {
-      print('Error parsing date string $dateStr: $e');
-    }
-    return null;
-  }
-  
-  // Helper method to map Firebase bill data to our format
-  Map<String, dynamic> _mapFirebaseBillData(DocumentSnapshot doc, Map<String, dynamic> data) {
-    print('DEBUG: Mapping Firebase bill data for doc ${doc.id}: ${data.keys.toList()}');
-    
-    // Check different possible field names for customer phone
-    String customerPhone = '';
-    if (data.containsKey('customerPhone')) {
-      customerPhone = data['customerPhone']?.toString() ?? '';
-      print('DEBUG: Found customerPhone field: $customerPhone');
-    } else if (data.containsKey('customer_phone')) {
-      customerPhone = data['customer_phone']?.toString() ?? '';
-      print('DEBUG: Found customer_phone field: $customerPhone');
-    } else if (data.containsKey('phone')) {
-      customerPhone = data['phone']?.toString() ?? '';
-      print('DEBUG: Found phone field: $customerPhone');
-    } else {
-      print('DEBUG: No customer phone field found in data: ${data.keys.toList()}');
-    }
-    
-    return {
-      'id': doc.id,
-      'customer_phone': customerPhone,
-      'customer_name': data['customerName']?.toString() ?? data['customer_name']?.toString() ?? data['name']?.toString() ?? 'Unknown',
-      'total_amount': data['totalAmount'] ?? data['total_amount'] ?? 0.0,
-      'final_total': data['finalTotal'] ?? data['final_total'] ?? data['totalAmount'] ?? data['total_amount'] ?? 0.0,
-      'payment_type': data['paymentType']?.toString() ?? data['payment_type']?.toString() ?? 'Cash',
-      'bill_date': (data['billDate'] as Timestamp?)?.millisecondsSinceEpoch ?? 
-                 (data['bill_date'] as int?) ?? 
-                 DateTime.now().millisecondsSinceEpoch,
-      'created_at': (data['createdAt'] as Timestamp?)?.millisecondsSinceEpoch ?? 
-                  (data['created_at'] as int?) ?? 
-                  DateTime.now().millisecondsSinceEpoch,
-      'items': data['items']?.toString() ?? '[]',
-    };
-  }
+
   
   Future<void> _cacheBillsLocally(List<Map<String, dynamic>> bills) async {
     try {
-      // The UnifiedDatabaseService handles caching automatically
-      // when we call getBills with online connection
-      print('Bills will be cached automatically by UnifiedDatabaseService');
+      developer.log('Caching ${bills.length} bills locally', name: 'CustomerWiseReport');
+      
+      // Save each bill to local database through UnifiedDatabaseService
+      for (final bill in bills) {
+        try {
+          // Convert Firebase bill format to local database format
+          final localBill = {
+            'id': bill['id'],
+
+            'customer_phone': bill['customerPhone'] ?? bill['customer_phone'] ?? '',
+            'customer_name': bill['customerName'] ?? bill['customer_name'] ?? 'Unknown',
+            'total_amount': bill['totalAmount'] ?? bill['total_amount'] ?? bill['finalTotal'] ?? bill['final_total'] ?? 0.0,
+            'final_total': bill['finalTotal'] ?? bill['final_total'] ?? bill['totalAmount'] ?? bill['total_amount'] ?? 0.0,
+            'payment_type': bill['paymentType'] ?? bill['payment_type'] ?? 'Cash',
+            'bill_date': bill['billDate'] is Timestamp 
+                ? (bill['billDate'] as Timestamp).millisecondsSinceEpoch 
+                : bill['bill_date'] ?? DateTime.now().millisecondsSinceEpoch,
+            'created_at': bill['createdAt'] is Timestamp 
+                ? (bill['createdAt'] as Timestamp).millisecondsSinceEpoch 
+                : bill['created_at'] ?? DateTime.now().millisecondsSinceEpoch,
+            'items': bill['items']?.toString() ?? '[]',
+          };
+          
+          developer.log('Saving bill to local database: ${localBill['id']}', name: 'CustomerWiseReport');
+          // Actually save the bill using UnifiedDatabaseService
+          await _databaseService.saveBill(widget.adminUid, localBill);
+          developer.log('Successfully saved bill ${localBill['id']} to local database', name: 'CustomerWiseReport');
+          
+        } catch (saveError) {
+          developer.log('Error saving individual bill ${bill['id']}: $saveError', name: 'CustomerWiseReport');
+        }
+      }
+      
+      developer.log('Finished caching bills locally', name: 'CustomerWiseReport');
     } catch (e) {
-      print('Error caching bills locally: $e');
+      developer.log('ERROR: Caching bills locally: $e', name: 'CustomerWiseReport');
     }
   }
   
   ProcessedBillData _processBillsForPaymentTypes(List<Map<String, dynamic>> bills) {
-    print('=== DEBUG: Starting bill processing ===');
-    print('Processing ${bills.length} bills for payment types');
+    developer.log('STARTING bill processing', name: 'CustomerWiseReport');
+    developer.log('Processing ${bills.length} bills for payment types', name: 'CustomerWiseReport');
     
     double paid = 0.0;
     double due = 0.0;
     int orders = bills.length;
     
-    print('DEBUG: Bill sample (first 2): ${bills.take(2).toList()}');
+    developer.log('Bill sample (first 2): ${bills.take(2).toList()}', name: 'CustomerWiseReport');
     
     final processedBills = bills.map((bill) {
-      print('DEBUG: Processing individual bill: $bill');
+      developer.log('Processing individual bill: $bill', name: 'CustomerWiseReport');
       
       // Extract payment type with comprehensive fallbacks
       String paymentType = 'cash'; // default
       if (bill['payment_type'] != null) {
         paymentType = bill['payment_type']?.toString().toLowerCase() ?? 'cash';
-        print('DEBUG: Using payment_type: $paymentType');
+        developer.log('Using payment_type: $paymentType', name: 'CustomerWiseReport');
       } else if (bill['paymentType'] != null) {
         paymentType = bill['paymentType']?.toString().toLowerCase() ?? 'cash';
-        print('DEBUG: Using paymentType: $paymentType');
+        developer.log('Using paymentType: $paymentType', name: 'CustomerWiseReport');
       } else {
-        print('DEBUG: No payment type found, using default: $paymentType');
+        developer.log('No payment type found, using default: $paymentType', name: 'CustomerWiseReport');
       }
       
       // Extract amount with comprehensive fallbacks
       double amount = 0.0;
       if (bill['final_total'] != null) {
         amount = (bill['final_total'] as num?)?.toDouble() ?? 0.0;
-        print('DEBUG: Using final_total: $amount');
+        developer.log('Using final_total: $amount', name: 'CustomerWiseReport');
       } else if (bill['total_amount'] != null) {
         amount = (bill['total_amount'] as num?)?.toDouble() ?? 0.0;
-        print('DEBUG: Using total_amount: $amount');
+        developer.log('Using total_amount: $amount', name: 'CustomerWiseReport');
       } else if (bill['finalTotal'] != null) {
         amount = (bill['finalTotal'] as num?)?.toDouble() ?? 0.0;
-        print('DEBUG: Using finalTotal: $amount');
+        developer.log('Using finalTotal: $amount', name: 'CustomerWiseReport');
       } else if (bill['totalAmount'] != null) {
         amount = (bill['totalAmount'] as num?)?.toDouble() ?? 0.0;
-        print('DEBUG: Using totalAmount: $amount');
+        developer.log('Using totalAmount: $amount', name: 'CustomerWiseReport');
       } else if (bill['amount'] != null) {
         amount = (bill['amount'] as num?)?.toDouble() ?? 0.0;
-        print('DEBUG: Using amount: $amount');
+        developer.log('Using amount: $amount', name: 'CustomerWiseReport');
       } else {
-        print('DEBUG: No amount field found, keeping as 0');
+        developer.log('No amount field found, keeping as 0', name: 'CustomerWiseReport');
       }
       
-      print('DEBUG: Amount before payment type processing: $amount, Payment type: $paymentType');
+      developer.log('Amount before payment type processing: $amount, Payment type: $paymentType', name: 'CustomerWiseReport');
       
       // Payment type categorization
       if (paymentType == 'debit') {
         due += amount;
-        print('DEBUG: Adding $amount to due (debit), new due: $due');
+        developer.log('Adding $amount to due (debit), new due: $due', name: 'CustomerWiseReport');
       } else if (paymentType == 'cash' || paymentType == 'upi') {
         paid += amount;
-        print('DEBUG: Adding $amount to paid ($paymentType), new paid: $paid');
+        developer.log('Adding $amount to paid ($paymentType), new paid: $paid', name: 'CustomerWiseReport');
       } else {
-        print('DEBUG: Unknown payment type: $paymentType, not adding to totals');
+        developer.log('Unknown payment type: $paymentType, not adding to totals', name: 'CustomerWiseReport');
       }
       
       // Parse bill date with fallbacks
       int billDateMs = DateTime.now().millisecondsSinceEpoch;
       if (bill['bill_date'] != null) {
         billDateMs = bill['bill_date'] as int;
-        print('DEBUG: Using bill_date: $billDateMs');
+        developer.log('Using bill_date: $billDateMs', name: 'CustomerWiseReport');
       } else if (bill['billDate'] != null) {
         billDateMs = (bill['billDate'] as Timestamp).millisecondsSinceEpoch;
-        print('DEBUG: Using billDate: $billDateMs');
+        developer.log('Using billDate: $billDateMs', name: 'CustomerWiseReport');
       } else {
-        print('DEBUG: No date field found, using current time');
+        developer.log('No date field found, using current time', name: 'CustomerWiseReport');
       }
       
       final billDate = DateTime.fromMillisecondsSinceEpoch(billDateMs);
@@ -659,13 +484,13 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
       try {
         final itemsJson = bill['items']?.toString() ?? '{}';
         
-        print('DEBUG: Items JSON: $itemsJson'); // Debug log
+        developer.log('Items JSON: $itemsJson', name: 'CustomerWiseReport'); // Debug log
         
         // If the items field is already a number, use it directly
         final numericValue = int.tryParse(itemsJson.trim());
         if (numericValue != null) {
           itemCount = numericValue;
-          print('DEBUG: Parsed as numeric: $itemCount');
+          developer.log('Parsed as numeric: $itemCount', name: 'CustomerWiseReport');
         } else {
           // If it's a JSON string, count the actual items
           if (itemsJson.startsWith('[') && itemsJson.endsWith(']')) {
@@ -685,15 +510,15 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
               }
             }
             itemCount = objCount;
-            print('DEBUG: Parsed array format: $itemCount items');
+            developer.log('Parsed array format: $itemCount items', name: 'CustomerWiseReport');
           } else {
             // If it's an object format or other, default to 1
             itemCount = 1;
-            print('DEBUG: Default count: 1 item');
+            developer.log('Default count: 1 item', name: 'CustomerWiseReport');
           }
         }
       } catch (e) {
-        print('DEBUG: Error parsing items: $e');
+        developer.log('Error parsing items: $e', name: 'CustomerWiseReport');
         itemCount = 1; // Default to 1 if parsing fails
       }
       
@@ -709,16 +534,16 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
         'date': billDate,
       };
       
-      print('DEBUG: Processed bill result: $processedBill');
+      developer.log('Processed bill result: $processedBill', name: 'CustomerWiseReport');
       return processedBill;
     }).toList();
     
-    print('DEBUG: Final totals - Paid: $paid, Due: $due, Orders: $orders');
-    print('DEBUG: Processed bills count: ${processedBills.length}');
+    developer.log('Final totals - Paid: $paid, Due: $due, Orders: $orders', name: 'CustomerWiseReport');
+    developer.log('Processed bills count: ${processedBills.length}', name: 'CustomerWiseReport');
     if (processedBills.isNotEmpty) {
-      print('DEBUG: First processed bill: ${processedBills.first}');
+      developer.log('First processed bill: ${processedBills.first}', name: 'CustomerWiseReport');
     }
-    print('=== DEBUG: Completed bill processing ===');
+    developer.log('COMPLETED bill processing', name: 'CustomerWiseReport');
     
     return ProcessedBillData(
       bills: processedBills,
