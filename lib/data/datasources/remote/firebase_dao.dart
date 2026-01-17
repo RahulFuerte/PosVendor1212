@@ -49,21 +49,66 @@ class FirebaseDAO implements DatabaseService {
   Set<String> _getValidSqliteColumns(bool isFoodItem) {
     if (isFoodItem) {
       return {
-        'id', 'admin_uid', 'name', 'price', 'price2', 'price3', 'priceType',
-        'image_path', 'image_blob', 'description', 'food_code', 'department',
-        'stocks', 'is_hot', 'tax', 'created_at', 'updated_at', 'sync_status',
-        'firebase_id', 'baseVariant', 'addons', 'variants'
+        'id',
+        'admin_uid',
+        'name',
+        'price',
+        'price2',
+        'price3',
+        'priceType',
+        'image_path',
+        'image_blob',
+        'description',
+        'food_code',
+        'department',
+        'stocks',
+        'is_hot',
+        'tax',
+        'created_at',
+        'updated_at',
+        'sync_status',
+        'firebase_id',
+        'baseVariant',
+        'addons',
+        'variants'
       };
     } else {
       // For other tables (departments, bills, etc.)
       return {
-        'id', 'admin_uid', 'name', 'image_path', 'image_blob', 'description',
-        'status', 'created_at', 'updated_at', 'sync_status', 'firebase_id',
-        'customer_phone', 'items', 'total_amount', 'sub_total', 'table_number',
-        'tax_enabled', 'cgst_percent', 'sgst_percent', 'cgst_amount', 'sgst_amount',
-        'customer_name', 'customer_gst', 'customer_address', 'customer_note',
-        'discount_percent', 'discount_amount', 'final_total', 'payment_type',
-        'bill_date', 'order_type', 'gst_number', 'address', 'customer_payment_type'
+        'id',
+        'admin_uid',
+        'name',
+        'image_path',
+        'image_blob',
+        'description',
+        'status',
+        'created_at',
+        'updated_at',
+        'sync_status',
+        'firebase_id',
+        'customer_phone',
+        'items',
+        'total_amount',
+        'sub_total',
+        'table_number',
+        'tax_enabled',
+        'cgst_percent',
+        'sgst_percent',
+        'cgst_amount',
+        'sgst_amount',
+        'customer_name',
+        'customer_gst',
+        'customer_address',
+        'customer_note',
+        'discount_percent',
+        'discount_amount',
+        'final_total',
+        'payment_type',
+        'bill_date',
+        'order_type',
+        'gst_number',
+        'address',
+        'customer_payment_type'
       };
     }
   }
@@ -145,20 +190,17 @@ class FirebaseDAO implements DatabaseService {
 
     // Get valid SQLite column names for the table
     final validColumns = _getValidSqliteColumns(isFood);
-      
+
     // Copy only valid fields that exist in the SQLite table schema
     for (final entry in firebaseData.entries) {
       final key = entry.key;
       final value = entry.value;
-        
+
       // Skip fields we've already processed
-      if (fieldMappings.containsKey(key) ||
-          key == 'createdAt' ||
-          key == 'updatedAt' ||
-          transformed.containsKey(key)) {
+      if (fieldMappings.containsKey(key) || key == 'createdAt' || key == 'updatedAt' || transformed.containsKey(key)) {
         continue;
       }
-        
+
       // Only include fields that exist in the SQLite table
       if (validColumns.contains(key)) {
         transformed[key] = value;
@@ -432,7 +474,7 @@ class FirebaseDAO implements DatabaseService {
     try {
       final now = Timestamp.now();
       final orderId = orderData['id'] ?? DateTime.now().millisecondsSinceEpoch.toString();
-      
+
       // Prepare order data for Firebase
       final Map<String, dynamic> firebaseData = {
         'orderType': orderData['order_type'] ?? orderData['orderType'] ?? 'Dine In',
@@ -450,12 +492,7 @@ class FirebaseDAO implements DatabaseService {
       };
 
       // Save to Firebase: AllOrders/{adminUid}/orders/{orderId}
-      await _firestore
-          .collection('AllOrders')
-          .doc(adminUid)
-          .collection('orders')
-          .doc(orderId)
-          .set(firebaseData);
+      await _firestore.collection('AllOrders').doc(adminUid).collection('orders').doc(orderId).set(firebaseData);
     } catch (e) {
       throw Exception('Failed to save order to Firebase: $e');
     }
@@ -485,8 +522,10 @@ class FirebaseDAO implements DatabaseService {
           'customer_payment_type': data['customerPaymentType'],
           'total_amount': data['totalAmount']?.toDouble() ?? 0.0,
           'items': data['items'],
-          'created_at': (data['createdAt'] as Timestamp?)?.millisecondsSinceEpoch ?? DateTime.now().millisecondsSinceEpoch,
-          'updated_at': (data['updatedAt'] as Timestamp?)?.millisecondsSinceEpoch ?? DateTime.now().millisecondsSinceEpoch,
+          'created_at':
+              (data['createdAt'] as Timestamp?)?.millisecondsSinceEpoch ?? DateTime.now().millisecondsSinceEpoch,
+          'updated_at':
+              (data['updatedAt'] as Timestamp?)?.millisecondsSinceEpoch ?? DateTime.now().millisecondsSinceEpoch,
           'sync_status': 1, // Already synced
           'firebase_id': doc.id,
         };
@@ -596,6 +635,7 @@ class FirebaseDAO implements DatabaseService {
         'discountAmount': billData['discount_amount'] ?? 0.0,
         'finalTotal': billData['final_total'] ?? billData['total_amount'],
         'paymentType': billData['payment_type'] ?? '',
+        'orderType': billData['order_type'] ?? '',
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       };

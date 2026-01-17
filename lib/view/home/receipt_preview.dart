@@ -21,7 +21,6 @@ class ReceiptPreviewScreen extends StatefulWidget {
   final String address;
   final String adminUid;
   final String phoneNo;
-  
 
   const ReceiptPreviewScreen({
     Key? key,
@@ -123,86 +122,6 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
   /// Save bill with automatic online/offline handling
   /// Online: Saves to Firebase and local SQLite
   /// Offline: Saves to local SQLite, syncs when online
-  Future<void> saveBill({
-    required String adminUid,
-    required String receiptNo,
-    required List<Map<String, dynamic>> items,
-    required double subTotal,
-    String? tableNumber,
-    bool taxEnabled = false,
-    double cgstPercent = 0.0,
-    double sgstPercent = 0.0,
-    String? customerName,
-    String? customerPhone,
-    String? customerGst,
-    String? customerAddress,
-    String? customerNote,
-    double discountPercent = 0.0,
-    double discountAmount = 0.0,
-    String? paymentType,
-  }) async {
-    try {
-      final now = DateTime.now();
-
-      final List<Map<String, dynamic>> itemsData = items.map((item) {
-        return {
-          'name': item['name'] ?? '',
-          'price': double.tryParse(item['price'].toString()) ?? 0.0,
-          'quantity': int.tryParse(item['quantity'].toString()) ?? 1,
-        };
-      }).toList();
-
-      // Calculate tax amounts if enabled
-      double cgstAmount = 0.0;
-      double sgstAmount = 0.0;
-      double totalWithTax = subTotal;
-
-      if (taxEnabled) {
-        cgstAmount = subTotal * (cgstPercent / 100);
-        sgstAmount = subTotal * (sgstPercent / 100);
-        totalWithTax = subTotal + cgstAmount + sgstAmount;
-      }
-      
-      // Calculate final total with discount
-      double finalTotal = totalWithTax - discountAmount;
-
-      // Prepare bill data for SmartDatabaseService
-      // Note: items must be JSON encoded string for SQLite storage
-      // Schema: id, admin_uid, customer_phone, items, total_amount, bill_date, created_at, updated_at, sync_status, firebase_id
-      final billData = {
-        'id': receiptNo,
-        'bill_date': now.millisecondsSinceEpoch, // Store as integer for proper sorting
-        'items': jsonEncode(itemsData), // Convert to JSON string for SQLite
-        'total_amount': finalTotal,
-        'sub_total': subTotal,
-        'table_number': tableNumber ?? 'N/A',
-        'tax_enabled': taxEnabled ? 1 : 0, // SQLite doesn't support bool, use int
-        'cgst_percent': cgstPercent,
-        'sgst_percent': sgstPercent,
-        'cgst_amount': cgstAmount,
-        'sgst_amount': sgstAmount,
-        'customer_name': customerName ?? '',
-        'customer_phone': customerPhone ?? '',
-        'customer_gst': customerGst ?? '',
-        'customer_address': customerAddress ?? '',
-        'customer_note': customerNote ?? '',
-        'discount_percent': discountPercent,
-        'discount_amount': discountAmount,
-        'final_total': finalTotal,
-        'payment_type': paymentType ?? '',
-      };
-
-      // Save using SmartDatabaseService (handles online/offline automatically)
-      // This already saves to Firebase when online, no need for separate Firebase call
-      await _databaseService.saveBill(adminUid, billData);
-
-      debugPrint(
-          '[ReceiptPreview] Bill saved successfully - receiptNo: $receiptNo (${_databaseService.isOnline ? "online" : "offline"})');
-    } catch (e) {
-      debugPrint('Error saving bill: $e');
-      rethrow;
-    }
-  }
 
   Future<void> _handleSaveWithoutPrint() async {
     bool? confirmed = await showDialog<bool>(
@@ -259,9 +178,10 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
 
       // Get payment type from OrderTypeProvider
       final orderTypeProvider = Provider.of<OrderTypeProvider>(context, listen: false);
-      String paymentType = orderTypeProvider.paymentType.toString().split('.').last; // Convert enum to string
-      
-      await saveBill(
+      String paymentType = orderTypeProvider.paymentType.toString().split('.').last;
+      String orderType = orderTypeProvider.orderType.toString().split('.').last;
+
+      await DirectPrintHelper().saveBillData(
         adminUid: widget.phoneNo,
         receiptNo: generatedReceiptNo,
         items: printProvider.posts,
@@ -277,6 +197,7 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
         discountPercent: discountPercent,
         discountAmount: discountAmount,
         paymentType: paymentType,
+        orderType: orderType,
       );
 
       if (!mounted) return;
@@ -304,10 +225,10 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
           duration: const Duration(seconds: 3),
         ),
       );
-      
+
       // Clear cart after successful save
       printProvider.clearCart();
-      
+
       // Navigate back to previous screen
       Navigator.pop(context);
     } catch (e) {
@@ -332,6 +253,23 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
         if (discountCtrl.text.isEmpty && discountRupeeCtrl.text.isEmpty) {
           finalTotal = subtotal;
         }
+        final bool taxEnabled = printProvider.taxEnabled;
+        final double cgstPercent = printProvider.cgstPercent;
+        final double sgstPercent = printProvider.sgstPercent;
+
+        final double cgstAmount = taxEnabled ? subtotal * (cgstPercent / 100) : 0;
+
+        final double sgstAmount = taxEnabled ? subtotal * (sgstPercent / 100) : 0;
+
+        final double taxTotal = cgstAmount + sgstAmount;
+
+        final double grossTotal = subtotal + taxTotal;
+        final double payable = grossTotal - discountAmount;
+
+        final double roundedPayable = payable.roundToDouble();
+        final double roundOff = roundedPayable - payable;
+
+        finalTotal = roundedPayable;
 
         return WillPopScope(
           onWillPop: () async {
@@ -429,8 +367,10 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
                         const SizedBox(width: 10),
                         _buildIconButton(
                           imagePath: "assets/images/save2.png",
-
                           onPressed: () async {
+                            final printProvider = Provider.of<PrintProvider>(context, listen: false);
+
+                            // ✅ 1. Printer check FIRST
                             if (!printProvider.isConnected || printProvider.selectedPrinter == null) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
@@ -441,48 +381,83 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
                               return;
                             }
 
+                            // ✅ 2. Generate receipt number
+                            final String generatedReceiptNo = await _sqliteHelper.getNextReceiptNumber(widget.phoneNo);
+
+                            // ✅ 3. Tax parameters
+                            final bool taxEnabled = printProvider.taxEnabled;
+                            final double cgstPercent = printProvider.cgstPercent;
+                            final double sgstPercent = printProvider.sgstPercent;
+
+                            // ✅ 4. Order & payment type
+                            final orderTypeProvider = Provider.of<OrderTypeProvider>(context, listen: false);
+
+                            final String paymentType = orderTypeProvider.paymentType.name; // cleaner than split('.')
+                            final String orderType = orderTypeProvider.orderType.name;
+
+                            // ✅ 5. Show loader
                             showDialog(
                               context: context,
                               barrierDismissible: false,
-                              builder: (context) => const Center(
-                                child: CircularProgressIndicator(),
-                              ),
+                              builder: (_) => const Center(child: CircularProgressIndicator()),
                             );
 
                             try {
-                              await DirectPrintHelper.printReceipt(
+                              // ✅ 6. Print + Save
+                              // ignore: use_build_context_synchronously
+                              await DirectPrintHelper().printReceipt(
                                 adminUid: widget.phoneNo,
                                 context: context,
                                 printer: printProvider.selectedPrinter!,
                                 paperSize: printProvider.selectedPaperSize,
                                 items: cartItems,
-                                total: subtotal,
+                                subTotal: subtotal,
                                 shopName: widget.shopName,
                                 logoUrl: widget.shopName,
                                 contact: widget.contact,
                                 address: widget.address,
+
+                                // Customer
+                                customerName: nameCtrl.text,
+                                customerPhone: phoneCtrl.text,
+                                customerGst: gstCtrl.text,
+                                customerAddress: addressCtrl.text,
+                                customerNote: noteCtrl.text,
+
+                                // Discounts
+                                discountPercent: discountPercent,
+                                discountAmount: discountAmount,
+
+                                // Order info
+                                paymentType: paymentType,
+                                orderType: orderType,
+                                tableNumber: "",
+
+                                // Tax
+                                taxEnabled: taxEnabled,
+                                cgstPercent: cgstPercent,
+                                sgstPercent: sgstPercent,
+
+                                receiptNo: generatedReceiptNo,
                                 saveBill: true,
                               );
 
-                              if (context.mounted) {
-                                Navigator.pop(context);
+                              if (!mounted) return;
 
-                                printProvider.clearCart();
-                              }
+                              Navigator.pop(context); // close loader
+                              printProvider.clearCart();
                             } catch (e) {
-                              if (context.mounted) {
-                                Navigator.pop(context);
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('Printing failed: $e'),
-                                    backgroundColor: Colors.red,
-                                  ),
-                                );
-                              }
+                              if (!mounted) return;
+
+                              Navigator.pop(context); // close loader
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Printing failed: $e'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
                             }
                           },
-
-                          // onPressed: () => widget.orderBottomSheet.call(),
                         ),
                       ],
                     ),
@@ -941,45 +916,54 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
                         const SizedBox(
                           height: 20,
                         ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const SizedBox(height: 12),
-                            Text(
-                              'Bill Details',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: appbar1,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Card(
-                              elevation: 2,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.all(14),
-                                child: Column(
-                                  children: [
-                                    _billRow('Item Total', 2),
-                                    _billRow('Discount + Tax', 4),
-                                    _billRow('Total Tax', 6),
-                                    _billRow('Round Off', 7),
-                                    const Divider(thickness: 1),
-                                    _billRow(
-                                      'TO PAY',
-                                      8,
-                                      isBold: true,
-                                      valueColor: Colors.green,
-                                    ),
-                                  ],
+                        const SizedBox(height: 16),
+                        Text(
+                          'Bill Summary',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: appbar1,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+
+                        Card(
+                          elevation: 4,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            child: Column(
+                              children: [
+                                _billRow('Item Total', subtotal),
+                                if (discountAmount > 0)
+                                  _billRow(
+                                    'Discount',
+                                    -discountAmount,
+                                    valueColor: Colors.red,
+                                  ),
+                                if (taxEnabled) ...[
+                                  _billRow('CGST (${cgstPercent.toStringAsFixed(1)}%)', cgstAmount),
+                                  _billRow('SGST (${sgstPercent.toStringAsFixed(1)}%)', sgstAmount),
+                                ],
+                                if (roundOff != 0)
+                                  _billRow(
+                                    'Round Off',
+                                    roundOff,
+                                    valueColor: Colors.orange,
+                                  ),
+                                const Divider(thickness: 1.2),
+                                _billRow(
+                                  'TO PAY',
+                                  finalTotal,
+                                  isBold: true,
+                                  valueColor: Colors.green,
                                 ),
-                              ),
+                              ],
                             ),
-                          ],
-                        )
+                          ),
+                        ),
                       ],
                     ),
                   ),

@@ -34,54 +34,64 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
 
   Future<void> _loadCustomers() async {
     setState(() => isLoading = true);
+
     try {
-      // Load local customers from unified database
+      // 1️⃣ Load local customers
       final allCustomers = await SQLiteHelper().getAllCustomers();
-      
-      // Convert to CustomerModel format
-      final convertedCustomers = allCustomers.map((customerMap) {
+
+      final localCustomers = allCustomers.map((customerMap) {
         return CustomerModel(
-          id: customerMap['id'] != null ? int.tryParse(customerMap['id'].toString()) : null,
+          id: null,
           name: customerMap['name'] ?? '',
           phone: customerMap['mobile_no'] ?? '',
-          gstNo: customerMap['gst_no'],
-          address: customerMap['address'],
+          gstNo: customerMap['gst_no'] ?? "",
+          address: customerMap['address'] ?? '',
           createdAt: DateTime.fromMillisecondsSinceEpoch(customerMap['created_at']),
-          isUploaded: true, // All customers in unified DB are considered uploaded
+          isUploaded: false, // local by default
         );
       }).toList();
 
-      // Load customers from Firebase
+      // 2️⃣ Load Firebase customers
       final firebaseCustomers = await _loadCustomersFromFirebase();
 
-      // Merge local and Firebase customers (avoid duplicates)
-      final mergedCustomers = <String, CustomerModel>{};
+      // 3️⃣ Index Firebase customers by phone
+      final firebaseMap = {for (var c in firebaseCustomers) c.phone: c};
 
-      // Add local customers first
-      for (var customer in convertedCustomers) {
-        mergedCustomers[customer.phone] = customer;
+      final List<CustomerModel> mergedList = [];
+      final List<CustomerModel> pendingSync = [];
+
+      // 4️⃣ Merge + detect NOT uploaded customers
+      for (final local in localCustomers) {
+        if (firebaseMap.containsKey(local.phone)) {
+          mergedList.add(
+            local.copyWith(isUploaded: true),
+          );
+        } else {
+          mergedList.add(local);
+          pendingSync.add(local); 
+        }
       }
 
-      // Add Firebase customers (only if not already in local)
-      for (var customer in firebaseCustomers) {
-        if (!mergedCustomers.containsKey(customer.phone)) {
-          mergedCustomers[customer.phone] = customer;
+      // 5️⃣ Add Firebase-only customers
+      for (final fb in firebaseCustomers) {
+        if (!mergedList.any((c) => c.phone == fb.phone)) {
+          mergedList.add(fb.copyWith(isUploaded: true));
         }
       }
 
       setState(() {
-        customers = mergedCustomers.values.toList();
-        notUploadedCustomers = []; // No more separate upload concept
+        customers = mergedList;
+        notUploadedCustomers = pendingSync; 
         isLoading = false;
       });
     } catch (e) {
       setState(() => isLoading = false);
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error loading customers: $e'),
             backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.fixed,
           ),
         );
       }
@@ -104,6 +114,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
         return CustomerModel(
           name: data['name'] ?? '',
           phone: doc.id,
+          address: data['address'],
           gstNo: data['gstNo']?.isEmpty == true ? null : data['gstNo'],
           createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
           isUploaded: true,

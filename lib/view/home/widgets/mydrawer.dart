@@ -67,7 +67,7 @@ class _MyDrawerState extends State<MyDrawer> {
           setState(() {
             userData = {
               'name': localData['name'] ?? 'User',
-              'phoneNumber': localData['phoneNumber'] ?? phoneNo,
+              'phoneNumber': localData['phoneNumber'] ?? localData['phone_number'] ?? phoneNo,
               'email': localData['email'],
               'adminUid': localData['adminUid'],
               'customerCode': localData['customerCode'],
@@ -76,7 +76,7 @@ class _MyDrawerState extends State<MyDrawer> {
               'contact': localData['shopContact'],
               'address': localData['address'],
             };
-            adminUid = localData['adminUid'] ?? '';
+            adminUid = localData['adminUid'] ?? localData['admin_uid'] ?? '';
             isUserLoading = false;
           });
         }
