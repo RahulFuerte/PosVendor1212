@@ -18,6 +18,10 @@ abstract class DatabaseService {
   Future<void> updateDepartment(String adminUid, String departmentId, Map<String, dynamic> updates);
   Future<void> deleteDepartment(String adminUid, String departmentId);
 
+  // Orders operations
+  Future<void> saveOrder(String adminUid, Map<String, dynamic> orderData);
+  Future<List<Map<String, dynamic>>> getOrders(String adminUid);
+
   // Bills operations
   Future<List<Map<String, dynamic>>> getBills(String adminUid, {DateTime? startDate, DateTime? endDate});
   Future<Map<String, dynamic>?> getBill(String adminUid, String billId);

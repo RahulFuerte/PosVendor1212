@@ -1,15 +1,11 @@
-// Flutter imports:
 import 'package:flutter/material.dart';
 
-// Package imports:
+import 'package:pos/view/home/navigation.dart';
+import 'package:pos/data/datasources/local/sqlite_helper.dart';
+import 'package:pos/data/models/customer_model.dart';
+import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
-
-// Project imports:
-import 'package:pos/view/home/navigation.dart';
-import 'package:pos/view/local_DB/customerDB_helper.dart';
-import 'package:pos/view/local_DB/customer_model.dart';
-import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 
 class CustomersListScreen extends StatefulWidget {
   final String adminUid;
@@ -39,32 +35,43 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
   Future<void> _loadCustomers() async {
     setState(() => isLoading = true);
     try {
-      // Load local customers
-      final allCustomers = await CustomerDatabase.instance.getAllCustomers();
-      final notUploaded =
-          await CustomerDatabase.instance.getNotUploadedCustomers();
+      // Load local customers from unified database
+      final allCustomers = await SQLiteHelper().getAllCustomers();
       
+      // Convert to CustomerModel format
+      final convertedCustomers = allCustomers.map((customerMap) {
+        return CustomerModel(
+          id: customerMap['id'] != null ? int.tryParse(customerMap['id'].toString()) : null,
+          name: customerMap['name'] ?? '',
+          phone: customerMap['mobile_no'] ?? '',
+          gstNo: customerMap['gst_no'],
+          address: customerMap['address'],
+          createdAt: DateTime.fromMillisecondsSinceEpoch(customerMap['created_at']),
+          isUploaded: true, // All customers in unified DB are considered uploaded
+        );
+      }).toList();
+
       // Load customers from Firebase
       final firebaseCustomers = await _loadCustomersFromFirebase();
-      
+
       // Merge local and Firebase customers (avoid duplicates)
       final mergedCustomers = <String, CustomerModel>{};
-      
+
       // Add local customers first
-      for (var customer in allCustomers) {
+      for (var customer in convertedCustomers) {
         mergedCustomers[customer.phone] = customer;
       }
-      
+
       // Add Firebase customers (only if not already in local)
       for (var customer in firebaseCustomers) {
         if (!mergedCustomers.containsKey(customer.phone)) {
           mergedCustomers[customer.phone] = customer;
         }
       }
-      
+
       setState(() {
         customers = mergedCustomers.values.toList();
-        notUploadedCustomers = notUploaded;
+        notUploadedCustomers = []; // No more separate upload concept
         isLoading = false;
       });
     } catch (e) {
@@ -85,11 +92,11 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
     try {
       final firestore = FirebaseFirestore.instance;
       final snapshot = await firestore
-              .collection('AllAdmins')
-              .doc(widget.adminUid)
-              .collection('customer')
-              .doc(widget.phoneNo)
-              .collection('myCustomers')
+          .collection('AllAdmins')
+          .doc(widget.adminUid)
+          .collection('customer')
+          .doc(widget.phoneNo)
+          .collection('myCustomers')
           .get();
 
       return snapshot.docs.map((doc) {
@@ -110,19 +117,19 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
 
   Future<void> _uploadToFirebase() async {
     if (notUploadedCustomers.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('No customers to upload'),
           backgroundColor: Colors.orange,
-            behavior: SnackBarBehavior.fixed,
-          ),
-        );
-                return;
-              }
+          behavior: SnackBarBehavior.fixed,
+        ),
+      );
+      return;
+    }
 
     setState(() => isUploading = true);
 
-              try {
+    try {
       final firestore = FirebaseFirestore.instance;
       int successCount = 0;
 
@@ -136,9 +143,10 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
             'name': customer.name,
             'phone': customer.phone,
             'gstNo': customer.gstNo ?? '',
+            'address': customer.address ?? '',
             'createdAt': FieldValue.serverTimestamp(),
           };
-
+          print("These Is Customer Data ...............$customerData");
           // Upload to Firebase: AllAdmins/{adminUid}/customers/{customerPhone}
           await firestore
               .collection('AllAdmins')
@@ -149,10 +157,10 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
               .doc(customer.phone)
               .set(customerData, SetOptions(merge: true));
 
-          // Mark as uploaded in local database
-          await CustomerDatabase.instance.markAsUploaded(customer.id!);
+          // Customer is already considered uploaded in the unified database
+          // No action needed for marking as uploaded
           successCount++;
-              } catch (e) {
+        } catch (e) {
           debugPrint('Error uploading customer ${customer.name}: $e');
         }
       }
@@ -160,15 +168,15 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
       setState(() => isUploading = false);
 
       if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
             content: Text('Successfully uploaded $successCount customers'),
             backgroundColor: Colors.green,
-                    behavior: SnackBarBehavior.fixed,
-                  ),
-                );
+            behavior: SnackBarBehavior.fixed,
+          ),
+        );
         _loadCustomers();
-              }
+      }
     } catch (e) {
       setState(() => isUploading = false);
       if (mounted) {
@@ -177,7 +185,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
             content: Text('Error uploading: $e'),
             backgroundColor: Colors.red,
             behavior: SnackBarBehavior.fixed,
-              ),
+          ),
         );
       }
     }
@@ -188,45 +196,45 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                          ),
+          borderRadius: BorderRadius.circular(16),
+        ),
         title: const Row(
-                    children: [
+          children: [
             Icon(Icons.delete_outline, color: Colors.red, size: 28),
             SizedBox(width: 12),
             Text(
               'Delete Customer',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                  fontSize: 18,
-                                ),
-                              ),
-                                    ],
-                                  ),
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+              ),
+            ),
+          ],
+        ),
         content: Container(
           padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Text(
+          child: Text(
             'Are you sure you want to delete ${customer.name}? This action cannot be undone.',
             style: const TextStyle(fontSize: 16),
-                                        ),
-                                        ),
+          ),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
             style: TextButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                  ),
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
             child: const Text(
               'Cancel',
-                        style: TextStyle(
+              style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
-                            ),
-                      ),
-                  ),
+              ),
+            ),
+          ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(
@@ -235,23 +243,23 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-            child: const Text(
-              'Delete',
-                                style: TextStyle(
-                fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
               ),
             ),
-          ],
+            child: const Text(
+              'Delete',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
       ),
     );
 
     if (confirm == true) {
       try {
-        await CustomerDatabase.instance.deleteCustomer(customer.id!);
+        await SQLiteHelper().deleteCustomerData(customer.phone);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Row(
@@ -261,13 +269,13 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                 Text(
                   'Customer deleted successfully',
                   style: TextStyle(fontSize: 16),
-                    ),
-                  ],
                 ),
+              ],
+            ),
             backgroundColor: Colors.green,
             behavior: SnackBarBehavior.fixed,
-                      ),
-    );
+          ),
+        );
         _loadCustomers();
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -288,13 +296,15 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
             behavior: SnackBarBehavior.fixed,
           ),
         );
+      }
+    }
   }
-}
-  }
+
   Future<void> _showAddCustomerDialog() async {
     final nameController = TextEditingController();
     final phoneController = TextEditingController();
     final gstController = TextEditingController();
+    final addressController = TextEditingController();
     await showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -326,7 +336,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
           ],
         ),
         content: SingleChildScrollView(
-          child: SizedBox(
+          child: Container(
             width: double.maxFinite,
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -372,6 +382,25 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                     border: Border.all(color: Colors.grey.shade300),
                   ),
                   child: TextField(
+                    controller: addressController,
+                    maxLines: 3,
+                    decoration: InputDecoration(
+                      labelText: 'Customer Address *',
+                      prefixIcon: Icon(Icons.home, color: appbar1),
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.all(16),
+                      labelStyle: TextStyle(color: Colors.grey.shade600),
+                    ),
+                    keyboardType: TextInputType.text,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                  child: TextField(
                     controller: gstController,
                     decoration: InputDecoration(
                       labelText: 'GST Number (Optional)',
@@ -405,8 +434,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
           ),
           ElevatedButton(
             onPressed: () async {
-              if (nameController.text.trim().isEmpty ||
-                  phoneController.text.trim().isEmpty) {
+              if (nameController.text.trim().isEmpty || phoneController.text.trim().isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content: Row(
@@ -430,14 +458,13 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                 final customer = CustomerModel(
                   name: nameController.text.trim(),
                   phone: phoneController.text.trim(),
-                  gstNo: gstController.text.trim().isEmpty
-                      ? null
-                      : gstController.text.trim(),
+                  gstNo: gstController.text.trim().isEmpty ? null : gstController.text.trim(),
+                  address: addressController.text.trim().isEmpty ? null : addressController.text.trim(),
                   createdAt: DateTime.now(),
                   isUploaded: false,
                 );
 
-                await CustomerDatabase.instance.insertCustomer(customer);
+                await SQLiteHelper().saveCustomerData(customer.toMap());
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
@@ -514,6 +541,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
         ),
         centerTitle: true,
         elevation: 0,
+        scrolledUnderElevation: 0,
         backgroundColor: white,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios, color: Colors.black87),
@@ -755,12 +783,8 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Icon(
-                                  customer.isUploaded
-                                      ? Icons.cloud_done
-                                      : Icons.cloud_upload,
-                                  color: customer.isUploaded
-                                      ? primaryColor
-                                      : Colors.orange,
+                                  customer.isUploaded ? Icons.cloud_done : Icons.cloud_upload,
+                                  color: customer.isUploaded ? primaryColor : Colors.orange,
                                   size: 24,
                                 ),
                               ),
@@ -794,8 +818,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                                       ),
                                     ],
                                   ),
-                                  if (customer.gstNo != null &&
-                                      customer.gstNo!.isNotEmpty) ...[
+                                  if (customer.gstNo != null && customer.gstNo!.isNotEmpty) ...[
                                     const SizedBox(height: 4),
                                     Row(
                                       children: [
@@ -836,19 +859,21 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                                   ),
                                 ],
                               ),
-                              trailing: customer.id != null ? Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.red.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: IconButton(
-                                  icon: const Icon(
-                                    Icons.delete_outline,
-                                    color: Colors.red,
-                                  ),
-                                  onPressed: () => _deleteCustomer(customer),
-                                ),
-                              ) : null,
+                              trailing: customer.id != null
+                                  ? Container(
+                                      decoration: BoxDecoration(
+                                        color: Colors.red.withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: IconButton(
+                                        icon: const Icon(
+                                          Icons.delete_outline,
+                                          color: Colors.red,
+                                        ),
+                                        onPressed: () => _deleteCustomer(customer),
+                                      ),
+                                    )
+                                  : null,
                             ),
                           );
                         },

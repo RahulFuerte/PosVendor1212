@@ -14,7 +14,7 @@ import 'package:provider/provider.dart';
 
 // Project imports:
 import 'package:pos/data/datasources/local/sqlite_helper.dart';
-import 'package:pos/view/home/print_provider.dart';
+import 'package:pos/data/providers/print_provider.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 
 class EditBillReceiptScreen extends StatefulWidget {
@@ -56,6 +56,7 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
 
       // First try to get data from local SQLite cache
       final localData = await sqliteHelper.getUserData(widget.phoneNo);
+      print("These Is The Local Data ................................$localData");
 
       if (localData != null && mounted) {
         // Use local data
@@ -270,10 +271,8 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
     if (_imageFile == null) return _imageUrl;
 
     try {
-      final String fileName =
-          'logos/${widget.AdminUid}/${widget.phoneNo}_${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final Reference storageRef =
-          FirebaseStorage.instance.ref().child(fileName);
+      final String fileName = 'logos/${widget.AdminUid}/${widget.phoneNo}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final Reference storageRef = FirebaseStorage.instance.ref().child(fileName);
       final UploadTask uploadTask = storageRef.putFile(_imageFile!);
       final TaskSnapshot snapshot = await uploadTask;
       final String downloadUrl = await snapshot.ref.getDownloadURL();
@@ -456,15 +455,10 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
                                                     width: 120,
                                                     height: 120,
                                                     fit: BoxFit.cover,
-                                                    placeholder:
-                                                        (context, url) =>
-                                                            const Center(
-                                                      child:
-                                                          CircularProgressIndicator(),
+                                                    placeholder: (context, url) => const Center(
+                                                      child: CircularProgressIndicator(),
                                                     ),
-                                                    errorWidget:
-                                                        (context, url, error) =>
-                                                            Icon(
+                                                    errorWidget: (context, url, error) => Icon(
                                                       Icons.store,
                                                       size: 50,
                                                       color: Colors.grey[400],
@@ -494,8 +488,7 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
                                           ),
                                           boxShadow: [
                                             BoxShadow(
-                                              color:
-                                                  Colors.black.withOpacity(0.2),
+                                              color: Colors.black.withOpacity(0.2),
                                               blurRadius: 8,
                                               offset: const Offset(0, 2),
                                             ),
@@ -586,31 +579,29 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
 
                             // GST Number Field
                             _buildTextField(
-                              controller: _gstNumberController,
-                              label: 'GST Number',
-                              hint: 'Enter GST number (e.g., 22AAAAA0000A1Z5)',
-                              icon: Icons.receipt_long,
-                              inputFormatters: [
-                                UpperCaseTextFormatter(),
-                                LengthLimitingTextInputFormatter(15),
-                              ],
-                              validator: (value) {
-                                // GST number is optional
-                                if (value != null && value.isNotEmpty) {
-                                  // final gstRegex = RegExp(
-                                  //     r'^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$');
-                                  // if (!gstRegex.hasMatch(value.toUpperCase())) {
-                                  //   return 'Please enter a valid GST number';
-                                  // }
-                                  if (value.length != 15) {
-                                    return 'GST number must be 15 characters';
-                                  
-                                }
-                                return null;
-                              }
-                                return null;
-                              }
-                            ),
+                                controller: _gstNumberController,
+                                label: 'GST Number',
+                                hint: 'Enter GST number (e.g., 22AAAAA0000A1Z5)',
+                                icon: Icons.receipt_long,
+                                inputFormatters: [
+                                  UpperCaseTextFormatter(),
+                                  LengthLimitingTextInputFormatter(15),
+                                ],
+                                validator: (value) {
+                                  // GST number is optional
+                                  if (value != null && value.isNotEmpty) {
+                                    // final gstRegex = RegExp(
+                                    //     r'^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$');
+                                    // if (!gstRegex.hasMatch(value.toUpperCase())) {
+                                    //   return 'Please enter a valid GST number';
+                                    // }
+                                    if (value.length != 15) {
+                                      return 'GST number must be 15 characters';
+                                    }
+                                    return null;
+                                  }
+                                  return null;
+                                }),
                             const SizedBox(height: 16),
                             // Address Field
                             _buildTextField(
@@ -655,31 +646,26 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
                                   decoration: BoxDecoration(
                                     color: Colors.white,
                                     borderRadius: BorderRadius.circular(12),
-                                    border:
-                                        Border.all(color: Colors.grey[300]!),
+                                    border: Border.all(color: Colors.grey[300]!),
                                   ),
                                   child: Column(
                                     children: [
                                       // Enable Tax Toggle
                                       Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                         children: [
                                           Row(
                                             children: [
-                                              const Icon(Icons.percent,
-                                                  color: primaryColor),
+                                              const Icon(Icons.percent, color: primaryColor),
                                               const SizedBox(width: 12),
                                               Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
+                                                crossAxisAlignment: CrossAxisAlignment.start,
                                                 children: [
                                                   const Text(
                                                     'Enable Tax on Receipt',
                                                     style: TextStyle(
                                                       fontSize: 16,
-                                                      fontWeight:
-                                                          FontWeight.w600,
+                                                      fontWeight: FontWeight.w600,
                                                     ),
                                                   ),
                                                   Text(
@@ -698,8 +684,7 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
                                           Switch(
                                             value: printProvider.taxEnabled,
                                             onChanged: (value) {
-                                              printProvider
-                                                  .setTaxEnabled(value);
+                                              printProvider.setTaxEnabled(value);
                                             },
                                             activeColor: primaryColor,
                                           ),
@@ -713,10 +698,8 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
                                           label: 'CGST Rate',
                                           value: printProvider.cgstPercent,
                                           onChanged: (value) {
-                                            final cgst =
-                                                double.tryParse(value) ?? 2.5;
-                                            printProvider.setTaxRates(cgst,
-                                                printProvider.sgstPercent);
+                                            final cgst = double.tryParse(value) ?? 2.5;
+                                            printProvider.setTaxRates(cgst, printProvider.sgstPercent);
                                           },
                                         ),
                                         const SizedBox(height: 12),
@@ -724,27 +707,20 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
                                           label: 'SGST Rate',
                                           value: printProvider.sgstPercent,
                                           onChanged: (value) {
-                                            final sgst =
-                                                double.tryParse(value) ?? 2.5;
-                                            printProvider.setTaxRates(
-                                                printProvider.cgstPercent,
-                                                sgst);
+                                            final sgst = double.tryParse(value) ?? 2.5;
+                                            printProvider.setTaxRates(printProvider.cgstPercent, sgst);
                                           },
                                         ),
                                         const SizedBox(height: 12),
                                         Container(
                                           padding: const EdgeInsets.all(12),
                                           decoration: BoxDecoration(
-                                            color:
-                                                primaryColor.withOpacity(0.1),
-                                            borderRadius:
-                                                BorderRadius.circular(8),
+                                            color: primaryColor.withOpacity(0.1),
+                                            borderRadius: BorderRadius.circular(8),
                                           ),
                                           child: Row(
                                             children: [
-                                              const Icon(Icons.info_outline,
-                                                  color: primaryColor,
-                                                  size: 20),
+                                              const Icon(Icons.info_outline, color: primaryColor, size: 20),
                                               const SizedBox(width: 8),
                                               Expanded(
                                                 child: Text(
@@ -939,8 +915,7 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
             decoration: InputDecoration(
               suffixText: '%',
               isDense: true,
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
                 borderSide: BorderSide(color: Colors.grey[300]!),

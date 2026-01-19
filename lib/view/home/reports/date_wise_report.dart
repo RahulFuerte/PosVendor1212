@@ -1,6 +1,3 @@
-// Dart imports:
-import 'dart:io';
-
 // Flutter imports:
 import 'package:flutter/material.dart';
 
@@ -9,43 +6,43 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
 import 'package:flutter_pos_printer_platform_image_3/flutter_pos_printer_platform_image_3.dart';
 import 'package:intl/intl.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
-import 'package:share_plus/share_plus.dart';
 
 // Project imports:
-import 'package:pos/view/home/print_provider.dart';
+import 'package:pos/data/providers/print_provider.dart';
 import 'package:pos/view/home/printer_connectionDialog.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 
-class ItemwiseReportScreen extends StatefulWidget {
+class DatewiseReportScreen extends StatefulWidget {
   final String uid;
   final String adminUid;
 
-  const ItemwiseReportScreen(
+  const DatewiseReportScreen(
       {Key? key, required this.uid, required this.adminUid})
       : super(key: key);
 
   @override
-  State<ItemwiseReportScreen> createState() => _ItemwiseReportScreenState();
+  State<DatewiseReportScreen> createState() => _DatewiseReportScreenState();
 }
 
-class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
+class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
   DateTime? fromDate;
   DateTime? toDate;
-  List<Map<String, dynamic>> itemsData = [];
+  List<Map<String, dynamic>> dateData = [];
   bool isLoading = false;
+  bool showSummary = false;
   double totalAmount = 0;
-  double totalQuantity = 0;
+  int totalBills = 0;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: primaryColor,
-        title: const Text('Itemwise report',
+        title: const Text('Datewise report',
             style: TextStyle(color: Colors.white)),
         iconTheme: const IconThemeData(color: Colors.white),
       ),
@@ -155,18 +152,18 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
           Expanded(
             child: isLoading
                 ? const Center(child: CircularProgressIndicator())
-                : itemsData.isEmpty
+                : dateData.isEmpty
                     ? Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.inventory_2,
+                            Icon(Icons.calendar_today,
                                 size: 64, color: Colors.grey.shade400),
                             const SizedBox(height: 16),
                             Text(
                               fromDate == null || toDate == null
                                   ? 'Please select date range'
-                                  : 'No items found for selected dates',
+                                  : 'No data found for selected dates',
                               style: TextStyle(
                                   color: Colors.grey.shade600, fontSize: 16),
                             ),
@@ -186,12 +183,12 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
                                           color: Colors.white,
                                           fontWeight: FontWeight.bold))),
                               DataColumn(
-                                  label: Text('Name',
+                                  label: Text('Date',
                                       style: TextStyle(
                                           color: Colors.white,
                                           fontWeight: FontWeight.bold))),
                               DataColumn(
-                                  label: Text('Items sold',
+                                  label: Text('Total Bills',
                                       style: TextStyle(
                                           color: Colors.white,
                                           fontWeight: FontWeight.bold))),
@@ -201,17 +198,29 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
                                           color: Colors.white,
                                           fontWeight: FontWeight.bold))),
                             ],
-                            rows: itemsData.asMap().entries.map((entry) {
+                            rows: dateData.asMap().entries.map((entry) {
                               final index = entry.key;
-                              final item = entry.value;
+                              final date = entry.value;
+
+                              String displayDate = date['date'];
+                              try {
+                                final dateStr = date['date'] as String;
+                                final year = dateStr.substring(0, 4);
+                                final month = dateStr.substring(4, 6);
+                                final day = dateStr.substring(6, 8);
+                                displayDate =
+                                    '$day/$month/${year.substring(2)}';
+                              } catch (e) {
+                                print('Error formatting date: $e');
+                              }
+
                               return DataRow(
                                 cells: [
                                   DataCell(Text('${index + 1}')),
-                                  DataCell(Text(item['name'].toString())),
-                                  DataCell(Text(
-                                      item['quantity'].toStringAsFixed(1))),
+                                  DataCell(Text(displayDate)),
+                                  DataCell(Text(date['totalBills'].toString())),
                                   DataCell(
-                                      Text(item['amount'].toStringAsFixed(2))),
+                                      Text(date['amount'].toStringAsFixed(2))),
                                 ],
                               );
                             }).toList(),
@@ -219,6 +228,77 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
                         ),
                       ),
           ),
+          Container(
+            color: primaryColor,
+            child: InkWell(
+              onTap: () {
+                setState(() {
+                  showSummary = !showSummary;
+                });
+              },
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('View Summary',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold)),
+                    Icon(
+                      showSummary
+                          ? Icons.keyboard_arrow_up
+                          : Icons.keyboard_arrow_down,
+                      color: Colors.white,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          if (showSummary)
+            Container(
+              color: Colors.grey.shade100,
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Total Days:', style: TextStyle(fontSize: 16)),
+                      Text(dateData.length.toString(),
+                          style: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Total Bills:',
+                          style: TextStyle(fontSize: 16)),
+                      Text(totalBills.toString(),
+                          style: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Total Amount:',
+                          style: TextStyle(fontSize: 16)),
+                      Text('₹${totalAmount.toStringAsFixed(2)}',
+                          style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.green)),
+                    ],
+                  ),
+                ],
+              ),
+            ),
           Container(
             padding: const EdgeInsets.all(16),
             color: Colors.white,
@@ -235,7 +315,7 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
                       textStyle: const TextStyle(
                           fontSize: 16, fontWeight: FontWeight.bold),
                     ),
-                    onPressed: itemsData.isEmpty ? null : _printReport,
+                    onPressed: dateData.isEmpty ? null : _printReport,
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -251,7 +331,7 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
                           fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                     onPressed:
-                        itemsData.isEmpty ? null : _downloadAndShareReport,
+                        dateData.isEmpty ? null : _downloadAndShareReport,
                   ),
                 ),
               ],
@@ -285,12 +365,12 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
       });
 
       if (fromDate != null && toDate != null) {
-        await _fetchItemsData();
+        await _fetchDateData();
       }
     }
   }
 
-  Future<void> _fetchItemsData() async {
+  Future<void> _fetchDateData() async {
     if (fromDate == null || toDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select both dates')),
@@ -300,14 +380,13 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
 
     setState(() {
       isLoading = true;
-      itemsData.clear();
+      dateData.clear();
       totalAmount = 0;
-      totalQuantity = 0;
+      totalBills = 0;
     });
 
     try {
-      // Map to aggregate items by name
-      Map<String, Map<String, dynamic>> itemsMap = {};
+      Map<String, Map<String, dynamic>> datesMap = {};
 
       final startDate =
           DateTime(fromDate!.year, fromDate!.month, fromDate!.day);
@@ -354,28 +433,24 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
             final dateCollectionRef = collectionRef.collection(dateStr);
             final snapshot = await dateCollectionRef.get();
 
-            for (var doc in snapshot.docs) {
-              final data = doc.data();
-              final items = data['items'] as List<dynamic>? ?? [];
+            if (snapshot.docs.isNotEmpty) {
+              double dayAmount = 0;
+              int dayBills = snapshot.docs.length;
 
-              // Process each item in the bill
-              for (var item in items) {
-                final itemName = item['name'] as String? ?? 'Unknown';
-                final quantity = (item['quantity'] ?? 0).toDouble();
-                final price = (item['price'] ?? 0).toDouble();
-                final amount = quantity * price;
-
-                if (itemsMap.containsKey(itemName)) {
-                  itemsMap[itemName]!['quantity'] += quantity;
-                  itemsMap[itemName]!['amount'] += amount;
-                } else {
-                  itemsMap[itemName] = {
-                    'name': itemName,
-                    'quantity': quantity,
-                    'amount': amount,
-                  };
-                }
+              for (var doc in snapshot.docs) {
+                final data = doc.data();
+                final subTotal = (data['subTotal'] ?? 0).toDouble();
+                dayAmount += subTotal;
               }
+
+              datesMap[dateStr] = {
+                'date': dateStr,
+                'totalBills': dayBills,
+                'amount': dayAmount,
+              };
+
+              totalAmount += dayAmount;
+              totalBills += dayBills;
             }
           } catch (e) {
             print('Error fetching date $dateStr: $e');
@@ -385,21 +460,11 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
         }
       }
 
-      // Convert map to list
-      itemsData = itemsMap.values.toList();
-
-      // Calculate totals
-      for (var item in itemsData) {
-        totalQuantity += item['quantity'];
-        totalAmount += item['amount'];
-      }
-
-      // Sort by amount descending
-      itemsData.sort(
-          (a, b) => (b['amount'] as double).compareTo(a['amount'] as double));
+      dateData = datesMap.values.toList();
+      dateData.sort((a, b) => b['date'].compareTo(a['date']));
     } catch (e) {
       if (mounted) {
-        print('Error fetching items data: $e');
+        print('Error fetching date data: $e');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error fetching data: $e')),
         );
@@ -453,71 +518,96 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
         DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now()),
         styles: const PosStyles(align: PosAlign.center),
       );
-      bytes += generator.text('Item Wise Sales Report',
-          styles: const PosStyles(align: PosAlign.center, bold: true));
-      bytes += generator.text("-" * 32,
+      bytes += generator.text("-" * 48,
+          styles: const PosStyles(align: PosAlign.center));
+
+      bytes += generator.text('Sales Summary',
+          styles: const PosStyles(align: PosAlign.left, bold: true));
+      bytes += generator.text("-" * 48,
           styles: const PosStyles(align: PosAlign.center));
 
       bytes += generator.text(
-        'From: ${DateFormat('dd/MM/yy').format(fromDate!)}     To: ${DateFormat('dd/MM/yy').format(toDate!)}',
+        'From : ${DateFormat('dd/MM/yy').format(fromDate!)}              To : ${DateFormat('dd/MM/yy').format(toDate!)}',
         styles: const PosStyles(align: PosAlign.left),
       );
-      bytes += generator.text("-" * 32,
+      bytes += generator.text("-" * 48,
           styles: const PosStyles(align: PosAlign.center));
 
       // Table header
       bytes += generator.row([
+        PosColumn(text: 'Date', width: 6, styles: const PosStyles(bold: true)),
         PosColumn(
-            text: 'SR ITEM', width: 6, styles: const PosStyles(bold: true)),
-        PosColumn(text: 'QTY', width: 3, styles: const PosStyles(bold: true)),
+            text: 'Qty',
+            width: 3,
+            styles: const PosStyles(bold: true, align: PosAlign.center)),
         PosColumn(
-            text: 'AMOUNT', width: 3, styles: const PosStyles(bold: true)),
+            text: 'Amount',
+            width: 3,
+            styles: const PosStyles(bold: true, align: PosAlign.right)),
       ]);
-      bytes += generator.text("-" * 32,
+      bytes += generator.text("-" * 48,
           styles: const PosStyles(align: PosAlign.center));
 
-      // Items data
-      for (int i = 0; i < itemsData.length; i++) {
-        final item = itemsData[i];
+      // Date data
+      for (var date in dateData) {
+        String displayDate = '';
+        try {
+          final dateStr = date['date'] as String;
+          final year = dateStr.substring(0, 4);
+          final month = dateStr.substring(4, 6);
+          final day = dateStr.substring(6, 8);
+          displayDate = '$day/$month/${year.substring(2)}';
+        } catch (e) {
+          displayDate = date['date'].toString();
+        }
+
         bytes += generator.row([
-          PosColumn(text: '${i + 1}  ${item['name']}', width: 6),
-          PosColumn(text: item['quantity'].toStringAsFixed(1), width: 3),
+          PosColumn(text: displayDate, width: 6),
           PosColumn(
-              text: item['amount'].toStringAsFixed(2),
+              text: date['totalBills'].toString(),
+              width: 3,
+              styles: const PosStyles(align: PosAlign.center)),
+          PosColumn(
+              text: date['amount'].toStringAsFixed(2),
               width: 3,
               styles: const PosStyles(align: PosAlign.right)),
         ]);
       }
 
-      bytes += generator.text("-" * 32,
+      bytes += generator.text("-" * 48,
           styles: const PosStyles(align: PosAlign.center));
 
-      // Total
+      // Grand Total
       bytes += generator.row([
         PosColumn(
-            text:
-                'ITEM: ${itemsData.length} QTY: ${totalQuantity.toStringAsFixed(1)}',
-            width: 6,
-            styles: const PosStyles(bold: true)),
-        PosColumn(text: 'AMOUNT:', width: 3),
+            text: 'Grand Total', width: 6, styles: const PosStyles(bold: true)),
+        PosColumn(
+            text: totalBills.toString(),
+            width: 3,
+            styles: const PosStyles(bold: true, align: PosAlign.center)),
         PosColumn(
             text: totalAmount.toStringAsFixed(2),
             width: 3,
-            styles: const PosStyles(align: PosAlign.right, bold: true)),
+            styles: const PosStyles(bold: true, align: PosAlign.right)),
       ]);
-      bytes += generator.text("-" * 32,
+      bytes += generator.text("-" * 48,
           styles: const PosStyles(align: PosAlign.center));
 
-      bytes += generator.text('TOTAL AMOUNT',
-          styles: const PosStyles(align: PosAlign.left, bold: true));
+      // Payment Summary
+      bytes += generator.text('Payment Summary',
+          styles: const PosStyles(bold: true));
+      bytes += generator.text("-" * 48,
+          styles: const PosStyles(align: PosAlign.center));
+
       bytes += generator.row([
-        PosColumn(text: '', width: 6),
-        PosColumn(text: ':', width: 3),
+        PosColumn(text: 'CASH', width: 9),
         PosColumn(
             text: totalAmount.toStringAsFixed(2),
             width: 3,
-            styles: const PosStyles(align: PosAlign.right, bold: true)),
+            styles: const PosStyles(align: PosAlign.right)),
       ]);
+      bytes += generator.text("-" * 48,
+          styles: const PosStyles(align: PosAlign.center));
 
       bytes += generator.emptyLines(3);
       bytes += generator.cut();
@@ -547,11 +637,12 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
 
   Future<void> _downloadAndShareReport() async {
     print('=== PDF Generation Started ===');
-    print('Items data length: ${itemsData.length}');
+    print('Date data length: ${dateData.length}');
     print('Total amount: $totalAmount');
-    print('Total quantity: $totalQuantity');
+    print('Total bills: $totalBills');
 
-    if (itemsData.isEmpty) {
+    // Check if data exists
+    if (dateData.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
@@ -563,12 +654,11 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
     }
 
     try {
+      // Show loading indicator
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (context) => const Center(
-          child: CircularProgressIndicator(),
-        ),
+        builder: (context) => const Center(child: CircularProgressIndicator()),
       );
 
       // Fetch shop details from Firestore
@@ -580,7 +670,7 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
       try {
         final doc = await FirebaseFirestore.instance
             .collection('AllAdmins')
-            .doc(widget.adminUid)
+            .doc(widget.uid)
             .collection('customer')
             .doc(widget.uid)
             .get();
@@ -599,77 +689,28 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
         print('Error fetching shop details: $e');
       }
 
-      final pdf = pw.Document();
+      if (mounted) Navigator.of(context).pop();
 
-      // Prepare table data as strings
-      final List<List<String>> tableData = [];
-      for (int i = 0; i < itemsData.length; i++) {
-        final item = itemsData[i];
+      // Generate PDF with callback function
+      await Printing.layoutPdf(
+        onLayout: (PdfPageFormat format) async {
+          final pdf = pw.Document();
 
-        String srNo = (i + 1).toString();
-        String itemName = item['name']?.toString() ?? '';
-        String quantity = '0.0';
-        String amount = '₹ 0.00';
-
-        try {
-          final qtyValue = item['quantity'];
-          if (qtyValue != null) {
-            quantity = double.parse(qtyValue.toString()).toStringAsFixed(1);
-          }
-        } catch (e) {
-          print('Error parsing quantity for item $i: $e');
-        }
-
-        try {
-          final amtValue = item['amount'];
-          if (amtValue != null) {
-            amount =
-                '₹ ${double.parse(amtValue.toString()).toStringAsFixed(2)}';
-          }
-        } catch (e) {
-          print('Error parsing amount for item $i: $e');
-        }
-
-        tableData.add([srNo, itemName, quantity, amount]);
-      }
-
-      // Convert totals to strings
-      String totalQtyStr = '0.0';
-      String totalAmtStr = '0.00';
-
-      try {
-        totalQtyStr = double.parse(totalQuantity.toString()).toStringAsFixed(1);
-      } catch (e) {
-        print('Error parsing total quantity: $e');
-      }
-
-      try {
-        totalAmtStr = double.parse(totalAmount.toString()).toStringAsFixed(2);
-      } catch (e) {
-        print('Error parsing total amount: $e');
-      }
-
-      // Build the PDF page
-      pdf.addPage(
-        pw.Page(
-          pageFormat: PdfPageFormat.a4,
-          margin: const pw.EdgeInsets.all(20),
-          build: (pw.Context pdfContext) {
-            return pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
+          pdf.addPage(
+            pw.MultiPage(
+              pageFormat: format,
+              margin: const pw.EdgeInsets.all(20),
+              build: (pw.Context context) => [
                 // Shop Header
                 pw.Center(
                   child: pw.Text(
                     shopName,
                     style: pw.TextStyle(
-                      fontSize: 20,
-                      fontWeight: pw.FontWeight.bold,
-                    ),
+                        fontSize: 20, fontWeight: pw.FontWeight.bold),
                   ),
                 ),
-                if (address.isNotEmpty) ...[
-                  pw.SizedBox(height: 4),
+                if (address.isNotEmpty) pw.SizedBox(height: 4),
+                if (address.isNotEmpty)
                   pw.Center(
                     child: pw.Text(
                       address,
@@ -677,25 +718,22 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
                       textAlign: pw.TextAlign.center,
                     ),
                   ),
-                ],
-                if (contact.isNotEmpty) ...[
-                  pw.SizedBox(height: 2),
+                if (contact.isNotEmpty) pw.SizedBox(height: 2),
+                if (contact.isNotEmpty)
                   pw.Center(
                     child: pw.Text(
                       'Contact: $contact',
                       style: const pw.TextStyle(fontSize: 10),
                     ),
                   ),
-                ],
-                if (gstNo.isNotEmpty) ...[
-                  pw.SizedBox(height: 2),
+                if (gstNo.isNotEmpty) pw.SizedBox(height: 2),
+                if (gstNo.isNotEmpty)
                   pw.Center(
                     child: pw.Text(
                       'GST: $gstNo',
                       style: const pw.TextStyle(fontSize: 10),
                     ),
                   ),
-                ],
 
                 pw.SizedBox(height: 10),
                 pw.Divider(thickness: 1),
@@ -710,11 +748,9 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
                 pw.SizedBox(height: 4),
                 pw.Center(
                   child: pw.Text(
-                    'Item Wise Sales Report',
+                    'Date Wise Sales Report',
                     style: pw.TextStyle(
-                      fontWeight: pw.FontWeight.bold,
-                      fontSize: 16,
-                    ),
+                        fontWeight: pw.FontWeight.bold, fontSize: 16),
                   ),
                 ),
 
@@ -725,46 +761,49 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
                   padding: const pw.EdgeInsets.all(8),
                   decoration: pw.BoxDecoration(
                     border: pw.Border.all(color: PdfColors.grey400),
-                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+                    borderRadius:
+                        const pw.BorderRadius.all(pw.Radius.circular(4)),
                   ),
                   child: pw.Text(
                     'Period: ${DateFormat('dd/MM/yyyy').format(fromDate!)} to ${DateFormat('dd/MM/yyyy').format(toDate!)}',
                     style: pw.TextStyle(
-                      fontWeight: pw.FontWeight.bold,
-                      fontSize: 11,
-                    ),
+                        fontWeight: pw.FontWeight.bold, fontSize: 11),
                   ),
                 ),
 
                 pw.SizedBox(height: 12),
 
-                // Items Table
+                // Sales Table
                 pw.Table.fromTextArray(
-                  border: pw.TableBorder.all(
-                    color: PdfColors.grey600,
-                    width: 1,
-                  ),
                   headerStyle: pw.TextStyle(
-                    fontSize: 11,
-                    fontWeight: pw.FontWeight.bold,
-                  ),
+                      fontWeight: pw.FontWeight.bold, fontSize: 11),
+                  headerDecoration:
+                      const pw.BoxDecoration(color: PdfColors.grey300),
                   cellStyle: const pw.TextStyle(fontSize: 10),
-                  headerDecoration: const pw.BoxDecoration(
-                    color: PdfColors.grey300,
-                  ),
-                  cellAlignment: pw.Alignment.centerLeft,
                   cellAlignments: {
-                    0: pw.Alignment.center,
-                    1: pw.Alignment.centerLeft,
+                    0: pw.Alignment.centerLeft,
+                    1: pw.Alignment.centerRight,
                     2: pw.Alignment.centerRight,
-                    3: pw.Alignment.centerRight,
                   },
-                  headers: ['Sr.', 'Item Name', 'Quantity', 'Amount'],
-                  data: tableData,
-                  cellPadding: const pw.EdgeInsets.all(6),
-                  oddRowDecoration: const pw.BoxDecoration(
-                    color: PdfColors.grey100,
-                  ),
+                  headers: ['Date', 'Total Bills', 'Amount'],
+                  data: dateData.map((date) {
+                    String displayDate = '';
+                    try {
+                      final dateStr = date['date'] as String;
+                      final year = dateStr.substring(0, 4);
+                      final month = dateStr.substring(4, 6);
+                      final day = dateStr.substring(6, 8);
+                      displayDate = '$day/$month/${year.substring(2)}';
+                    } catch (e) {
+                      displayDate = date['date'].toString();
+                    }
+
+                    return [
+                      displayDate,
+                      date['totalBills'].toString(),
+                      'Rs ${date['amount'].toStringAsFixed(2)}',
+                    ];
+                  }).toList(),
                 ),
 
                 pw.SizedBox(height: 12),
@@ -776,7 +815,8 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
                   padding: const pw.EdgeInsets.all(10),
                   decoration: const pw.BoxDecoration(
                     color: PdfColors.grey200,
-                    borderRadius: pw.BorderRadius.all(pw.Radius.circular(4)),
+                    borderRadius:
+                        pw.BorderRadius.all(pw.Radius.circular(4)),
                   ),
                   child: pw.Column(
                     children: [
@@ -784,18 +824,14 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
                         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                         children: [
                           pw.Text(
-                            'Total Items: ${itemsData.length}',
+                            'Total Days: ${dateData.length}',
                             style: pw.TextStyle(
-                              fontWeight: pw.FontWeight.bold,
-                              fontSize: 11,
-                            ),
+                                fontWeight: pw.FontWeight.bold, fontSize: 11),
                           ),
                           pw.Text(
-                            'Total Quantity: $totalQtyStr',
+                            'Total Bills: $totalBills',
                             style: pw.TextStyle(
-                              fontWeight: pw.FontWeight.bold,
-                              fontSize: 11,
-                            ),
+                                fontWeight: pw.FontWeight.bold, fontSize: 11),
                           ),
                         ],
                       ),
@@ -808,12 +844,10 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
                           pw.Text(
                             'Grand Total: ',
                             style: pw.TextStyle(
-                              fontWeight: pw.FontWeight.bold,
-                              fontSize: 14,
-                            ),
+                                fontWeight: pw.FontWeight.bold, fontSize: 14),
                           ),
                           pw.Text(
-                            '₹ $totalAmtStr',
+                            'Rs ${totalAmount.toStringAsFixed(2)}',
                             style: pw.TextStyle(
                               fontWeight: pw.FontWeight.bold,
                               fontSize: 16,
@@ -826,58 +860,67 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
                   ),
                 ),
 
-                pw.Spacer(),
+                pw.SizedBox(height: 12),
+
+                // Payment Summary Section
+                pw.Container(
+                  padding: const pw.EdgeInsets.all(10),
+                  decoration: pw.BoxDecoration(
+                    border: pw.Border.all(color: PdfColors.grey400),
+                    borderRadius:
+                        const pw.BorderRadius.all(pw.Radius.circular(4)),
+                  ),
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text(
+                        'Payment Summary',
+                        style: pw.TextStyle(
+                            fontWeight: pw.FontWeight.bold, fontSize: 12),
+                      ),
+                      pw.SizedBox(height: 6),
+                      pw.Divider(),
+                      pw.SizedBox(height: 6),
+                      pw.Row(
+                        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                        children: [
+                          pw.Text('CASH:',
+                              style: const pw.TextStyle(fontSize: 11)),
+                          pw.Text(
+                            'Rs ${totalAmount.toStringAsFixed(2)}',
+                            style: pw.TextStyle(
+                                fontWeight: pw.FontWeight.bold, fontSize: 11),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+
+                pw.SizedBox(height: 20),
 
                 // Footer
                 pw.Center(
                   child: pw.Text(
                     'Generated by POS System',
                     style: const pw.TextStyle(
-                      fontSize: 8,
-                      color: PdfColors.grey600,
-                    ),
+                        fontSize: 8, color: PdfColors.grey600),
                   ),
                 ),
               ],
-            );
-          },
-        ),
-      );
+            ),
+          );
 
-      // Generate PDF bytes
-      final pdfBytes = await pdf.save();
-      print('PDF bytes generated: ${pdfBytes.length}');
-
-      // Save to file
-      final String fileName =
-          'ItemwiseReport_${DateFormat('ddMMyyyy_HHmmss').format(DateTime.now())}.pdf';
-
-      // Get temporary directory
-      final Directory tempDir = await getTemporaryDirectory();
-      final String filePath = '${tempDir.path}/$fileName';
-      final File file = File(filePath);
-
-      // Write PDF to file
-      await file.writeAsBytes(pdfBytes);
-      print('PDF saved to: $filePath');
-
-      // Close loading dialog
-      if (mounted) {
-        Navigator.of(context).pop();
-      }
-
-      // Share the file
-      await Share.shareXFiles(
-        [XFile(filePath)],
-        subject: 'Item Wise Sales Report',
-        text:
-            'Report for period: ${DateFormat('dd/MM/yyyy').format(fromDate!)} to ${DateFormat('dd/MM/yyyy').format(toDate!)}',
+          return pdf.save();
+        },
+        name:
+            'DatewiseReport_${DateFormat('ddMMyyyy_HHmmss').format(DateTime.now())}.pdf',
       );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('PDF generated and ready to share!'),
+            content: Text('PDF generated successfully!'),
             backgroundColor: Colors.green,
             duration: Duration(seconds: 2),
           ),

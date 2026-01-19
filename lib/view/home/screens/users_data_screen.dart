@@ -1,15 +1,10 @@
-// Flutter imports:
 import 'package:flutter/material.dart';
-
-// Package imports:
 import 'package:hive/hive.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:provider/provider.dart';
-
-// Project imports:
 import 'package:pos/data/models/user_model.dart';
-import 'package:pos/view/home/print_provider.dart';
+import 'package:pos/data/providers/print_provider.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
+import 'package:provider/provider.dart';
 
 class UsersScreen extends StatefulWidget {
   const UsersScreen({super.key});
@@ -51,8 +46,7 @@ class _UsersScreenState extends State<UsersScreen> {
               itemBuilder: (context, index) {
                 final user = usersData[index];
                 return Padding(
-                  padding: const EdgeInsets.only(
-                      left: 8, right: 8, top: 4, bottom: 4),
+                  padding: const EdgeInsets.only(left: 8, right: 8, top: 4, bottom: 4),
                   child: Container(
                     decoration: BoxDecoration(
                       borderRadius: const BorderRadius.all(Radius.circular(20)),
@@ -92,12 +86,10 @@ class _UsersScreenState extends State<UsersScreen> {
                               ),
                               Expanded(
                                 child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 12),
+                                  padding: const EdgeInsets.symmetric(horizontal: 12),
                                   child: Column(
                                     mainAxisAlignment: MainAxisAlignment.center,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         user.userName,
@@ -112,8 +104,7 @@ class _UsersScreenState extends State<UsersScreen> {
                                       const SizedBox(height: 4),
                                       Row(
                                         children: [
-                                          const Icon(Icons.phone,
-                                              size: 14, color: Colors.black54),
+                                          const Icon(Icons.phone, size: 14, color: Colors.black54),
                                           const SizedBox(width: 4),
                                           Text(
                                             user.phoneNumber,
@@ -139,15 +130,13 @@ class _UsersScreenState extends State<UsersScreen> {
                                   ),
                                 ),
                               ),
-                              Column(
+                              Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   IconButton(
                                     onPressed: () {
-                                      printprovider.additem(
-                                          user.details, user.totalAmount);
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
+                                      printprovider.additem(user.details, user.totalAmount);
+                                      ScaffoldMessenger.of(context).showSnackBar(
                                         const SnackBar(
                                           backgroundColor: primaryColor,
                                           content: Text('Cart Updated !'),
@@ -164,8 +153,7 @@ class _UsersScreenState extends State<UsersScreen> {
                                       Icons.delete,
                                       color: Colors.red.shade300,
                                     ),
-                                    onPressed: () =>
-                                        _deleteUserData(context, index),
+                                    onPressed: () => _deleteUserData(context, index),
                                   ),
                                 ],
                               ),
@@ -182,10 +170,8 @@ class _UsersScreenState extends State<UsersScreen> {
                               .map<DataRow>((detail) => DataRow(
                                     cells: [
                                       DataCell(Text(detail['name'])),
-                                      DataCell(
-                                          Text(detail['price'].toString())),
-                                      DataCell(
-                                          Text(detail['quantity'].toString())),
+                                      DataCell(Text(detail['price'].toString())),
+                                      DataCell(Text(detail['quantity'].toString())),
                                     ],
                                   ))
                               .toList(),
@@ -210,8 +196,9 @@ class _UsersScreenState extends State<UsersScreen> {
       final userMap = box.getAt(i);
 
       if (userMap != null) {
-        final List<Map<String, dynamic>> details =
-            _decodeDetails(userMap['details']);
+        final List<Map<String, dynamic>> details = _decodeDetails(userMap['details']);
+
+        print("These Is The Details ............$details");
 
         final userModel = UserModel(
           phoneNumber: userMap['phoneNumber'] ?? 'N/A',
@@ -259,8 +246,7 @@ class _UsersScreenState extends State<UsersScreen> {
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Confirm Deletion'),
-          content:
-              const Text('Are you sure you want to delete this user data?'),
+          content: const Text('Are you sure you want to delete this user data?'),
           actions: [
             TextButton(
               onPressed: () {

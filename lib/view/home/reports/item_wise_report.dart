@@ -1,3 +1,6 @@
+// Dart imports:
+import 'dart:io';
+
 // Flutter imports:
 import 'package:flutter/material.dart';
 
@@ -6,43 +9,43 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
 import 'package:flutter_pos_printer_platform_image_3/flutter_pos_printer_platform_image_3.dart';
 import 'package:intl/intl.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 // Project imports:
-import 'package:pos/view/home/print_provider.dart';
+import 'package:pos/data/providers/print_provider.dart';
 import 'package:pos/view/home/printer_connectionDialog.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 
-class DatewiseReportScreen extends StatefulWidget {
+class ItemwiseReportScreen extends StatefulWidget {
   final String uid;
   final String adminUid;
 
-  const DatewiseReportScreen(
+  const ItemwiseReportScreen(
       {Key? key, required this.uid, required this.adminUid})
       : super(key: key);
 
   @override
-  State<DatewiseReportScreen> createState() => _DatewiseReportScreenState();
+  State<ItemwiseReportScreen> createState() => _ItemwiseReportScreenState();
 }
 
-class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
+class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
   DateTime? fromDate;
   DateTime? toDate;
-  List<Map<String, dynamic>> dateData = [];
+  List<Map<String, dynamic>> itemsData = [];
   bool isLoading = false;
-  bool showSummary = false;
   double totalAmount = 0;
-  int totalBills = 0;
+  double totalQuantity = 0;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: primaryColor,
-        title: const Text('Datewise report',
+        title: const Text('Itemwise report',
             style: TextStyle(color: Colors.white)),
         iconTheme: const IconThemeData(color: Colors.white),
       ),
@@ -152,18 +155,18 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
           Expanded(
             child: isLoading
                 ? const Center(child: CircularProgressIndicator())
-                : dateData.isEmpty
+                : itemsData.isEmpty
                     ? Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.calendar_today,
+                            Icon(Icons.inventory_2,
                                 size: 64, color: Colors.grey.shade400),
                             const SizedBox(height: 16),
                             Text(
                               fromDate == null || toDate == null
                                   ? 'Please select date range'
-                                  : 'No data found for selected dates',
+                                  : 'No items found for selected dates',
                               style: TextStyle(
                                   color: Colors.grey.shade600, fontSize: 16),
                             ),
@@ -183,12 +186,12 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
                                           color: Colors.white,
                                           fontWeight: FontWeight.bold))),
                               DataColumn(
-                                  label: Text('Date',
+                                  label: Text('Name',
                                       style: TextStyle(
                                           color: Colors.white,
                                           fontWeight: FontWeight.bold))),
                               DataColumn(
-                                  label: Text('Total Bills',
+                                  label: Text('Items sold',
                                       style: TextStyle(
                                           color: Colors.white,
                                           fontWeight: FontWeight.bold))),
@@ -198,29 +201,17 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
                                           color: Colors.white,
                                           fontWeight: FontWeight.bold))),
                             ],
-                            rows: dateData.asMap().entries.map((entry) {
+                            rows: itemsData.asMap().entries.map((entry) {
                               final index = entry.key;
-                              final date = entry.value;
-
-                              String displayDate = date['date'];
-                              try {
-                                final dateStr = date['date'] as String;
-                                final year = dateStr.substring(0, 4);
-                                final month = dateStr.substring(4, 6);
-                                final day = dateStr.substring(6, 8);
-                                displayDate =
-                                    '$day/$month/${year.substring(2)}';
-                              } catch (e) {
-                                print('Error formatting date: $e');
-                              }
-
+                              final item = entry.value;
                               return DataRow(
                                 cells: [
                                   DataCell(Text('${index + 1}')),
-                                  DataCell(Text(displayDate)),
-                                  DataCell(Text(date['totalBills'].toString())),
+                                  DataCell(Text(item['name'].toString())),
+                                  DataCell(Text(
+                                      item['quantity'].toStringAsFixed(1))),
                                   DataCell(
-                                      Text(date['amount'].toStringAsFixed(2))),
+                                      Text(item['amount'].toStringAsFixed(2))),
                                 ],
                               );
                             }).toList(),
@@ -228,77 +219,6 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
                         ),
                       ),
           ),
-          Container(
-            color: primaryColor,
-            child: InkWell(
-              onTap: () {
-                setState(() {
-                  showSummary = !showSummary;
-                });
-              },
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text('View Summary',
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold)),
-                    Icon(
-                      showSummary
-                          ? Icons.keyboard_arrow_up
-                          : Icons.keyboard_arrow_down,
-                      color: Colors.white,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          if (showSummary)
-            Container(
-              color: Colors.grey.shade100,
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('Total Days:', style: TextStyle(fontSize: 16)),
-                      Text(dateData.length.toString(),
-                          style: const TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('Total Bills:',
-                          style: TextStyle(fontSize: 16)),
-                      Text(totalBills.toString(),
-                          style: const TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('Total Amount:',
-                          style: TextStyle(fontSize: 16)),
-                      Text('₹${totalAmount.toStringAsFixed(2)}',
-                          style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.green)),
-                    ],
-                  ),
-                ],
-              ),
-            ),
           Container(
             padding: const EdgeInsets.all(16),
             color: Colors.white,
@@ -315,7 +235,7 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
                       textStyle: const TextStyle(
                           fontSize: 16, fontWeight: FontWeight.bold),
                     ),
-                    onPressed: dateData.isEmpty ? null : _printReport,
+                    onPressed: itemsData.isEmpty ? null : _printReport,
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -331,7 +251,7 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
                           fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                     onPressed:
-                        dateData.isEmpty ? null : _downloadAndShareReport,
+                        itemsData.isEmpty ? null : _downloadAndShareReport,
                   ),
                 ),
               ],
@@ -365,12 +285,12 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
       });
 
       if (fromDate != null && toDate != null) {
-        await _fetchDateData();
+        await _fetchItemsData();
       }
     }
   }
 
-  Future<void> _fetchDateData() async {
+  Future<void> _fetchItemsData() async {
     if (fromDate == null || toDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select both dates')),
@@ -380,13 +300,14 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
 
     setState(() {
       isLoading = true;
-      dateData.clear();
+      itemsData.clear();
       totalAmount = 0;
-      totalBills = 0;
+      totalQuantity = 0;
     });
 
     try {
-      Map<String, Map<String, dynamic>> datesMap = {};
+      // Map to aggregate items by name
+      Map<String, Map<String, dynamic>> itemsMap = {};
 
       final startDate =
           DateTime(fromDate!.year, fromDate!.month, fromDate!.day);
@@ -433,24 +354,28 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
             final dateCollectionRef = collectionRef.collection(dateStr);
             final snapshot = await dateCollectionRef.get();
 
-            if (snapshot.docs.isNotEmpty) {
-              double dayAmount = 0;
-              int dayBills = snapshot.docs.length;
+            for (var doc in snapshot.docs) {
+              final data = doc.data();
+              final items = data['items'] as List<dynamic>? ?? [];
 
-              for (var doc in snapshot.docs) {
-                final data = doc.data();
-                final subTotal = (data['subTotal'] ?? 0).toDouble();
-                dayAmount += subTotal;
+              // Process each item in the bill
+              for (var item in items) {
+                final itemName = item['name'] as String? ?? 'Unknown';
+                final quantity = (item['quantity'] ?? 0).toDouble();
+                final price = (item['price'] ?? 0).toDouble();
+                final amount = quantity * price;
+
+                if (itemsMap.containsKey(itemName)) {
+                  itemsMap[itemName]!['quantity'] += quantity;
+                  itemsMap[itemName]!['amount'] += amount;
+                } else {
+                  itemsMap[itemName] = {
+                    'name': itemName,
+                    'quantity': quantity,
+                    'amount': amount,
+                  };
+                }
               }
-
-              datesMap[dateStr] = {
-                'date': dateStr,
-                'totalBills': dayBills,
-                'amount': dayAmount,
-              };
-
-              totalAmount += dayAmount;
-              totalBills += dayBills;
             }
           } catch (e) {
             print('Error fetching date $dateStr: $e');
@@ -460,11 +385,21 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
         }
       }
 
-      dateData = datesMap.values.toList();
-      dateData.sort((a, b) => b['date'].compareTo(a['date']));
+      // Convert map to list
+      itemsData = itemsMap.values.toList();
+
+      // Calculate totals
+      for (var item in itemsData) {
+        totalQuantity += item['quantity'];
+        totalAmount += item['amount'];
+      }
+
+      // Sort by amount descending
+      itemsData.sort(
+          (a, b) => (b['amount'] as double).compareTo(a['amount'] as double));
     } catch (e) {
       if (mounted) {
-        print('Error fetching date data: $e');
+        print('Error fetching items data: $e');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error fetching data: $e')),
         );
@@ -518,96 +453,71 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
         DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now()),
         styles: const PosStyles(align: PosAlign.center),
       );
-      bytes += generator.text("-" * 48,
-          styles: const PosStyles(align: PosAlign.center));
-
-      bytes += generator.text('Sales Summary',
-          styles: const PosStyles(align: PosAlign.left, bold: true));
-      bytes += generator.text("-" * 48,
+      bytes += generator.text('Item Wise Sales Report',
+          styles: const PosStyles(align: PosAlign.center, bold: true));
+      bytes += generator.text("-" * 32,
           styles: const PosStyles(align: PosAlign.center));
 
       bytes += generator.text(
-        'From : ${DateFormat('dd/MM/yy').format(fromDate!)}              To : ${DateFormat('dd/MM/yy').format(toDate!)}',
+        'From: ${DateFormat('dd/MM/yy').format(fromDate!)}     To: ${DateFormat('dd/MM/yy').format(toDate!)}',
         styles: const PosStyles(align: PosAlign.left),
       );
-      bytes += generator.text("-" * 48,
+      bytes += generator.text("-" * 32,
           styles: const PosStyles(align: PosAlign.center));
 
       // Table header
       bytes += generator.row([
-        PosColumn(text: 'Date', width: 6, styles: const PosStyles(bold: true)),
         PosColumn(
-            text: 'Qty',
-            width: 3,
-            styles: const PosStyles(bold: true, align: PosAlign.center)),
+            text: 'SR ITEM', width: 6, styles: const PosStyles(bold: true)),
+        PosColumn(text: 'QTY', width: 3, styles: const PosStyles(bold: true)),
         PosColumn(
-            text: 'Amount',
-            width: 3,
-            styles: const PosStyles(bold: true, align: PosAlign.right)),
+            text: 'AMOUNT', width: 3, styles: const PosStyles(bold: true)),
       ]);
-      bytes += generator.text("-" * 48,
+      bytes += generator.text("-" * 32,
           styles: const PosStyles(align: PosAlign.center));
 
-      // Date data
-      for (var date in dateData) {
-        String displayDate = '';
-        try {
-          final dateStr = date['date'] as String;
-          final year = dateStr.substring(0, 4);
-          final month = dateStr.substring(4, 6);
-          final day = dateStr.substring(6, 8);
-          displayDate = '$day/$month/${year.substring(2)}';
-        } catch (e) {
-          displayDate = date['date'].toString();
-        }
-
+      // Items data
+      for (int i = 0; i < itemsData.length; i++) {
+        final item = itemsData[i];
         bytes += generator.row([
-          PosColumn(text: displayDate, width: 6),
+          PosColumn(text: '${i + 1}  ${item['name']}', width: 6),
+          PosColumn(text: item['quantity'].toStringAsFixed(1), width: 3),
           PosColumn(
-              text: date['totalBills'].toString(),
-              width: 3,
-              styles: const PosStyles(align: PosAlign.center)),
-          PosColumn(
-              text: date['amount'].toStringAsFixed(2),
+              text: item['amount'].toStringAsFixed(2),
               width: 3,
               styles: const PosStyles(align: PosAlign.right)),
         ]);
       }
 
-      bytes += generator.text("-" * 48,
+      bytes += generator.text("-" * 32,
           styles: const PosStyles(align: PosAlign.center));
 
-      // Grand Total
+      // Total
       bytes += generator.row([
         PosColumn(
-            text: 'Grand Total', width: 6, styles: const PosStyles(bold: true)),
-        PosColumn(
-            text: totalBills.toString(),
-            width: 3,
-            styles: const PosStyles(bold: true, align: PosAlign.center)),
+            text:
+                'ITEM: ${itemsData.length} QTY: ${totalQuantity.toStringAsFixed(1)}',
+            width: 6,
+            styles: const PosStyles(bold: true)),
+        PosColumn(text: 'AMOUNT:', width: 3),
         PosColumn(
             text: totalAmount.toStringAsFixed(2),
             width: 3,
-            styles: const PosStyles(bold: true, align: PosAlign.right)),
+            styles: const PosStyles(align: PosAlign.right, bold: true)),
       ]);
-      bytes += generator.text("-" * 48,
+      bytes += generator.text("-" * 32,
           styles: const PosStyles(align: PosAlign.center));
 
-      // Payment Summary
-      bytes += generator.text('Payment Summary',
-          styles: const PosStyles(bold: true));
-      bytes += generator.text("-" * 48,
-          styles: const PosStyles(align: PosAlign.center));
-
+      bytes += generator.text('TOTAL AMOUNT',
+          styles: const PosStyles(align: PosAlign.left, bold: true));
       bytes += generator.row([
-        PosColumn(text: 'CASH', width: 9),
+        PosColumn(text: '', width: 6),
+        PosColumn(text: ':', width: 3),
         PosColumn(
             text: totalAmount.toStringAsFixed(2),
             width: 3,
-            styles: const PosStyles(align: PosAlign.right)),
+            styles: const PosStyles(align: PosAlign.right, bold: true)),
       ]);
-      bytes += generator.text("-" * 48,
-          styles: const PosStyles(align: PosAlign.center));
 
       bytes += generator.emptyLines(3);
       bytes += generator.cut();
@@ -637,12 +547,11 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
 
   Future<void> _downloadAndShareReport() async {
     print('=== PDF Generation Started ===');
-    print('Date data length: ${dateData.length}');
+    print('Items data length: ${itemsData.length}');
     print('Total amount: $totalAmount');
-    print('Total bills: $totalBills');
+    print('Total quantity: $totalQuantity');
 
-    // Check if data exists
-    if (dateData.isEmpty) {
+    if (itemsData.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
@@ -654,11 +563,12 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
     }
 
     try {
-      // Show loading indicator
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (context) => const Center(child: CircularProgressIndicator()),
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
       );
 
       // Fetch shop details from Firestore
@@ -670,7 +580,7 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
       try {
         final doc = await FirebaseFirestore.instance
             .collection('AllAdmins')
-            .doc(widget.uid)
+            .doc(widget.adminUid)
             .collection('customer')
             .doc(widget.uid)
             .get();
@@ -689,28 +599,77 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
         print('Error fetching shop details: $e');
       }
 
-      if (mounted) Navigator.of(context).pop();
+      final pdf = pw.Document();
 
-      // Generate PDF with callback function
-      await Printing.layoutPdf(
-        onLayout: (PdfPageFormat format) async {
-          final pdf = pw.Document();
+      // Prepare table data as strings
+      final List<List<String>> tableData = [];
+      for (int i = 0; i < itemsData.length; i++) {
+        final item = itemsData[i];
 
-          pdf.addPage(
-            pw.MultiPage(
-              pageFormat: format,
-              margin: const pw.EdgeInsets.all(20),
-              build: (pw.Context context) => [
+        String srNo = (i + 1).toString();
+        String itemName = item['name']?.toString() ?? '';
+        String quantity = '0.0';
+        String amount = '₹ 0.00';
+
+        try {
+          final qtyValue = item['quantity'];
+          if (qtyValue != null) {
+            quantity = double.parse(qtyValue.toString()).toStringAsFixed(1);
+          }
+        } catch (e) {
+          print('Error parsing quantity for item $i: $e');
+        }
+
+        try {
+          final amtValue = item['amount'];
+          if (amtValue != null) {
+            amount =
+                '₹ ${double.parse(amtValue.toString()).toStringAsFixed(2)}';
+          }
+        } catch (e) {
+          print('Error parsing amount for item $i: $e');
+        }
+
+        tableData.add([srNo, itemName, quantity, amount]);
+      }
+
+      // Convert totals to strings
+      String totalQtyStr = '0.0';
+      String totalAmtStr = '0.00';
+
+      try {
+        totalQtyStr = double.parse(totalQuantity.toString()).toStringAsFixed(1);
+      } catch (e) {
+        print('Error parsing total quantity: $e');
+      }
+
+      try {
+        totalAmtStr = double.parse(totalAmount.toString()).toStringAsFixed(2);
+      } catch (e) {
+        print('Error parsing total amount: $e');
+      }
+
+      // Build the PDF page
+      pdf.addPage(
+        pw.Page(
+          pageFormat: PdfPageFormat.a4,
+          margin: const pw.EdgeInsets.all(20),
+          build: (pw.Context pdfContext) {
+            return pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
                 // Shop Header
                 pw.Center(
                   child: pw.Text(
                     shopName,
                     style: pw.TextStyle(
-                        fontSize: 20, fontWeight: pw.FontWeight.bold),
+                      fontSize: 20,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
                   ),
                 ),
-                if (address.isNotEmpty) pw.SizedBox(height: 4),
-                if (address.isNotEmpty)
+                if (address.isNotEmpty) ...[
+                  pw.SizedBox(height: 4),
                   pw.Center(
                     child: pw.Text(
                       address,
@@ -718,22 +677,25 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
                       textAlign: pw.TextAlign.center,
                     ),
                   ),
-                if (contact.isNotEmpty) pw.SizedBox(height: 2),
-                if (contact.isNotEmpty)
+                ],
+                if (contact.isNotEmpty) ...[
+                  pw.SizedBox(height: 2),
                   pw.Center(
                     child: pw.Text(
                       'Contact: $contact',
                       style: const pw.TextStyle(fontSize: 10),
                     ),
                   ),
-                if (gstNo.isNotEmpty) pw.SizedBox(height: 2),
-                if (gstNo.isNotEmpty)
+                ],
+                if (gstNo.isNotEmpty) ...[
+                  pw.SizedBox(height: 2),
                   pw.Center(
                     child: pw.Text(
                       'GST: $gstNo',
                       style: const pw.TextStyle(fontSize: 10),
                     ),
                   ),
+                ],
 
                 pw.SizedBox(height: 10),
                 pw.Divider(thickness: 1),
@@ -748,9 +710,11 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
                 pw.SizedBox(height: 4),
                 pw.Center(
                   child: pw.Text(
-                    'Date Wise Sales Report',
+                    'Item Wise Sales Report',
                     style: pw.TextStyle(
-                        fontWeight: pw.FontWeight.bold, fontSize: 16),
+                      fontWeight: pw.FontWeight.bold,
+                      fontSize: 16,
+                    ),
                   ),
                 ),
 
@@ -761,49 +725,46 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
                   padding: const pw.EdgeInsets.all(8),
                   decoration: pw.BoxDecoration(
                     border: pw.Border.all(color: PdfColors.grey400),
-                    borderRadius:
-                        const pw.BorderRadius.all(pw.Radius.circular(4)),
+                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
                   ),
                   child: pw.Text(
                     'Period: ${DateFormat('dd/MM/yyyy').format(fromDate!)} to ${DateFormat('dd/MM/yyyy').format(toDate!)}',
                     style: pw.TextStyle(
-                        fontWeight: pw.FontWeight.bold, fontSize: 11),
+                      fontWeight: pw.FontWeight.bold,
+                      fontSize: 11,
+                    ),
                   ),
                 ),
 
                 pw.SizedBox(height: 12),
 
-                // Sales Table
+                // Items Table
                 pw.Table.fromTextArray(
+                  border: pw.TableBorder.all(
+                    color: PdfColors.grey600,
+                    width: 1,
+                  ),
                   headerStyle: pw.TextStyle(
-                      fontWeight: pw.FontWeight.bold, fontSize: 11),
-                  headerDecoration:
-                      const pw.BoxDecoration(color: PdfColors.grey300),
+                    fontSize: 11,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
                   cellStyle: const pw.TextStyle(fontSize: 10),
+                  headerDecoration: const pw.BoxDecoration(
+                    color: PdfColors.grey300,
+                  ),
+                  cellAlignment: pw.Alignment.centerLeft,
                   cellAlignments: {
-                    0: pw.Alignment.centerLeft,
-                    1: pw.Alignment.centerRight,
+                    0: pw.Alignment.center,
+                    1: pw.Alignment.centerLeft,
                     2: pw.Alignment.centerRight,
+                    3: pw.Alignment.centerRight,
                   },
-                  headers: ['Date', 'Total Bills', 'Amount'],
-                  data: dateData.map((date) {
-                    String displayDate = '';
-                    try {
-                      final dateStr = date['date'] as String;
-                      final year = dateStr.substring(0, 4);
-                      final month = dateStr.substring(4, 6);
-                      final day = dateStr.substring(6, 8);
-                      displayDate = '$day/$month/${year.substring(2)}';
-                    } catch (e) {
-                      displayDate = date['date'].toString();
-                    }
-
-                    return [
-                      displayDate,
-                      date['totalBills'].toString(),
-                      'Rs ${date['amount'].toStringAsFixed(2)}',
-                    ];
-                  }).toList(),
+                  headers: ['Sr.', 'Item Name', 'Quantity', 'Amount'],
+                  data: tableData,
+                  cellPadding: const pw.EdgeInsets.all(6),
+                  oddRowDecoration: const pw.BoxDecoration(
+                    color: PdfColors.grey100,
+                  ),
                 ),
 
                 pw.SizedBox(height: 12),
@@ -815,8 +776,7 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
                   padding: const pw.EdgeInsets.all(10),
                   decoration: const pw.BoxDecoration(
                     color: PdfColors.grey200,
-                    borderRadius:
-                        pw.BorderRadius.all(pw.Radius.circular(4)),
+                    borderRadius: pw.BorderRadius.all(pw.Radius.circular(4)),
                   ),
                   child: pw.Column(
                     children: [
@@ -824,14 +784,18 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
                         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                         children: [
                           pw.Text(
-                            'Total Days: ${dateData.length}',
+                            'Total Items: ${itemsData.length}',
                             style: pw.TextStyle(
-                                fontWeight: pw.FontWeight.bold, fontSize: 11),
+                              fontWeight: pw.FontWeight.bold,
+                              fontSize: 11,
+                            ),
                           ),
                           pw.Text(
-                            'Total Bills: $totalBills',
+                            'Total Quantity: $totalQtyStr',
                             style: pw.TextStyle(
-                                fontWeight: pw.FontWeight.bold, fontSize: 11),
+                              fontWeight: pw.FontWeight.bold,
+                              fontSize: 11,
+                            ),
                           ),
                         ],
                       ),
@@ -844,10 +808,12 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
                           pw.Text(
                             'Grand Total: ',
                             style: pw.TextStyle(
-                                fontWeight: pw.FontWeight.bold, fontSize: 14),
+                              fontWeight: pw.FontWeight.bold,
+                              fontSize: 14,
+                            ),
                           ),
                           pw.Text(
-                            'Rs ${totalAmount.toStringAsFixed(2)}',
+                            '₹ $totalAmtStr',
                             style: pw.TextStyle(
                               fontWeight: pw.FontWeight.bold,
                               fontSize: 16,
@@ -860,67 +826,58 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
                   ),
                 ),
 
-                pw.SizedBox(height: 12),
-
-                // Payment Summary Section
-                pw.Container(
-                  padding: const pw.EdgeInsets.all(10),
-                  decoration: pw.BoxDecoration(
-                    border: pw.Border.all(color: PdfColors.grey400),
-                    borderRadius:
-                        const pw.BorderRadius.all(pw.Radius.circular(4)),
-                  ),
-                  child: pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    children: [
-                      pw.Text(
-                        'Payment Summary',
-                        style: pw.TextStyle(
-                            fontWeight: pw.FontWeight.bold, fontSize: 12),
-                      ),
-                      pw.SizedBox(height: 6),
-                      pw.Divider(),
-                      pw.SizedBox(height: 6),
-                      pw.Row(
-                        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                        children: [
-                          pw.Text('CASH:',
-                              style: const pw.TextStyle(fontSize: 11)),
-                          pw.Text(
-                            'Rs ${totalAmount.toStringAsFixed(2)}',
-                            style: pw.TextStyle(
-                                fontWeight: pw.FontWeight.bold, fontSize: 11),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-
-                pw.SizedBox(height: 20),
+                pw.Spacer(),
 
                 // Footer
                 pw.Center(
                   child: pw.Text(
                     'Generated by POS System',
                     style: const pw.TextStyle(
-                        fontSize: 8, color: PdfColors.grey600),
+                      fontSize: 8,
+                      color: PdfColors.grey600,
+                    ),
                   ),
                 ),
               ],
-            ),
-          );
+            );
+          },
+        ),
+      );
 
-          return pdf.save();
-        },
-        name:
-            'DatewiseReport_${DateFormat('ddMMyyyy_HHmmss').format(DateTime.now())}.pdf',
+      // Generate PDF bytes
+      final pdfBytes = await pdf.save();
+      print('PDF bytes generated: ${pdfBytes.length}');
+
+      // Save to file
+      final String fileName =
+          'ItemwiseReport_${DateFormat('ddMMyyyy_HHmmss').format(DateTime.now())}.pdf';
+
+      // Get temporary directory
+      final Directory tempDir = await getTemporaryDirectory();
+      final String filePath = '${tempDir.path}/$fileName';
+      final File file = File(filePath);
+
+      // Write PDF to file
+      await file.writeAsBytes(pdfBytes);
+      print('PDF saved to: $filePath');
+
+      // Close loading dialog
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+
+      // Share the file
+      await Share.shareXFiles(
+        [XFile(filePath)],
+        subject: 'Item Wise Sales Report',
+        text:
+            'Report for period: ${DateFormat('dd/MM/yyyy').format(fromDate!)} to ${DateFormat('dd/MM/yyyy').format(toDate!)}',
       );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('PDF generated successfully!'),
+            content: Text('PDF generated and ready to share!'),
             backgroundColor: Colors.green,
             duration: Duration(seconds: 2),
           ),

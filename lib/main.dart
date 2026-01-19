@@ -6,13 +6,15 @@ import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:hive_flutter/adapters.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:pos/data/providers/admin_uid_provider.dart';
+import 'package:pos/data/providers/order_type_provider.dart';
+
 import 'package:provider/provider.dart';
 
 // Project imports:
 import 'package:pos/data/datasources/database_service.dart';
 import 'package:pos/data/datasources/unified_database_service.dart';
-import 'package:pos/view/home/print_provider.dart';
-import 'package:pos/view/home/providers/admin_uid_provider.dart';
+import 'package:pos/data/providers/print_provider.dart';
 import 'package:pos/view/login/providers/login_provider.dart';
 import 'package:pos/view/login/screens/splash_screen.dart';
 
@@ -26,6 +28,9 @@ void main() async {
   await Firebase.initializeApp();
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+    DeviceOrientation.landscapeLeft,
+    DeviceOrientation.landscapeRight,
   ]);
   runApp(const MyApp());
 }
@@ -49,7 +54,7 @@ class MyApp extends StatelessWidget {
           },
           dispose: (_, service) => service.close(),
         ),
-        
+
         // Application state providers
         // These providers manage UI state and user session data
         ChangeNotifierProvider(
@@ -61,14 +66,13 @@ class MyApp extends StatelessWidget {
         ),
         ChangeNotifierProvider(create: (_) => AdminUidProvider()),
         ChangeNotifierProvider(create: (_) => PrintProvider()),
+        ChangeNotifierProvider(create: (_) => OrderTypeProvider()),
       ],
       child: const MaterialApp(
         title: 'POS',
-        // theme: ThemeData(
-        //   colorScheme: ColorScheme.fromSeed(seedColor: Colors.white),
-        //   useMaterial3: true,
-        // ),
+      
         home: SplashScreen(),
+      
         debugShowCheckedModeBanner: false,
       ),
     );

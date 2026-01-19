@@ -34,6 +34,7 @@ class CustomerDatabase {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
         phone TEXT NOT NULL,
+        address TEXT,
         gstNo TEXT,
         createdAt TEXT NOT NULL,
         isUploaded INTEGER NOT NULL DEFAULT 0

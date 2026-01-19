@@ -7,6 +7,8 @@ import 'package:flutter/material.dart';
 // Package imports:
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:pos/data/providers/order_type_provider.dart';
+import 'package:pos/view/home/widgets/my_choiceChip.dart';
 import 'package:provider/provider.dart';
 
 // Project imports:
@@ -17,10 +19,9 @@ import '../../tab_screen/view-model/constants/constants.dart';
 import '../../tab_screen/view-model/widgets/printers/printer.dart';
 import '../../tab_screen/view-model/widgets/table/table_number_bottom_sheet.dart';
 import '../navigation.dart';
-import '../print_provider.dart';
+import '../../../data/providers/print_provider.dart';
 import '../printer_connectionDialog.dart';
 import '../receipt_preview.dart';
-
 
 /// Reusable Bill Cart Widget
 /// Can be used across multiple pages for consistent cart functionality
@@ -91,6 +92,7 @@ class _BillCartState extends State<BillCart> {
     String shopName = 'N/A';
     String contact = 'N/A';
     String address = 'N/A';
+    String logoUrl = '';
 
     try {
       // First try to get from local SQLite
@@ -100,6 +102,7 @@ class _BillCartState extends State<BillCart> {
         shopName = localData['shopName'] ?? 'N/A';
         contact = localData['shopContact'] ?? 'N/A';
         address = localData['address'] ?? 'N/A';
+        logoUrl = localData['shopLogoUrl'] ?? '';
         debugPrint('Shop data loaded from local cache');
       } else {
         // Not found locally, fetch from Firebase
@@ -143,6 +146,7 @@ class _BillCartState extends State<BillCart> {
       'shopName': shopName,
       'contact': contact,
       'address': address,
+      'logoUrl': logoUrl,
     };
   }
 
@@ -174,7 +178,7 @@ class _BillCartState extends State<BillCart> {
       double cgstAmount = 0.0;
       double sgstAmount = 0.0;
       double totalWithTax = subTotal;
-      
+
       if (taxEnabled) {
         cgstAmount = subTotal * (cgstPercent / 100);
         sgstAmount = subTotal * (sgstPercent / 100);
@@ -227,8 +231,7 @@ class _BillCartState extends State<BillCart> {
   }
 
   Future<void> _showTableNumberBottomSheet(BuildContext parentContext) async {
-    final printProvider =
-        Provider.of<PrintProvider>(parentContext, listen: false);
+    final printProvider = Provider.of<PrintProvider>(parentContext, listen: false);
 
     final tableNumber = await TableNumberBottomSheet.show(
       context: parentContext,
@@ -236,9 +239,7 @@ class _BillCartState extends State<BillCart> {
       confirmButtonText: 'Print Receipt',
     );
 
-    if (tableNumber == null || !mounted) {
-      return; // User cancelled or widget unmounted
-    }
+    if (tableNumber == null || !mounted) return; // User cancelled or widget unmounted
 
     // Show loading dialog
     showDialog(
@@ -251,6 +252,11 @@ class _BillCartState extends State<BillCart> {
       // Generate sequential receipt number (returns 8-digit padded string like "00000001")
       String generatedReceiptNo = await _sqliteHelper.getNextReceiptNumber(widget.phoneNo);
 
+      // Get tax parameters (already have default values in PrintProvider)
+      final bool taxEnabled = printProvider.taxEnabled;
+      final double cgstPercent = printProvider.cgstPercent;
+      final double sgstPercent = printProvider.sgstPercent;
+
       // Save bill
       await saveBill(
         adminUid: widget.phoneNo,
@@ -258,9 +264,9 @@ class _BillCartState extends State<BillCart> {
         items: selectedItemsDetails,
         subTotal: subtotal,
         tableNumber: tableNumber,
-        taxEnabled: printProvider.taxEnabled,
-        cgstPercent: printProvider.cgstPercent,
-        sgstPercent: printProvider.sgstPercent,
+        taxEnabled: taxEnabled,
+        cgstPercent: cgstPercent,
+        sgstPercent: sgstPercent,
       );
 
       // Fetch shop data (local-first)
@@ -268,6 +274,7 @@ class _BillCartState extends State<BillCart> {
       String shopName = shopData['shopName']!;
       String contact = shopData['contact']!;
       String address = shopData['address']!;
+      String logoUrl = shopData['logoUrl']!;
 
       if (!mounted) return;
       Navigator.pop(parentContext);
@@ -283,6 +290,7 @@ class _BillCartState extends State<BillCart> {
         shopName: shopName,
         contact: contact,
         address: address,
+        logoUrl: logoUrl,
         tableNumber: tableNumber,
         receiptNo: generatedReceiptNo, // Pass the already-saved receipt number
         taxEnabled: printProvider.taxEnabled,
@@ -307,110 +315,6 @@ class _BillCartState extends State<BillCart> {
       ScaffoldMessenger.of(parentContext).showSnackBar(
         SnackBar(
           content: Text('Printing failed: $e'),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 3),
-        ),
-      );
-    }
-  }
-
-  // Future<void> _showSaveOrderBottomSheet() {
-  //   return widget.orderBottomSheet.call();
-  // }
-
-  Future<void> _handleSaveWithoutPrint() async {
-    bool? confirmed = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: const Row(
-            children: [
-              Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
-              SizedBox(width: 12),
-              Text('Confirm Action',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            ],
-          ),
-          content: const Text(
-            'Are you sure you want to save this bill without printing?',
-            style: TextStyle(fontSize: 16),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              style: TextButton.styleFrom(foregroundColor: Colors.grey[700]),
-              child: const Text('Cancel', style: TextStyle(fontSize: 16)),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: appbar1,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8)),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              ),
-              child: const Text('Yes, Save',
-                  style: TextStyle(fontSize: 16, color: Colors.white)),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (confirmed != true || !mounted) return;
-
-    final printProvider = Provider.of<PrintProvider>(context, listen: false);
-
-    // Generate sequential receipt number (returns 8-digit padded string like "00000001")
-    String generatedReceiptNo = await _sqliteHelper.getNextReceiptNumber(widget.phoneNo);
-
-    try {
-      await saveBill(
-        adminUid: widget.phoneNo,
-        receiptNo: generatedReceiptNo,
-        items: selectedItemsDetails,
-        subTotal: subtotal,
-        taxEnabled: printProvider.taxEnabled,
-        cgstPercent: printProvider.cgstPercent,
-        sgstPercent: printProvider.sgstPercent,
-      );
-
-      if (!mounted) return;
-      final isOnline = _databaseService.isOnline;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              Icon(
-                isOnline ? Icons.cloud_done : Icons.cloud_off,
-                color: Colors.white,
-                size: 20,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  isOnline
-                      ? 'Bill saved! Receipt No: $generatedReceiptNo'
-                      : 'Bill saved offline! Receipt No: $generatedReceiptNo (will sync when online)',
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: Colors.green,
-          duration: const Duration(seconds: 3),
-        ),
-      );
-      _clearCart();
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to save bill: $e'),
           backgroundColor: Colors.red,
           duration: const Duration(seconds: 3),
         ),
@@ -464,6 +368,7 @@ class _BillCartState extends State<BillCart> {
   Future<void> _handlePrint() async {
     final printProvider = Provider.of<PrintProvider>(context, listen: false);
 
+
     if (!printProvider.isConnected || printProvider.selectedPrinter == null) {
       showDialog(
         context: context,
@@ -500,15 +405,20 @@ class _BillCartState extends State<BillCart> {
       // Generate sequential receipt number (returns 8-digit padded string like "00000001")
       String generatedReceiptNo = await _sqliteHelper.getNextReceiptNumber(widget.phoneNo);
 
+      // Get tax parameters (already have default values in PrintProvider)
+      final bool taxEnabled = printProvider.taxEnabled;
+      final double cgstPercent = printProvider.cgstPercent;
+      final double sgstPercent = printProvider.sgstPercent;
+
       // Save bill to local database (and Firebase if online)
       await saveBill(
         adminUid: widget.phoneNo,
         receiptNo: generatedReceiptNo,
         items: selectedItemsDetails,
         subTotal: subtotal,
-        taxEnabled: printProvider.taxEnabled,
-        cgstPercent: printProvider.cgstPercent,
-        sgstPercent: printProvider.sgstPercent,
+        taxEnabled: taxEnabled,
+        cgstPercent: cgstPercent,
+        sgstPercent: sgstPercent,
       );
 
       // Fetch shop data (local-first)
@@ -516,6 +426,7 @@ class _BillCartState extends State<BillCart> {
       String shopName = shopData['shopName']!;
       String contact = shopData['contact']!;
       String address = shopData['address']!;
+      String logoUrl = shopData['logoUrl']!;
 
       if (!mounted) return;
       Navigator.pop(context);
@@ -530,6 +441,7 @@ class _BillCartState extends State<BillCart> {
         shopName: shopName,
         contact: contact,
         address: address,
+        logoUrl: logoUrl,
         receiptNo: generatedReceiptNo, // Pass the already-saved receipt number
         taxEnabled: printProvider.taxEnabled,
         cgstPercent: printProvider.cgstPercent,
@@ -587,26 +499,10 @@ class _BillCartState extends State<BillCart> {
         subtotal = printProvider.total;
 
         return Container(
-          margin: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            gradient: LinearGradient(
-              colors: [Colors.white, Colors.grey[50]!],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.grey.withOpacity(0.3),
-                spreadRadius: 2,
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              )
-            ],
-          ),
+          color: white,
+          margin: const EdgeInsets.only(top: 5, bottom: 5),
           child: Column(
             children: [
-              _buildHeader(printProvider),
               _buildItemsList(printProvider),
               _buildFooter(printProvider),
             ],
@@ -616,61 +512,352 @@ class _BillCartState extends State<BillCart> {
     );
   }
 
-  Widget _buildHeader(PrintProvider printProvider) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: primaryColor.withOpacity(0.1),
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(20),
-          topRight: Radius.circular(20),
-        ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          const Row(
+  Future<void> _handleSaveWithoutPrint() async {
+    bool? confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Row(
             children: [
-              Icon(Icons.shopping_cart_outlined, color: primaryColor, size: 20),
-              Text(
-                ' My Cart',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontFamily: 'tabfont',
-                  fontWeight: FontWeight.bold,
-                  color: primaryColor,
+              Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
+              SizedBox(width: 12),
+              Text('Confirm Action', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: const Text(
+            'Are you sure you want to save this bill without printing?',
+            style: TextStyle(fontSize: 16),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              style: TextButton.styleFrom(foregroundColor: Colors.grey[700]),
+              child: const Text('Cancel', style: TextStyle(fontSize: 16)),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: appbar1,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+              child: const Text('Yes, Save', style: TextStyle(fontSize: 16, color: Colors.white)),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    final printProvider = Provider.of<PrintProvider>(context, listen: false);
+
+    // Generate sequential receipt number (returns 8-digit padded string like "00000001")
+    String generatedReceiptNo = await _sqliteHelper.getNextReceiptNumber(widget.phoneNo);
+
+    try {
+      // Get tax parameters (already have default values in PrintProvider)
+      final bool taxEnabled = printProvider.taxEnabled;
+      final double cgstPercent = printProvider.cgstPercent;
+      final double sgstPercent = printProvider.sgstPercent;
+
+      await saveBill(
+        adminUid: widget.phoneNo,
+        receiptNo: generatedReceiptNo,
+        items: selectedItemsDetails,
+        subTotal: subtotal,
+        taxEnabled: taxEnabled,
+        cgstPercent: cgstPercent,
+        sgstPercent: sgstPercent,
+      );
+
+      if (!mounted) return;
+      final isOnline = _databaseService.isOnline;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Icon(
+                isOnline ? Icons.cloud_done : Icons.cloud_off,
+                color: Colors.white,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  isOnline
+                      ? 'Bill saved! Receipt No: $generatedReceiptNo'
+                      : 'Bill saved offline! Receipt No: $generatedReceiptNo (will sync when online)',
                 ),
               ),
             ],
           ),
-          Row(
-            children: [
-              //restaurent page enable and not full screen - hide items count when restaurant screen and not fullscreen
-              // Show items count for productDashBoard and calculator_screen (when isRestaurantScreen is null or false)
-              if (!(widget.isRestaurantScreen == true &&
-                  widget.isContainerVisible == true))
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: primaryColor,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    '${selectedItemsDetails.length} Items',
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+      _clearCart();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to save bill: $e'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
+  Widget _buildItemsList(PrintProvider printProvider) {
+    return SizedBox(
+      height: 120,
+      child: ListView.builder(
+        controller: _listScrollController,
+        itemCount: selectedItemsDetails.length,
+        itemBuilder: (context, index) {
+          return _buildCartItem(index, printProvider);
+        },
+      ),
+    );
+  }
+
+  Widget _buildCartItem(int index, PrintProvider printProvider) {
+    final item = selectedItemsDetails[index];
+
+    return Table(
+      columnWidths: const {
+        0: FlexColumnWidth(3),
+        1: FlexColumnWidth(2),
+        2: FlexColumnWidth(1),
+      },
+      defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+      children: [
+        TableRow(
+          children: [
+            /// Item Name
+            Padding(
+              padding: const EdgeInsets.only(
+                left: 8,
+                top: 5,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item['name'],
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
+                      fontSize: 14.5,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
+                  Text(
+                    "₹${item['price']} × ${item['quantity']}",
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Colors.black54,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  if (item['addons'] != null && item['addons'].isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 7),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: (item['addons'] as List).map((a) {
+                          return Text(
+                            "${a['name']} (${a['price']} ₹)",
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.black54,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+
+            /// Quantity Buttons
+            _buildQuantityControls(index, printProvider),
+
+            /// Delete Button
+            Center(
+              child: _buildDeleteButton(index, printProvider),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildQuantityControls(int index, PrintProvider printProvider) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: GestureDetector(
+              onTap: () {
+                setState(() {
+                  if (selectedItemsDetails[index]['quantity'] > 1) {
+                    selectedItemsDetails[index]['quantity']--;
+                    subtotal -= selectedItemsDetails[index]['price'];
+                  } else {
+                    subtotal -= selectedItemsDetails[index]['price'];
+                    selectedItemsDetails.removeAt(index);
+                  }
+                  _updateCart();
+                });
+              },
+              child: Container(
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(color: appbar1, borderRadius: BorderRadius.circular(5)),
+                child: const Icon(Icons.remove, color: white, size: 25),
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 2,
+            child: Center(
+              child: Text(
+                "${selectedItemsDetails[index]['quantity']}",
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.black,
                 ),
-              const SizedBox(width: 10),
+              ),
+            ),
+          ),
+          Expanded(
+            child: GestureDetector(
+              onTap: () {
+                setState(() {
+                  selectedItemsDetails[index]['quantity']++;
+                  subtotal += selectedItemsDetails[index]['price'];
+                  _updateCart();
+                });
+              },
+              child: Container(
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(color: appbar1, borderRadius: BorderRadius.circular(5)),
+                child: const Icon(Icons.add, color: white, size: 25),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDeleteButton(int index, PrintProvider printProvider) {
+    return InkWell(
+      onTap: () {
+        setState(() {
+          subtotal -= selectedItemsDetails[index]['price'] * selectedItemsDetails[index]['quantity'];
+          selectedItemsDetails.removeAt(index);
+          _updateCart();
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.all(5),
+        decoration: BoxDecoration(
+          color: Colors.red.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(5),
+        ),
+        child: const Icon(Icons.delete, color: Colors.red, size: 22),
+      ),
+    );
+  }
+
+  Widget _buildFooter(PrintProvider printProvider) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 15.0, vertical: 8),
+      color: Colors.grey.shade200,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                decoration: BoxDecoration(
+                  color: primaryColor,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '${selectedItemsDetails.length} Items',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const Spacer(),
+              Text(
+                'Grand Total :',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[600],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(
+                width: 10,
+              ),
+              Text(
+                "₹${numberFormat.format(subtotal)}",
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          Consumer<OrderTypeProvider>(
+            builder: (context, provider, _) {
+              return MyChoiceChip(
+                options: const ['Cash', 'UPI', 'Debit', 'Complementory'],
+                selectedValue: provider.paymentType == PaymentType.cash
+                    ? 'Cash'
+                    : provider.paymentType == PaymentType.upi
+                        ? "UPI"
+                        : provider.paymentType == PaymentType.debit
+                            ? "Debit"
+                            : "Complementory",
+                onSelected: (value) {
+                  provider.setPaymentType(
+                    value == 'Cash'
+                        ? PaymentType.cash
+                        : value == 'UPI'
+                            ? PaymentType.upi
+                            : value == 'Debit'
+                                ? PaymentType.debit
+                                : PaymentType.complementory,
+                  );
+                },
+              );
+            },
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
               _buildIconButton(
-                icon: MdiIcons.tableChair,
+                icon: Icons.table_bar,
                 onPressed: () async {
-                  if (!printProvider.isConnected ||
-                      printProvider.selectedPrinter == null) {
+                  if (!printProvider.isConnected || printProvider.selectedPrinter == null) {
                     showDialog(
                       context: context,
                       builder: (context) => const PrinterConnectionDialog(),
@@ -699,11 +886,10 @@ class _BillCartState extends State<BillCart> {
                   await _showTableNumberBottomSheet(context);
                 },
               ),
-              const SizedBox(width: 8),
-              _buildIconButton(
-                icon: MdiIcons.printerOff,
-                onPressed: _handleSaveWithoutPrint,
-              ),
+              _buildIconButton(icon: Icons.person, onPressed: () => widget.orderBottomSheet.call()),
+              _buildIconButton(imagePath: "assets/images/kot2.png", onPressed: () {}),
+              _buildIconButton(imagePath: "assets/images/save.png", onPressed: _handlePreview),
+              _buildIconButton(imagePath: "assets/images/save2.png", onPressed: _handlePrint),
             ],
           ),
         ],
@@ -711,306 +897,57 @@ class _BillCartState extends State<BillCart> {
     );
   }
 
-  Widget _buildItemsList(PrintProvider printProvider) {
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.15,
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: ListView.builder(
-        controller: _listScrollController,
-        itemCount: selectedItemsDetails.length,
-        itemBuilder: (context, index) {
-          return _buildCartItem(index, printProvider);
-        },
-      ),
-    );
-  }
+  Widget _buildIconButton({
+    IconData? icon,
+    String? imagePath,
+    required VoidCallback onPressed,
+    double size = 35,
+  }) {
+    assert(icon != null || imagePath != null);
 
-  Widget _buildCartItem(int index, PrintProvider printProvider) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: appbar1,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.withOpacity(0.2)),
       ),
-      child: Row(
-        children: [
-          Container(
-            width: 4,
-            height: 40,
-            decoration: BoxDecoration(
-              color: appbar1,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  selectedItemsDetails[index]['name'],
-                  style: const TextStyle(
-                    overflow: TextOverflow.ellipsis,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87,
-                  ),
+      child: GestureDetector(
+        onTap: onPressed,
+        child: Center(
+          child: icon != null
+              ? Icon(
+                  icon,
+                  size: size,
+                  color: Colors.white,
+                )
+              : Image.asset(
+                  imagePath!,
+                  width: size,
+                  height: size,
+                  fit: BoxFit.contain,
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  '₹${selectedItemsDetails[index]['price']} × ${selectedItemsDetails[index]['quantity']}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[600],
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          _buildQuantityControls(index, printProvider),
-          const SizedBox(width: 8),
-          _buildDeleteButton(index, printProvider),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildQuantityControls(int index, PrintProvider printProvider) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.grey[100],
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        children: [
-          InkWell(
-            onTap: () {
-              setState(() {
-                if (selectedItemsDetails[index]['quantity'] > 1) {
-                  selectedItemsDetails[index]['quantity']--;
-                  subtotal -= selectedItemsDetails[index]['price'];
-                } else {
-                  subtotal -= selectedItemsDetails[index]['price'];
-                  selectedItemsDetails.removeAt(index);
-                }
-                _updateCart();
-              });
-            },
-            child: Container(
-              color: appbar1,
-              padding: const EdgeInsets.all(4),
-              child: const Icon(Icons.remove, color: white, size: 28),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Text(
-              "${selectedItemsDetails[index]['quantity']}",
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.black,
-              ),
-            ),
-          ),
-          InkWell(
-            onTap: () {
-              setState(() {
-                selectedItemsDetails[index]['quantity']++;
-                subtotal += selectedItemsDetails[index]['price'];
-                _updateCart();
-              });
-            },
-            child: Container(
-              color: appbar1,
-              padding: const EdgeInsets.all(4),
-              child: const Icon(Icons.add, color: white, size: 28),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDeleteButton(int index, PrintProvider printProvider) {
-    return InkWell(
-      onTap: () {
-        setState(() {
-          subtotal -= selectedItemsDetails[index]['price'] *
-              selectedItemsDetails[index]['quantity'];
-          selectedItemsDetails.removeAt(index);
-          _updateCart();
-        });
-      },
-      child: Container(
-        padding: const EdgeInsets.all(6),
-        decoration: BoxDecoration(
-          color: Colors.red.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: const Icon(Icons.delete_outline, color: Colors.red, size: 28),
-      ),
-    );
-  }
-
-  Widget _buildFooter(PrintProvider printProvider) {
-    // Check if we should show compact view (restaurant screen and not fullscreen)
-    // Compact view: only amount, no "Total Amount" label
-    // Full view (productDashBoard, calculator_screen): show "Total Amount" label + amount
-    final bool isCompactView =
-        widget.isRestaurantScreen == true && widget.isContainerVisible == true;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.grey[100],
-        borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(20),
-          bottomRight: Radius.circular(20),
         ),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          // Show only amount when compact view, otherwise show label + amount
-          if (isCompactView)
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                 Text(
-                  'Amount',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[600],
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                Text(
-                  "₹$subtotal",
-                  style: const TextStyle(
-                    fontSize: 20,
-                    color: Colors.black,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            )
-          else
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Total Amount',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[600],
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                Text(
-                  "₹$subtotal",
-                  style: const TextStyle(
-                    fontSize: 20,
-                    color: Colors.black,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          Row(
-            children: [
-              _buildIconButton(
-                icon: Icons.receipt_long_outlined,
-                onPressed: _handlePreview,
-              ),
-              const SizedBox(width: 10),
-              _buildIconButton(
-                icon: Icons.bookmark_outline,
-                onPressed: () => widget.orderBottomSheet.call(),
-              ),
-              const SizedBox(width: 10),
-              _buildPrintButton(printProvider),
-            ],
-          ),
-        ],
-      ),
     );
   }
 
-  Widget _buildIconButton(
-      {required IconData icon, required VoidCallback onPressed}) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.3),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          )
-        ],
-      ),
-      child: IconButton(
-        icon: Icon(icon, color: appbar1, size: 24),
-        onPressed: onPressed,
-      ),
-    );
-  }
-
-  Widget _buildPrintButton(PrintProvider printProvider) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [appbar1, appbar1.withOpacity(0.8)],
-        ),
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: appbar1.withOpacity(0.4),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          )
-        ],
-      ),
-      child: IconButton(
-        icon: Icon(
-          Icons.print,
-          color: printProvider.isConnected ? Colors.green : Colors.white,
-          size: 24,
-        ),
-        onPressed: _handlePrint,
-      ),
-    );
-  }
+  // Widget _buildIconButton({required IconData icon, required VoidCallback onPressed}) {
+  //   return Container(
+  //     decoration: BoxDecoration(
+  //       color: Colors.white,
+  //       borderRadius: BorderRadius.circular(12),
+  //       boxShadow: [
+  //         BoxShadow(
+  //           color: Colors.grey.withOpacity(0.3),
+  //           blurRadius: 4,
+  //           offset: const Offset(0, 2),
+  //         )
+  //       ],
+  //     ),
+  //     child: IconButton(
+  //       icon: Icon(icon, color: appbar1, size: 24),
+  //       onPressed: onPressed,
+  //     ),
+  //   );
+  // }
 }
-
-// Usage Example in your page:
-/*
-class YourPage extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Column(
-        children: [
-          // Your other widgets
-          BillCartWidget(
-            adminUid: 'your_admin_uid',
-            phoneNo: 'your_phone_no',
-            onCartCleared: () {
-              print('Cart cleared!');
-            },
-            onCartUpdated: (items, total) {
-              print('Cart updated: $total');
-            },
-          ),
-        ],
-      ),
-    );
-  }
-}
-*/

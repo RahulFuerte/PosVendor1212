@@ -9,7 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
 // Project imports:
-import 'package:pos/view/home/print_provider.dart';
+import 'package:pos/data/providers/print_provider.dart';
 import 'package:pos/view/home/productDashBoard.dart';
 import 'package:pos/view/tab_screen/view-model/backend/database_service.dart';
 
