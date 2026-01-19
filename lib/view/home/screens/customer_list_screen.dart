@@ -136,7 +136,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
       for (var customer in notUploadedCustomers) {
         try {
           // Generate receipt number
-          final receiptNo = 'RCP${DateTime.now().millisecondsSinceEpoch}';
+    
 
           // Create customer data
           final customerData = {

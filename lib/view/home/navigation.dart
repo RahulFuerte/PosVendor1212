@@ -3,7 +3,7 @@ import 'package:pos/view/home/productDashBoard.dart';
 
 import 'screens/calculator_screen.dart';
 import 'screens/restaurant_screen.dart';
-import 'screens/search_receipt_screen.dart';
+// import 'screens/search_receipt_screen.dart';
 
 Color appbar1 = const Color.fromARGB(255, 12, 107, 15);
 

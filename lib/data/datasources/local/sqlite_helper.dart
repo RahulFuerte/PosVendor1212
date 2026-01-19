@@ -1,5 +1,5 @@
 // Package imports:
-import 'dart:convert';
+
 
 import 'package:path/path.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -821,7 +821,7 @@ class SQLiteHelper {
   Future<void> performInitialDataMigration() async {
     try {
       final myPrefs = MySharedPreferences();
-      String adminUid = await myPrefs.uID ?? '';
+      String adminUid = await myPrefs.uID;
       final prefs = await SharedPreferences.getInstance();
       // If no UID found, try to get current user UID and save it
       if (adminUid.isEmpty) {
