@@ -644,7 +644,7 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                 children: [
                   Container(
                     height: 50,
-                    margin: EdgeInsets.symmetric(vertical: 5, horizontal: 10),
+                    margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 10),
                     width: double.infinity,
                     child: const OrderTypeSelector(),
                   ),
@@ -657,7 +657,7 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                             child: Container(
                               decoration:
                                   const BoxDecoration(color: Colors.white),
-                              padding: EdgeInsets.only(left: 5),
+                              padding: const EdgeInsets.only(left: 5),
                               child: FutureBuilder<List<Map<String, dynamic>>>(
                                 future: foodDepartmentsFuture,
                                 builder: (context, snapshot) {

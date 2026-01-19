@@ -47,7 +47,7 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
         });
         
         // If online, also fetch from Firebase to update local cache
-        if (await _connectionMonitor.isConnected) {
+        if (_connectionMonitor.isConnected) {
           await _fetchCustomersFromFirebaseAndCache();
         }
       } else {
@@ -155,7 +155,7 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
       developer.log('Calculated date range: $startDt to $endDt', name: 'CustomerWiseReport');
       
       // Check connection status
-      final isConnected = await _connectionMonitor.isConnected;
+      final isConnected = _connectionMonitor.isConnected;
       developer.log('Connection status: $isConnected', name: 'CustomerWiseReport');
       
       // First try local database (LOCAL-FIRST STRATEGY)
@@ -263,14 +263,14 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
       }).toList();
       
       developer.log('Filtered bills for customer $customerPhone: ${filteredBills.length}', name: 'CustomerWiseReport');
-      filteredBills.forEach((bill) {
+      for (var bill in filteredBills) {
         developer.log('- Bill data: $bill', name: 'CustomerWiseReport');
         developer.log('  - customer_phone: ${bill['customer_phone']}', name: 'CustomerWiseReport');
         developer.log('  - total_amount: ${bill['total_amount']}', name: 'CustomerWiseReport');
         developer.log('  - final_total: ${bill['final_total']}', name: 'CustomerWiseReport');
         developer.log('  - payment_type: ${bill['payment_type']}', name: 'CustomerWiseReport');
         developer.log('  - amount fields: total_amount=${bill['total_amount']}, final_total=${bill['final_total']}, finalTotal=${bill['finalTotal']}, totalAmount=${bill['totalAmount']}', name: 'CustomerWiseReport');
-      });
+      }
       
       developer.log('COMPLETED local bill fetch', name: 'CustomerWiseReport');
       return filteredBills;

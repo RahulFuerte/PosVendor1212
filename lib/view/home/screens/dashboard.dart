@@ -24,15 +24,15 @@ class _DashboardState extends State<Dashboard> {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(30),
         ),
-        child: Icon(Icons.add_shopping_cart),
+        child: const Icon(Icons.add_shopping_cart),
       ),
       appBar: AppBar(
         elevation: 0,
         scrolledUnderElevation: 0,
         backgroundColor: Colors.white,
-        title: Column(
+        title: const Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
+          children: [
             Text(
               'User Name',
               style: TextStyle(color: Colors.black, fontWeight: FontWeight.w600, fontSize: 22),
@@ -49,7 +49,7 @@ class _DashboardState extends State<Dashboard> {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: Column(
           children: [
-            Row(
+            const Row(
               children: [
                 _InfoCard(
                   title: "Sales",
@@ -129,7 +129,7 @@ class _DashboardState extends State<Dashboard> {
                       ),
                       ListView(
                         shrinkWrap: true,
-                        physics: NeverScrollableScrollPhysics(),
+                        physics: const NeverScrollableScrollPhysics(),
                         children: const [
                           OrderTile(
                             bill: 7,
@@ -178,7 +178,7 @@ class _DashboardState extends State<Dashboard> {
                   )
                 : ListView(
                     shrinkWrap: true,
-                    physics: NeverScrollableScrollPhysics(),
+                    physics: const NeverScrollableScrollPhysics(),
                     children: const [
                       KOTTile(kotNo: 101, table: 'T1', items: 3),
                       KOTTile(kotNo: 102, table: 'T2', items: 5),
@@ -307,7 +307,7 @@ class OrderTile extends StatelessWidget {
           color: Colors.white,
           borderRadius: BorderRadius.circular(15),
           border: Border(left: BorderSide(color: typeColor, width: 5)),
-          boxShadow: [BoxShadow(blurRadius: 2, spreadRadius: 3, color: Colors.grey.shade100, offset: Offset(0, 3))]),
+          boxShadow: [BoxShadow(blurRadius: 2, spreadRadius: 3, color: Colors.grey.shade100, offset: const Offset(0, 3))]),
       child: Row(
         children: [
           Expanded(
@@ -323,7 +323,7 @@ class OrderTile extends StatelessWidget {
                   ),
                   child: Text(
                     typeText,
-                    style: TextStyle(
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
@@ -334,7 +334,7 @@ class OrderTile extends StatelessWidget {
               const SizedBox(height: 6),
               Text(
                 'Token No. $token',
-                style: TextStyle(fontSize: 14),
+                style: const TextStyle(fontSize: 14),
               ),
               const SizedBox(height: 6),
               Text('$time${edited ? '  Edited' : ''}', style: const TextStyle(fontSize: 13, color: Colors.grey)),

@@ -365,7 +365,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                     children: [
                       Container(
                         height: 50,
-                        margin: EdgeInsets.symmetric(vertical: 5, horizontal: 10),
+                        margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 10),
                         width: double.infinity,
                         child: const OrderTypeSelector(),
                       ),

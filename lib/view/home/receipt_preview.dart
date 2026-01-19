@@ -161,7 +161,7 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
       }
     } catch (e) {
       developer.log('Error saving customer to Firebase: $e', name: 'CustomerWiseReport');
-      throw e; // Re-throw to handle at calling location
+      rethrow; // Re-throw to handle at calling location
     }
   }
 
@@ -708,9 +708,9 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
                                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: appbar1),
                               ),
                               Container(
-                                  padding: EdgeInsets.all(12),
+                                  padding: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(color: appbar1, borderRadius: BorderRadius.circular(12)),
-                                  child: Text(
+                                  child: const Text(
                                     "Add Item",
                                     style: TextStyle(color: Colors.white),
                                   ))
@@ -764,7 +764,7 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
                               final itemTotal = item['price'] * item['quantity'];
 
                               return TableRow(
-                                decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.black38))),
+                                decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Colors.black38))),
                                 children: [
                                   // Item Name
                                   _buildCell(
@@ -790,7 +790,7 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
                                               color: appbar1,
                                               borderRadius: BorderRadius.circular(4),
                                             ),
-                                            child: Icon(
+                                            child: const Icon(
                                               Icons.remove,
                                               size: 22,
                                               color: Colors.white,
@@ -874,7 +874,7 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
                                 controller: discountCtrl,
                                 maxLength: 3,
                                 keyboardType: TextInputType.number,
-                                style: TextStyle(color: Colors.black, fontSize: 15),
+                                style: const TextStyle(color: Colors.black, fontSize: 15),
                                 onChanged: (value) {
                                   final subtotal = context.read<PrintProvider>().total;
 
@@ -907,17 +907,17 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
                                 decoration: InputDecoration(
                                   counterText: "",
                                   isDense: true,
-                                  contentPadding: EdgeInsets.symmetric(vertical: 1, horizontal: 10),
+                                  contentPadding: const EdgeInsets.symmetric(vertical: 1, horizontal: 10),
                                   suffixIcon: Container(
                                     width: 50,
-                                    child: Icon(
-                                      Icons.percent,
-                                      color: Colors.white,
-                                    ),
                                     decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.only(
+                                      borderRadius: const BorderRadius.only(
                                           topRight: Radius.circular(12), bottomRight: Radius.circular(12)),
                                       color: appbar1.withOpacity(0.8),
+                                    ),
+                                    child: const Icon(
+                                      Icons.percent,
+                                      color: Colors.white,
                                     ),
                                   ),
                                   enabledBorder: OutlineInputBorder(
@@ -966,14 +966,14 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
                                   contentPadding: const EdgeInsets.symmetric(vertical: 1, horizontal: 10),
                                   suffixIcon: Container(
                                     width: 50,
-                                    child: const Icon(
-                                      Icons.currency_rupee,
-                                      color: Colors.white,
-                                    ),
                                     decoration: BoxDecoration(
                                       borderRadius: const BorderRadius.only(
                                           topRight: Radius.circular(12), bottomRight: Radius.circular(12)),
                                       color: appbar1.withOpacity(0.8),
+                                    ),
+                                    child: const Icon(
+                                      Icons.currency_rupee,
+                                      color: Colors.white,
                                     ),
                                   ),
                                   enabledBorder: OutlineInputBorder(

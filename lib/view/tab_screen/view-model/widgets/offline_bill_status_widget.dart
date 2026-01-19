@@ -253,14 +253,14 @@ class _OfflineBillStatusWidgetState extends State<OfflineBillStatusWidget> {
               if (result.syncedBillIds.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 const Text('Synced Bills:', style: TextStyle(fontWeight: FontWeight.bold)),
-                ...result.syncedBillIds.take(5).map((id) => Text('• ${id.length > 20 ? id.substring(0, 20) + '...' : id}')),
+                ...result.syncedBillIds.take(5).map((id) => Text('• ${id.length > 20 ? '${id.substring(0, 20)}...' : id}')),
                 if (result.syncedBillIds.length > 5)
                   Text('• ... and ${result.syncedBillIds.length - 5} more'),
               ],
               if (result.failedBillIds.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 const Text('Failed Bills:', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red)),
-                ...result.failedBillIds.take(3).map((id) => Text('• ${id.length > 20 ? id.substring(0, 20) + '...' : id}', style: const TextStyle(color: Colors.red))),
+                ...result.failedBillIds.take(3).map((id) => Text('• ${id.length > 20 ? '${id.substring(0, 20)}...' : id}', style: const TextStyle(color: Colors.red))),
                 if (result.failedBillIds.length > 3)
                   Text('• ... and ${result.failedBillIds.length - 3} more', style: const TextStyle(color: Colors.red)),
               ],

@@ -909,7 +909,7 @@ class DirectPrintHelper {
       for (var item in items) {
         String name = item['name'].toString();
         if (name.length > desc) {
-          name = name.substring(0, desc - 3) + "...";
+          name = "${name.substring(0, desc - 3)}...";
         }
 
         int qtyValue = int.tryParse(item['quantity'].toString()) ?? 1;
@@ -928,7 +928,7 @@ class DirectPrintHelper {
           for (var addon in item['addons']) {
             String addonName = " ${addon['name']}";
             if (addonName.length > desc) {
-              addonName = addonName.substring(0, desc - 3) + "...";
+              addonName = "${addonName.substring(0, desc - 3)}...";
             }
 
             double addonPrice = double.tryParse(addon['price'].toString()) ?? 0;
