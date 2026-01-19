@@ -843,17 +843,26 @@ class DirectPrintHelper {
       final Generator generator = Generator(paperSize, profile);
 
       List<int> bytes = [];
-      bytes += generator.setGlobalCodeTable('CP1252');
+      bytes += generator.setGlobalCodeTable('CP737');
 
-      List<String> splitTextByLength(String text, int maxLength) {
+      List<String> wrapTextByWords(String text, int maxWidth) {
         List<String> lines = [];
-        while (text.length > maxLength) {
-          lines.add(text.substring(0, maxLength));
-          text = text.substring(maxLength);
+        List<String> words = text.split(' ');
+        String currentLine = '';
+
+        for (final word in words) {
+          if ((currentLine + word).length <= maxWidth) {
+            currentLine += (currentLine.isEmpty ? '' : ' ') + word;
+          } else {
+            lines.add(currentLine);
+            currentLine = word;
+          }
         }
-        if (text.isNotEmpty) {
-          lines.add(text);
+
+        if (currentLine.isNotEmpty) {
+          lines.add(currentLine);
         }
+
         return lines;
       }
 
@@ -908,9 +917,22 @@ class DirectPrintHelper {
           styles: smallFontLeft,
         );
       }
+      if (customerName != null && customerName.isNotEmpty) bytes += generator.text(separator, styles: smallFontLeft);
+      if (customerName != null && customerName.isNotEmpty) {
+        bytes += generator.text(
+          "Name :  $customerName",
+          styles: smallFontLeft,
+        );
+      }
+
+      if (customerPhone != null && customerPhone.isNotEmpty) {
+        bytes += generator.text(
+          "Phone : $customerPhone",
+          styles: smallFontLeft,
+        );
+      }
+
       bytes += generator.text(separator, styles: smallFontLeft);
-      // bytes += generator.text('RECEIPT', styles: smallFontCenter);
-      // bytes += generator.text('Receipt No: $finalReceiptNo', styles: smallFontCenter);
 
       // Table header
       bytes += generator.text(
@@ -931,7 +953,7 @@ class DirectPrintHelper {
       // Items
       for (var item in items) {
         String name = item['name'].toString();
-        List<String> nameLines = splitTextByLength(name, desc);
+        List<String> nameLines = wrapTextByWords(name, desc);
 
         int qtyValue = int.tryParse(item['quantity'].toString()) ?? 1;
         double rateValue = double.tryParse(item['price'].toString()) ?? 0;
@@ -1025,6 +1047,22 @@ class DirectPrintHelper {
 
       bytes += generator.text('GRAND TOTAL'.padRight(totalCols - 8) + fmt(grandTotal).padLeft(8),
           styles: const PosStyles(bold: true));
+      bytes += generator.text(separator, styles: smallFontLeft);
+
+      bytes += generator.text(
+        "PAID [${paymentType!.toUpperCase()}]",
+        styles: smallFontLeft,
+      );
+
+      if (customerNote != null && customerNote.isNotEmpty) {
+        bytes += generator.text(separator, styles: smallFontLeft);
+
+        bytes += generator.text(
+          "CustomerNote :  $customerNote",
+          styles: smallFontLeft,
+        );
+      }
+
       // 🔥 UPI QR
       String upiId = "richeyrichinfotech@icici";
       String upiUrl = "upi://pay?pa=$upiId&pn=$shopName&am=${fmt(grandTotal)}&cu=INR";
@@ -1045,12 +1083,6 @@ class DirectPrintHelper {
         type: printer.typePrinter,
         bytes: bytes,
       );
-
-      // Only save bill if saveBill flag is true (to avoid duplicate saves)
-      // When called from bill_cart_widget.dart, bill is already saved via SmartDatabaseService
-
-      print("These Is The Order Type .............$orderType");
-      print("These Is The Payment Type .....................$paymentType");
 
       if (saveBill) {
         await saveBillData(
