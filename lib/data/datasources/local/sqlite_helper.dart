@@ -1,6 +1,5 @@
 // Package imports:
 
-
 import 'package:path/path.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
@@ -146,6 +145,7 @@ class SQLiteHelper {
         customer_gst TEXT,
         customer_address TEXT,
         customer_note TEXT,
+        order_type TEXT,
         discount_percent REAL DEFAULT 0.0,
         discount_amount REAL DEFAULT 0.0,
         final_total REAL,
@@ -225,6 +225,7 @@ class SQLiteHelper {
         id TEXT PRIMARY KEY,
         gst_no TEXT,
         name TEXT,
+        address TEXT,
         mobile_no TEXT NOT NULL UNIQUE,
         created_at INTEGER NOT NULL
       )
@@ -656,6 +657,7 @@ class SQLiteHelper {
           id TEXT PRIMARY KEY,
           gst_no TEXT,
           name TEXT,
+          address TEXT,
           mobile_no TEXT NOT NULL UNIQUE,
           created_at INTEGER NOT NULL
         )
@@ -786,8 +788,6 @@ class SQLiteHelper {
       rethrow;
     }
   }
-
-
 
   // Database initialization method
   Future<void> initializeDatabase() async {
@@ -979,8 +979,6 @@ class SQLiteHelper {
       await performInitialDataMigration();
     }
   }
-
-
 
   // Get migration status
   Future<bool> isMigrationComplete() async {
@@ -1670,7 +1668,10 @@ class SQLiteHelper {
           'gst_no': customerData['gstNo'] ?? customerData['gst_no'] ?? customerData['gstNumber'],
           'name': customerData['name'],
           'mobile_no': mobileNo.toString(),
-          'created_at': customerData['createdAt'] ?? customerData['created_at'] ?? now,
+          'address' : customerData['address'],
+          'created_at': customerData['createdAt'] is DateTime
+              ? (customerData['createdAt'] as DateTime).millisecondsSinceEpoch
+              : customerData['created_at'] ?? now,
         },
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
@@ -1716,10 +1717,11 @@ class SQLiteHelper {
 
       return results
           .map((row) => {
-                'gstNo': row['gst_no'],
+                'gst_no': row['gst_no'],
                 'name': row['name'],
-                'mobileNo': row['mobile_no'],
-                'createdAt': row['created_at'],
+                'address' : row['address'],
+                'mobile_no': row['mobile_no'],
+                'created_at': row['created_at'],
               })
           .toList();
     } catch (e) {

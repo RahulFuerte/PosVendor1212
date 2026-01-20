@@ -44,7 +44,7 @@ class _DashboardState extends State<Dashboard> {
           ],
         ),
       ),
-      drawer: MyDrawer(phoneNo: widget.phoneNo),
+      drawer: MyDrawer(phoneNo: widget.phoneNo , adminPhoneNo: widget.phoneNo,),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: Column(

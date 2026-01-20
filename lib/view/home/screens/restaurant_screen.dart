@@ -9,7 +9,6 @@ import 'package:flutter/material.dart';
 // Package imports:
 import 'package:audioplayers/audioplayers.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-
 import 'package:hive/hive.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:pos/view/home/screens/order_type_selector.dart';
@@ -624,7 +623,7 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
         ],
       ),
 
-      drawer: MyDrawer(phoneNo: widget.phoneNo),
+      drawer: MyDrawer(phoneNo: widget.phoneNo , adminPhoneNo: adminUid,),
       body: isLoading
           ? Center(
               child: SizedBox(
@@ -655,8 +654,7 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                           SizedBox(
                             width: 80,
                             child: Container(
-                              decoration:
-                                  const BoxDecoration(color: Colors.white),
+                              decoration: const BoxDecoration(color: Colors.white),
                               padding: const EdgeInsets.only(left: 5),
                               child: FutureBuilder<List<Map<String, dynamic>>>(
                                 future: foodDepartmentsFuture,

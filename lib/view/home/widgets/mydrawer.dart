@@ -25,7 +25,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class MyDrawer extends StatefulWidget {
   final String phoneNo;
-  const MyDrawer({super.key, required this.phoneNo});
+  final String adminPhoneNo;
+  const MyDrawer({
+    super.key,
+    required this.phoneNo,
+    required this.adminPhoneNo,
+  });
 
   @override
   State<MyDrawer> createState() => _MyDrawerState();
@@ -60,7 +65,7 @@ class _MyDrawerState extends State<MyDrawer> {
           setState(() {
             userData = {
               'name': localData['name'] ?? 'User',
-              'phoneNumber': localData['phoneNumber'] ?? phoneNo,
+              'phoneNumber': localData['phoneNumber'] ?? localData['phone_number'] ?? phoneNo,
               'email': localData['email'],
               'adminUid': localData['adminUid'],
               'customerCode': localData['customerCode'],
@@ -69,7 +74,7 @@ class _MyDrawerState extends State<MyDrawer> {
               'contact': localData['shopContact'],
               'address': localData['address'],
             };
-            adminUid = localData['adminUid'] ?? '';
+            adminUid = localData['adminUid'] ?? localData['admin_uid'] ?? '';
             isUserLoading = false;
           });
         }
@@ -79,7 +84,7 @@ class _MyDrawerState extends State<MyDrawer> {
       // 2️⃣ Fetch from Firebase
       final doc = await FirebaseFirestore.instance
           .collection('AllAdmins')
-          .doc(phoneNo)
+          .doc(widget.adminPhoneNo)
           .collection('customer')
           .doc(phoneNo)
           .get();
@@ -441,7 +446,7 @@ class _MyDrawerState extends State<MyDrawer> {
             onTap: () {
               _navigate(
                 EditBillReceiptScreen(
-                  AdminUid: adminUid,
+                  AdminUid: widget.adminPhoneNo,
                   phoneNo: widget.phoneNo,
                 ),
               );
@@ -454,6 +459,7 @@ class _MyDrawerState extends State<MyDrawer> {
             onTap: () {
               _navigate(
                 const Setting(),
+                
               );
             },
           ),
