@@ -16,7 +16,8 @@ import 'package:provider/provider.dart';
 
 class CustomerWiseReport extends StatefulWidget {
   final String adminUid;
-  const CustomerWiseReport({super.key, required this.adminUid});
+  final String uid;
+  const CustomerWiseReport({super.key, required this.adminUid, required this.uid});
 
   @override
   State<CustomerWiseReport> createState() => _CustomerWiseReportState();
@@ -58,7 +59,7 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
           .collection('AllAdmins')
           .doc(widget.adminUid)
           .collection('customer')
-          .doc(widget.adminUid)
+          .doc(widget.uid)
           .collection('myCustomers')
           .get();
 
@@ -372,7 +373,7 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
                     1: pw.Alignment.centerRight,
                     2: pw.Alignment.centerRight,
                     3: pw.Alignment.centerRight,
-                    4 : pw.Alignment.centerRight,
+                    4: pw.Alignment.centerRight,
                   },
                   headers: ['Bill No', 'Date', 'Items', 'Mode', 'Amount'],
                   data: customerBills.map((bill) {

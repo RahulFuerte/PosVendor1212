@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -321,7 +319,11 @@ class _MyDrawerState extends State<MyDrawer> {
             leading: const Icon(Icons.dashboard, color: primaryColor),
             title: const Text('Dashboard'),
             onTap: () {
-              _navigate(Dashboard(phoneNo: widget.phoneNo));
+              _navigate(Dashboard(
+                adminUid: adminUid,
+                phoneNo: widget.phoneNo,
+                name: userData['shopName'],
+              ));
             },
           ),
           ListTile(
@@ -366,64 +368,78 @@ class _MyDrawerState extends State<MyDrawer> {
             },
           ),
 
-          ListTile(
-            leading: Icon(MdiIcons.chartBar, color: primaryColor),
-            title: const Text('Sales Report'),
-            onTap: () {
-              _navigate(
-                SalesReportScreen(
-                  adminUid: widget.phoneNo,
+          Theme(
+            data: ThemeData(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              leading: Icon(MdiIcons.chartBoxOutline, color: primaryColor),
+              childrenPadding: const EdgeInsets.only(left: 16),
+              title: const Text(
+                'Reports',
+              ),
+              children: [
+                ListTile(
+                  leading: Icon(MdiIcons.chartBar, color: primaryColor),
+                  title: const Text('Sales Report'),
+                  onTap: () {
+                    _navigate(
+                      SalesReportScreen(
+                        adminUid: adminUid,
+                      ),
+                    );
+                  },
                 ),
-              );
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.people, color: primaryColor),
-            title: const Text('Customerwise Report'),
-            onTap: () {
-              _navigate(
-                CustomerWiseReport(
-                  adminUid: adminUid,
+                ListTile(
+                  leading: const Icon(Icons.people, color: primaryColor),
+                  title: const Text('Customerwise Report'),
+                  onTap: () {
+                    _navigate(
+                      CustomerWiseReport(
+                        adminUid: adminUid,
+                        uid: widget.phoneNo,
+                      ),
+                    );
+                  },
                 ),
-              );
-            },
-          ),
-          ListTile(
-            leading: Icon(MdiIcons.fileDocumentOutline, color: primaryColor),
-            title: const Text('Billwise Report'),
-            onTap: () {
-              _navigate(
-                BillwiseReportScreen(
-                  adminUid: adminUid,
-                  uid: widget.phoneNo,
+                ListTile(
+                  leading: Icon(MdiIcons.fileDocumentOutline, color: primaryColor),
+                  title: const Text('Billwise Report'),
+                  onTap: () {
+                    _navigate(
+                      BillwiseReportScreen(
+                        adminUid: adminUid,
+                        uid: widget.phoneNo,
+                      ),
+                    );
+                  },
                 ),
-              );
-            },
-          ),
-          ListTile(
-            leading: Icon(MdiIcons.foodOutline, color: primaryColor),
-            title: const Text('Itemwise Report'),
-            onTap: () {
-              _navigate(
-                ItemwiseReportScreen(
-                  uid: widget.phoneNo,
-                  adminUid: adminUid,
+                ListTile(
+                  leading: Icon(MdiIcons.foodOutline, color: primaryColor),
+                  title: const Text('Itemwise Report'),
+                  onTap: () {
+                    _navigate(
+                      ItemwiseReportScreen(
+                        uid: widget.phoneNo,
+                        adminUid: adminUid,
+                      ),
+                    );
+                  },
                 ),
-              );
-            },
-          ),
-          ListTile(
-            leading: Icon(MdiIcons.calendarMonth, color: primaryColor),
-            title: const Text('Datewise Report'),
-            onTap: () {
-              _navigate(
-                DatewiseReportScreen(
-                  adminUid: adminUid,
-                  uid: widget.phoneNo,
+                ListTile(
+                  leading: Icon(MdiIcons.calendarMonth, color: primaryColor),
+                  title: const Text('Datewise Report'),
+                  onTap: () {
+                    _navigate(
+                      DatewiseReportScreen(
+                        adminUid: adminUid,
+                        uid: widget.phoneNo,
+                      ),
+                    );
+                  },
                 ),
-              );
-            },
+              ],
+            ),
           ),
+
           ListTile(
             leading: const Icon(Icons.receipt, color: primaryColor),
             title: const Text('Edit bill Receipt'),

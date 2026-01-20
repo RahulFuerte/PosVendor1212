@@ -9,7 +9,6 @@ import 'package:flutter/material.dart';
 // Package imports:
 import 'package:audioplayers/audioplayers.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 import 'package:hive/hive.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:pos/view/home/screens/order_type_selector.dart';
@@ -34,7 +33,9 @@ import '../widgets/show_save_order_bottom_sheet.dart';
 
 class RestaurantScreen extends StatefulWidget {
   final String phoneNo;
-  const RestaurantScreen({required this.phoneNo, Key? key}) : super(key: key);
+  final bool isEditBill;
+  final String? receiptNo;
+  const RestaurantScreen({required this.phoneNo, Key? key, this.isEditBill = false, this.receiptNo}) : super(key: key);
 
   @override
   _RestaurantScreenState createState() => _RestaurantScreenState();
@@ -584,7 +585,10 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
         ],
       ),
 
-      drawer: MyDrawer(phoneNo: widget.phoneNo , adminPhoneNo: adminUid,),
+      drawer: MyDrawer(
+        phoneNo: widget.phoneNo,
+        adminPhoneNo: adminUid,
+      ),
       body: isLoading
           ? Center(
               child: SizedBox(

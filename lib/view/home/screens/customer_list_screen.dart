@@ -68,7 +68,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
           );
         } else {
           mergedList.add(local);
-          pendingSync.add(local); 
+          pendingSync.add(local);
         }
       }
 
@@ -81,7 +81,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
 
       setState(() {
         customers = mergedList;
-        notUploadedCustomers = pendingSync; 
+        notUploadedCustomers = pendingSync;
         isLoading = false;
       });
     } catch (e) {
@@ -146,9 +146,6 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
 
       for (var customer in notUploadedCustomers) {
         try {
-          // Generate receipt number
-          final receiptNo = 'RCP${DateTime.now().millisecondsSinceEpoch}';
-
           // Create customer data
           final customerData = {
             'name': customer.name,
@@ -157,7 +154,6 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
             'address': customer.address ?? '',
             'createdAt': FieldValue.serverTimestamp(),
           };
-          print("These Is Customer Data ...............$customerData");
           // Upload to Firebase: AllAdmins/{adminUid}/customers/{customerPhone}
           await firestore
               .collection('AllAdmins')
