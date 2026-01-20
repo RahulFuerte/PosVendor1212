@@ -58,28 +58,31 @@ class _DashboardState extends State<Dashboard> {
       final monthKey = DateFormat('yyyyMM').format(selectedDate);
       final dateKey = DateFormat('yyyyMMdd').format(selectedDate);
 
-      Query query = FirebaseFirestore.instance
+      final snapshot = await FirebaseFirestore.instance
           .collection('AllBills')
           .doc(widget.adminUid)
           .collection('myBills')
           .doc(monthKey)
           .collection(dateKey)
-          .orderBy('createdAt', descending: true);
+          .orderBy('createdAt', descending: true)
+          .get();
+
+      List<QueryDocumentSnapshot> filtered = snapshot.docs;
 
       if (selectedOrderType != 'all') {
-        query = query.where('orderType', isEqualTo: selectedOrderType);
+        filtered = filtered.where((doc) {
+          return doc['orderType'] == selectedOrderType;
+        }).toList();
       }
 
-      final snapshot = await query.get();
-
       int sales = 0;
-      for (var doc in snapshot.docs) {
+      for (var doc in filtered) {
         sales += (doc['finalTotal'] as num).toInt();
       }
 
       setState(() {
-        orders = snapshot.docs;
-        totalBills = snapshot.docs.length;
+        orders = filtered;
+        totalBills = filtered.length;
         totalSales = sales;
       });
     } catch (e) {
@@ -385,6 +388,125 @@ class _DashboardState extends State<Dashboard> {
                   ),
                   const SizedBox(height: 15),
                   Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(18),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Filter Orders',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            /// 📅 DATE FILTER
+                            Expanded(
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(14),
+                                onTap: () async {
+                                  final picked = await showDatePicker(
+                                    context: context,
+                                    initialDate: selectedDate,
+                                    firstDate: DateTime(2023),
+                                    lastDate: DateTime.now(),
+                                  );
+                                  if (picked != null) {
+                                    setState(() => selectedDate = picked);
+                                    fetchOrders();
+                                  }
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+                                  decoration: BoxDecoration(
+                                    color: appbar1.withOpacity(0.08),
+                                    borderRadius: BorderRadius.circular(14),
+                                    border: Border.all(color: appbar1.withOpacity(0.25)),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.calendar_month, color: appbar1),
+                                      const SizedBox(width: 10),
+                                      Text(
+                                        DateFormat('dd MMM yyyy').format(selectedDate),
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 15,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                            const SizedBox(width: 12),
+
+                            /// 🍽 ORDER TYPE FILTER
+                            Expanded(
+                              child: DropdownButtonFormField<String>(
+                                value: selectedOrderType,
+                                isDense: true,
+                                icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                                decoration: InputDecoration(
+                                  filled: true,
+                                  fillColor: appbar1.withOpacity(0.08),
+                                  contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                    borderSide: BorderSide(color: appbar1.withOpacity(0.25)),
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                    borderSide: BorderSide(color: appbar1.withOpacity(0.25)),
+                                  ),
+                                ),
+                                items: const [
+                                  DropdownMenuItem(
+                                    value: 'all',
+                                    child: Text('All Orders'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'dineIn',
+                                    child: Text('🍽 Dine In'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'pickUp',
+                                    child: Text('🛍 Pick Up'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'delivery',
+                                    child: Text('🚚 Delivery'),
+                                  ),
+                                ],
+                                onChanged: (value) {
+                                  setState(() => selectedOrderType = value!);
+                                  fetchOrders();
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 15),
+                      ],
+                    ),
+                  ),
+                        const SizedBox(height: 12),
+                 
+                  Container(
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(25),
@@ -408,68 +530,8 @@ class _DashboardState extends State<Dashboard> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 10,),
-                  Container(
-                  
-                    child: Row(
-                      children: [
-                        /// 📅 DATE FILTER
-                        Expanded(
-                          child: InkWell(
-                            onTap: () async {
-                              final picked = await showDatePicker(
-                                context: context,
-                                initialDate: selectedDate,
-                                firstDate: DateTime(2023),
-                                lastDate: DateTime.now(),
-                              );
-                              if (picked != null) {
-                                setState(() => selectedDate = picked);
-                                fetchOrders();
-                              }
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              decoration: BoxDecoration(
-                                border: Border.all(color: Colors.grey.shade300),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  const Icon(Icons.calendar_today, size: 18),
-                                  const SizedBox(width: 8),
-                                  Text(DateFormat('dd MMM yyyy').format(selectedDate)),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-
-                        const SizedBox(width: 10),
-
-                        /// 🍽 ORDER TYPE FILTER
-                        Expanded(
-                          child: DropdownButtonFormField<String>(
-                            value: selectedOrderType,
-                            decoration: InputDecoration(
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                            ),
-                            items: const [
-                              DropdownMenuItem(value: 'all', child: Text('All Orders')),
-                              DropdownMenuItem(value: 'dineIn', child: Text('Dine In')),
-                              DropdownMenuItem(value: 'pickUp', child: Text('Pick Up')),
-                              DropdownMenuItem(value: 'delivery', child: Text('Delivery')),
-                            ],
-                            onChanged: (value) {
-                              setState(() => selectedOrderType = value!);
-                              fetchOrders();
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
+                  const SizedBox(
+                    height: 10,
                   ),
                   const SizedBox(height: 15),
                   selectedTab == 0
@@ -511,6 +573,7 @@ class _DashboardState extends State<Dashboard> {
                                         final shopData = await _getShopData();
                                         final data = orders[index];
 
+                                        // ignore: use_build_context_synchronously
                                         Navigator.push(
                                           context,
                                           MaterialPageRoute(

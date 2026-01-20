@@ -12,6 +12,7 @@ import 'package:pos/view/home/reports/customer_wise_report.dart';
 import 'package:pos/view/home/reports/date_wise_report.dart';
 import 'package:pos/view/home/reports/item_wise_report.dart';
 import 'package:pos/view/home/reports/sales_report_screen.dart';
+import 'package:pos/view/home/screens/Expense/expense_main.dart';
 import 'package:pos/view/home/screens/customer_list_screen.dart';
 import 'package:pos/view/home/screens/dashboard.dart';
 import 'package:pos/view/home/screens/edit_bill_receipt.dart';
@@ -342,7 +343,10 @@ class _MyDrawerState extends State<MyDrawer> {
             leading: const Icon(Icons.save_as, color: primaryColor),
             title: const Text('Saved Orders'),
             onTap: () {
-              _navigate(const UsersScreen());
+              _navigate(UsersScreen(
+                adminId: adminUid,
+                uid: widget.phoneNo,
+              ));
             },
           ),
           ListTile(
@@ -352,6 +356,7 @@ class _MyDrawerState extends State<MyDrawer> {
               _navigate(
                 OfflineBillStatusScreen(
                   adminUid: adminUid,
+                  uid: widget.phoneNo,
                 ),
               );
             },
@@ -363,6 +368,7 @@ class _MyDrawerState extends State<MyDrawer> {
               _navigate(
                 SyncStatusPage(
                   adminUid: adminUid,
+                  uid: widget.phoneNo,
                 ),
               );
             },
@@ -440,6 +446,8 @@ class _MyDrawerState extends State<MyDrawer> {
             ),
           ),
 
+          
+
           ListTile(
             leading: const Icon(Icons.receipt, color: primaryColor),
             title: const Text('Edit bill Receipt'),
@@ -453,12 +461,23 @@ class _MyDrawerState extends State<MyDrawer> {
             },
           ),
 
+
+          ListTile(
+            leading: const Icon(Icons.account_balance_wallet, color: primaryColor),
+            title: const Text('Expenses'),
+            onTap: () {
+              _navigate(
+                const Expenses(),
+              );
+            },
+          ),
+
           ListTile(
             leading: const Icon(Icons.settings, color: primaryColor),
             title: const Text('Setting'),
             onTap: () {
               _navigate(
-                Setting(),
+                const Setting(),
               );
             },
           ),

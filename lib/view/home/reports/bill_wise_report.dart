@@ -11,6 +11,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:pos/view/home/navigation.dart';
 import 'package:pos/view/home/screens/search_receipt_screen.dart';
+import 'package:pos/view/home/widgets/mydrawer.dart';
 import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 
@@ -720,6 +721,10 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
         backgroundColor: primaryColor,
         title: const Text('Billwise report', style: TextStyle(color: Colors.white)),
         iconTheme: const IconThemeData(color: Colors.white),
+      ),
+      drawer: MyDrawer(
+        phoneNo: widget.uid,
+        adminPhoneNo: widget.adminUid,
       ),
       body: Column(
         children: [

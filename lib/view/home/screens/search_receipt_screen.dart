@@ -3,12 +3,11 @@ import 'package:flutter/material.dart';
 
 // Package imports:
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 import 'package:lottie/lottie.dart';
-import 'package:provider/provider.dart';
+// import 'package:provider/provider.dart';
 
 // Project imports:
-import 'package:pos/data/providers/print_provider.dart';
+// import 'package:pos/data/providers/print_provider.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 
 class SearchReceiptScreen extends StatefulWidget {
@@ -95,8 +94,8 @@ class _SearchReceiptScreenState extends State<SearchReceiptScreen> {
 
   @override
   Widget build(BuildContext context) {
-    PrintProvider printProvider = Provider.of<PrintProvider>(context, listen: false);
-    DateTime? currentBackPressTime;
+    // PrintProvider printProvider = Provider.of<PrintProvider>(context, listen: false);
+    // DateTime? currentBackPressTime;
 
     return Scaffold(
       backgroundColor: Colors.grey[50],

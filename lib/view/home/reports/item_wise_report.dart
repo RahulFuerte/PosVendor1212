@@ -12,6 +12,7 @@ import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'package:pos/view/home/widgets/mydrawer.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -24,9 +25,7 @@ class ItemwiseReportScreen extends StatefulWidget {
   final String uid;
   final String adminUid;
 
-  const ItemwiseReportScreen(
-      {Key? key, required this.uid, required this.adminUid})
-      : super(key: key);
+  const ItemwiseReportScreen({Key? key, required this.uid, required this.adminUid}) : super(key: key);
 
   @override
   State<ItemwiseReportScreen> createState() => _ItemwiseReportScreenState();
@@ -45,9 +44,12 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: primaryColor,
-        title: const Text('Itemwise report',
-            style: TextStyle(color: Colors.white)),
+        title: const Text('Itemwise report', style: TextStyle(color: Colors.white)),
         iconTheme: const IconThemeData(color: Colors.white),
+      ),
+      drawer: MyDrawer(
+        phoneNo: widget.uid,
+        adminPhoneNo: widget.adminUid,
       ),
       body: Column(
         children: [
@@ -69,31 +71,19 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
                           ),
                           child: Row(
                             children: [
-                              const Icon(Icons.calendar_today,
-                                  color: Colors.red, size: 20),
+                              const Icon(Icons.calendar_today, color: Colors.red, size: 20),
                               const SizedBox(width: 8),
                               Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text('From date:',
-                                      style: TextStyle(
-                                          fontSize: 12, color: Colors.grey)),
+                                  const Text('From date:', style: TextStyle(fontSize: 12, color: Colors.grey)),
                                   Text(
-                                    fromDate == null
-                                        ? 'Select date'
-                                        : DateFormat('dd MMM yyyy')
-                                            .format(fromDate!),
-                                    style: const TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.bold),
+                                    fromDate == null ? 'Select date' : DateFormat('dd MMM yyyy').format(fromDate!),
+                                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                                   ),
                                   Text(
-                                    fromDate == null
-                                        ? ''
-                                        : DateFormat('hh:mm:ss a')
-                                            .format(fromDate!),
-                                    style: const TextStyle(
-                                        fontSize: 12, color: Colors.blue),
+                                    fromDate == null ? '' : DateFormat('hh:mm:ss a').format(fromDate!),
+                                    style: const TextStyle(fontSize: 12, color: Colors.blue),
                                   ),
                                 ],
                               ),
@@ -114,31 +104,19 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
                           ),
                           child: Row(
                             children: [
-                              const Icon(Icons.calendar_today,
-                                  color: Colors.red, size: 20),
+                              const Icon(Icons.calendar_today, color: Colors.red, size: 20),
                               const SizedBox(width: 8),
                               Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text('To date:',
-                                      style: TextStyle(
-                                          fontSize: 12, color: Colors.grey)),
+                                  const Text('To date:', style: TextStyle(fontSize: 12, color: Colors.grey)),
                                   Text(
-                                    toDate == null
-                                        ? 'Select date'
-                                        : DateFormat('dd MMM yyyy')
-                                            .format(toDate!),
-                                    style: const TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.bold),
+                                    toDate == null ? 'Select date' : DateFormat('dd MMM yyyy').format(toDate!),
+                                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                                   ),
                                   Text(
-                                    toDate == null
-                                        ? ''
-                                        : DateFormat('hh:mm:ss a')
-                                            .format(toDate!),
-                                    style: const TextStyle(
-                                        fontSize: 12, color: Colors.blue),
+                                    toDate == null ? '' : DateFormat('hh:mm:ss a').format(toDate!),
+                                    style: const TextStyle(fontSize: 12, color: Colors.blue),
                                   ),
                                 ],
                               ),
@@ -160,15 +138,13 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.inventory_2,
-                                size: 64, color: Colors.grey.shade400),
+                            Icon(Icons.inventory_2, size: 64, color: Colors.grey.shade400),
                             const SizedBox(height: 16),
                             Text(
                               fromDate == null || toDate == null
                                   ? 'Please select date range'
                                   : 'No items found for selected dates',
-                              style: TextStyle(
-                                  color: Colors.grey.shade600, fontSize: 16),
+                              style: TextStyle(color: Colors.grey.shade600, fontSize: 16),
                             ),
                           ],
                         ),
@@ -177,29 +153,19 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
                         child: SingleChildScrollView(
                           scrollDirection: Axis.horizontal,
                           child: DataTable(
-                            headingRowColor:
-                                MaterialStateProperty.all(Colors.black),
+                            headingRowColor: MaterialStateProperty.all(Colors.black),
                             columns: const [
                               DataColumn(
-                                  label: Text('',
-                                      style: TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold))),
+                                  label: Text('', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
                               DataColumn(
-                                  label: Text('Name',
-                                      style: TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold))),
+                                  label:
+                                      Text('Name', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
                               DataColumn(
                                   label: Text('Items sold',
-                                      style: TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold))),
+                                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
                               DataColumn(
                                   label: Text('Amount',
-                                      style: TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold))),
+                                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
                             ],
                             rows: itemsData.asMap().entries.map((entry) {
                               final index = entry.key;
@@ -208,10 +174,8 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
                                 cells: [
                                   DataCell(Text('${index + 1}')),
                                   DataCell(Text(item['name'].toString())),
-                                  DataCell(Text(
-                                      item['quantity'].toStringAsFixed(1))),
-                                  DataCell(
-                                      Text(item['amount'].toStringAsFixed(2))),
+                                  DataCell(Text(item['quantity'].toStringAsFixed(1))),
+                                  DataCell(Text(item['amount'].toStringAsFixed(2))),
                                 ],
                               );
                             }).toList(),
@@ -232,8 +196,7 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
                       backgroundColor: primaryColor,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 16),
-                      textStyle: const TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.bold),
+                      textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                     onPressed: itemsData.isEmpty ? null : _printReport,
                   ),
@@ -247,11 +210,9 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
                       backgroundColor: primaryColor,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 16),
-                      textStyle: const TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.bold),
+                      textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
-                    onPressed:
-                        itemsData.isEmpty ? null : _downloadAndShareReport,
+                    onPressed: itemsData.isEmpty ? null : _downloadAndShareReport,
                   ),
                 ),
               ],
@@ -265,9 +226,7 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
   Future<void> _selectDate(BuildContext context, bool isFromDate) async {
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: isFromDate
-          ? (fromDate ?? DateTime.now())
-          : (toDate ?? DateTime.now()),
+      initialDate: isFromDate ? (fromDate ?? DateTime.now()) : (toDate ?? DateTime.now()),
       firstDate: DateTime(2020),
       lastDate: DateTime.now(),
     );
@@ -309,8 +268,7 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
       // Map to aggregate items by name
       Map<String, Map<String, dynamic>> itemsMap = {};
 
-      final startDate =
-          DateTime(fromDate!.year, fromDate!.month, fromDate!.day);
+      final startDate = DateTime(fromDate!.year, fromDate!.month, fromDate!.day);
       final endDate = DateTime(toDate!.year, toDate!.month, toDate!.day);
 
       Set<String> monthsToQuery = {};
@@ -323,14 +281,10 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
       }
 
       for (String month in monthsToQuery) {
-        final collectionRef = FirebaseFirestore.instance
-            .collection('AllBills')
-            .doc(widget.uid)
-            .collection('myBills')
-            .doc(month);
+        final collectionRef =
+            FirebaseFirestore.instance.collection('AllBills').doc(widget.uid).collection('myBills').doc(month);
 
-        DateTime currentDate =
-            DateTime(startDate.year, startDate.month, startDate.day);
+        DateTime currentDate = DateTime(startDate.year, startDate.month, startDate.day);
 
         if (month != DateFormat('yyyyMM').format(startDate)) {
           int year = int.parse(month.substring(0, 4));
@@ -338,16 +292,14 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
           currentDate = DateTime(year, monthNum, 1);
         }
 
-        DateTime lastDayOfMonth = DateTime(int.parse(month.substring(0, 4)),
-            int.parse(month.substring(4, 6)) + 1, 0);
+        DateTime lastDayOfMonth = DateTime(int.parse(month.substring(0, 4)), int.parse(month.substring(4, 6)) + 1, 0);
         DateTime lastDate = endDate;
 
         if (month != DateFormat('yyyyMM').format(endDate)) {
           lastDate = lastDayOfMonth;
         }
 
-        while (currentDate.isBefore(lastDate) ||
-            currentDate.isAtSameMomentAs(lastDate)) {
+        while (currentDate.isBefore(lastDate) || currentDate.isAtSameMomentAs(lastDate)) {
           String dateStr = DateFormat('yyyyMMdd').format(currentDate);
 
           try {
@@ -395,8 +347,7 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
       }
 
       // Sort by amount descending
-      itemsData.sort(
-          (a, b) => (b['amount'] as double).compareTo(a['amount'] as double));
+      itemsData.sort((a, b) => (b['amount'] as double).compareTo(a['amount'] as double));
     } catch (e) {
       if (mounted) {
         print('Error fetching items data: $e');
@@ -453,28 +404,22 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
         DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now()),
         styles: const PosStyles(align: PosAlign.center),
       );
-      bytes += generator.text('Item Wise Sales Report',
-          styles: const PosStyles(align: PosAlign.center, bold: true));
-      bytes += generator.text("-" * 32,
-          styles: const PosStyles(align: PosAlign.center));
+      bytes += generator.text('Item Wise Sales Report', styles: const PosStyles(align: PosAlign.center, bold: true));
+      bytes += generator.text("-" * 32, styles: const PosStyles(align: PosAlign.center));
 
       bytes += generator.text(
         'From: ${DateFormat('dd/MM/yy').format(fromDate!)}     To: ${DateFormat('dd/MM/yy').format(toDate!)}',
         styles: const PosStyles(align: PosAlign.left),
       );
-      bytes += generator.text("-" * 32,
-          styles: const PosStyles(align: PosAlign.center));
+      bytes += generator.text("-" * 32, styles: const PosStyles(align: PosAlign.center));
 
       // Table header
       bytes += generator.row([
-        PosColumn(
-            text: 'SR ITEM', width: 6, styles: const PosStyles(bold: true)),
+        PosColumn(text: 'SR ITEM', width: 6, styles: const PosStyles(bold: true)),
         PosColumn(text: 'QTY', width: 3, styles: const PosStyles(bold: true)),
-        PosColumn(
-            text: 'AMOUNT', width: 3, styles: const PosStyles(bold: true)),
+        PosColumn(text: 'AMOUNT', width: 3, styles: const PosStyles(bold: true)),
       ]);
-      bytes += generator.text("-" * 32,
-          styles: const PosStyles(align: PosAlign.center));
+      bytes += generator.text("-" * 32, styles: const PosStyles(align: PosAlign.center));
 
       // Items data
       for (int i = 0; i < itemsData.length; i++) {
@@ -482,48 +427,36 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
         bytes += generator.row([
           PosColumn(text: '${i + 1}  ${item['name']}', width: 6),
           PosColumn(text: item['quantity'].toStringAsFixed(1), width: 3),
-          PosColumn(
-              text: item['amount'].toStringAsFixed(2),
-              width: 3,
-              styles: const PosStyles(align: PosAlign.right)),
+          PosColumn(text: item['amount'].toStringAsFixed(2), width: 3, styles: const PosStyles(align: PosAlign.right)),
         ]);
       }
 
-      bytes += generator.text("-" * 32,
-          styles: const PosStyles(align: PosAlign.center));
+      bytes += generator.text("-" * 32, styles: const PosStyles(align: PosAlign.center));
 
       // Total
       bytes += generator.row([
         PosColumn(
-            text:
-                'ITEM: ${itemsData.length} QTY: ${totalQuantity.toStringAsFixed(1)}',
+            text: 'ITEM: ${itemsData.length} QTY: ${totalQuantity.toStringAsFixed(1)}',
             width: 6,
             styles: const PosStyles(bold: true)),
         PosColumn(text: 'AMOUNT:', width: 3),
         PosColumn(
-            text: totalAmount.toStringAsFixed(2),
-            width: 3,
-            styles: const PosStyles(align: PosAlign.right, bold: true)),
+            text: totalAmount.toStringAsFixed(2), width: 3, styles: const PosStyles(align: PosAlign.right, bold: true)),
       ]);
-      bytes += generator.text("-" * 32,
-          styles: const PosStyles(align: PosAlign.center));
+      bytes += generator.text("-" * 32, styles: const PosStyles(align: PosAlign.center));
 
-      bytes += generator.text('TOTAL AMOUNT',
-          styles: const PosStyles(align: PosAlign.left, bold: true));
+      bytes += generator.text('TOTAL AMOUNT', styles: const PosStyles(align: PosAlign.left, bold: true));
       bytes += generator.row([
         PosColumn(text: '', width: 6),
         PosColumn(text: ':', width: 3),
         PosColumn(
-            text: totalAmount.toStringAsFixed(2),
-            width: 3,
-            styles: const PosStyles(align: PosAlign.right, bold: true)),
+            text: totalAmount.toStringAsFixed(2), width: 3, styles: const PosStyles(align: PosAlign.right, bold: true)),
       ]);
 
       bytes += generator.emptyLines(3);
       bytes += generator.cut();
 
-      await printerManager.send(
-          type: printProvider.selectedPrinter!.typePrinter, bytes: bytes);
+      await printerManager.send(type: printProvider.selectedPrinter!.typePrinter, bytes: bytes);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -554,8 +487,7 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
     if (itemsData.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-              'No data available. Please select dates and wait for data to load.'),
+          content: Text('No data available. Please select dates and wait for data to load.'),
           backgroundColor: Colors.orange,
         ),
       );
@@ -623,8 +555,7 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
         try {
           final amtValue = item['amount'];
           if (amtValue != null) {
-            amount =
-                '₹ ${double.parse(amtValue.toString()).toStringAsFixed(2)}';
+            amount = '₹ ${double.parse(amtValue.toString()).toStringAsFixed(2)}';
           }
         } catch (e) {
           print('Error parsing amount for item $i: $e');
@@ -849,8 +780,7 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
       print('PDF bytes generated: ${pdfBytes.length}');
 
       // Save to file
-      final String fileName =
-          'ItemwiseReport_${DateFormat('ddMMyyyy_HHmmss').format(DateTime.now())}.pdf';
+      final String fileName = 'ItemwiseReport_${DateFormat('ddMMyyyy_HHmmss').format(DateTime.now())}.pdf';
 
       // Get temporary directory
       final Directory tempDir = await getTemporaryDirectory();

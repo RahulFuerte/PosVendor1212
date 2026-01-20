@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:pos/view/home/navigation.dart';
 import 'package:pos/data/datasources/local/sqlite_helper.dart';
 import 'package:pos/data/models/customer_model.dart';
+import 'package:pos/view/home/widgets/mydrawer.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
@@ -146,6 +147,9 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
 
       for (var customer in notUploadedCustomers) {
         try {
+          // Generate receipt number
+          final receiptNo = 'RCP${DateTime.now().millisecondsSinceEpoch}';
+
           // Create customer data
           final customerData = {
             'name': customer.name,
@@ -343,7 +347,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
           ],
         ),
         content: SingleChildScrollView(
-          child: Container(
+          child: SizedBox(
             width: double.maxFinite,
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -550,10 +554,11 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
         elevation: 0,
         scrolledUnderElevation: 0,
         backgroundColor: white,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Colors.black87),
-          onPressed: () => Navigator.pop(context),
-        ),
+        
+        // leading: IconButton(
+        //   icon: const Icon(Icons.arrow_back_ios, color: Colors.black87),
+        //   onPressed: () => Navigator.pop(context),
+        // ),
         actions: [
           if (notUploadedCustomers.isNotEmpty)
             Container(
@@ -592,6 +597,10 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
               ),
             ),
         ],
+      ),
+       drawer: MyDrawer(
+        phoneNo: widget.phoneNo,
+        adminPhoneNo: widget.phoneNo,
       ),
       body: isLoading
           ? Center(

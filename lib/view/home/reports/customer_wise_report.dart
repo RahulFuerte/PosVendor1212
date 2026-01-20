@@ -8,6 +8,7 @@ import 'package:pos/data/models/customer_model.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:pos/view/home/printer_connectionDialog.dart';
+import 'package:pos/view/home/widgets/mydrawer.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:pos/core/network/connection_monitor.dart';
 import 'package:pos/view/tab_screen/view-model/widgets/printers/printer.dart';
@@ -523,6 +524,10 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[100],
+      drawer: MyDrawer(
+        phoneNo: widget.uid,
+        adminPhoneNo: widget.adminUid,
+      ),
       appBar: AppBar(
         elevation: 0,
         scrolledUnderElevation: 0,

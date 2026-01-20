@@ -743,14 +743,12 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_pos_printer_platform_image_3/flutter_pos_printer_platform_image_3.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pos/data/datasources/smart_database_service.dart';
-import 'package:pos/data/providers/print_provider.dart';
 import 'package:image/image.dart' as img_lib;
 import 'package:http/http.dart' as http;
 
@@ -882,7 +880,8 @@ class DirectPrintHelper {
         bytes += generator.feed(1);
       }
       bytes += generator.emptyLines(1);
-      bytes += generator.text(shopName, styles: const PosStyles(bold: true, align: PosAlign.center));
+      bytes += generator.text(shopName,
+          styles: const PosStyles(bold: true, align: PosAlign.center));
       bytes += generator.text(address, styles: smallFontCenter);
       bytes += generator.text("Mob.No : $contact", styles: smallFontCenter);
       bytes += generator.text(separator, styles: smallFontLeft);
@@ -970,7 +969,7 @@ class DirectPrintHelper {
           for (var addon in item['addons']) {
             String addonName = " ${addon['name']}";
             if (addonName.length > desc) {
-              addonName = addonName.substring(0, desc - 3) + "...";
+              addonName = "${addonName.substring(0, desc - 3)}...";
             }
 
             double addonPrice = double.tryParse(addon['price'].toString()) ?? 0;
@@ -1004,7 +1003,8 @@ class DirectPrintHelper {
       bytes += generator.text(separator, styles: smallFontLeft);
 
       bytes += generator.text(
-        'SUBTOTAL'.padRight(totalCols - 8) + subtotal.toStringAsFixed(2).padLeft(8),
+        'SUBTOTAL'.padRight(totalCols - 8) +
+            subtotal.toStringAsFixed(2).padLeft(8),
         styles: smallFontLeft,
       );
 
@@ -1017,18 +1017,21 @@ class DirectPrintHelper {
 
         // CGST
         bytes += generator.text(
-          'CGST (${cgstPercent.toStringAsFixed(1)}%)'.padRight(totalCols - 8) + cgst.toStringAsFixed(2).padLeft(8),
+          'CGST (${cgstPercent.toStringAsFixed(1)}%)'.padRight(totalCols - 8) +
+              cgst.toStringAsFixed(2).padLeft(8),
           styles: smallFontLeft,
         );
 
         // SGST
         bytes += generator.text(
-          'SGST (${sgstPercent.toStringAsFixed(1)}%)'.padRight(totalCols - 8) + sgst.toStringAsFixed(2).padLeft(8),
+          'SGST (${sgstPercent.toStringAsFixed(1)}%)'.padRight(totalCols - 8) +
+              sgst.toStringAsFixed(2).padLeft(8),
           styles: smallFontLeft,
         );
       }
       if (addonsTotal > 0) {
-        bytes += generator.text('ADD-ONS'.padRight(totalCols - 8) + fmt(addonsTotal).padLeft(8));
+        bytes += generator.text(
+            'ADD-ONS'.padRight(totalCols - 8) + fmt(addonsTotal).padLeft(8));
       }
 
       // Grand Total
@@ -1054,15 +1057,18 @@ class DirectPrintHelper {
 
       // 🔥 UPI QR
       String upiId = "richeyrichinfotech@icici";
-      String upiUrl = "upi://pay?pa=$upiId&pn=$shopName&am=${fmt(grandTotal)}&cu=INR";
+      String upiUrl =
+          "upi://pay?pa=$upiId&pn=$shopName&am=${fmt(grandTotal)}&cu=INR";
 
       bytes += generator.emptyLines(1);
-      bytes += generator.qrcode(upiUrl, size: QRSize.Size6, align: PosAlign.center);
+      bytes +=
+          generator.qrcode(upiUrl, size: QRSize.Size6, align: PosAlign.center);
       bytes += generator.emptyLines(1);
 
       // Footer
       bytes += generator.text(separator, styles: smallFontLeft);
-      bytes += generator.text('Thank you! Visit Again', styles: smallFontCenter);
+      bytes +=
+          generator.text('Thank you! Visit Again', styles: smallFontCenter);
       bytes += generator.cut();
 
       final isConnected = await isOnline();
@@ -1361,11 +1367,13 @@ class DirectPrintHelper {
   // }
 
   /// Get offline bill statistics for display
-  static Future<Map<String, dynamic>> getOfflineBillStats(String adminUid) async {
+  static Future<Map<String, dynamic>> getOfflineBillStats(
+      String adminUid) async {
     try {
       final offlineBillManager = OfflineBillManager();
       await offlineBillManager.initialize();
-      return await offlineBillManager.getDetailedOfflineBillStatistics(adminUid);
+      return await offlineBillManager
+          .getDetailedOfflineBillStatistics(adminUid);
     } catch (e) {
       debugPrint('Error getting offline bill stats: $e');
       return {
@@ -1454,11 +1462,12 @@ class DirectPrintHelper {
         'Phone: $customerPhone',
         styles: smallFontLeft,
       );
-      if (customerGST != null && customerGST.isNotEmpty)
+      if (customerGST.isNotEmpty) {
         bytes += generator.text(
           'GST:  $customerGST',
           styles: smallFontLeft,
         );
+      }
 
       bytes += generator.text(separator, styles: smallFontLeft);
 

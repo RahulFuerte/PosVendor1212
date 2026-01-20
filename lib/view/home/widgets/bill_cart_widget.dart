@@ -1,12 +1,11 @@
 // Dart imports:
-import 'dart:convert';
 
 // Flutter imports:
 import 'package:flutter/material.dart';
 
 // Package imports:
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:pos/core/utils/offline_tts.dart';
 import 'package:pos/data/providers/order_type_provider.dart';
 import 'package:pos/view/home/widgets/my_choiceChip.dart';
 import 'package:provider/provider.dart';
@@ -341,6 +340,8 @@ class _BillCartState extends State<BillCart> {
       final orderTypeProvider = Provider.of<OrderTypeProvider>(context, listen: false);
       String paymentType = orderTypeProvider.paymentType.toString().split('.').last;
       String orderType = orderTypeProvider.orderType.toString().split('.').last;
+      final int amount = subtotal.round();
+      final String amountInWords = numberToWords(amount);
 
       // Fetch shop data (local-first)
       final shopData = await _getShopData();
@@ -378,6 +379,10 @@ class _BillCartState extends State<BillCart> {
         cgstPercent: printProvider.cgstPercent,
         sgstPercent: printProvider.sgstPercent,
         saveBill: true,
+      );
+
+      await OfflineTTS.speak(
+        "$amountInWords rupees",
       );
 
       _clearCart();

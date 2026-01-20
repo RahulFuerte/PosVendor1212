@@ -86,8 +86,8 @@ class MenuItem extends StatelessWidget {
                       recordId: imagerecordId ?? code,
                       width: double.infinity,
                       fit: BoxFit.fill,
-                      errorWidget: Center(
-                          child: const Icon(
+                      errorWidget: const Center(
+                          child: Icon(
                         Icons.fastfood,
                         size: 40,
                         color: Colors.black45,

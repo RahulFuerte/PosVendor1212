@@ -1,19 +1,18 @@
-import 'dart:convert';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:pos/core/utils/offline_tts.dart';
 import 'package:pos/data/datasources/local/sqlite_helper.dart';
 import 'package:pos/data/datasources/smart_database_service.dart';
 import 'package:pos/data/models/customer_model.dart';
 import 'package:pos/data/providers/order_type_provider.dart';
 import 'package:pos/data/providers/print_provider.dart';
 import 'package:pos/view/home/navigation.dart';
-import 'package:pos/view/home/screens/customer_list_screen.dart';
 import 'package:pos/view/home/screens/order_type_selector.dart';
 import 'package:pos/view/home/widgets/my_choiceChip.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:pos/view/tab_screen/view-model/widgets/printers/printer.dart';
 import 'package:provider/provider.dart';
+import 'dart:developer' as developer;
 
 class ReceiptPreviewScreen extends StatefulWidget {
   final String shopName;
@@ -119,6 +118,71 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
     fetchCustomers();
   }
 
+  /// Function to save new customer data to Firebase if not already stored
+  Future<void> saveCustomerToFirebase(CustomerModel customer) async {
+    try {
+      // Check if customer already exists in Firebase
+      final customerDoc = await FirebaseFirestore.instance
+          .collection('AllAdmins')
+          .doc(widget.adminUid)
+          .collection('customer')
+          .doc(widget.adminUid)
+          .collection('myCustomers')
+          .doc(customer.phone)
+          .get();
+
+      if (!customerDoc.exists) {
+        // Customer doesn't exist, save it to Firebase
+        await FirebaseFirestore.instance
+            .collection('AllAdmins')
+            .doc(widget.adminUid)
+            .collection('customer')
+            .doc(widget.adminUid)
+            .collection('myCustomers')
+            .doc(customer.phone)
+            .set({
+          'name': customer.name,
+          'phone': customer.phone,
+          'gstNo': customer.gstNo,
+          'address': customer.address,
+          'createdAt': Timestamp.fromDate(customer.createdAt),
+          'isUploaded': customer.isUploaded,
+          'updatedAt': Timestamp.fromDate(DateTime.now()),
+        });
+
+        developer.log('Customer ${customer.name} saved to Firebase with phone ${customer.phone}',
+            name: 'CustomerWiseReport');
+
+        // Refresh the customer list to include the new customer
+        fetchCustomers();
+      } else {
+        developer.log('Customer with phone ${customer.phone} already exists in Firebase', name: 'CustomerWiseReport');
+      }
+    } catch (e) {
+      developer.log('Error saving customer to Firebase: $e', name: 'CustomerWiseReport');
+      rethrow; // Re-throw to handle at calling location
+    }
+  }
+
+  /// Function to check if a customer exists in Firebase
+  Future<bool> doesCustomerExistInFirebase(String phone) async {
+    try {
+      final customerDoc = await FirebaseFirestore.instance
+          .collection('AllAdmins')
+          .doc(widget.adminUid)
+          .collection('customer')
+          .doc(widget.adminUid)
+          .collection('myCustomers')
+          .doc(phone)
+          .get();
+
+      return customerDoc.exists;
+    } catch (e) {
+      developer.log('Error checking if customer exists in Firebase: $e', name: 'CustomerWiseReport');
+      return false;
+    }
+  }
+
   /// Save bill with automatic online/offline handling
   /// Online: Saves to Firebase and local SQLite
   /// Offline: Saves to local SQLite, syncs when online
@@ -181,6 +245,9 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
       String paymentType = orderTypeProvider.paymentType.toString().split('.').last;
       String orderType = orderTypeProvider.orderType.toString().split('.').last;
 
+      final int amount = finalTotal.round();
+      final String amountInWords = numberToWords(amount);
+
       await DirectPrintHelper().saveBillData(
         adminUid: widget.phoneNo,
         receiptNo: generatedReceiptNo,
@@ -198,6 +265,10 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
         discountAmount: discountAmount,
         paymentType: paymentType,
         orderType: orderType,
+      );
+
+      await OfflineTTS.speak(
+        "$amountInWords rupees",
       );
 
       if (!mounted) return;
@@ -394,6 +465,8 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
 
                             final String paymentType = orderTypeProvider.paymentType.name; // cleaner than split('.')
                             final String orderType = orderTypeProvider.orderType.name;
+                            final int amount = finalTotal.round();
+                            final String amountInWords = numberToWords(amount);
 
                             // ✅ 5. Show loader
                             showDialog(
@@ -444,7 +517,10 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
 
                               if (!mounted) return;
 
-                              Navigator.pop(context); // close loader
+                              Navigator.pop(context); 
+                              await OfflineTTS.speak(
+                                "$amountInWords rupees",
+                              );
                               printProvider.clearCart();
                             } catch (e) {
                               if (!mounted) return;
@@ -616,9 +692,9 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
                                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: appbar1),
                               ),
                               Container(
-                                  padding: EdgeInsets.all(12),
+                                  padding: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(color: appbar1, borderRadius: BorderRadius.circular(12)),
-                                  child: Text(
+                                  child: const Text(
                                     "Add Item",
                                     style: TextStyle(color: Colors.white),
                                   ))
@@ -672,7 +748,8 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
                               final itemTotal = item['price'] * item['quantity'];
 
                               return TableRow(
-                                decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.black38))),
+                                decoration:
+                                    const BoxDecoration(border: Border(bottom: BorderSide(color: Colors.black38))),
                                 children: [
                                   // Item Name
                                   _buildCell(
@@ -698,7 +775,7 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
                                               color: appbar1,
                                               borderRadius: BorderRadius.circular(4),
                                             ),
-                                            child: Icon(
+                                            child: const Icon(
                                               Icons.remove,
                                               size: 22,
                                               color: Colors.white,
@@ -782,7 +859,7 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
                                 controller: discountCtrl,
                                 maxLength: 3,
                                 keyboardType: TextInputType.number,
-                                style: TextStyle(color: Colors.black, fontSize: 15),
+                                style: const TextStyle(color: Colors.black, fontSize: 15),
                                 onChanged: (value) {
                                   final subtotal = context.read<PrintProvider>().total;
 
@@ -815,17 +892,17 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
                                 decoration: InputDecoration(
                                   counterText: "",
                                   isDense: true,
-                                  contentPadding: EdgeInsets.symmetric(vertical: 1, horizontal: 10),
+                                  contentPadding: const EdgeInsets.symmetric(vertical: 1, horizontal: 10),
                                   suffixIcon: Container(
                                     width: 50,
-                                    child: Icon(
-                                      Icons.percent,
-                                      color: Colors.white,
-                                    ),
                                     decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.only(
+                                      borderRadius: const BorderRadius.only(
                                           topRight: Radius.circular(12), bottomRight: Radius.circular(12)),
                                       color: appbar1.withOpacity(0.8),
+                                    ),
+                                    child: const Icon(
+                                      Icons.percent,
+                                      color: Colors.white,
                                     ),
                                   ),
                                   enabledBorder: OutlineInputBorder(
@@ -874,14 +951,14 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
                                   contentPadding: const EdgeInsets.symmetric(vertical: 1, horizontal: 10),
                                   suffixIcon: Container(
                                     width: 50,
-                                    child: const Icon(
-                                      Icons.currency_rupee,
-                                      color: Colors.white,
-                                    ),
                                     decoration: BoxDecoration(
                                       borderRadius: const BorderRadius.only(
                                           topRight: Radius.circular(12), bottomRight: Radius.circular(12)),
                                       color: appbar1.withOpacity(0.8),
+                                    ),
+                                    child: const Icon(
+                                      Icons.currency_rupee,
+                                      color: Colors.white,
                                     ),
                                   ),
                                   enabledBorder: OutlineInputBorder(

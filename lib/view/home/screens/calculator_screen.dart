@@ -41,16 +41,29 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
   String previousItemName = '';
   int previousItemPrice = 0;
 
-  List<Map<String, dynamic>> cartItems = [];
   final TextEditingController _textEditingController = TextEditingController();
   bool isInputNotEmpty = false;
   DateTime? currentBackPressTime;
+
+  List<Map<String, dynamic>> cartItems = [];
+  List<Map<String, dynamic>> allFoodItems = [];
+  List<Map<String, dynamic>> filteredFoodItems = [];
+
   late Future<List<Map<String, dynamic>>> foodItemsFuture;
+
+  bool isSearching = false;
+  String search1 = '';
+
+  TextEditingController restaurantSearch = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    foodItemsFuture = fetchFoodItems();
+    foodItemsFuture = fetchFoodItems().then((items) {
+      allFoodItems = items;
+      filteredFoodItems = items;
+      return items;
+    });
     _textEditingController.addListener(() {
       setState(() {
         isInputNotEmpty = _textEditingController.text.isNotEmpty;
@@ -336,194 +349,253 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
     }
   }
 
+  void filterItems(String query) {
+    if (query.isEmpty) {
+      filteredFoodItems = allFoodItems;
+    } else {
+      filteredFoodItems = allFoodItems.where((item) {
+        return item['name'].toString().toLowerCase().contains(query.toLowerCase());
+      }).toList();
+    }
+    setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     final printprovider = Provider.of<PrintProvider>(context, listen: true);
 
     return PopScope(
-      // canPop: false,
-      // onPopInvoked: (bool didPop) async {
-      //   DateTime now = DateTime.now();
-      //   if (currentBackPressTime == null ||
-      //       now.difference(currentBackPressTime!) >
-      //           const Duration(seconds: 2)) {
-      //     currentBackPressTime = now;
-      //     Fluttertoast.showToast(
-      //       msg: "Press back again to exit",
-      //       toastLength: Toast.LENGTH_SHORT,
-      //       gravity: ToastGravity.BOTTOM,
-      //       timeInSecForIosWeb: 2,
-      //       backgroundColor: Colors.grey,
-      //       textColor: Colors.white,
-      //       fontSize: 16.0,
-      //     );
-      //   } else {
-      //     // Exit the app
-      //     exit(0); // Exit the app
-      //   }
-      // },
-      child: Scaffold(
-        appBar: AppBar(
-          centerTitle: true,
-          elevation: 1,
-          title: const Text(
-            'Enter Food code',
-            style: TextStyle(color: Colors.black, fontFamily: 'tabfont', fontSize: 19),
-          ),
-          backgroundColor: Colors.white,
-        ),
-        body: SingleChildScrollView(
-          child: SizedBox(
-            height: MediaQuery.of(context).size.height - 80,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: <Widget>[
-                    SizedBox(
-                      height: MediaQuery.of(context).size.height * 0.09,
-                      width: MediaQuery.of(context).size.width * 0.9,
+        // canPop: false,
+        // onPopInvoked: (bool didPop) async {
+        //   DateTime now = DateTime.now();
+        //   if (currentBackPressTime == null ||
+        //       now.difference(currentBackPressTime!) >
+        //           const Duration(seconds: 2)) {
+        //     currentBackPressTime = now;
+        //     Fluttertoast.showToast(
+        //       msg: "Press back again to exit",
+        //       toastLength: Toast.LENGTH_SHORT,
+        //       gravity: ToastGravity.BOTTOM,
+        //       timeInSecForIosWeb: 2,
+        //       backgroundColor: Colors.grey,
+        //       textColor: Colors.white,
+        //       fontSize: 16.0,
+        //     );
+        //   } else {
+        //     // Exit the app
+        //     exit(0); // Exit the app
+        //   }
+        // },
+        child: Scaffold(
+            resizeToAvoidBottomInset: false,
+            appBar: AppBar(
+              backgroundColor: Colors.white,
+              elevation: 0,
+              scrolledUnderElevation: 0,
+              actions: [
+                Padding(
+                  padding: const EdgeInsets.only(right: 12.0),
+                  child: GestureDetector(
+                    child: CircleAvatar(
+                      maxRadius: 20,
+                      backgroundColor: appbar1,
+                      child: Icon(
+                        isSearching ? Icons.search_off : Icons.search,
+                        size: 22,
+                        color: white,
+                      ),
+                    ),
+                    onTap: () {
+                      if (isSearching) {
+                        restaurantSearch.clear();
+                        search1 = '';
+                      }
+                      setState(() => isSearching = !isSearching);
+                    },
+                  ),
+                ),
+              ],
+              title: isSearching
+                  ? Container(
+                      height: 45,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade200,
+                        borderRadius: BorderRadius.circular(25),
+                      ),
                       child: TextField(
-                        style: const TextStyle(
-                          fontSize: 28,
-                          fontFamily: "tabfont",
-                          color: primaryColor,
-                        ),
-                        readOnly: true,
-                        controller: _textEditingController,
-                        cursorColor: primaryColor,
-                        decoration: InputDecoration(
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(20),
-                            borderSide: const BorderSide(color: Colors.black38),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(20),
-                            borderSide: const BorderSide(color: primaryColor),
-                          ),
-                          focusColor: primaryColor,
-                          hoverColor: primaryColor,
-                          suffixIcon: isInputNotEmpty
-                              ? Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    IconButton(
-                                      icon: const Icon(
-                                        Icons.backspace_outlined,
-                                        color: primaryColor,
-                                        size: 24,
-                                      ),
-                                      onPressed: () {
-                                        if (_textEditingController.text.isNotEmpty) {
-                                          _textEditingController.text = _textEditingController.text
-                                              .substring(0, _textEditingController.text.length - 1);
-                                        }
-                                      },
-                                    ),
-                                  ],
-                                )
-                              : null,
-                        ),
-                        textAlign: TextAlign.center,
+                        controller: restaurantSearch,
+                        autofocus: true,
+                        onChanged: filterItems,
+                        style: const TextStyle(fontSize: 14),
+                        decoration: const InputDecoration(
+                            hintText: "Search Item Name",
+                            prefixIcon: Icon(Icons.search, size: 18),
+                            border: InputBorder.none,
+                            isDense: true,
+                            contentPadding: EdgeInsets.all(15)),
                       ),
                     )
-                  ],
-                ),
-                GridView.count(
-                  childAspectRatio: 1.5,
-                  crossAxisCount: 3,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  children: <Widget>[
-                    for (var buttonValue in [
-                      '1',
-                      '2',
-                      '3',
-                      '4',
-                      '5',
-                      '6',
-                      '7',
-                      '8',
-                      '9',
-                      'C',
-                      '0',
-                      'PLU',
-                    ])
-                      Padding(
-                        padding: const EdgeInsets.only(left: 5, right: 5, top: 4, bottom: 4),
-                        child: ElevatedButton(
-                          onPressed: () {
-                            audioPlayer.play(AssetSource('sounds/beep.mp3'));
-                            onKeyPressed(buttonValue);
-                          },
-                          style: ElevatedButton.styleFrom(
-                            foregroundColor: primaryColor,
-                            elevation: 5,
-                            backgroundColor: buttonValue == 'PLU' ? primaryColor : Colors.white,
-                            shadowColor: primaryColor,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                          child: Text(
-                            buttonValue,
-                            style: TextStyle(
-                              fontFamily: "tabfont",
-                              color: buttonValue == 'PLU' ? Colors.white : appbar1,
-                              fontSize: 25,
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-                // Use Flexible to allow the cart container to take available space
-                if (printprovider.posts.isNotEmpty)
-                  Flexible(
-                    fit: FlexFit.tight,
-                    child: BillCart(
-                      adminUid: adminUid,
-                      phoneNo: widget.phoneNumber,
-                      onCartCleared: () {
-                        setState(() {
-                          cartItems.clear();
-                          totalSum = 0.0;
-                        });
-                      },
-                      onCartUpdated: (List<Map<String, dynamic>> updatedItems, double updatedTotal) {
-                        setState(() {
-                          cartItems = updatedItems;
-                          totalSum = updatedTotal;
-                        });
-                      },
-                      orderBottomSheet: () {
-                        showSaveOrderBottomSheet(
-                          context: context,
-                          formKey: _formKey,
-                          nameController: userNameController,
-                          mobileController: mobileController,
-                          itemCount: cartItems.length,
-                          totalAmount: totalSum,
-                          primaryColor: primaryColor,
-                          onSave: () {
-                            _saveDataAndNavigate();
-                            printprovider.clearCart();
-                            userNameController.clear();
-                            mobileController.clear();
-                          },
-                        );
-                      },
+                  : const Text(
+                      'Enter Food Code',
+                      style: TextStyle(color: Colors.black, fontFamily: 'tabfont', fontSize: 22),
                     ),
-                  ),
-                // const SizedBox(height: 10),
-              ],
             ),
-          ),
-        ),
-      ),
-    );
+            body: Column(
+              children: [
+                /// ================= SEARCH / KEYPAD AREA =================
+                Expanded(
+                  child: isSearching
+                      ? ListView.separated(
+                          padding: const EdgeInsets.all(8),
+                          itemCount: filteredFoodItems.length,
+                          separatorBuilder: (_, __) => const Divider(height: 1),
+                          itemBuilder: (_, i) {
+                            final item = filteredFoodItems[i];
+                            return ListTile(
+                              title: Text(
+                                item['name'],
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              subtitle: Text("₹${item['price']}"),
+                              trailing: IconButton(
+                                icon: const Icon(
+                                  Icons.add_circle,
+                                  color: primaryColor,
+                                  size: 30,
+                                ),
+                                onPressed: () {
+                                  addToCart(
+                                    item['name'],
+                                    PriceUtils.safePriceConversion(item['price']),
+                                  );
+                                },
+                              ),
+                            );
+                          },
+                        )
+                      : Column(
+                          children: [
+                            /// ================= FOOD CODE DISPLAY =================
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              child: SizedBox(
+                                height: 65,
+                                width: MediaQuery.of(context).size.width * 0.9,
+                                child: TextField(
+                                  controller: _textEditingController,
+                                  readOnly: true,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    fontSize: 28,
+                                    fontFamily: "tabfont",
+                                    color: primaryColor,
+                                  ),
+                                  decoration: InputDecoration(
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(18),
+                                    ),
+                                    suffixIcon: isInputNotEmpty
+                                        ? IconButton(
+                                            icon: const Icon(
+                                              Icons.backspace_outlined,
+                                              color: primaryColor,
+                                            ),
+                                            onPressed: () {
+                                              _textEditingController.text = _textEditingController.text
+                                                  .substring(0, _textEditingController.text.length - 1);
+                                            },
+                                          )
+                                        : null,
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                            /// ================= KEYPAD =================
+                            Expanded(
+                              child: GridView.builder(
+                                physics: const NeverScrollableScrollPhysics(),
+                                padding: const EdgeInsets.symmetric(horizontal: 8),
+                                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 3,
+                                  childAspectRatio: 1.6,
+                                  crossAxisSpacing: 8,
+                                  mainAxisSpacing: 8,
+                                ),
+                                itemCount: 12,
+                                itemBuilder: (_, index) {
+                                  final keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'C', '0', 'PLU'];
+                                  final key = keys[index];
+
+                                  return ElevatedButton(
+                                    onPressed: () {
+                                      audioPlayer.play(AssetSource('sounds/beep.mp3'));
+                                      onKeyPressed(key);
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: key == 'PLU' ? primaryColor : Colors.white,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      elevation: 4,
+                                    ),
+                                    child: Text(
+                                      key,
+                                      style: TextStyle(
+                                        fontSize: 26,
+                                        fontFamily: "tabfont",
+                                        color: key == 'PLU' ? Colors.white : appbar1,
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+
+                            if (printprovider.posts.isNotEmpty)
+                              BillCart(
+                                adminUid: adminUid,
+                                phoneNo: widget.phoneNumber,
+                                onCartCleared: () {
+                                  setState(() {
+                                    cartItems.clear();
+                                    totalSum = 0.0;
+                                  });
+                                },
+                                onCartUpdated: (List<Map<String, dynamic>> items, double total) {
+                                  setState(() {
+                                    cartItems = items;
+                                    totalSum = total;
+                                  });
+                                },
+                                orderBottomSheet: () {
+                                  showSaveOrderBottomSheet(
+                                    context: context,
+                                    formKey: _formKey,
+                                    nameController: userNameController,
+                                    mobileController: mobileController,
+                                    itemCount: cartItems.length,
+                                    totalAmount: totalSum,
+                                    primaryColor: primaryColor,
+                                    onSave: () {
+                                      _saveDataAndNavigate();
+                                      printprovider.clearCart();
+                                      userNameController.clear();
+                                      mobileController.clear();
+                                    },
+                                  );
+                                },
+                              ),
+                          ],
+                        ),
+                ),
+
+                /// ================= CART AREA =================
+              ],
+            )));
   }
 
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();

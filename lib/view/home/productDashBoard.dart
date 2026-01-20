@@ -2,7 +2,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:developer' as developer;
-import 'dart:io';
+
 
 // Flutter imports:
 import 'package:flutter/material.dart';
@@ -10,39 +10,24 @@ import 'package:flutter/material.dart';
 // Package imports:
 import 'package:audioplayers/audioplayers.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter_pos_printer_platform_image_3/flutter_pos_printer_platform_image_3.dart';
-import 'package:fluttertoast/fluttertoast.dart';
+
+
+
 import 'package:hive/hive.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:pos/view/home/screens/order_type_selector.dart';
 import 'package:pos/view/home/widgets/mydrawer.dart';
 import 'package:pos/view/tab_screen/view-model/frontend/menuItems.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 // Project imports:
 import 'package:pos/core/error/network_error_handler.dart';
-import 'package:pos/core/utils/price_utils.dart';
 import 'package:pos/data/datasources/database_service.dart';
 import 'package:pos/data/datasources/local/sqlite_helper.dart';
 import 'package:pos/view/home/navigation.dart';
-import 'package:pos/view/home/offline_bill_status_screen.dart';
 import 'package:pos/data/providers/print_provider.dart';
-import 'package:pos/view/home/printer_connectionDialog.dart';
-import 'package:pos/view/home/reports/bill_wise_report.dart';
-import 'package:pos/view/home/reports/date_wise_report.dart';
-import 'package:pos/view/home/reports/item_wise_report.dart';
-import 'package:pos/view/home/screens/customer_list_screen.dart';
-import 'package:pos/view/home/screens/edit_bill_receipt.dart';
-import 'package:pos/view/home/screens/sales_report_screen.dart';
 import 'package:pos/view/home/screens/users_data_screen.dart';
-import 'package:pos/view/login/screens/inception_screen.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
-import 'package:pos/view/tab_screen/view-model/widgets/cached_blob_image.dart';
 import 'package:pos/view/tab_screen/view-model/widgets/offline_status_indicator.dart';
-import 'package:pos/view/tab_screen/view-model/widgets/printers/printer.dart';
-import 'package:pos/view/tab_screen/view-model/widgets/sync_status_page.dart';
 import 'widgets/bill_cart_widget.dart';
 import 'widgets/show_save_order_bottom_sheet.dart';
 
@@ -372,7 +357,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                     children: [
                       Container(
                         height: 50,
-                        margin: EdgeInsets.symmetric(vertical: 5, horizontal: 10),
+                        margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 10),
                         width: double.infinity,
                         child: const OrderTypeSelector(),
                       ),
@@ -536,214 +521,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
     );
   }
 
-  // static Future<void> printReceipt({
-  //   required BuildContext context,
-  //   required BluetoothPrinter printer,
-  //   required PaperSize paperSize,
-  //   required List<Map<String, dynamic>> items,
-  //   required double total,
-  //   required String shopName,
-  //   required String logoUrl,
-  //   required String contact,
-  //   required String address,
-  //   required String adminUid,
-  //   String? tableNumber,
-  //   String? receiptNo, // Optional: pass existing receipt number, otherwise generate new one
-  //   bool taxEnabled = false,
-  //   double cgstPercent = 2.5,
-  //   double sgstPercent = 2.5,
-  //   bool saveBill = false, // Set to false by default since bill is usually saved before calling this
-  // }) async {
-  //   try {
-  //     // Use provided receipt number or generate a new one
-  //     final String finalReceiptNo = receiptNo ?? generateReceiptNumber();
 
-  //     final profile = await CapabilityProfile.load(name: 'XP-N160I');
-  //     final Generator generator = Generator(paperSize, profile);
-
-  //     List<int> bytes = [];
-  //     bytes += generator.setGlobalCodeTable('CP1252');
-
-  //     // Paper configuration
-  //     bool is58mm = paperSize == PaperSize.mm58;
-  //     int totalCols = is58mm ? 31 : 48;
-  //     String separator = '-' * totalCols;
-
-  //     // Smart dynamic columns
-  //     int desc = is58mm ? 12 : 22;
-  //     int qty = is58mm ? 5 : 6;
-  //     int rate = is58mm ? 6 : 8;
-  //     int amt = is58mm ? 7 : 10;
-
-  //     // Small font style
-  //     const smallFontCenter = PosStyles(align: PosAlign.center);
-  //     const smallFontLeft = PosStyles(align: PosAlign.left);
-
-  //     String timeText = "Time: ${DateFormat('hh:mm a').format(DateTime.now())}";
-  //     String receiptText = "Receipt No: $finalReceiptNo";
-
-  //     // Calculate spaces needed between left and right
-  //     int spaceCount = totalCols - timeText.length - receiptText.length;
-  //     if (spaceCount < 1) spaceCount = 1;
-
-  //     String line = timeText + ' ' * spaceCount + receiptText;
-
-  //     // Header
-
-  //     if (logoUrl.isNotEmpty) {
-  //       final logoBytes = await _loadLogoForPrinter(logoUrl, generator);
-  //       bytes += logoBytes;
-  //       bytes += generator.feed(1); // small gap after logo
-  //     }
-  //     bytes += generator.emptyLines(1);
-  //     bytes += generator.text(shopName, styles: const PosStyles(width: PosTextSize.size2, height: PosTextSize.size2));
-  //     bytes += generator.text(address, styles: smallFontCenter);
-  //     bytes += generator.text("Mob.No : $contact", styles: smallFontCenter);
-  //     bytes += generator.text(separator, styles: smallFontLeft);
-  //     // bytes += generator.text(
-  //     //   "Date : ${DateFormat('dd/MM/yyyy').format(DateTime.now())}",
-  //     //   styles: smallFontLeft,
-  //     // );
-  //     // bytes += generator.text(
-  //     //   line,
-  //     //   styles: smallFontLeft,
-  //     // );
-  //     // bytes += generator.text(separator, styles: smallFontLeft);
-  //     // // bytes += generator.text('RECEIPT', styles: smallFontCenter);
-  //     // // bytes += generator.text('Receipt No: $finalReceiptNo', styles: smallFontCenter);
-
-  //     // // // Table number (show N/A if not provided)
-  //     // if (tableNumber != null && tableNumber.isNotEmpty) {
-  //     //   bytes += generator.text(
-  //     //     'Table No: $tableNumber ',
-  //     //     styles: smallFontLeft,
-  //     //   );
-  //     // }
-
-  //     // bytes += generator.text(separator, styles: smallFontLeft);
-
-  //     // // Table header
-  //     // bytes += generator.text(
-  //     //   '${"Item".padRight(desc)}'
-  //     //   '${"Qty".padLeft(qty)}'
-  //     //   '${"Price".padLeft(rate)}'
-  //     //   '${"Amt".padLeft(amt)}',
-  //     //   styles: smallFontLeft,
-  //     // );
-
-  //     // Items
-  //     // for (var item in items) {
-  //     //   String name = item['name'].toString();
-  //     //   if (name.length > desc) {
-  //     //     name = name.substring(0, desc - 3) + "...";
-  //     //   }
-
-  //     //   int qtyValue = int.tryParse(item['quantity'].toString()) ?? 1;
-  //     //   double rateValue = double.tryParse(item['price'].toString()) ?? 0;
-  //     //   double amtValue = qtyValue * rateValue;
-
-  //     //   bytes += generator.text(
-  //     //     '${name.padRight(desc)}'
-  //     //     '${qtyValue.toString().padLeft(qty)}'
-  //     //     '${rateValue.toStringAsFixed(2).padLeft(rate)}'
-  //     //     '${amtValue.toStringAsFixed(2).padLeft(amt)}',
-  //     //     styles: smallFontLeft,
-  //     //   );
-  //     // }
-
-  //     // Calculate totals
-  //     double subtotal = total;
-  //     double grandTotal = subtotal;
-
-  //     // Subtotal
-  //     // bytes += generator.text(separator, styles: smallFontLeft);
-  //     // bytes += generator.text(
-  //     //   'SUBTOTAL'.padRight(totalCols - 8) + subtotal.toStringAsFixed(2).padLeft(8),
-  //     //   styles: smallFontLeft,
-  //     // );
-
-  //     // Only show tax if enabled
-  //     // if (taxEnabled) {
-  //     //   double cgst = subtotal * (cgstPercent / 100);
-  //     //   double sgst = subtotal * (sgstPercent / 100);
-  //     //   grandTotal = subtotal + cgst + sgst;
-
-  //     //   // CGST
-  //     //   bytes += generator.text(
-  //     //     'CGST (${cgstPercent.toStringAsFixed(1)}%)'.padRight(totalCols - 8) + cgst.toStringAsFixed(2).padLeft(8),
-  //     //     styles: smallFontLeft,
-  //     //   );
-
-  //     //   // SGST
-  //     //   bytes += generator.text(
-  //     //     'SGST (${sgstPercent.toStringAsFixed(1)}%)'.padRight(totalCols - 8) + sgst.toStringAsFixed(2).padLeft(8),
-  //     //     styles: smallFontLeft,
-  //     //   );
-  //     // }
-
-  //     // Grand Total
-  //     // bytes += generator.text(separator, styles: smallFontLeft);
-  //     // bytes += generator.text(
-  //     //   'GRAND TOTAL'.padRight(totalCols - 8) + grandTotal.toStringAsFixed(2).padLeft(8),
-  //     //   styles: smallFontLeft,
-  //     // );
-
-  //     // Footer
-  //     // bytes += generator.text(separator, styles: smallFontLeft);
-  //     // bytes += generator.text('Thank you! Visit Again', styles: smallFontCenter);
-  //     // bytes += generator.cut();
-
-  //     final isConnected = await isOnline();
-
-  //     // Send to printer
-  //     await PrinterManager.instance.send(
-  //       type: printer.typePrinter,
-  //       bytes: bytes,
-  //     );
-
-  //     // Only save bill if saveBill flag is true (to avoid duplicate saves)
-  //     // When called from bill_cart_widget.dart, bill is already saved via SmartDatabaseService
-  //     if (saveBill) {
-  //       await saveBillToFirebase(
-  //         adminUid: adminUid,
-  //         receiptNo: finalReceiptNo,
-  //         items: items,
-  //         subTotal: subtotal,
-  //       );
-  //     }
-
-  //     if (context.mounted) {
-  //       final message = isConnected
-  //           ? 'Receipt printed & saved online! Receipt No: $receiptNo'
-  //           : 'Receipt printed & saved offline! Will sync when online. Receipt No: $receiptNo';
-
-  //       ScaffoldMessenger.of(context).showSnackBar(
-  //         SnackBar(
-  //           content: Text(message),
-  //           backgroundColor: isConnected ? Colors.green : Colors.orange,
-  //           duration: const Duration(seconds: 4),
-  //         ),
-  //       );
-  //       // ScaffoldMessenger.of(context).showSnackBar(
-  //       //   SnackBar(
-  //       //     content: Text('Receipt printed! Receipt No: $finalReceiptNo'),
-  //       //     backgroundColor: Colors.green,
-  //       //     duration: const Duration(seconds: 2),
-  //       //   ),
-  //       // );
-  //     }
-  //   } catch (e) {
-  //     debugPrint("Printing error: $e");
-  //     if (context.mounted) {
-  //       ScaffoldMessenger.of(context).showSnackBar(
-  //         SnackBar(
-  //           content: Text('Printing failed: $e'),
-  //           backgroundColor: Colors.red,
-  //         ),
-  //       );
-  //     }
-  //   }
-  // }
 
   void _saveDataAndNavigate() async {
     final userMap = {
