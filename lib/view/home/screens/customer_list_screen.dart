@@ -347,7 +347,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
           ],
         ),
         content: SingleChildScrollView(
-          child: Container(
+          child: SizedBox(
             width: double.maxFinite,
             child: Column(
               mainAxisSize: MainAxisSize.min,

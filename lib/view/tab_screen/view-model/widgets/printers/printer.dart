@@ -743,14 +743,12 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_pos_printer_platform_image_3/flutter_pos_printer_platform_image_3.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pos/data/datasources/smart_database_service.dart';
-import 'package:pos/data/providers/print_provider.dart';
 import 'package:image/image.dart' as img_lib;
 import 'package:http/http.dart' as http;
 
@@ -981,7 +979,7 @@ class DirectPrintHelper {
           for (var addon in item['addons']) {
             String addonName = " ${addon['name']}";
             if (addonName.length > desc) {
-              addonName = addonName.substring(0, desc - 3) + "...";
+              addonName = "${addonName.substring(0, desc - 3)}...";
             }
 
             double addonPrice = double.tryParse(addon['price'].toString()) ?? 0;
@@ -1462,11 +1460,12 @@ class DirectPrintHelper {
         'Phone: $customerPhone',
         styles: smallFontLeft,
       );
-      if (customerGST != null && customerGST.isNotEmpty)
+      if (customerGST.isNotEmpty) {
         bytes += generator.text(
           'GST:  $customerGST',
           styles: smallFontLeft,
         );
+      }
 
       bytes += generator.text(separator, styles: smallFontLeft);
 

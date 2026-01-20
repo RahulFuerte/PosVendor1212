@@ -856,7 +856,7 @@ void main() {
         }
 
         // 4. Final system validation
-        final finalValidation = await performanceMonitor.getPerformanceReport();
+        final finalValidation = performanceMonitor.getPerformanceReport();
         expect(finalValidation.containsKey('queryStatistics'), isTrue);
         expect(finalValidation.containsKey('memoryStatistics'), isTrue);
       });

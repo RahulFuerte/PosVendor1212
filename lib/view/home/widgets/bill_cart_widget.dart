@@ -1,12 +1,10 @@
 // Dart imports:
-import 'dart:convert';
 
 // Flutter imports:
 import 'package:flutter/material.dart';
 
 // Package imports:
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:pos/data/providers/order_type_provider.dart';
 import 'package:pos/view/home/widgets/my_choiceChip.dart';
 import 'package:provider/provider.dart';

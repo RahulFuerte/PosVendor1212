@@ -2,7 +2,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:developer' as developer;
-import 'dart:io';
 
 // Flutter imports:
 import 'package:flutter/material.dart';
@@ -10,39 +9,21 @@ import 'package:flutter/material.dart';
 // Package imports:
 import 'package:audioplayers/audioplayers.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter_pos_printer_platform_image_3/flutter_pos_printer_platform_image_3.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 import 'package:hive/hive.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:pos/view/home/screens/order_type_selector.dart';
 import 'package:pos/view/home/widgets/mydrawer.dart';
 import 'package:pos/view/tab_screen/view-model/frontend/menuItems.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 // Project imports:
 import 'package:pos/core/error/network_error_handler.dart';
-import 'package:pos/core/utils/price_utils.dart';
 import 'package:pos/data/datasources/database_service.dart';
 import 'package:pos/data/datasources/local/sqlite_helper.dart';
 import 'package:pos/view/home/navigation.dart';
-import 'package:pos/view/home/offline_bill_status_screen.dart';
 import 'package:pos/data/providers/print_provider.dart';
-import 'package:pos/view/home/printer_connectionDialog.dart';
-import 'package:pos/view/home/reports/bill_wise_report.dart';
-import 'package:pos/view/home/reports/date_wise_report.dart';
-import 'package:pos/view/home/reports/item_wise_report.dart';
-import 'package:pos/view/home/screens/customer_list_screen.dart';
-import 'package:pos/view/home/screens/edit_bill_receipt.dart';
-import 'package:pos/view/home/screens/sales_report_screen.dart';
 import 'package:pos/view/home/screens/users_data_screen.dart';
-import 'package:pos/view/login/screens/inception_screen.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
-import 'package:pos/view/tab_screen/view-model/widgets/cached_blob_image.dart';
 import 'package:pos/view/tab_screen/view-model/widgets/offline_status_indicator.dart';
-import 'package:pos/view/tab_screen/view-model/widgets/printers/printer.dart';
-import 'package:pos/view/tab_screen/view-model/widgets/sync_status_page.dart';
 import 'widgets/bill_cart_widget.dart';
 import 'widgets/show_save_order_bottom_sheet.dart';
 
@@ -372,7 +353,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                     children: [
                       Container(
                         height: 50,
-                        margin: EdgeInsets.symmetric(vertical: 5, horizontal: 10),
+                        margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 10),
                         width: double.infinity,
                         child: const OrderTypeSelector(),
                       ),

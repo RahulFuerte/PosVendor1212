@@ -9,7 +9,6 @@ import 'package:flutter/material.dart';
 // Package imports:
 import 'package:audioplayers/audioplayers.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 import 'package:hive/hive.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:pos/view/home/screens/order_type_selector.dart';
@@ -604,7 +603,7 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                 children: [
                   Container(
                     height: 50,
-                    margin: EdgeInsets.symmetric(vertical: 5, horizontal: 10),
+                    margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 10),
                     width: double.infinity,
                     child: const OrderTypeSelector(),
                   ),
@@ -616,7 +615,7 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                             width: 80,
                             child: Container(
                               decoration: const BoxDecoration(color: Colors.white),
-                              padding: EdgeInsets.only(left: 5),
+                              padding: const EdgeInsets.only(left: 5),
                               child: FutureBuilder<List<Map<String, dynamic>>>(
                                 future: foodDepartmentsFuture,
                                 builder: (context, snapshot) {

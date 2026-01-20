@@ -470,6 +470,7 @@ class FirebaseDAO implements DatabaseService {
   }
 
   // Orders operations
+  @override
   Future<void> saveOrder(String adminUid, Map<String, dynamic> orderData) async {
     try {
       final now = Timestamp.now();
@@ -498,6 +499,7 @@ class FirebaseDAO implements DatabaseService {
     }
   }
 
+  @override
   Future<List<Map<String, dynamic>>> getOrders(String adminUid) async {
     try {
       final QuerySnapshot querySnapshot = await _firestore

@@ -1,5 +1,4 @@
 // Package imports:
-import 'dart:convert';
 
 import 'package:path/path.dart';
 import 'package:shared_preferences/shared_preferences.dart';
