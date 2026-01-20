@@ -33,6 +33,9 @@ class _DashboardState extends State<Dashboard> {
   late String monthKey;
   late String dateKey;
 
+  DateTime selectedDate = DateTime.now();
+  String selectedOrderType = 'all';
+
   final SmartDatabaseService _databaseService = SmartDatabaseService();
 
   final SQLiteHelper _sqliteHelper = SQLiteHelper();
@@ -50,20 +53,26 @@ class _DashboardState extends State<Dashboard> {
 
   Future<void> fetchOrders() async {
     try {
-      setState(() {
-        isLoading = true;
-      });
-      final snapshot = await FirebaseFirestore.instance
+      setState(() => isLoading = true);
+
+      final monthKey = DateFormat('yyyyMM').format(selectedDate);
+      final dateKey = DateFormat('yyyyMMdd').format(selectedDate);
+
+      Query query = FirebaseFirestore.instance
           .collection('AllBills')
           .doc(widget.adminUid)
           .collection('myBills')
           .doc(monthKey)
           .collection(dateKey)
-          .orderBy('createdAt', descending: true)
-          .get();
+          .orderBy('createdAt', descending: true);
+
+      if (selectedOrderType != 'all') {
+        query = query.where('orderType', isEqualTo: selectedOrderType);
+      }
+
+      final snapshot = await query.get();
 
       int sales = 0;
-
       for (var doc in snapshot.docs) {
         sales += (doc['finalTotal'] as num).toInt();
       }
@@ -76,9 +85,7 @@ class _DashboardState extends State<Dashboard> {
     } catch (e) {
       debugPrint('Fetch Orders Error: $e');
     } finally {
-      setState(() {
-        isLoading = false;
-      });
+      setState(() => isLoading = false);
     }
   }
 
@@ -396,6 +403,69 @@ class _DashboardState extends State<Dashboard> {
                             title: 'KOTS',
                             active: selectedTab == 1,
                             onTap: () => setState(() => selectedTab = 1),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 10,),
+                  Container(
+                  
+                    child: Row(
+                      children: [
+                        /// 📅 DATE FILTER
+                        Expanded(
+                          child: InkWell(
+                            onTap: () async {
+                              final picked = await showDatePicker(
+                                context: context,
+                                initialDate: selectedDate,
+                                firstDate: DateTime(2023),
+                                lastDate: DateTime.now(),
+                              );
+                              if (picked != null) {
+                                setState(() => selectedDate = picked);
+                                fetchOrders();
+                              }
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.grey.shade300),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(Icons.calendar_today, size: 18),
+                                  const SizedBox(width: 8),
+                                  Text(DateFormat('dd MMM yyyy').format(selectedDate)),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(width: 10),
+
+                        /// 🍽 ORDER TYPE FILTER
+                        Expanded(
+                          child: DropdownButtonFormField<String>(
+                            value: selectedOrderType,
+                            decoration: InputDecoration(
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                            items: const [
+                              DropdownMenuItem(value: 'all', child: Text('All Orders')),
+                              DropdownMenuItem(value: 'dineIn', child: Text('Dine In')),
+                              DropdownMenuItem(value: 'pickUp', child: Text('Pick Up')),
+                              DropdownMenuItem(value: 'delivery', child: Text('Delivery')),
+                            ],
+                            onChanged: (value) {
+                              setState(() => selectedOrderType = value!);
+                              fetchOrders();
+                            },
                           ),
                         ),
                       ],
