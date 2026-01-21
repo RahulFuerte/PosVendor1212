@@ -74,6 +74,8 @@ class _MyDrawerState extends State<MyDrawer> {
               'logoUrl': localData['shopLogoUrl'],
               'contact': localData['shopContact'],
               'address': localData['address'],
+              'upiId': localData['upiId'],
+              'fssaiNo': localData['fssaiNo'],
             };
             adminUid = localData['adminUid'] ?? localData['admin_uid'] ?? '';
             isUserLoading = false;
@@ -100,6 +102,8 @@ class _MyDrawerState extends State<MyDrawer> {
             'logoUrl': data['logoUrl'],
             'contact': data['contact'],
             'address': data['address'],
+            'upiId': data['upiId'],
+            'fssaiNo': data['fssaiNo'],
             'name': data['name'],
             'email': data['email'],
             'customerCode': data['customerCode'],
@@ -446,8 +450,6 @@ class _MyDrawerState extends State<MyDrawer> {
             ),
           ),
 
-          
-
           ListTile(
             leading: const Icon(Icons.receipt, color: primaryColor),
             title: const Text('Edit bill Receipt'),
@@ -461,13 +463,12 @@ class _MyDrawerState extends State<MyDrawer> {
             },
           ),
 
-
           ListTile(
             leading: const Icon(Icons.account_balance_wallet, color: primaryColor),
             title: const Text('Expenses'),
             onTap: () {
               _navigate(
-                const Expenses(),
+                Expenses(uid: widget.phoneNo),
               );
             },
           ),

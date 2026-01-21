@@ -29,6 +29,7 @@ class _DashboardState extends State<Dashboard> {
   int selectedTab = 0;
   int totalBills = 0;
   int totalSales = 0;
+  int totalExpenses = 0;
 
   late String monthKey;
   late String dateKey;
@@ -57,6 +58,7 @@ class _DashboardState extends State<Dashboard> {
 
       final monthKey = DateFormat('yyyyMM').format(selectedDate);
       final dateKey = DateFormat('yyyyMMdd').format(selectedDate);
+      final yearMonth = "${selectedDate.year}_${selectedDate.month.toString().padLeft(2, '0')}";
 
       final snapshot = await FirebaseFirestore.instance
           .collection('AllBills')
@@ -65,6 +67,16 @@ class _DashboardState extends State<Dashboard> {
           .doc(monthKey)
           .collection(dateKey)
           .orderBy('createdAt', descending: true)
+          .get();
+
+      final expensesnapshot = await FirebaseFirestore.instance
+          .collection('AllExpense')
+          .doc(widget.phoneNo)
+          .collection('expenses')
+          .doc(yearMonth)
+          .collection('list')
+          .where('date', isGreaterThanOrEqualTo: DateTime(selectedDate.year, selectedDate.month, selectedDate.day))
+          .where('date', isLessThan: DateTime(selectedDate.year, selectedDate.month, selectedDate.day + 1))
           .get();
 
       List<QueryDocumentSnapshot> filtered = snapshot.docs;
@@ -80,10 +92,16 @@ class _DashboardState extends State<Dashboard> {
         sales += (doc['finalTotal'] as num).toInt();
       }
 
+      int total = 0;
+      for (var doc in expensesnapshot.docs) {
+        total += (doc['amount'] as num).toInt();
+      }
+
       setState(() {
         orders = filtered;
         totalBills = filtered.length;
         totalSales = sales;
+        totalExpenses = total;
       });
     } catch (e) {
       debugPrint('Fetch Orders Error: $e');
@@ -229,6 +247,7 @@ class _DashboardState extends State<Dashboard> {
       String contact = shopData['contact']!;
       String address = shopData['address']!;
       String logoUrl = shopData['logoUrl']!;
+      String upiId = shopData['upiId']!;
 
       if (!mounted) return;
       Navigator.pop(context);
@@ -244,6 +263,7 @@ class _DashboardState extends State<Dashboard> {
         contact: contact,
         address: address,
         logoUrl: logoUrl,
+        upiId: upiId,
         customerName: customerName,
         customerPhone: customerPhone,
         customerGst: customerGst,
@@ -371,7 +391,7 @@ class _DashboardState extends State<Dashboard> {
                     children: [
                       _InfoCard(
                         title: "Total Bills",
-                        value: '₹ ${numberFormat.format(totalBills)}',
+                        value: numberFormat.format(totalBills),
                         icon: Icons.receipt,
                         color: appbar1,
                       ),
@@ -380,7 +400,7 @@ class _DashboardState extends State<Dashboard> {
                       ),
                       _InfoCard(
                         title: "Total Expenses",
-                        value: '₹0',
+                        value: '₹ ${numberFormat.format(totalExpenses)}',
                         icon: Icons.trending_down,
                         color: Colors.red.shade600,
                       ),
@@ -504,8 +524,7 @@ class _DashboardState extends State<Dashboard> {
                       ],
                     ),
                   ),
-                        const SizedBox(height: 12),
-                 
+                  const SizedBox(height: 12),
                   Container(
                     decoration: BoxDecoration(
                       color: Colors.white,

@@ -8,6 +8,7 @@ import 'package:hive_flutter/adapters.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pos/data/providers/admin_uid_provider.dart';
 import 'package:pos/data/providers/order_type_provider.dart';
+import 'package:pos/view/home/screens/Expense/expense_main.dart';
 
 import 'package:provider/provider.dart';
 
@@ -70,9 +71,7 @@ class MyApp extends StatelessWidget {
       ],
       child: const MaterialApp(
         title: 'POS',
-      
         home: SplashScreen(),
-      
         debugShowCheckedModeBanner: false,
       ),
     );

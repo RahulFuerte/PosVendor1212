@@ -92,6 +92,7 @@ class _BillCartState extends State<BillCart> {
     String contact = 'N/A';
     String address = 'N/A';
     String logoUrl = '';
+    String upiId = '';
 
     try {
       // First try to get from local SQLite
@@ -102,6 +103,7 @@ class _BillCartState extends State<BillCart> {
         contact = localData['shopContact'] ?? 'N/A';
         address = localData['address'] ?? 'N/A';
         logoUrl = localData['shopLogoUrl'] ?? '';
+        upiId = localData['upiId'] ?? '';
         debugPrint('Shop data loaded from local cache');
       } else {
         // Not found locally, fetch from Firebase
@@ -118,6 +120,7 @@ class _BillCartState extends State<BillCart> {
             shopName = data['shopName'] ?? 'N/A';
             contact = data['contact'] ?? 'N/A';
             address = data['address'] ?? 'N/A';
+            upiId = data['upiId'] ?? '';
 
             // Save all fields to local SQLite for future use
             await _sqliteHelper.saveUserData({
@@ -126,6 +129,7 @@ class _BillCartState extends State<BillCart> {
               'shopName': shopName,
               'contact': contact,
               'address': address,
+              'upiId': upiId,
               'logoUrl': data['logoUrl'],
               'name': data['name'],
               'email': data['email'],
@@ -146,6 +150,7 @@ class _BillCartState extends State<BillCart> {
       'contact': contact,
       'address': address,
       'logoUrl': logoUrl,
+      'upiId': upiId,
     };
   }
 
@@ -199,6 +204,7 @@ class _BillCartState extends State<BillCart> {
       String contact = shopData['contact']!;
       String address = shopData['address']!;
       String logoUrl = shopData['logoUrl']!;
+      String upiId = shopData['upiId'] ?? "";
 
       if (!mounted) return;
       Navigator.pop(parentContext);
@@ -215,6 +221,7 @@ class _BillCartState extends State<BillCart> {
         contact: contact,
         address: address,
         logoUrl: logoUrl,
+        upiId: upiId,
         tableNumber: tableNumber,
         receiptNo: generatedReceiptNo,
         customerName: "",
@@ -275,6 +282,7 @@ class _BillCartState extends State<BillCart> {
     String shopName = shopData['shopName']!;
     String contact = shopData['contact']!;
     String address = shopData['address']!;
+    String upiId = shopData['upiId'] ?? "";
 
     final result = await Navigator.push(
       context,
@@ -284,6 +292,7 @@ class _BillCartState extends State<BillCart> {
           shopName: shopName,
           contact: contact,
           address: address,
+          upiId: upiId,
           phoneNo: widget.phoneNo,
         ),
       ),
@@ -349,6 +358,8 @@ class _BillCartState extends State<BillCart> {
       String contact = shopData['contact']!;
       String address = shopData['address']!;
       String logoUrl = shopData['logoUrl']!;
+      String upiId = shopData['upiId'] ?? "";
+
 
       if (!mounted) return;
       Navigator.pop(context);
@@ -366,6 +377,7 @@ class _BillCartState extends State<BillCart> {
         logoUrl: logoUrl,
         customerName: "",
         customerPhone: "",
+        upiId: upiId,
         customerGst: "",
         orderType: orderType,
         paymentType: paymentType,

@@ -37,6 +37,8 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
   final _contactController = TextEditingController();
   final _addressController = TextEditingController();
   final _gstNumberController = TextEditingController();
+  final _fssaiNumberController = TextEditingController();
+  final _upiIdController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
 
   bool _isSaving = false;
@@ -75,6 +77,8 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
 
           _addressController.text = data['address'] ?? '';
           _gstNumberController.text = data['gstNo'] ?? '';
+          _fssaiNumberController.text = data['fssaiNo'] ?? '';
+          _upiIdController.text = data['upiId'] ?? '';
 
           print('Loaded receipt data from Firebase and saved locally');
         }
@@ -258,6 +262,8 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
     _contactController.dispose();
     _addressController.dispose();
     _gstNumberController.dispose();
+    _fssaiNumberController.dispose();
+    _upiIdController.dispose();
     super.dispose();
   }
 
@@ -279,6 +285,8 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
           'contact': contactWithPrefix,
           'address': _addressController.text.trim(),
           'gstNo': _gstNumberController.text.trim(),
+          'fssaiNo': _fssaiNumberController.text.trim(),
+          'upiId': _upiIdController.text.trim(),
           'updatedAt': FieldValue.serverTimestamp(),
         };
 
@@ -304,6 +312,8 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
           'contact': contactWithPrefix,
           'address': _addressController.text.trim(),
           'gstNumber': _gstNumberController.text.trim(),
+          'fssaiNo': _fssaiNumberController.text.trim(),
+          'upiId': _upiIdController.text.trim(),
         });
 
         if (mounted) {
@@ -565,6 +575,27 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
                                   return null;
                                 }),
                             const SizedBox(height: 16),
+
+                            // Fssai License Number Field
+                            _buildTextField(
+                              controller: _fssaiNumberController,
+                              label: 'Fssai Number',
+                              hint: 'Enter fssai license number',
+                              icon: Icons.verified_outlined,
+                              validator: (value) {},
+                            ),
+                            const SizedBox(height: 16),
+
+                            // Fssai License Number Field
+                            _buildTextField(
+                              controller: _upiIdController,
+                              label: 'Upi Id',
+                              hint: 'Enter upi id number',
+                              icon: Icons.qr_code_outlined,
+                              validator: (value) {},
+                            ),
+                            const SizedBox(height: 16),
+
                             // Address Field
                             _buildTextField(
                               controller: _addressController,
@@ -579,6 +610,8 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
                                 return null;
                               },
                             ),
+                            const SizedBox(height: 16),
+
                             const SizedBox(height: 32),
 
                             // Tax Settings Section

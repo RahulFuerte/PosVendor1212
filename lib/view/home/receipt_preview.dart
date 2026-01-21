@@ -20,6 +20,7 @@ class ReceiptPreviewScreen extends StatefulWidget {
   final String address;
   final String adminUid;
   final String phoneNo;
+  final String upiId;
 
   const ReceiptPreviewScreen({
     Key? key,
@@ -28,6 +29,7 @@ class ReceiptPreviewScreen extends StatefulWidget {
     required this.address,
     required this.phoneNo,
     required this.adminUid,
+    required this.upiId,
   }) : super(key: key);
 
   @override
@@ -489,6 +491,7 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
                                 logoUrl: widget.shopName,
                                 contact: widget.contact,
                                 address: widget.address,
+                                upiId: widget.upiId,
 
                                 // Customer
                                 customerName: nameCtrl.text,
@@ -517,7 +520,7 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
 
                               if (!mounted) return;
 
-                              Navigator.pop(context); 
+                              Navigator.pop(context);
                               await OfflineTTS.speak(
                                 "$amountInWords rupees",
                               );
