@@ -33,7 +33,9 @@ import '../widgets/show_save_order_bottom_sheet.dart';
 
 class RestaurantScreen extends StatefulWidget {
   final String phoneNo;
-  const RestaurantScreen({required this.phoneNo, Key? key}) : super(key: key);
+  final bool isEditBill;
+  final String? receiptNo;
+  const RestaurantScreen({required this.phoneNo, Key? key, this.isEditBill = false, this.receiptNo}) : super(key: key);
 
   @override
   _RestaurantScreenState createState() => _RestaurantScreenState();
@@ -583,7 +585,10 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
         ],
       ),
 
-      drawer: MyDrawer(phoneNo: widget.phoneNo , adminPhoneNo: adminUid,),
+      drawer: MyDrawer(
+        phoneNo: widget.phoneNo,
+        adminPhoneNo: adminUid,
+      ),
       body: isLoading
           ? Center(
               child: SizedBox(

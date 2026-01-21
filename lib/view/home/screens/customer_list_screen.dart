@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:pos/view/home/navigation.dart';
 import 'package:pos/data/datasources/local/sqlite_helper.dart';
 import 'package:pos/data/models/customer_model.dart';
+import 'package:pos/view/home/widgets/mydrawer.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
@@ -68,7 +69,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
           );
         } else {
           mergedList.add(local);
-          pendingSync.add(local); 
+          pendingSync.add(local);
         }
       }
 
@@ -81,7 +82,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
 
       setState(() {
         customers = mergedList;
-        notUploadedCustomers = pendingSync; 
+        notUploadedCustomers = pendingSync;
         isLoading = false;
       });
     } catch (e) {
@@ -157,7 +158,6 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
             'address': customer.address ?? '',
             'createdAt': FieldValue.serverTimestamp(),
           };
-          print("These Is Customer Data ...............$customerData");
           // Upload to Firebase: AllAdmins/{adminUid}/customers/{customerPhone}
           await firestore
               .collection('AllAdmins')
@@ -554,10 +554,11 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
         elevation: 0,
         scrolledUnderElevation: 0,
         backgroundColor: white,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Colors.black87),
-          onPressed: () => Navigator.pop(context),
-        ),
+        
+        // leading: IconButton(
+        //   icon: const Icon(Icons.arrow_back_ios, color: Colors.black87),
+        //   onPressed: () => Navigator.pop(context),
+        // ),
         actions: [
           if (notUploadedCustomers.isNotEmpty)
             Container(
@@ -596,6 +597,10 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
               ),
             ),
         ],
+      ),
+       drawer: MyDrawer(
+        phoneNo: widget.phoneNo,
+        adminPhoneNo: widget.phoneNo,
       ),
       body: isLoading
           ? Center(

@@ -764,24 +764,26 @@ class DirectPrintHelper {
   }
 
   final SmartDatabaseService _databaseService = SmartDatabaseService();
-
   static Future<List<int>> loadLogoOfflineSafe(
     String logoUrl,
     Generator generator,
   ) async {
     try {
       final dir = await getApplicationDocumentsDirectory();
-      final file = File('${dir.path}/printer_logo.png');
+
+      // 🔥 URL-based filename
+      final fileName = 'printer_logo_${logoUrl.hashCode}.png';
+      final file = File('${dir.path}/$fileName');
 
       img_lib.Image? image;
 
-      // ✅ 1. If file exists → use it (OFFLINE SAFE)
+      // ✅ Offline-first
       if (await file.exists()) {
         final bytes = await file.readAsBytes();
         image = img_lib.decodeImage(bytes);
       }
 
-      // ✅ 2. If file missing → try downloading (ONLINE ONLY)
+      // 🌐 Download only if missing
       if (image == null && logoUrl.isNotEmpty) {
         final response = await http.get(Uri.parse(logoUrl));
         if (response.statusCode == 200) {
@@ -792,16 +794,12 @@ class DirectPrintHelper {
 
       if (image == null) return [];
 
-      // 🔧 Printer-friendly resize + grayscale
       final resized = img_lib.copyResize(image, width: 200);
       final mono = img_lib.grayscale(resized);
 
-      return generator.imageRaster(
-        mono,
-        align: PosAlign.center,
-      );
+      return generator.imageRaster(mono, align: PosAlign.center);
     } catch (e) {
-      debugPrint("Logo offline load failed: $e");
+      debugPrint("Logo load failed: $e");
       return [];
     }
   }
@@ -817,6 +815,7 @@ class DirectPrintHelper {
     required String contact,
     required String address,
     required String adminUid,
+    required String upiId,
     String? tableNumber,
     String? receiptNo,
     bool taxEnabled = false,
@@ -841,26 +840,17 @@ class DirectPrintHelper {
       final Generator generator = Generator(paperSize, profile);
 
       List<int> bytes = [];
-      bytes += generator.setGlobalCodeTable('CP737');
+      bytes += generator.setGlobalCodeTable('CP1252');
 
-      List<String> wrapTextByWords(String text, int maxWidth) {
+      List<String> splitTextByLength(String text, int maxLength) {
         List<String> lines = [];
-        List<String> words = text.split(' ');
-        String currentLine = '';
-
-        for (final word in words) {
-          if ((currentLine + word).length <= maxWidth) {
-            currentLine += (currentLine.isEmpty ? '' : ' ') + word;
-          } else {
-            lines.add(currentLine);
-            currentLine = word;
-          }
+        while (text.length > maxLength) {
+          lines.add(text.substring(0, maxLength));
+          text = text.substring(maxLength);
         }
-
-        if (currentLine.isNotEmpty) {
-          lines.add(currentLine);
+        if (text.isNotEmpty) {
+          lines.add(text);
         }
-
         return lines;
       }
 
@@ -951,7 +941,7 @@ class DirectPrintHelper {
       // Items
       for (var item in items) {
         String name = item['name'].toString();
-        List<String> nameLines = wrapTextByWords(name, desc);
+        List<String> nameLines = splitTextByLength(name, desc);
 
         int qtyValue = int.tryParse(item['quantity'].toString()) ?? 1;
         double rateValue = double.tryParse(item['price'].toString()) ?? 0;
@@ -1061,13 +1051,15 @@ class DirectPrintHelper {
         );
       }
 
-      // 🔥 UPI QR
-      String upiId = "richeyrichinfotech@icici";
-      String upiUrl = "upi://pay?pa=$upiId&pn=$shopName&am=${fmt(grandTotal)}&cu=INR";
+      // String upiId = "richeyrichinfotech@icici";
 
-      bytes += generator.emptyLines(1);
-      bytes += generator.qrcode(upiUrl, size: QRSize.Size6, align: PosAlign.center);
-      bytes += generator.emptyLines(1);
+
+      if (upiId.isNotEmpty) {
+        String upiUrl = "upi://pay?pa=$upiId&pn=$shopName&am=${fmt(grandTotal)}&cu=INR";
+        bytes += generator.emptyLines(1);
+        bytes += generator.qrcode(upiUrl, size: QRSize.Size6, align: PosAlign.center);
+        bytes += generator.emptyLines(1);
+      }
 
       // Footer
       bytes += generator.text(separator, styles: smallFontLeft);
@@ -1081,6 +1073,9 @@ class DirectPrintHelper {
         type: printer.typePrinter,
         bytes: bytes,
       );
+
+      // Only save bill if saveBill flag is true (to avoid duplicate saves)
+      // When called from bill_cart_widget.dart, bill is already saved via SmartDatabaseService
 
       if (saveBill) {
         await saveBillData(

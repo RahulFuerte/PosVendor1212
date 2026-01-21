@@ -3,6 +3,7 @@ import 'dart:async';
 
 // Flutter imports:
 import 'package:flutter/material.dart';
+import 'package:pos/view/home/widgets/mydrawer.dart';
 
 // Project imports:
 
@@ -14,10 +15,12 @@ import 'sync_progress_dialog.dart';
 /// Comprehensive sync status page for detailed sync management
 class SyncStatusPage extends StatefulWidget {
   final String adminUid;
+  final String uid;
 
   const SyncStatusPage({
     Key? key,
     required this.adminUid,
+    required this.uid,
   }) : super(key: key);
 
   @override
@@ -27,11 +30,11 @@ class SyncStatusPage extends StatefulWidget {
 class _SyncStatusPageState extends State<SyncStatusPage> {
   final SyncManager _syncManager = SyncManager();
   final ConnectionMonitor _connectionMonitor = ConnectionMonitor();
-  
+
   StreamSubscription<SyncOperationStatus>? _syncStatusSubscription;
   StreamSubscription<SyncResult>? _syncResultSubscription;
   StreamSubscription<bool>? _connectivitySubscription;
-  
+
   SyncOperationStatus _currentStatus = SyncOperationStatus.idle;
   SyncResult? _lastResult;
   bool _isConnected = false;
@@ -207,9 +210,7 @@ class _SyncStatusPageState extends State<SyncStatusPage> {
           ),
         ),
         subtitle: Text(
-          _isConnected 
-              ? 'Connected to internet' 
-              : 'No internet connection',
+          _isConnected ? 'Connected to internet' : 'No internet connection',
           style: TextStyle(
             fontFamily: 'fontmain',
             fontSize: 13,
@@ -403,7 +404,8 @@ class _SyncStatusPageState extends State<SyncStatusPage> {
           const SizedBox(height: 16),
           _buildStatRow('Pending Items', pendingCount.toString(), pendingCount > 0 ? Colors.orange : primaryColor),
           _buildStatRow('Last Sync', lastSyncTime ?? 'Never', Colors.grey[700]!),
-          _buildStatRow('Sync Manager', isInitialized ? 'Initialized' : 'Not initialized', isInitialized ? primaryColor : Colors.orange),
+          _buildStatRow('Sync Manager', isInitialized ? 'Initialized' : 'Not initialized',
+              isInitialized ? primaryColor : Colors.orange),
           _buildStatRow('Connection', _isConnected ? 'Online' : 'Offline', _isConnected ? primaryColor : Colors.red),
         ],
       ),
@@ -440,9 +442,8 @@ class _SyncStatusPageState extends State<SyncStatusPage> {
 
   Widget _buildActionButtons() {
     final pendingCount = _syncStatistics['pendingItemsCount'] ?? 0;
-    final canSync = _isConnected && 
-                   _currentStatus != SyncOperationStatus.syncing &&
-                   _currentStatus != SyncOperationStatus.retrying;
+    final canSync =
+        _isConnected && _currentStatus != SyncOperationStatus.syncing && _currentStatus != SyncOperationStatus.retrying;
 
     return Container(
       decoration: BoxDecoration(
@@ -544,13 +545,13 @@ class _SyncStatusPageState extends State<SyncStatusPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.green[50],
+      drawer: MyDrawer(
+        phoneNo: widget.uid,
+        adminPhoneNo: widget.adminUid,
+      ),
       appBar: AppBar(
         backgroundColor: white,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Colors.black87),
-          onPressed: () => Navigator.pop(context),
-        ),
         title: const Text(
           'Sync Diagnostics',
           style: TextStyle(

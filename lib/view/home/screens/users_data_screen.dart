@@ -3,11 +3,15 @@ import 'package:hive/hive.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:pos/data/models/user_model.dart';
 import 'package:pos/data/providers/print_provider.dart';
+import 'package:pos/view/home/widgets/mydrawer.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:provider/provider.dart';
 
 class UsersScreen extends StatefulWidget {
-  const UsersScreen({super.key});
+  final String? uid;
+  final String? adminId;
+
+  const UsersScreen({super.key, this.uid, this.adminId});
 
   @override
   State<UsersScreen> createState() => _UsersScreenState();
@@ -21,11 +25,14 @@ class _UsersScreenState extends State<UsersScreen> {
     );
     return Scaffold(
       appBar: AppBar(
-        automaticallyImplyLeading: false,
         title: const Text(
           'Users Data',
           style: TextStyle(fontFamily: 'tabfont'),
         ),
+      ),
+      drawer: MyDrawer(
+        phoneNo: widget.uid ?? "",
+        adminPhoneNo: widget.adminId ?? '',
       ),
       body: FutureBuilder(
         future: _getUserData(),

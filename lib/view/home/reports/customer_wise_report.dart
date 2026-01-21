@@ -8,6 +8,7 @@ import 'package:pos/data/models/customer_model.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:pos/view/home/printer_connectionDialog.dart';
+import 'package:pos/view/home/widgets/mydrawer.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:pos/core/network/connection_monitor.dart';
 import 'package:pos/view/tab_screen/view-model/widgets/printers/printer.dart';
@@ -16,7 +17,8 @@ import 'package:provider/provider.dart';
 
 class CustomerWiseReport extends StatefulWidget {
   final String adminUid;
-  const CustomerWiseReport({super.key, required this.adminUid});
+  final String uid;
+  const CustomerWiseReport({super.key, required this.adminUid, required this.uid});
 
   @override
   State<CustomerWiseReport> createState() => _CustomerWiseReportState();
@@ -58,7 +60,7 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
           .collection('AllAdmins')
           .doc(widget.adminUid)
           .collection('customer')
-          .doc(widget.adminUid)
+          .doc(widget.uid)
           .collection('myCustomers')
           .get();
 
@@ -372,7 +374,7 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
                     1: pw.Alignment.centerRight,
                     2: pw.Alignment.centerRight,
                     3: pw.Alignment.centerRight,
-                    4 : pw.Alignment.centerRight,
+                    4: pw.Alignment.centerRight,
                   },
                   headers: ['Bill No', 'Date', 'Items', 'Mode', 'Amount'],
                   data: customerBills.map((bill) {
@@ -522,6 +524,10 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[100],
+      drawer: MyDrawer(
+        phoneNo: widget.uid,
+        adminPhoneNo: widget.adminUid,
+      ),
       appBar: AppBar(
         elevation: 0,
         scrolledUnderElevation: 0,

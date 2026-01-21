@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 // Package imports:
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:pos/core/utils/offline_tts.dart';
 import 'package:pos/data/providers/order_type_provider.dart';
 import 'package:pos/view/home/widgets/my_choiceChip.dart';
 import 'package:provider/provider.dart';
@@ -91,6 +92,7 @@ class _BillCartState extends State<BillCart> {
     String contact = 'N/A';
     String address = 'N/A';
     String logoUrl = '';
+    String upiId = '';
 
     try {
       // First try to get from local SQLite
@@ -101,6 +103,7 @@ class _BillCartState extends State<BillCart> {
         contact = localData['shopContact'] ?? 'N/A';
         address = localData['address'] ?? 'N/A';
         logoUrl = localData['shopLogoUrl'] ?? '';
+        upiId = localData['upiId'] ?? '';
         debugPrint('Shop data loaded from local cache');
       } else {
         // Not found locally, fetch from Firebase
@@ -117,6 +120,7 @@ class _BillCartState extends State<BillCart> {
             shopName = data['shopName'] ?? 'N/A';
             contact = data['contact'] ?? 'N/A';
             address = data['address'] ?? 'N/A';
+            upiId = data['upiId'] ?? '';
 
             // Save all fields to local SQLite for future use
             await _sqliteHelper.saveUserData({
@@ -125,6 +129,7 @@ class _BillCartState extends State<BillCart> {
               'shopName': shopName,
               'contact': contact,
               'address': address,
+              'upiId': upiId,
               'logoUrl': data['logoUrl'],
               'name': data['name'],
               'email': data['email'],
@@ -145,6 +150,7 @@ class _BillCartState extends State<BillCart> {
       'contact': contact,
       'address': address,
       'logoUrl': logoUrl,
+      'upiId': upiId,
     };
   }
 
@@ -198,6 +204,7 @@ class _BillCartState extends State<BillCart> {
       String contact = shopData['contact']!;
       String address = shopData['address']!;
       String logoUrl = shopData['logoUrl']!;
+      String upiId = shopData['upiId'] ?? "";
 
       if (!mounted) return;
       Navigator.pop(parentContext);
@@ -214,6 +221,7 @@ class _BillCartState extends State<BillCart> {
         contact: contact,
         address: address,
         logoUrl: logoUrl,
+        upiId: upiId,
         tableNumber: tableNumber,
         receiptNo: generatedReceiptNo,
         customerName: "",
@@ -274,6 +282,7 @@ class _BillCartState extends State<BillCart> {
     String shopName = shopData['shopName']!;
     String contact = shopData['contact']!;
     String address = shopData['address']!;
+    String upiId = shopData['upiId'] ?? "";
 
     final result = await Navigator.push(
       context,
@@ -283,6 +292,7 @@ class _BillCartState extends State<BillCart> {
           shopName: shopName,
           contact: contact,
           address: address,
+          upiId: upiId,
           phoneNo: widget.phoneNo,
         ),
       ),
@@ -339,6 +349,8 @@ class _BillCartState extends State<BillCart> {
       final orderTypeProvider = Provider.of<OrderTypeProvider>(context, listen: false);
       String paymentType = orderTypeProvider.paymentType.toString().split('.').last;
       String orderType = orderTypeProvider.orderType.toString().split('.').last;
+      final int amount = subtotal.round();
+      final String amountInWords = numberToWords(amount);
 
       // Fetch shop data (local-first)
       final shopData = await _getShopData();
@@ -346,6 +358,8 @@ class _BillCartState extends State<BillCart> {
       String contact = shopData['contact']!;
       String address = shopData['address']!;
       String logoUrl = shopData['logoUrl']!;
+      String upiId = shopData['upiId'] ?? "";
+
 
       if (!mounted) return;
       Navigator.pop(context);
@@ -363,6 +377,7 @@ class _BillCartState extends State<BillCart> {
         logoUrl: logoUrl,
         customerName: "",
         customerPhone: "",
+        upiId: upiId,
         customerGst: "",
         orderType: orderType,
         paymentType: paymentType,
@@ -376,6 +391,10 @@ class _BillCartState extends State<BillCart> {
         cgstPercent: printProvider.cgstPercent,
         sgstPercent: printProvider.sgstPercent,
         saveBill: true,
+      );
+
+      await OfflineTTS.speak(
+        "$amountInWords rupees",
       );
 
       _clearCart();

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 // Package imports:
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import 'package:pos/view/home/widgets/mydrawer.dart';
 
 // Project imports:
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
@@ -134,14 +135,10 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
             fontSize: 20,
           ),
         ),
-        leading: IconButton(
-          icon: const Icon(
-            Icons.arrow_back_ios,
-            color: Colors.black87,
-            size: 18,
-          ),
-          onPressed: () => Navigator.pop(context),
-        ),
+      ),
+      drawer: MyDrawer(
+        phoneNo: widget.adminUid,
+        adminPhoneNo: widget.adminUid,
       ),
       body: Column(
         children: [
@@ -250,13 +247,9 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
                       ),
                     ),
                     IconButton(
-                      onPressed: selectedDate.isBefore(DateTime.now())
-                          ? () => changeDate(1)
-                          : null,
+                      onPressed: selectedDate.isBefore(DateTime.now()) ? () => changeDate(1) : null,
                       icon: const Icon(Icons.chevron_right, size: 32),
-                      color: selectedDate.isBefore(DateTime.now())
-                          ? Colors.blue
-                          : Colors.grey,
+                      color: selectedDate.isBefore(DateTime.now()) ? Colors.blue : Colors.grey,
                     ),
                   ],
                 ),
@@ -384,8 +377,7 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
                         itemBuilder: (context, index) {
                           final product = productSales[index];
                           final maxQuantity = productSales.first['quantity'];
-                          final percentage =
-                              (product['quantity'] / maxQuantity) * 100;
+                          final percentage = (product['quantity'] / maxQuantity) * 100;
 
                           return Container(
                             margin: const EdgeInsets.only(bottom: 12),
@@ -411,10 +403,7 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
                                       height: 40,
                                       decoration: BoxDecoration(
                                         gradient: LinearGradient(
-                                          colors: [
-                                            Colors.green[300]!,
-                                            Colors.green[800]!
-                                          ],
+                                          colors: [Colors.green[300]!, Colors.green[800]!],
                                         ),
                                         borderRadius: BorderRadius.circular(10),
                                       ),
@@ -432,8 +421,7 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
                                     const SizedBox(width: 12),
                                     Expanded(
                                       child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
+                                        crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
                                           Text(
                                             product['name'],
@@ -457,8 +445,7 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
                                       ),
                                     ),
                                     Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.end,
+                                      crossAxisAlignment: CrossAxisAlignment.end,
                                       children: [
                                         Text(
                                           '₹${product['totalAmount'].toStringAsFixed(2)}',
@@ -476,8 +463,7 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
                                           ),
                                           decoration: BoxDecoration(
                                             color: Colors.blue[50],
-                                            borderRadius:
-                                                BorderRadius.circular(8),
+                                            borderRadius: BorderRadius.circular(8),
                                           ),
                                           child: Text(
                                             '${product['quantity']} sold',
@@ -509,17 +495,12 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
                                         height: 8,
                                         decoration: BoxDecoration(
                                           gradient: LinearGradient(
-                                            colors: [
-                                              Colors.green[400]!,
-                                              Colors.green[800]!
-                                            ],
+                                            colors: [Colors.green[400]!, Colors.green[800]!],
                                           ),
-                                          borderRadius:
-                                              BorderRadius.circular(4),
+                                          borderRadius: BorderRadius.circular(4),
                                           boxShadow: [
                                             BoxShadow(
-                                              color:
-                                                  Colors.blue.withOpacity(0.3),
+                                              color: Colors.blue.withOpacity(0.3),
                                               blurRadius: 4,
                                               offset: const Offset(0, 2),
                                             ),

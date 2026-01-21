@@ -17,6 +17,8 @@ class PrintProvider extends ChangeNotifier {
   double _total = 0;
   bool _isValueTrue = false;
   String _receiptNumber = '';
+  bool isEditBill = false;
+  String? editingReceiptNo;
 
   // Printer connection state
   bool _isConnected = false;
@@ -35,7 +37,7 @@ class PrintProvider extends ChangeNotifier {
   bool get isConnected => _isConnected;
   BluetoothPrinter? get selectedPrinter => _selectedPrinter;
   PaperSize get selectedPaperSize => _selectedPaperSize;
-  
+
   // Tax getters
   bool get taxEnabled => _taxEnabled;
   double get cgstPercent => _cgstPercent;
@@ -91,6 +93,19 @@ class PrintProvider extends ChangeNotifier {
 
   void storeReceiptNumber(String receiptNumber) {
     _receiptNumber = receiptNumber;
+    notifyListeners();
+  }
+
+  void setCart(
+    List<Map<String, dynamic>> oldItems,
+    double oldTotal, {
+    String? receiptNo,
+    bool isEdit = false,
+  }) {
+    _posts = List<Map<String, dynamic>>.from(oldItems);
+    _total = oldTotal;
+    isEditBill = isEdit;
+    editingReceiptNo = receiptNo;
     notifyListeners();
   }
 

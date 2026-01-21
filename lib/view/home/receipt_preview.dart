@@ -1,6 +1,6 @@
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:pos/core/utils/offline_tts.dart';
 import 'package:pos/data/datasources/local/sqlite_helper.dart';
 import 'package:pos/data/datasources/smart_database_service.dart';
 import 'package:pos/data/models/customer_model.dart';
@@ -12,6 +12,7 @@ import 'package:pos/view/home/widgets/my_choiceChip.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:pos/view/tab_screen/view-model/widgets/printers/printer.dart';
 import 'package:provider/provider.dart';
+import 'dart:developer' as developer;
 
 class ReceiptPreviewScreen extends StatefulWidget {
   final String shopName;
@@ -19,6 +20,7 @@ class ReceiptPreviewScreen extends StatefulWidget {
   final String address;
   final String adminUid;
   final String phoneNo;
+  final String upiId;
 
   const ReceiptPreviewScreen({
     Key? key,
@@ -27,6 +29,7 @@ class ReceiptPreviewScreen extends StatefulWidget {
     required this.address,
     required this.phoneNo,
     required this.adminUid,
+    required this.upiId,
   }) : super(key: key);
 
   @override
@@ -117,6 +120,71 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
     fetchCustomers();
   }
 
+  /// Function to save new customer data to Firebase if not already stored
+  Future<void> saveCustomerToFirebase(CustomerModel customer) async {
+    try {
+      // Check if customer already exists in Firebase
+      final customerDoc = await FirebaseFirestore.instance
+          .collection('AllAdmins')
+          .doc(widget.adminUid)
+          .collection('customer')
+          .doc(widget.adminUid)
+          .collection('myCustomers')
+          .doc(customer.phone)
+          .get();
+
+      if (!customerDoc.exists) {
+        // Customer doesn't exist, save it to Firebase
+        await FirebaseFirestore.instance
+            .collection('AllAdmins')
+            .doc(widget.adminUid)
+            .collection('customer')
+            .doc(widget.adminUid)
+            .collection('myCustomers')
+            .doc(customer.phone)
+            .set({
+          'name': customer.name,
+          'phone': customer.phone,
+          'gstNo': customer.gstNo,
+          'address': customer.address,
+          'createdAt': Timestamp.fromDate(customer.createdAt),
+          'isUploaded': customer.isUploaded,
+          'updatedAt': Timestamp.fromDate(DateTime.now()),
+        });
+
+        developer.log('Customer ${customer.name} saved to Firebase with phone ${customer.phone}',
+            name: 'CustomerWiseReport');
+
+        // Refresh the customer list to include the new customer
+        fetchCustomers();
+      } else {
+        developer.log('Customer with phone ${customer.phone} already exists in Firebase', name: 'CustomerWiseReport');
+      }
+    } catch (e) {
+      developer.log('Error saving customer to Firebase: $e', name: 'CustomerWiseReport');
+      rethrow; // Re-throw to handle at calling location
+    }
+  }
+
+  /// Function to check if a customer exists in Firebase
+  Future<bool> doesCustomerExistInFirebase(String phone) async {
+    try {
+      final customerDoc = await FirebaseFirestore.instance
+          .collection('AllAdmins')
+          .doc(widget.adminUid)
+          .collection('customer')
+          .doc(widget.adminUid)
+          .collection('myCustomers')
+          .doc(phone)
+          .get();
+
+      return customerDoc.exists;
+    } catch (e) {
+      developer.log('Error checking if customer exists in Firebase: $e', name: 'CustomerWiseReport');
+      return false;
+    }
+  }
+
   /// Save bill with automatic online/offline handling
   /// Online: Saves to Firebase and local SQLite
   /// Offline: Saves to local SQLite, syncs when online
@@ -179,6 +247,9 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
       String paymentType = orderTypeProvider.paymentType.toString().split('.').last;
       String orderType = orderTypeProvider.orderType.toString().split('.').last;
 
+      final int amount = finalTotal.round();
+      final String amountInWords = numberToWords(amount);
+
       await DirectPrintHelper().saveBillData(
         adminUid: widget.phoneNo,
         receiptNo: generatedReceiptNo,
@@ -196,6 +267,10 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
         discountAmount: discountAmount,
         paymentType: paymentType,
         orderType: orderType,
+      );
+
+      await OfflineTTS.speak(
+        "$amountInWords rupees",
       );
 
       if (!mounted) return;
@@ -392,6 +467,8 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
 
                             final String paymentType = orderTypeProvider.paymentType.name; // cleaner than split('.')
                             final String orderType = orderTypeProvider.orderType.name;
+                            final int amount = finalTotal.round();
+                            final String amountInWords = numberToWords(amount);
 
                             // ✅ 5. Show loader
                             showDialog(
@@ -414,6 +491,7 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
                                 logoUrl: widget.shopName,
                                 contact: widget.contact,
                                 address: widget.address,
+                                upiId: widget.upiId,
 
                                 // Customer
                                 customerName: nameCtrl.text,
@@ -442,7 +520,10 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
 
                               if (!mounted) return;
 
-                              Navigator.pop(context); // close loader
+                              Navigator.pop(context);
+                              await OfflineTTS.speak(
+                                "$amountInWords rupees",
+                              );
                               printProvider.clearCart();
                             } catch (e) {
                               if (!mounted) return;
@@ -670,7 +751,8 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
                               final itemTotal = item['price'] * item['quantity'];
 
                               return TableRow(
-                                decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Colors.black38))),
+                                decoration:
+                                    const BoxDecoration(border: Border(bottom: BorderSide(color: Colors.black38))),
                                 children: [
                                   // Item Name
                                   _buildCell(

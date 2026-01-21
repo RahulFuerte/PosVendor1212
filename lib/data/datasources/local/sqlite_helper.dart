@@ -198,6 +198,8 @@ class SQLiteHelper {
         shop_logo_url TEXT,
         shop_logo_blob BLOB,
         shop_contact TEXT,
+        fssaiNo TEXT,
+        upiId TEXT,
         address TEXT,
         customer_code TEXT,
         gst_number TEXT,
@@ -1222,6 +1224,8 @@ class SQLiteHelper {
           'shop_logo_url':
               userData['shopLogoUrl'] ?? userData['shop_logo_url'] ?? userData['logoUrl'] ?? userData['logo_url'],
           'shop_contact': userData['shopContact'] ?? userData['shop_contact'] ?? userData['contact'],
+          'fssaiNo': userData['fssaiNo'],
+          'upiId': userData['upiId'],
           'address': userData['address'],
           'customer_code': userData['customerCode'] ?? userData['customer_code'],
           'gst_number': userData['gstNumber'] ?? userData['gst_number'],
@@ -1284,6 +1288,8 @@ class SQLiteHelper {
           'shopLogoUrl': row['shop_logo_url'],
           'shopContact': row['shop_contact'],
           'address': row['address'],
+          'fssaiNo': row['fssaiNo'],
+          'upiId': row['upiId'],
           'customerCode': row['customer_code'],
           'gstNumber': row['gst_number'],
           'createdAt': row['created_at'],
@@ -1319,6 +1325,8 @@ class SQLiteHelper {
           'shopLogoUrl': row['shop_logo_url'],
           'shopContact': row['shop_contact'],
           'address': row['address'],
+          'fssaiNo': row['fssaiNo'],
+          'upiId': row['upiId'],
           'customerCode': row['customer_code'],
           'gstNumber': row['gst_number'],
           'createdAt': row['created_at'],
@@ -1668,7 +1676,7 @@ class SQLiteHelper {
           'gst_no': customerData['gstNo'] ?? customerData['gst_no'] ?? customerData['gstNumber'],
           'name': customerData['name'],
           'mobile_no': mobileNo.toString(),
-          'address' : customerData['address'],
+          'address': customerData['address'],
           'created_at': customerData['createdAt'] is DateTime
               ? (customerData['createdAt'] as DateTime).millisecondsSinceEpoch
               : customerData['created_at'] ?? now,
@@ -1719,7 +1727,7 @@ class SQLiteHelper {
           .map((row) => {
                 'gst_no': row['gst_no'],
                 'name': row['name'],
-                'address' : row['address'],
+                'address': row['address'],
                 'mobile_no': row['mobile_no'],
                 'created_at': row['created_at'],
               })

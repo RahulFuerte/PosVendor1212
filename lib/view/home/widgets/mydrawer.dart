@@ -13,6 +13,7 @@ import 'package:pos/view/home/reports/customer_wise_report.dart';
 import 'package:pos/view/home/reports/date_wise_report.dart';
 import 'package:pos/view/home/reports/item_wise_report.dart';
 import 'package:pos/view/home/reports/sales_report_screen.dart';
+import 'package:pos/view/home/screens/Expense/expense_main.dart';
 import 'package:pos/view/home/screens/customer_list_screen.dart';
 import 'package:pos/view/home/screens/dashboard.dart';
 import 'package:pos/view/home/screens/edit_bill_receipt.dart';
@@ -74,6 +75,8 @@ class _MyDrawerState extends State<MyDrawer> {
               'logoUrl': localData['shopLogoUrl'],
               'contact': localData['shopContact'],
               'address': localData['address'],
+              'upiId': localData['upiId'],
+              'fssaiNo': localData['fssaiNo'],
             };
             adminUid = localData['adminUid'] ?? localData['admin_uid'] ?? '';
             isUserLoading = false;
@@ -100,6 +103,8 @@ class _MyDrawerState extends State<MyDrawer> {
             'logoUrl': data['logoUrl'],
             'contact': data['contact'],
             'address': data['address'],
+            'upiId': data['upiId'],
+            'fssaiNo': data['fssaiNo'],
             'name': data['name'],
             'email': data['email'],
             'customerCode': data['customerCode'],
@@ -320,7 +325,11 @@ class _MyDrawerState extends State<MyDrawer> {
             leading: const Icon(Icons.dashboard, color: primaryColor),
             title: const Text('Dashboard'),
             onTap: () {
-              _navigate(Dashboard(phoneNo: widget.phoneNo));
+              _navigate(Dashboard(
+                adminUid: adminUid,
+                phoneNo: widget.phoneNo,
+                name: userData['shopName'],
+              ));
             },
           ),
           ListTile(
@@ -339,7 +348,10 @@ class _MyDrawerState extends State<MyDrawer> {
             leading: const Icon(Icons.save_as, color: primaryColor),
             title: const Text('Saved Orders'),
             onTap: () {
-              _navigate(const UsersScreen());
+              _navigate(UsersScreen(
+                adminId: adminUid,
+                uid: widget.phoneNo,
+              ));
             },
           ),
           ListTile(
@@ -349,6 +361,7 @@ class _MyDrawerState extends State<MyDrawer> {
               _navigate(
                 OfflineBillStatusScreen(
                   adminUid: adminUid,
+                  uid: widget.phoneNo,
                 ),
               );
             },
@@ -360,69 +373,84 @@ class _MyDrawerState extends State<MyDrawer> {
               _navigate(
                 SyncStatusPage(
                   adminUid: adminUid,
+                  uid: widget.phoneNo,
                 ),
               );
             },
           ),
 
-          ListTile(
-            leading: Icon(MdiIcons.chartBar, color: primaryColor),
-            title: const Text('Sales Report'),
-            onTap: () {
-              _navigate(
-                SalesReportScreen(
-                  adminUid: widget.phoneNo,
+          Theme(
+            data: ThemeData(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              leading: Icon(MdiIcons.chartBoxOutline, color: primaryColor),
+              childrenPadding: const EdgeInsets.only(left: 16),
+              title: const Text(
+                'Reports',
+              ),
+              children: [
+                ListTile(
+                  leading: Icon(MdiIcons.chartBar, color: primaryColor),
+                  title: const Text('Sales Report'),
+                  onTap: () {
+                    _navigate(
+                      SalesReportScreen(
+                        adminUid: adminUid,
+                      ),
+                    );
+                  },
                 ),
-              );
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.people, color: primaryColor),
-            title: const Text('Customerwise Report'),
-            onTap: () {
-              _navigate(
-                CustomerWiseReport(
-                  adminUid: adminUid,
+                ListTile(
+                  leading: const Icon(Icons.people, color: primaryColor),
+                  title: const Text('Customerwise Report'),
+                  onTap: () {
+                    _navigate(
+                      CustomerWiseReport(
+                        adminUid: adminUid,
+                        uid: widget.phoneNo,
+                      ),
+                    );
+                  },
                 ),
-              );
-            },
-          ),
-          ListTile(
-            leading: Icon(MdiIcons.fileDocumentOutline, color: primaryColor),
-            title: const Text('Billwise Report'),
-            onTap: () {
-              _navigate(
-                BillwiseReportScreen(
-                  adminUid: adminUid,
-                  uid: widget.phoneNo,
+                ListTile(
+                  leading: Icon(MdiIcons.fileDocumentOutline, color: primaryColor),
+                  title: const Text('Billwise Report'),
+                  onTap: () {
+                    _navigate(
+                      BillwiseReportScreen(
+                        adminUid: adminUid,
+                        uid: widget.phoneNo,
+                      ),
+                    );
+                  },
                 ),
-              );
-            },
-          ),
-          ListTile(
-            leading: Icon(MdiIcons.foodOutline, color: primaryColor),
-            title: const Text('Itemwise Report'),
-            onTap: () {
-              _navigate(
-                ItemwiseReportScreen(
-                  uid: widget.phoneNo,
-                  adminUid: adminUid,
+                ListTile(
+                  leading: Icon(MdiIcons.foodOutline, color: primaryColor),
+                  title: const Text('Itemwise Report'),
+                  onTap: () {
+                    _navigate(
+                      ItemwiseReportScreen(
+                        uid: widget.phoneNo,
+                        adminUid: adminUid,
+                      ),
+                    );
+                  },
                 ),
-              );
-            },
-          ),
-          ListTile(
-            leading: Icon(MdiIcons.calendarMonth, color: primaryColor),
-            title: const Text('Datewise Report'),
-            onTap: () {
-              _navigate(
-                DatewiseReportScreen(
-                  adminUid: adminUid,
-                  uid: widget.phoneNo,
+                ListTile(
+                  leading: Icon(MdiIcons.calendarMonth, color: primaryColor),
+                  title: const Text('Datewise Report'),
+                  onTap: () {
+                    _navigate(
+                      DatewiseReportScreen(
+                        adminUid: adminUid,
+                        uid: widget.phoneNo,
+                      ),
+                    );
+                  },
                 ),
-              );
-            },
+              ],
+            ),
           ),
+
           ListTile(
             leading: const Icon(Icons.receipt, color: primaryColor),
             title: const Text('Edit bill Receipt'),
@@ -432,6 +460,16 @@ class _MyDrawerState extends State<MyDrawer> {
                   AdminUid: widget.adminPhoneNo,
                   phoneNo: widget.phoneNo,
                 ),
+              );
+            },
+          ),
+
+          ListTile(
+            leading: const Icon(Icons.account_balance_wallet, color: primaryColor),
+            title: const Text('Expenses'),
+            onTap: () {
+              _navigate(
+                Expenses(uid: widget.phoneNo),
               );
             },
           ),

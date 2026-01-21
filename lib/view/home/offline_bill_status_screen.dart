@@ -3,6 +3,7 @@ import 'dart:developer' as developer;
 
 // Flutter imports:
 import 'package:flutter/material.dart';
+import 'package:pos/view/home/widgets/mydrawer.dart';
 
 // Project imports:
 import '../../core/utils/price_utils.dart';
@@ -14,10 +15,11 @@ import '../tab_screen/view-model/widgets/offline_status_indicator.dart';
 /// Enhanced offline bill status screen with complete bill viewing capability
 class OfflineBillStatusScreen extends StatefulWidget {
   final String adminUid;
+  final String uid;
 
   const OfflineBillStatusScreen({
     Key? key,
-    required this.adminUid,
+    required this.adminUid, required this.uid,
   }) : super(key: key);
 
   @override
@@ -97,10 +99,7 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
       appBar: AppBar(
         backgroundColor: white,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Colors.black87),
-          onPressed: () => Navigator.pop(context),
-        ),
+     
         title: const Text(
           'Offline Bills',
           style: TextStyle(
@@ -119,6 +118,10 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
             tooltip: 'Refresh Bills',
           ),
         ],
+      ),
+       drawer: MyDrawer(
+        phoneNo: widget.uid,
+        adminPhoneNo: widget.adminUid,
       ),
       body: Column(
         children: [
