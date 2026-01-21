@@ -81,6 +81,8 @@ dependencies:
   open_file: ^3.3.2
   printing: ^5.12.0
   url_strategy: ^0.3.0
+  excel: ^4.0.6
+  file_picker: ^6.1.1
 
 dev_dependencies:
   flutter_test:

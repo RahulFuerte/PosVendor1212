@@ -1682,6 +1682,35 @@ class SQLiteHelper {
     }
   }
 
+  /// Update customer data
+  Future<void> updateCustomerData(Map<String, dynamic> customerData) async {
+    try {
+      final db = await database;
+      final mobileNo = customerData['mobileNo'] ?? customerData['mobile_no'] ?? customerData['phone'];
+
+      if (mobileNo == null || mobileNo.toString().isEmpty) {
+        print('Cannot update customer data: mobile number is required');
+        return;
+      }
+
+      await db.update(
+        'customer_data',
+        {
+          'gst_no': customerData['gstNo'] ?? customerData['gst_no'] ?? customerData['gstNumber'],
+          'name': customerData['name'],
+          'address': customerData['address'],
+          'mobile_no': mobileNo.toString(),
+        },
+        where: 'mobile_no = ?',
+        whereArgs: [mobileNo.toString()],
+      );
+
+      print('Customer data updated for: $mobileNo');
+    } catch (e) {
+      print('Error updating customer data: $e');
+    }
+  }
+
   /// Get cached customer data by mobile number
   Future<Map<String, dynamic>?> getCustomerData(String mobileNo) async {
     try {
