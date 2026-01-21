@@ -411,7 +411,7 @@ class QueryOptimizationService {
 
   /// Get cache statistics
   Map<String, dynamic> getCacheStatistics() {
-    // final now = DateTime.now();
+    final now = DateTime.now();
     int expiredCount = 0;
     int validCount = 0;
     

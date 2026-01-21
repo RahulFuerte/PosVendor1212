@@ -3,16 +3,12 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:developer' as developer;
 
-
 // Flutter imports:
 import 'package:flutter/material.dart';
 
 // Package imports:
 import 'package:audioplayers/audioplayers.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-
-
-
 import 'package:hive/hive.dart';
 import 'package:pos/view/home/screens/order_type_selector.dart';
 import 'package:pos/view/home/widgets/mydrawer.dart';

@@ -1,3 +1,4 @@
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -152,13 +153,11 @@ class _MyDrawerState extends State<MyDrawer> {
                         ),
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(75),
-                          child: userData['logoUrl'] != null &&
-                                  userData['logoUrl'].toString().isNotEmpty
+                          child: userData['logoUrl'] != null && userData['logoUrl'].toString().isNotEmpty
                               ? Image.network(
                                   userData['logoUrl'],
                                   fit: BoxFit.contain,
-                                  loadingBuilder:
-                                      (context, child, loadingProgress) {
+                                  loadingBuilder: (context, child, loadingProgress) {
                                     if (loadingProgress == null) return child;
                                     return Container(
                                       color: primaryColor,
@@ -238,25 +237,17 @@ class _MyDrawerState extends State<MyDrawer> {
                 margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: printProvider.isConnected
-                      ? Colors.green.shade50
-                      : Colors.orange.shade50,
+                  color: printProvider.isConnected ? Colors.green.shade50 : Colors.orange.shade50,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: printProvider.isConnected
-                        ? Colors.green
-                        : Colors.orange,
+                    color: printProvider.isConnected ? Colors.green : Colors.orange,
                   ),
                 ),
                 child: Row(
                   children: [
                     Icon(
-                      printProvider.isConnected
-                          ? Icons.check_circle
-                          : Icons.print_disabled,
-                      color: printProvider.isConnected
-                          ? Colors.green
-                          : Colors.orange,
+                      printProvider.isConnected ? Icons.check_circle : Icons.print_disabled,
+                      color: printProvider.isConnected ? Colors.green : Colors.orange,
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -264,21 +255,15 @@ class _MyDrawerState extends State<MyDrawer> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            printProvider.isConnected
-                                ? 'Printer Connected'
-                                : 'Printer Not Connected',
+                            printProvider.isConnected ? 'Printer Connected' : 'Printer Not Connected',
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
-                              color: printProvider.isConnected
-                                  ? Colors.green.shade900
-                                  : Colors.orange.shade900,
+                              color: printProvider.isConnected ? Colors.green.shade900 : Colors.orange.shade900,
                             ),
                           ),
-                          if (printProvider.isConnected &&
-                              printProvider.selectedPrinter != null)
+                          if (printProvider.isConnected && printProvider.selectedPrinter != null)
                             Text(
-                              printProvider.selectedPrinter!.deviceName ??
-                                  'Unknown',
+                              printProvider.selectedPrinter!.deviceName ?? 'Unknown',
                               style: TextStyle(
                                 fontSize: 12,
                                 color: Colors.grey.shade700,
@@ -301,9 +286,7 @@ class _MyDrawerState extends State<MyDrawer> {
                   color: printProvider.isConnected ? Colors.red : Colors.blue,
                 ),
                 title: Text(
-                  printProvider.isConnected
-                      ? 'Disconnect Printer'
-                      : 'Connect Printer',
+                  printProvider.isConnected ? 'Disconnect Printer' : 'Connect Printer',
                 ),
                 onTap: () async {
                   if (printProvider.isConnected) {
@@ -459,7 +442,6 @@ class _MyDrawerState extends State<MyDrawer> {
             onTap: () {
               _navigate(
                 const Setting(),
-                
               );
             },
           ),
@@ -472,9 +454,7 @@ class _MyDrawerState extends State<MyDrawer> {
                 builder: (BuildContext) {
                   return Dialog(
                       // backgroundColor: Colors.amber.shade100,
-                      shape: RoundedRectangleBorder(
-                          borderRadius:
-                              BorderRadius.circular(50.0)), //this right here
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(50.0)), //this right here
                       child: SizedBox(
                         height: 200,
                         child: Center(
@@ -483,39 +463,32 @@ class _MyDrawerState extends State<MyDrawer> {
                             children: [
                               const Text(
                                 "Are you sure ?",
-                                style: TextStyle(
-                                    fontSize: 20, fontWeight: FontWeight.w500),
+                                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w500),
                               ),
                               Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceAround,
+                                mainAxisAlignment: MainAxisAlignment.spaceAround,
                                 children: [
                                   ElevatedButton(
-                                    style: ElevatedButton.styleFrom(
-                                        backgroundColor: primaryColor),
-                                    child: const Text("Cancel",
-                                        style: TextStyle(color: Colors.white)),
+                                    style: ElevatedButton.styleFrom(backgroundColor: primaryColor),
+                                    child: const Text("Cancel", style: TextStyle(color: Colors.white)),
                                     onPressed: () {
                                       Navigator.pop(context);
                                     },
                                   ),
                                   ElevatedButton(
-                                    style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.red),
+                                    style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
                                     child: const Text(
                                       "Logout",
                                       style: TextStyle(color: Colors.white),
                                     ),
                                     onPressed: () async {
-                                      SharedPreferences prefs =
-                                          await SharedPreferences.getInstance();
+                                      SharedPreferences prefs = await SharedPreferences.getInstance();
                                       await prefs.setBool('isLogged', false);
                                       FirebaseAuth.instance.signOut();
                                       Navigator.pushReplacement(
                                           context,
                                           MaterialPageRoute(
-                                            builder: (context) =>
-                                                const Inception(),
+                                            builder: (context) => const Inception(),
                                           ));
                                     },
                                   )

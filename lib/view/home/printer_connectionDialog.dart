@@ -30,6 +30,7 @@ class _PrinterConnectionDialogState extends State<PrinterConnectionDialog> {
   var devices = <BluetoothPrinter>[];
   StreamSubscription<PrinterDevice>? _subscription;
   StreamSubscription<BTStatus>? _subscriptionBtStatus;
+  BTStatus _currentStatus = BTStatus.none;
   BluetoothPrinter? selectedPrinter;
   PaperSize selectedPaperSize = PaperSize.mm58;
   bool _isConnecting = false;
@@ -47,6 +48,7 @@ class _PrinterConnectionDialogState extends State<PrinterConnectionDialog> {
     }
 
     _subscriptionBtStatus = printerManager.stateBluetooth.listen((status) {
+      _currentStatus = status;
       if (status == BTStatus.connected && mounted) {
         setState(() {
           _isConnecting = false;

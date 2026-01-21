@@ -821,7 +821,7 @@ class SQLiteHelper {
   Future<void> performInitialDataMigration() async {
     try {
       final myPrefs = MySharedPreferences();
-      String adminUid = await myPrefs.uID;
+      String adminUid = await myPrefs.uID ?? '';
       final prefs = await SharedPreferences.getInstance();
       // If no UID found, try to get current user UID and save it
       if (adminUid.isEmpty) {
@@ -1679,35 +1679,6 @@ class SQLiteHelper {
       print('Customer data saved for: $mobileNo');
     } catch (e) {
       print('Error saving customer data: $e');
-    }
-  }
-
-  /// Update customer data
-  Future<void> updateCustomerData(Map<String, dynamic> customerData) async {
-    try {
-      final db = await database;
-      final mobileNo = customerData['mobileNo'] ?? customerData['mobile_no'] ?? customerData['phone'];
-
-      if (mobileNo == null || mobileNo.toString().isEmpty) {
-        print('Cannot update customer data: mobile number is required');
-        return;
-      }
-
-      await db.update(
-        'customer_data',
-        {
-          'gst_no': customerData['gstNo'] ?? customerData['gst_no'] ?? customerData['gstNumber'],
-          'name': customerData['name'],
-          'address': customerData['address'],
-          'mobile_no': mobileNo.toString(),
-        },
-        where: 'mobile_no = ?',
-        whereArgs: [mobileNo.toString()],
-      );
-
-      print('Customer data updated for: $mobileNo');
-    } catch (e) {
-      print('Error updating customer data: $e');
     }
   }
 
