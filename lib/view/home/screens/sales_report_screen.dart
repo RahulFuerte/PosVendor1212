@@ -8,6 +8,8 @@ import 'package:intl/intl.dart';
 // Project imports:
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 
+import '../../../core/utils/price_utils.dart';
+
 class SalesReportScreen extends StatefulWidget {
   final String adminUid;
 
@@ -447,7 +449,7 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
                                           ),
                                           const SizedBox(height: 4),
                                           Text(
-                                            '₹${product['price'].toStringAsFixed(2)} per unit',
+                                            '${PriceUtils.formatPrice(product['price'])} per unit',
                                             style: TextStyle(
                                               fontSize: 13,
                                               color: Colors.grey[600],
@@ -461,7 +463,7 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
                                           CrossAxisAlignment.end,
                                       children: [
                                         Text(
-                                          '₹${product['totalAmount'].toStringAsFixed(2)}',
+                                          PriceUtils.formatPrice(product['totalAmount']),
                                           style: const TextStyle(
                                             fontSize: 16,
                                             fontWeight: FontWeight.bold,

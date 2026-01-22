@@ -12,6 +12,7 @@ import 'package:pos/view/home/widgets/mydrawer.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:pos/core/network/connection_monitor.dart';
 import 'package:pos/view/tab_screen/view-model/widgets/printers/printer.dart';
+import 'package:pos/core/utils/price_utils.dart';
 import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 
@@ -383,7 +384,7 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
                       bill['date'],
                       bill['items'].toString(),
                       bill['paymentType'].toString().toUpperCase(),
-                      '${bill['amount'].toStringAsFixed(2)}',
+                      '${PriceUtils.formatPrice(bill['amount'])}'
                     ];
                   }).toList(),
                 ),
@@ -402,16 +403,16 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
                     crossAxisAlignment: pw.CrossAxisAlignment.end,
                     children: [
                       pw.Text(
-                        'Total Paid: ${totalPaid.toStringAsFixed(2)}',
+                        'Total Paid: ${PriceUtils.formatPrice(totalPaid)}',
                         style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
                       ),
                       pw.Text(
-                        'Total Due: ${totalDue.toStringAsFixed(2)}',
+                        'Total Due: ${PriceUtils.formatPrice(totalDue)}',
                         style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
                       ),
                       pw.SizedBox(height: 4),
                       pw.Text(
-                        'Grand Total: ${(totalPaid + totalDue).toStringAsFixed(2)}',
+                        'Grand Total: ${PriceUtils.formatPrice(totalPaid + totalDue)}',
                         style: pw.TextStyle(
                           fontWeight: pw.FontWeight.bold,
                           fontSize: 14,
@@ -713,7 +714,7 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
                                             crossAxisAlignment: CrossAxisAlignment.end,
                                             children: [
                                               Text(
-                                                "₹${numberFormat.format(totalPaid + totalDue)}",
+                                                PriceUtils.formatPrice(totalPaid + totalDue),
                                                 style: const TextStyle(
                                                   color: Colors.white,
                                                   fontSize: 18,
@@ -851,7 +852,7 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
                                           ),
 
                                           trailing: Text(
-                                            "₹${numberFormat.format(bill['amount'])}",
+                                            "${PriceUtils.formatPrice(bill['amount'])}",
                                             style: TextStyle(
                                               fontSize: 16,
                                               fontWeight: FontWeight.bold,
@@ -985,7 +986,7 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
                 ),
               ),
               Text(
-                "₹${numberFormat.format(value)}",
+                "${PriceUtils.formatPrice(value)}",
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 16,

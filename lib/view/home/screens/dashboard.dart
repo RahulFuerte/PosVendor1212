@@ -10,6 +10,7 @@ import 'package:pos/view/home/printer_connectionDialog.dart';
 import 'package:pos/view/home/screens/receipt_data_screen.dart';
 import 'package:pos/view/home/widgets/mydrawer.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
+import 'package:pos/core/utils/price_utils.dart';
 import 'package:pos/view/tab_screen/view-model/widgets/printers/printer.dart';
 import 'package:provider/provider.dart';
 
@@ -378,7 +379,7 @@ class _DashboardState extends State<Dashboard> {
                     children: [
                       _InfoCard(
                         title: "Sales",
-                        value: '₹ ${numberFormat.format(totalSales)}',
+                        value: PriceUtils.formatPrice(totalSales),
                         icon: Icons.point_of_sale,
                         color: Colors.teal,
                       ),
@@ -400,7 +401,7 @@ class _DashboardState extends State<Dashboard> {
                       ),
                       _InfoCard(
                         title: "Total Expenses",
-                        value: '₹ ${numberFormat.format(totalExpenses)}',
+                        value: PriceUtils.formatPrice(totalExpenses),
                         icon: Icons.trending_down,
                         color: Colors.red.shade600,
                       ),

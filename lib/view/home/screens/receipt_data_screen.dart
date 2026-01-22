@@ -4,6 +4,7 @@ import 'package:pos/data/providers/print_provider.dart';
 import 'package:pos/view/home/navigation.dart';
 import 'package:pos/view/home/screens/restaurant_screen.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
+import 'package:pos/core/utils/price_utils.dart';
 import 'package:provider/provider.dart';
 
 class ReceiptPreviewOnlyWidget extends StatefulWidget {
@@ -251,8 +252,8 @@ class _ReceiptPreviewOnlyWidgetState extends State<ReceiptPreviewOnlyWidget> {
         children: [
           Expanded(flex: 3, child: Text(item['name'])),
           Expanded(child: Text("$qty", textAlign: TextAlign.center)),
-          Expanded(child: Text("₹$price", textAlign: TextAlign.center)),
-          Expanded(child: Text("₹$total", textAlign: TextAlign.end)),
+          Expanded(child: Text("${PriceUtils.formatPrice(price)}", textAlign: TextAlign.center)),
+          Expanded(child: Text("${PriceUtils.formatPrice(total)}", textAlign: TextAlign.end)),
         ],
       ),
     );
@@ -269,7 +270,7 @@ class _ReceiptPreviewOnlyWidgetState extends State<ReceiptPreviewOnlyWidget> {
                 fontWeight: bold ? FontWeight.bold : FontWeight.w500,
               )),
           Text(
-            "₹ ${amount.toStringAsFixed(2)}",
+            "${PriceUtils.formatPrice(amount)}",
             style: TextStyle(
               fontWeight: bold ? FontWeight.bold : FontWeight.w600,
               color: color,

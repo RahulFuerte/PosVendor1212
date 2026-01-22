@@ -19,6 +19,7 @@ import '../../tab_screen/view-model/widgets/printers/printer.dart';
 import '../../tab_screen/view-model/widgets/table/table_number_bottom_sheet.dart';
 import '../navigation.dart';
 import '../../../data/providers/print_provider.dart';
+import '../../../core/utils/price_utils.dart';
 import '../printer_connectionDialog.dart';
 import '../receipt_preview.dart';
 
@@ -505,7 +506,7 @@ class _BillCartState extends State<BillCart> {
                     ),
                   ),
                   Text(
-                    "₹${item['price']} × ${item['quantity']}",
+                    "${PriceUtils.formatPrice(item['price'])} × ${item['quantity']}",
                     style: const TextStyle(
                       fontSize: 12,
                       color: Colors.black54,
@@ -519,7 +520,7 @@ class _BillCartState extends State<BillCart> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: (item['addons'] as List).map((a) {
                           return Text(
-                            "${a['name']} (${a['price']} ₹)",
+                            "${a['name']} (${PriceUtils.formatPrice(a['price'])})",
                             style: const TextStyle(
                               fontSize: 12,
                               color: Colors.black54,
@@ -663,7 +664,7 @@ class _BillCartState extends State<BillCart> {
                 width: 10,
               ),
               Text(
-                "₹${numberFormat.format(subtotal)}",
+                PriceUtils.formatPrice(subtotal),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(

@@ -20,6 +20,7 @@ import 'package:pos/data/providers/print_provider.dart';
 import 'package:pos/view/home/printer_connectionDialog.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:pos/view/tab_screen/view-model/widgets/printers/printer.dart';
+import 'package:pos/core/utils/price_utils.dart';
 
 class BillwiseReportScreen extends StatefulWidget {
   final String uid;
@@ -366,7 +367,7 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
           PosColumn(text: bill['billNo'].toString(), width: 4),
           PosColumn(text: bill['totalItems'].toStringAsFixed(1), width: 3),
           PosColumn(
-              text: bill['totalAmount'].toStringAsFixed(2), width: 5, styles: const PosStyles(align: PosAlign.right)),
+              text: PriceUtils.formatPrice(bill['totalAmount']), width: 5, styles: const PosStyles(align: PosAlign.right)),
         ]);
       }
 
@@ -375,7 +376,7 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
       // Subtotal
       bytes += generator.row([
         PosColumn(text: 'Sub Total :', width: 6),
-        PosColumn(text: totalAmount.toStringAsFixed(2), width: 6, styles: const PosStyles(align: PosAlign.right)),
+        PosColumn(text: PriceUtils.formatPrice(totalAmount), width: 6, styles: const PosStyles(align: PosAlign.right)),
       ]);
       bytes += generator.text("-" * 32, styles: const PosStyles(align: PosAlign.center));
 
@@ -412,7 +413,7 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
       bytes += generator.row([
         PosColumn(text: 'Net Amount :', width: 6, styles: const PosStyles(bold: true)),
         PosColumn(
-            text: totalAmount.toStringAsFixed(2), width: 6, styles: const PosStyles(align: PosAlign.right, bold: true)),
+            text: PriceUtils.formatPrice(totalAmount), width: 6, styles: const PosStyles(align: PosAlign.right, bold: true)),
       ]);
       bytes += generator.text("-" * 32, styles: const PosStyles(align: PosAlign.center));
 
@@ -421,7 +422,7 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
       bytes += generator.text("-" * 32, styles: const PosStyles(align: PosAlign.center));
       bytes += generator.row([
         PosColumn(text: 'CASH', width: 6),
-        PosColumn(text: totalAmount.toStringAsFixed(2), width: 6, styles: const PosStyles(align: PosAlign.right)),
+        PosColumn(text: PriceUtils.formatPrice(totalAmount), width: 6, styles: const PosStyles(align: PosAlign.right)),
       ]);
 
       bytes += generator.emptyLines(3);
@@ -610,7 +611,7 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
                     return [
                       bill['billNo'].toString(),
                       bill['totalItems'].toString(),
-                      'Rs ${bill['totalAmount'].toStringAsFixed(2)}',
+                      (PriceUtils.formatPrice(bill['totalAmount'])),
                       dateDisplay,
                     ];
                   }).toList(),
@@ -653,7 +654,7 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
                             style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 14),
                           ),
                           pw.Text(
-                            'Rs ${totalAmount.toStringAsFixed(2)}',
+                            PriceUtils.formatPrice(totalAmount),
                             style: pw.TextStyle(
                               fontWeight: pw.FontWeight.bold,
                               fontSize: 16,
@@ -869,7 +870,7 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
                                       DataCell(Text('${index + 1}')),
                                       DataCell(Text(bill['billNo'].toString())),
                                       DataCell(Text(bill['totalItems'].toStringAsFixed(1))),
-                                      DataCell(Text(bill['totalAmount'].toStringAsFixed(1))),
+                                      DataCell(Text(PriceUtils.formatPrice(bill['totalAmount']))),
                                       DataCell(Text(displayDate)),
                                     ],
                                   );
@@ -932,7 +933,7 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const Text('Total Amount:', style: TextStyle(fontSize: 16)),
-                      Text('₹${totalAmount.toStringAsFixed(2)}',
+                      Text(PriceUtils.formatPrice(totalAmount),
                           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.green)),
                     ],
                   ),

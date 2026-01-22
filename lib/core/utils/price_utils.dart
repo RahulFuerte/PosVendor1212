@@ -101,13 +101,19 @@ class PriceUtils {
   }
 
   /// Formats a price for display with currency symbol
-  static String formatPrice(dynamic value, {String currency = '₹', int decimals = 0}) {
+  static String formatPrice(dynamic value, {String currency = '₹', int decimals = 2}) {
     final price = safeParseDouble(value);
     
-    if (decimals == 0) {
+    if (decimals <= 0) {
       return '$currency${price.round()}';
     } else {
-      return '$currency${price.toStringAsFixed(decimals)}';
+      // Format with specified decimals but remove trailing zeros after decimal point
+      String formatted = price.toStringAsFixed(decimals);
+      // Remove trailing zeros after decimal point
+      while (formatted.contains('.') && (formatted.endsWith('0') || formatted.endsWith('.'))) {
+        formatted = formatted.substring(0, formatted.length - 1);
+      }
+      return '$currency$formatted';
     }
   }
 

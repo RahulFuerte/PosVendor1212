@@ -10,6 +10,8 @@ import 'package:provider/provider.dart';
 import 'package:pos/data/providers/print_provider.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 
+import '../../../core/utils/price_utils.dart';
+
 class SearchReceiptScreen extends StatefulWidget {
   final String phoneNumber;
 
@@ -646,7 +648,7 @@ class _SearchReceiptScreenState extends State<SearchReceiptScreen> {
                                           ),
                                         ),
                                         Text(
-                                          '₹${item['price']}',
+                                          PriceUtils.formatPrice(item['price']),
                                           style: const TextStyle(
                                             fontFamily: 'tabfont',
                                             fontSize: 16,
