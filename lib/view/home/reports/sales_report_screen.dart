@@ -8,6 +8,7 @@ import 'package:pos/view/home/widgets/mydrawer.dart';
 
 // Project imports:
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
+import 'package:pos/core/utils/price_utils.dart';
 
 class SalesReportScreen extends StatefulWidget {
   final String adminUid;
@@ -301,7 +302,7 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
                 isLoading
                     ? const CircularProgressIndicator(color: Colors.white)
                     : Text(
-                        '₹${totalSales.toStringAsFixed(2)}',
+                        '${PriceUtils.formatPrice(totalSales)}',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 36,
@@ -435,7 +436,7 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
                                           ),
                                           const SizedBox(height: 4),
                                           Text(
-                                            '₹${product['price'].toStringAsFixed(2)} per unit',
+                                            '${PriceUtils.formatPrice(product['price'])} per unit',
                                             style: TextStyle(
                                               fontSize: 13,
                                               color: Colors.grey[600],
@@ -448,7 +449,7 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
                                       crossAxisAlignment: CrossAxisAlignment.end,
                                       children: [
                                         Text(
-                                          '₹${product['totalAmount'].toStringAsFixed(2)}',
+                                          PriceUtils.formatPrice(product['totalAmount']),
                                           style: const TextStyle(
                                             fontSize: 16,
                                             fontWeight: FontWeight.bold,
@@ -512,7 +513,7 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
                                 ),
                                 const SizedBox(height: 6),
                                 Text(
-                                  '${percentage.toStringAsFixed(1)}% of top seller',
+                                  '${PriceUtils.formatPrice(percentage, decimals: 1)}% of top seller',
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: Colors.grey[600],

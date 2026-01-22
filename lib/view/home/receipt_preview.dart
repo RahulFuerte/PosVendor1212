@@ -11,6 +11,7 @@ import 'package:pos/view/home/screens/order_type_selector.dart';
 import 'package:pos/view/home/widgets/my_choiceChip.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:pos/view/tab_screen/view-model/widgets/printers/printer.dart';
+import 'package:pos/core/utils/price_utils.dart';
 import 'package:provider/provider.dart';
 import 'dart:developer' as developer;
 
@@ -339,10 +340,9 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
         final double grossTotal = subtotal + taxTotal;
         final double payable = grossTotal - discountAmount;
 
-        final double roundedPayable = payable.roundToDouble();
-        final double roundOff = roundedPayable - payable;
+        final double roundOff = 0; // No rounding applied to maintain precision
 
-        finalTotal = roundedPayable;
+        finalTotal = payable;
 
         return WillPopScope(
           onWillPop: () async {
@@ -383,7 +383,7 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
                             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1),
                           ),
                           Text(
-                            '₹${numberFormat.format(finalTotal)}',
+                            PriceUtils.formatPrice(finalTotal),
                             style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: appbar1),
                           ),
                         ],
@@ -889,7 +889,7 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
 
                                   finalTotal = subtotal - discountAmount;
 
-                                  discountRupeeCtrl.text = discountAmount.toStringAsFixed(2);
+                                  discountRupeeCtrl.text = PriceUtils.formatPrice(discountAmount).substring(1);
                                   setState(() {});
                                 },
                                 decoration: InputDecoration(
@@ -1024,8 +1024,8 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
                                     valueColor: Colors.red,
                                   ),
                                 if (taxEnabled) ...[
-                                  _billRow('CGST (${cgstPercent.toStringAsFixed(1)}%)', cgstAmount),
-                                  _billRow('SGST (${sgstPercent.toStringAsFixed(1)}%)', sgstAmount),
+                                  _billRow('CGST (${PriceUtils.formatPrice(cgstPercent).substring(1)}%)', cgstAmount),
+                                  _billRow('SGST (${PriceUtils.formatPrice(sgstPercent).substring(1)}%)', sgstAmount)
                                 ],
                                 if (roundOff != 0)
                                   _billRow(
@@ -1072,7 +1072,7 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
             ),
           ),
           Text(
-            '₹ ${amount.toStringAsFixed(2)}',
+            PriceUtils.formatPrice(amount),
             style: TextStyle(
               fontSize: isBold ? 16 : 14,
               fontWeight: isBold ? FontWeight.bold : FontWeight.w600,

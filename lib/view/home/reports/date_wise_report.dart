@@ -16,6 +16,7 @@ import 'package:provider/provider.dart';
 import 'package:pos/data/providers/print_provider.dart';
 import 'package:pos/view/home/printer_connectionDialog.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
+import 'package:pos/core/utils/price_utils.dart';
 
 class DatewiseReportScreen extends StatefulWidget {
   final String uid;
@@ -184,7 +185,7 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
                                   DataCell(Text('${index + 1}')),
                                   DataCell(Text(displayDate)),
                                   DataCell(Text(date['totalBills'].toString())),
-                                  DataCell(Text(date['amount'].toStringAsFixed(2))),
+                                  DataCell(Text(PriceUtils.formatPrice(date['amount'])))
                                 ],
                               );
                             }).toList(),
@@ -492,7 +493,7 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
         bytes += generator.row([
           PosColumn(text: displayDate, width: 6),
           PosColumn(text: date['totalBills'].toString(), width: 3, styles: const PosStyles(align: PosAlign.center)),
-          PosColumn(text: date['amount'].toStringAsFixed(2), width: 3, styles: const PosStyles(align: PosAlign.right)),
+          PosColumn(text: PriceUtils.formatPrice(date['amount']), width: 3, styles: const PosStyles(align: PosAlign.right))
         ]);
       }
 
@@ -701,7 +702,7 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
                     return [
                       displayDate,
                       date['totalBills'].toString(),
-                      'Rs ${date['amount'].toStringAsFixed(2)}',
+                      '${PriceUtils.formatPrice(date['amount'])}'
                     ];
                   }).toList(),
                 ),

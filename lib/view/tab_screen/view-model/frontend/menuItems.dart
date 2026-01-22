@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:pos/view/home/navigation.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:pos/view/tab_screen/view-model/widgets/cached_blob_image.dart';
+import 'package:pos/core/utils/price_utils.dart';
 
 class MenuItem extends StatelessWidget {
   MenuItem({
@@ -118,7 +119,7 @@ class MenuItem extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Text(
-                          '₹${numberFormat.format(double.tryParse(price) ?? 0)}',
+                          '${PriceUtils.formatPrice(double.tryParse(price) ?? 0)}',
                           maxLines: 1,
                           textAlign: TextAlign.end,
                           overflow: TextOverflow.ellipsis,

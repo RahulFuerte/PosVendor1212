@@ -20,6 +20,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:pos/data/providers/print_provider.dart';
 import 'package:pos/view/home/printer_connectionDialog.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
+import 'package:pos/core/utils/price_utils.dart';
 
 class ItemwiseReportScreen extends StatefulWidget {
   final String uid;
@@ -175,7 +176,7 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
                                   DataCell(Text('${index + 1}')),
                                   DataCell(Text(item['name'].toString())),
                                   DataCell(Text(item['quantity'].toStringAsFixed(1))),
-                                  DataCell(Text(item['amount'].toStringAsFixed(2))),
+                                  DataCell(Text(PriceUtils.formatPrice(item['amount'])))
                                 ],
                               );
                             }).toList(),
@@ -427,7 +428,7 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
         bytes += generator.row([
           PosColumn(text: '${i + 1}  ${item['name']}', width: 6),
           PosColumn(text: item['quantity'].toStringAsFixed(1), width: 3),
-          PosColumn(text: item['amount'].toStringAsFixed(2), width: 3, styles: const PosStyles(align: PosAlign.right)),
+          PosColumn(text: PriceUtils.formatPrice(item['amount']), width: 3, styles: const PosStyles(align: PosAlign.right))
         ]);
       }
 
@@ -555,7 +556,7 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
         try {
           final amtValue = item['amount'];
           if (amtValue != null) {
-            amount = '₹ ${double.parse(amtValue.toString()).toStringAsFixed(2)}';
+            amount = PriceUtils.formatPrice(double.parse(amtValue.toString()));
           }
         } catch (e) {
           print('Error parsing amount for item $i: $e');
@@ -575,7 +576,7 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
       }
 
       try {
-        totalAmtStr = double.parse(totalAmount.toString()).toStringAsFixed(2);
+        totalAmtStr = PriceUtils.formatPrice(totalAmount).substring(1);
       } catch (e) {
         print('Error parsing total amount: $e');
       }

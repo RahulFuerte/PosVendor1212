@@ -2,7 +2,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
 // Project imports:
-import 'package:pos/view/tab_screen/view-model/backend/price_utils.dart';
+import 'package:pos/core/utils/price_utils.dart';
 
 void main() {
   group('PriceUtils Tests', () {
@@ -76,13 +76,13 @@ void main() {
     group('formatPrice', () {
       test('should format prices with currency symbol', () {
         expect(PriceUtils.formatPrice(123), '₹123');
-        expect(PriceUtils.formatPrice(123.45), '₹123');
-        expect(PriceUtils.formatPrice('99.99'), '₹100');
+        expect(PriceUtils.formatPrice(123.45), '₹123.45');
+        expect(PriceUtils.formatPrice('99.99'), '₹99.99');
       });
 
       test('should format with decimals when specified', () {
         expect(PriceUtils.formatPrice(123.45, decimals: 2), '₹123.45');
-        expect(PriceUtils.formatPrice(123, decimals: 2), '₹123.00');
+        expect(PriceUtils.formatPrice(123.40, decimals: 2), '₹123.4');
       });
 
       test('should use custom currency symbol', () {

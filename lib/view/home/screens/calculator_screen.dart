@@ -459,7 +459,7 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
-                              subtitle: Text("₹${item['price']}"),
+                              subtitle: Text(PriceUtils.formatPrice(item['price'])),
                               trailing: IconButton(
                                 icon: const Icon(
                                   Icons.add_circle,

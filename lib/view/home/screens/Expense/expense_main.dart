@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:pos/data/models/expense_model.dart';
 import 'package:pos/view/home/navigation.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
+import 'package:pos/core/utils/price_utils.dart';
 
 class Expenses extends StatefulWidget {
   final String uid;
@@ -330,7 +331,8 @@ class _ExpensesState extends State<Expenses> {
                                         ),
                                       ),
                                       Text(
-                                        "₹ ${numberFormat.format(exp.amount)}",
+                                        // ignore: unnecessary_string_interpolations
+                                        PriceUtils.formatPrice(exp.amount),
                                         style:  TextStyle(
                                           fontSize: 18,
                                           fontWeight: FontWeight.bold,

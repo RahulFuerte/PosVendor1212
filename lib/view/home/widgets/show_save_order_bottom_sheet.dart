@@ -6,6 +6,7 @@ import 'package:pos/data/datasources/smart_database_service.dart';
 import 'package:pos/view/home/navigation.dart';
 import 'package:pos/data/providers/print_provider.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
+import 'package:pos/core/utils/price_utils.dart';
 
 class SaveOrderBottomSheet extends StatefulWidget {
   const SaveOrderBottomSheet({
@@ -107,7 +108,7 @@ class _SaveOrderBottomSheetState extends State<SaveOrderBottomSheet> {
                             ),
                           ),
                           Text(
-                            "₹${widget.totalAmount}",
+                            PriceUtils.formatPrice(widget.totalAmount),
                             style: const TextStyle(
                               fontSize: 20,
                               color: Colors.black,
@@ -206,7 +207,7 @@ class _SaveOrderBottomSheetState extends State<SaveOrderBottomSheet> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '₹${selectedItemsDetails[index]['price']} × ${selectedItemsDetails[index]['quantity']}',
+                  '${PriceUtils.formatPrice(selectedItemsDetails[index]['price'])} × ${selectedItemsDetails[index]['quantity']}',
                   style: TextStyle(
                     fontSize: 12,
                     color: Colors.grey[600],

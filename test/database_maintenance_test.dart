@@ -1,10 +1,11 @@
 // Package imports:
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pos/data/datasources/database_maintenance_service.dart';
+import 'package:pos/data/datasources/local/sqlite_helper.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 // Project imports:
-import 'package:pos/view/tab_screen/view-model/backend/database_maintenance_service.dart';
-import 'package:pos/view/tab_screen/view-model/backend/sqlite_helper.dart';
+
 import 'test_database_helper.dart';
 
 void main() {

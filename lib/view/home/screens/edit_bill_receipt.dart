@@ -16,6 +16,7 @@ import 'package:provider/provider.dart';
 import 'package:pos/data/datasources/local/sqlite_helper.dart';
 import 'package:pos/data/providers/print_provider.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
+import 'package:pos/core/utils/price_utils.dart';
 
 class EditBillReceiptScreen extends StatefulWidget {
   final String AdminUid;
@@ -719,7 +720,7 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
                                               const SizedBox(width: 8),
                                               Expanded(
                                                 child: Text(
-                                                  'Total Tax: ${(printProvider.cgstPercent + printProvider.sgstPercent).toStringAsFixed(1)}%',
+                                                  'Total Tax: ${PriceUtils.formatPrice(printProvider.cgstPercent + printProvider.sgstPercent).substring(1)}%',
                                                   style: const TextStyle(
                                                     fontSize: 14,
                                                     fontWeight: FontWeight.w600,
