@@ -1,6 +1,7 @@
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'dart:io';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:excel/excel.dart' as excel;
 import 'package:http/http.dart' as http;
 import 'package:file_picker/file_picker.dart';
@@ -77,7 +78,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
           );
         } else {
           mergedList.add(local);
-          pendingSync.add(local); 
+          pendingSync.add(local);
         }
       }
 
@@ -90,7 +91,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
 
       setState(() {
         customers = mergedList;
-        notUploadedCustomers = pendingSync; 
+        notUploadedCustomers = pendingSync;
         filteredCustomers = mergedList; // Initialize filtered list
         isLoading = false;
       });
@@ -157,7 +158,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
       _showExcelFormatHelp();
       return; // Exit here since help dialog handles further flow
     }
-    
+
     // If user skips help or closes it, proceed with import
 
     try {
@@ -175,7 +176,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
 
       if (result != null) {
         PlatformFile file = result.files.single;
-        
+
         // Show progress dialog
         showDialog(
           context: context,
@@ -219,25 +220,25 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
         // Read and parse Excel file
         var bytes = File(file.path!).readAsBytesSync();
         var excelFile = excel.Excel.decodeBytes(bytes);
-        
+
         List<CustomerModel> importedCustomers = [];
         int successfulImports = 0;
         int failedImports = 0;
         List<String> errors = [];
-        
+
         // Check if Excel file has any worksheets
         if (excelFile.tables.isEmpty) {
           errors.add('No worksheets found in the Excel file');
           throw Exception('Invalid Excel file: ${errors.join(', ')}');
         }
-        
+
         for (var table in excelFile.tables.keys) {
           var tableData = excelFile.tables[table]!;
-          
+
           // Skip header row if exists
           for (int i = 0; i < tableData.rows.length; i++) {
             var row = tableData.rows[i];
-            
+
             // Skip header row (first row)
             if (i == 0) {
               // Validate header row format
@@ -247,41 +248,41 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
               }
               continue;
             }
-            
+
             // Check if row has enough columns
             if (row.length < 2) {
               errors.add('Row ${i + 1}: Insufficient data (need at least Name and Phone)');
               failedImports++;
               continue;
             }
-            
+
             // Extract data from columns (assuming A, B, C, D are name, phone, address, GST)
             String name = row[0]?.value?.toString()?.trim() ?? '';
             String phone = row[1]?.value?.toString()?.trim() ?? '';
             String address = row.length > 2 ? (row[2]?.value?.toString()?.trim() ?? '') : '';
             String gstNo = row.length > 3 ? (row[3]?.value?.toString()?.trim() ?? '') : '';
-            
+
             // Validate required fields
             if (name.isEmpty || phone.isEmpty) {
               errors.add('Row ${i + 1}: Name and Phone are required');
               failedImports++;
               continue;
             }
-            
+
             // Validate phone number format (basic validation)
             if (!_isValidPhoneNumber(phone)) {
-              errors.add('Row ${i + 1}: Invalid phone number format (${phone})');
+              errors.add('Row ${i + 1}: Invalid phone number format ($phone)');
               failedImports++;
               continue;
             }
-            
+
             // Check for duplicates
             if (customers.any((customer) => customer.phone == phone)) {
-              errors.add('Row ${i + 1}: Duplicate phone number found (${phone})');
+              errors.add('Row ${i + 1}: Duplicate phone number found ($phone)');
               failedImports++;
               continue;
             }
-            
+
             // Create customer model
             CustomerModel customer = CustomerModel(
               name: name,
@@ -291,15 +292,15 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
               createdAt: DateTime.now(),
               isUploaded: false,
             );
-            
+
             importedCustomers.add(customer);
             successfulImports++;
           }
         }
-        
+
         // Close progress dialog
         Navigator.of(context).pop();
-        
+
         // Insert customers into database
         if (importedCustomers.isNotEmpty) {
           for (var customer in importedCustomers) {
@@ -312,10 +313,10 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
             }
           }
         }
-        
+
         // Reload customers
         await _loadCustomers();
-        
+
         // Show result
         String resultMessage = 'Import completed!\nSuccessful: $successfulImports, Failed: $failedImports';
         if (errors.isNotEmpty) {
@@ -324,7 +325,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
             resultMessage += '\n...and ${errors.length - 3} more';
           }
         }
-        
+
         // Show result with option to sync to Firebase
         showDialog(
           context: context,
@@ -356,8 +357,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(resultMessage),
-                  if (successfulImports > 0)
-                    const SizedBox(height: 16),
+                  if (successfulImports > 0) const SizedBox(height: 16),
                   if (successfulImports > 0)
                     Text(
                       'Would you like to sync the imported customers to the cloud?',
@@ -418,7 +418,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
       if (Navigator.of(context).canPop()) {
         Navigator.of(context).pop();
       }
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -441,154 +441,15 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
   }
 
   Future<void> downloadExcelFromFirebase() async {
-  try {
-    // 1. Reference the file in your screenshot
-    // Path: sample_data/Sample Customer Data Generation.xlsx
-    Reference ref = FirebaseStorage.instance
-        .ref()
-        .child('sample_data/Sample Customer Data Generation.xlsx');
+    try {
+      // 1. Reference the file in your screenshot
+      // Path: sample_data/Sample Customer Data Generation.xlsx
+      Reference ref = FirebaseStorage.instance.ref().child('sample_data/Sample Customer Data Generation.xlsx');
 
-    // 2. Get the temporary public URL
-    String url = await ref.getDownloadURL();
+      // 2. Get the temporary public URL
+      String url = await ref.getDownloadURL();
 
-    // 3. Prepare the local path (Downloads folder for Android)
-    Directory? downloadsDir;
-    if (Platform.isAndroid) {
-      downloadsDir = Directory('/storage/emulated/0/Download');
-    } else {
-      downloadsDir = await getApplicationDocumentsDirectory();
-    }
-
-    String fullPath = "${downloadsDir!.path}/Sample_Data.xlsx";
-
-    // 4. Use Dio to download the file directly to that path
-    // await Dio().download(url, fullPath);
-
-    print("Download Complete: $fullPath");
-
-    // 5. Optional: Open the file immediately for the user
-    // OpenFilex.open(fullPath);
-
-  } catch (e) {
-    print("Error downloading file: $e");
-  }
-}
-
-Future<void> downloadExcelWithHttp() async {
-  // Ask user for confirmation first
-  final shouldDownload = await showDialog<bool>(
-    context: context,
-    builder: (context) => AlertDialog(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
-      title: const Row(
-        children: [
-          Icon(Icons.download, color: Colors.blue),
-          SizedBox(width: 12),
-          Text(
-            'Download Sample Data',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 18,
-            ),
-          ),
-        ],
-      ),
-      content: const Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'This will download a sample Excel template to your device.',
-            style: TextStyle(fontSize: 16),
-          ),
-          SizedBox(height: 12),
-          Text(
-            'After download, you can select this file when importing customers.',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey,
-            ),
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context, false),
-          child: const Text('Cancel'),
-        ),
-        ElevatedButton(
-          onPressed: () => Navigator.pop(context, true),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: primaryColor,
-          ),
-          child: const Text(
-            'Download',
-            style: TextStyle(color: Colors.white),
-          ),
-        ),
-      ],
-    ),
-  );
-
-  if (shouldDownload != true) return;
-
-  try {
-    // Show download progress
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        content: Container(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                'Downloading sample data...',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Please wait',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-
-    // 1. Get the Download URL from Firebase
-    Reference ref = FirebaseStorage.instance
-        .ref()
-        .child('sample_data/Sample Customer Data Generation.xlsx');
-    String url = await ref.getDownloadURL();
-
-    // 2. Fetch the file data using http
-    final response = await http.get(Uri.parse(url));
-
-    // Close progress dialog
-    if (Navigator.canPop(context)) {
-      Navigator.pop(context);
-    }
-
-    if (response.statusCode == 200) {
-      // 3. Get the local storage path
+      // 3. Prepare the local path (Downloads folder for Android)
       Directory? downloadsDir;
       if (Platform.isAndroid) {
         downloadsDir = Directory('/storage/emulated/0/Download');
@@ -596,40 +457,263 @@ Future<void> downloadExcelWithHttp() async {
         downloadsDir = await getApplicationDocumentsDirectory();
       }
 
-      String fullPath = "${downloadsDir.path}/Sample_Customer_Data.xlsx";
-      File file = File(fullPath);
+      String fullPath = "${downloadsDir!.path}/Sample_Data.xlsx";
 
-      // 4. Write the bytes to the file
-      await file.writeAsBytes(response.bodyBytes);
+      // 4. Use Dio to download the file directly to that path
+      // await Dio().download(url, fullPath);
 
-      // Show success message with file name
-      final fileName = fullPath.split('/').last;
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
+      print("Download Complete: $fullPath");
+
+      // 5. Optional: Open the file immediately for the user
+      // OpenFilex.open(fullPath);
+    } catch (e) {
+      print("Error downloading file: $e");
+    }
+  }
+
+  Future<void> downloadExcelWithHttp() async {
+    // Ask user for confirmation first
+    final shouldDownload = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: const Row(
+          children: [
+            Icon(Icons.download, color: Colors.blue),
+            SizedBox(width: 12),
+            Text(
+              'Download Sample Data',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+              ),
+            ),
+          ],
+        ),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'This will download a sample Excel template to your device.',
+              style: TextStyle(fontSize: 16),
+            ),
+            SizedBox(height: 12),
+            Text(
+              'After download, you can select this file when importing customers.',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primaryColor,
+            ),
+            child: const Text(
+              'Download',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldDownload != true) return;
+
+    try {
+      // Show download progress
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          content: Container(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.check_circle, color: Colors.white),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Downloaded: $fileName\nYou can now select this file for import',
-                    style: const TextStyle(fontSize: 16),
+                const CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
+                ),
+                const SizedBox(height: 24),
+                const Text(
+                  'Downloading sample data...',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Please wait',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey,
                   ),
                 ),
               ],
             ),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 5),
-            action: SnackBarAction(
-              label: 'OK',
-              textColor: Colors.white,
-              onPressed: () {},
-            ),
           ),
-        );
+        ),
+      );
+
+      // 1. Check and Request Permissions
+      if (Platform.isAndroid) {
+        PermissionStatus status = await Permission.storage.status;
+
+        if (status.isDenied || status.isRestricted) {
+          status = await Permission.storage.request();
+        }
+
+        if (status.isPermanentlyDenied) {
+          if (mounted) {
+            Navigator.pop(context); // Close progress dialog
+            showDialog(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text('Permission Required'),
+                content: const Text('Storage permission is required to save the file. Please enable it in settings.'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Cancel'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      openAppSettings();
+                    },
+                    child: const Text('Open Settings'),
+                  ),
+                ],
+              ),
+            );
+          }
+          return;
+        }
+
+        if (!status.isGranted) {
+          if (mounted) {
+            Navigator.pop(context); // Close progress dialog
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Storage permission denied'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          return;
+        }
       }
-    } else {
+
+      // 2. Get the Download URL from Firebase
+      Reference ref = FirebaseStorage.instance.ref().child('sample_data/Sample Customer Data Generation.xlsx');
+      String url = await ref.getDownloadURL();
+
+      // 3. Fetch the file data using http
+      final response = await http.get(Uri.parse(url));
+
+      // Close progress dialog
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
+
+      if (response.statusCode == 200) {
+        // 4. Get the local storage path
+        Directory? downloadsDir;
+        if (Platform.isAndroid) {
+          downloadsDir = Directory('/storage/emulated/0/Download');
+          // Ensure the directory exists or fall back
+          if (!await downloadsDir.exists()) {
+            downloadsDir = await getExternalStorageDirectory();
+          }
+        } else {
+          downloadsDir = await getApplicationDocumentsDirectory();
+        }
+
+        if (downloadsDir == null) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Could not access storage directory'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          return;
+        }
+
+        String fullPath = "${downloadsDir.path}/Sample_Customer_Data.xlsx";
+        File file = File(fullPath);
+
+        // 4. Write the bytes to the file
+        await file.writeAsBytes(response.bodyBytes);
+
+        // Show success message with file name
+        final fileName = fullPath.split('/').last;
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.check_circle, color: Colors.white),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Downloaded: $fileName\nYou can now select this file for import',
+                      style: const TextStyle(fontSize: 16),
+                    ),
+                  ),
+                ],
+              ),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 5),
+              action: SnackBarAction(
+                label: 'OK',
+                textColor: Colors.white,
+                onPressed: () {},
+              ),
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.error, color: Colors.white),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Download failed: ${response.statusCode}',
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                ],
+              ),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      // Close progress dialog if still open
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -637,9 +721,11 @@ Future<void> downloadExcelWithHttp() async {
               children: [
                 const Icon(Icons.error, color: Colors.white),
                 const SizedBox(width: 12),
-                Text(
-                  'Download failed: ${response.statusCode}',
-                  style: const TextStyle(fontSize: 16),
+                Expanded(
+                  child: Text(
+                    'Download error: $e',
+                    style: const TextStyle(fontSize: 16),
+                  ),
                 ),
               ],
             ),
@@ -648,33 +734,8 @@ Future<void> downloadExcelWithHttp() async {
         );
       }
     }
-  } catch (e) {
-    // Close progress dialog if still open
-    if (Navigator.canPop(context)) {
-      Navigator.pop(context);
-    }
-    
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.error, color: Colors.white),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Download error: $e',
-                  style: const TextStyle(fontSize: 16),
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
   }
-}
+
   void _showExcelFormatHelp() {
     showDialog(
       context: context,
@@ -846,7 +907,6 @@ Future<void> downloadExcelWithHttp() async {
       for (var customer in notUploadedCustomers) {
         try {
           // Generate receipt number
-    
 
           // Create customer data
           final customerData = {
@@ -1029,7 +1089,7 @@ Future<void> downloadExcelWithHttp() async {
                 color: appbar1.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child:  Icon(
+              child: Icon(
                 Icons.person_add,
                 color: appbar1,
                 size: 24,
@@ -1060,7 +1120,7 @@ Future<void> downloadExcelWithHttp() async {
                     controller: nameController,
                     decoration: InputDecoration(
                       labelText: 'Customer Name *',
-                      prefixIcon:  Icon(Icons.person, color: appbar1),
+                      prefixIcon: Icon(Icons.person, color: appbar1),
                       border: InputBorder.none,
                       contentPadding: const EdgeInsets.all(16),
                       labelStyle: TextStyle(color: Colors.grey.shade600),
@@ -1077,7 +1137,7 @@ Future<void> downloadExcelWithHttp() async {
                     controller: phoneController,
                     decoration: InputDecoration(
                       labelText: 'Phone Number *',
-                      prefixIcon:  Icon(Icons.phone, color: appbar1),
+                      prefixIcon: Icon(Icons.phone, color: appbar1),
                       border: InputBorder.none,
                       contentPadding: const EdgeInsets.all(16),
                       labelStyle: TextStyle(color: Colors.grey.shade600),
@@ -1096,7 +1156,7 @@ Future<void> downloadExcelWithHttp() async {
                     maxLines: 3,
                     decoration: InputDecoration(
                       labelText: 'Customer Address *',
-                      prefixIcon:  Icon(Icons.home, color: appbar1),
+                      prefixIcon: Icon(Icons.home, color: appbar1),
                       border: InputBorder.none,
                       contentPadding: const EdgeInsets.all(16),
                       labelStyle: TextStyle(color: Colors.grey.shade600),
@@ -1114,7 +1174,7 @@ Future<void> downloadExcelWithHttp() async {
                     controller: gstController,
                     decoration: InputDecoration(
                       labelText: 'GST Number (Optional)',
-                      prefixIcon:  Icon(Icons.receipt_long, color: appbar1),
+                      prefixIcon: Icon(Icons.receipt_long, color: appbar1),
                       border: InputBorder.none,
                       contentPadding: const EdgeInsets.all(16),
                       labelStyle: TextStyle(color: Colors.grey.shade600),
@@ -1240,7 +1300,7 @@ Future<void> downloadExcelWithHttp() async {
     final phoneController = TextEditingController(text: customer.phone);
     final gstController = TextEditingController(text: customer.gstNo ?? '');
     final addressController = TextEditingController(text: customer.address ?? '');
-    
+
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1332,9 +1392,9 @@ Future<void> downloadExcelWithHttp() async {
                               backgroundColor: Colors.red,
                               behavior: SnackBarBehavior.floating,
                             ),
-                        );
-                      }
-                      return;
+                          );
+                        }
+                        return;
                       }
 
                       try {
@@ -1348,7 +1408,7 @@ Future<void> downloadExcelWithHttp() async {
 
                         // Update in local database
                         // await SQLiteHelper().updateCustomer(updatedCustomer.toMap(), updatedCustomer.id!);
-                        
+
                         Navigator.pop(context);
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -1366,10 +1426,10 @@ Future<void> downloadExcelWithHttp() async {
                               backgroundColor: Colors.green,
                               behavior: SnackBarBehavior.floating,
                             ),
-                        );
-                        _loadCustomers();
-                      }
-                    } catch (e) {
+                          );
+                          _loadCustomers();
+                        }
+                      } catch (e) {
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
@@ -1478,11 +1538,11 @@ Future<void> downloadExcelWithHttp() async {
     filteredCustomers = customers.where((customer) {
       final lowerQuery = _searchController.text.toLowerCase();
       return customer.name.toLowerCase().contains(lowerQuery) ||
-             customer.phone.toLowerCase().contains(lowerQuery) ||
-             (customer.gstNo?.toLowerCase().contains(lowerQuery) ?? false) ||
-             (customer.address?.toLowerCase().contains(lowerQuery) ?? false);
+          customer.phone.toLowerCase().contains(lowerQuery) ||
+          (customer.gstNo?.toLowerCase().contains(lowerQuery) ?? false) ||
+          (customer.address?.toLowerCase().contains(lowerQuery) ?? false);
     }).toList();
-    
+
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
@@ -1882,7 +1942,7 @@ Future<void> downloadExcelWithHttp() async {
                                             const SizedBox(width: 6),
                                             Expanded(
                                               child: Text(
-                                                customer.address == '' ? 'N/A' : customer.address??'N/A',
+                                                customer.address == '' ? 'N/A' : customer.address ?? 'N/A',
                                                 style: const TextStyle(
                                                   fontFamily: 'fontmain',
                                                   fontSize: 12,

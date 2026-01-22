@@ -870,6 +870,7 @@ class DirectPrintHelper {
       // Small font style
       const smallFontCenter = PosStyles(align: PosAlign.center);
       const smallFontLeft = PosStyles(align: PosAlign.left);
+      final qrSize = is58mm ? QRSize.Size2 : QRSize.Size4;
 
       // Header
 
@@ -878,9 +879,8 @@ class DirectPrintHelper {
         final logoBytes = await loadLogoOfflineSafe(logoUrl, generator);
 
         bytes += logoBytes;
-        bytes += generator.feed(1);
       }
-      bytes += generator.emptyLines(1);
+      bytes += generator.feed(1);
       bytes += generator.text(shopName, styles: const PosStyles(bold: true, align: PosAlign.center));
       bytes += generator.text(address, styles: smallFontCenter);
       bytes += generator.text("Mob.No : $contact", styles: smallFontCenter);
@@ -1053,18 +1053,22 @@ class DirectPrintHelper {
 
       // String upiId = "richeyrichinfotech@icici";
 
-
       if (upiId.isNotEmpty) {
         String upiUrl = "upi://pay?pa=$upiId&pn=$shopName&am=${fmt(grandTotal)}&cu=INR";
-        bytes += generator.emptyLines(1);
-        bytes += generator.qrcode(upiUrl, size: QRSize.Size6, align: PosAlign.center);
-        bytes += generator.emptyLines(1);
+
+        bytes += generator.qrcode(
+          upiUrl,
+          size: is58mm ? QRSize.Size2 : QRSize.Size3,
+          align: PosAlign.center,
+        );
+        bytes += generator.feed(1);
       }
 
       // Footer
       bytes += generator.text(separator, styles: smallFontLeft);
       bytes += generator.text('Thank you! Visit Again', styles: smallFontCenter);
-      bytes += generator.cut();
+      bytes += generator.feed(3);
+      // bytes += generator.cut(mode: PosCutMode.partial);
 
       final isConnected = await isOnline();
 
