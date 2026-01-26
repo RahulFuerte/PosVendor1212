@@ -361,7 +361,6 @@ class _BillCartState extends State<BillCart> {
       String logoUrl = shopData['logoUrl']!;
       String upiId = shopData['upiId'] ?? "";
 
-
       if (!mounted) return;
       Navigator.pop(context);
 
@@ -399,6 +398,8 @@ class _BillCartState extends State<BillCart> {
       );
 
       _clearCart();
+
+      orderTypeProvider.reset();
 
       if (!mounted) return;
       final isOnline = _databaseService.isOnline;
@@ -558,9 +559,10 @@ class _BillCartState extends State<BillCart> {
                 setState(() {
                   if (selectedItemsDetails[index]['quantity'] > 1) {
                     selectedItemsDetails[index]['quantity']--;
-                    subtotal -= selectedItemsDetails[index]['price'];
+                    subtotal -= (selectedItemsDetails[index]['price'] as num).toDouble();
                   } else {
-                    subtotal -= selectedItemsDetails[index]['price'];
+                    subtotal -= (selectedItemsDetails[index]['price'] as num).toDouble();
+
                     selectedItemsDetails.removeAt(index);
                   }
                   _updateCart();
@@ -591,7 +593,8 @@ class _BillCartState extends State<BillCart> {
               onTap: () {
                 setState(() {
                   selectedItemsDetails[index]['quantity']++;
-                  subtotal += selectedItemsDetails[index]['price'];
+                  subtotal += (selectedItemsDetails[index]['price'] as num).toDouble();
+
                   _updateCart();
                 });
               },

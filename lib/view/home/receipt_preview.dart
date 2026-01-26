@@ -274,6 +274,8 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
         "$amountInWords rupees",
       );
 
+      orderTypeProvider.reset();
+
       if (!mounted) return;
       final isOnline = _databaseService.isOnline;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -352,7 +354,7 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
           child: Scaffold(
             backgroundColor: Colors.white,
             bottomNavigationBar: Container(
-              height: 200,
+              // height: 200,
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -367,6 +369,7 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
               ),
               child: SafeArea(
                 child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Container(
@@ -525,6 +528,7 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
                                 "$amountInWords rupees",
                               );
                               printProvider.clearCart();
+                              orderTypeProvider.reset();
                             } catch (e) {
                               if (!mounted) return;
 
@@ -694,13 +698,16 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
                                 'Item List',
                                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: appbar1),
                               ),
-                              Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(color: appbar1, borderRadius: BorderRadius.circular(12)),
-                                  child: const Text(
-                                    "Add Item",
-                                    style: TextStyle(color: Colors.white),
-                                  ))
+                              GestureDetector(
+                                onTap: () => Navigator.pop(context),
+                                child: Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(color: appbar1, borderRadius: BorderRadius.circular(12)),
+                                    child: const Text(
+                                      "Add Item",
+                                      style: TextStyle(color: Colors.white),
+                                    )),
+                              )
                             ],
                           ),
                         ),

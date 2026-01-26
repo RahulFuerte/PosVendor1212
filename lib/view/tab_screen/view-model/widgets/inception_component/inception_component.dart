@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 // Package imports:
 import 'package:animated_text_kit/animated_text_kit.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:pos/view/login/screens/sign_up_screen.dart';
 
 // Project imports:
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
@@ -52,16 +53,22 @@ class Shape extends StatelessWidget {
                 pause: const Duration(seconds: 10),
               ),
             ),
-            Padding(
-              padding: EdgeInsets.all(20 * s.customWidth).copyWith(
-                bottom: kBottomNavigationBarHeight * s.customWidth,
-              ),
-              child: Text(
-                "Or Sign Up!",
-                style: TextStyle(
-                  fontSize: 26 * s.customWidth,
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
+            GestureDetector(
+              onTap: () {
+                Navigator.push(context, MaterialPageRoute(builder: (context) => const SignUp()));
+              },
+              child: Container(
+                width: s.width,
+                padding: EdgeInsets.all(20 * s.customWidth).copyWith(
+                  bottom: kBottomNavigationBarHeight * s.customWidth,
+                ),
+                child: Text(
+                  "Or Sign Up!",
+                  style: TextStyle(
+                    fontSize: 26 * s.customWidth,
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ),

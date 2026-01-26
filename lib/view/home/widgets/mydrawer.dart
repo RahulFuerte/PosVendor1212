@@ -1,10 +1,11 @@
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_pos_printer_platform_image_3/flutter_pos_printer_platform_image_3.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:pos/data/datasources/local/sqlite_helper.dart';
+import 'package:pos/data/providers/subscription_provider.dart';
+import 'package:pos/view/home/navigation.dart';
 import 'package:pos/view/home/offline_bill_status_screen.dart';
 import 'package:pos/data/providers/print_provider.dart';
 import 'package:pos/view/home/printer_connectionDialog.dart';
@@ -13,7 +14,7 @@ import 'package:pos/view/home/reports/customer_wise_report.dart';
 import 'package:pos/view/home/reports/date_wise_report.dart';
 import 'package:pos/view/home/reports/item_wise_report.dart';
 import 'package:pos/view/home/reports/sales_report_screen.dart';
-import 'package:pos/view/home/screens/Expense/expense_main.dart';
+import 'package:pos/view/home/screens/expense_main.dart';
 import 'package:pos/view/home/screens/customer_list_screen.dart';
 import 'package:pos/view/home/screens/dashboard.dart';
 import 'package:pos/view/home/screens/edit_bill_receipt.dart';
@@ -47,6 +48,12 @@ class _MyDrawerState extends State<MyDrawer> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<SubscriptionProvider>().setExpiry(
+            DateTime(2026, 1, 30, 23, 59, 59),
+          );
+    });
+
     fetchUserData();
   }
 
@@ -135,6 +142,7 @@ class _MyDrawerState extends State<MyDrawer> {
 
   @override
   Widget build(BuildContext context) {
+    print("These Is the rebuild of drawer...................................${DateTime.now()}");
     return Drawer(
       child: ListView(
         padding: EdgeInsets.zero,
@@ -473,6 +481,35 @@ class _MyDrawerState extends State<MyDrawer> {
               );
             },
           ),
+          Theme(
+            data: ThemeData(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              leading: Icon(MdiIcons.packageVariantClosed, color: primaryColor),
+              childrenPadding: const EdgeInsets.only(left: 16),
+              title: const Text('Items'),
+              children: [
+                ListTile(
+                  leading: Icon(MdiIcons.plusBoxOutline, color: primaryColor),
+                  title: const Text('Add Items'),
+                  onTap: () {
+                    _navigate(SalesReportScreen(adminUid: adminUid));
+                  },
+                ),
+                ListTile(
+                  leading: Icon(MdiIcons.viewListOutline, color: primaryColor),
+                  title: const Text('View Items'),
+                  onTap: () {
+                    _navigate(
+                      CustomerWiseReport(
+                        adminUid: adminUid,
+                        uid: widget.phoneNo,
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
 
           ListTile(
             leading: const Icon(Icons.settings, color: primaryColor),
@@ -526,7 +563,7 @@ class _MyDrawerState extends State<MyDrawer> {
                                       Navigator.pushReplacement(
                                           context,
                                           MaterialPageRoute(
-                                            builder: (context) => const Inception(),
+                                            builder: (context) => const Login(),
                                           ));
                                     },
                                   )
@@ -540,6 +577,81 @@ class _MyDrawerState extends State<MyDrawer> {
               );
             },
           ),
+          Consumer<SubscriptionProvider>(
+            builder: (context, sub, _) {
+              if (!sub.isInitialized) {
+                return _subscriptionContainer(
+                  iconColor: Colors.grey,
+                  borderColor: Colors.grey,
+                  bgColor: Colors.grey.shade200,
+                  child: const Text('Checking subscription...'),
+                );
+              }
+
+              if (sub.isExpired) {
+                return _subscriptionContainer(
+                  iconColor: Colors.red,
+                  borderColor: Colors.red,
+                  bgColor: Colors.red.shade50,
+                  child: const Text(
+                    'Subscription Expired',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.red,
+                    ),
+                  ),
+                );
+              }
+
+              return _subscriptionContainer(
+                iconColor: appbar1,
+                borderColor: appbar1,
+                bgColor: appbar1.withOpacity(0.1),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Subscription Expires In',
+                      style: TextStyle(fontSize: 13, color: Colors.black54),
+                    ),
+                    Text(
+                      sub.formattedTime,
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: appbar1,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _subscriptionContainer({
+    required Color iconColor,
+    required Color borderColor,
+    required Color bgColor,
+    required Widget child,
+  }) {
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: borderColor),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.timer, color: iconColor, size: 30),
+          const SizedBox(width: 16),
+          Expanded(child: child),
         ],
       ),
     );

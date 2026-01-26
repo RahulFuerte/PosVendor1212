@@ -63,7 +63,7 @@ class _DashboardState extends State<Dashboard> {
 
       final snapshot = await FirebaseFirestore.instance
           .collection('AllBills')
-          .doc(widget.adminUid)
+          .doc(widget.phoneNo)
           .collection('myBills')
           .doc(monthKey)
           .collection(dateKey)

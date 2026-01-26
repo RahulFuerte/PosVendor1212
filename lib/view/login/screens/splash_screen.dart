@@ -48,7 +48,7 @@ class SplashScreenState extends State<SplashScreen> {
         // User is not logged in, navigate to LoginScreen
         mounted?Navigator.of(context).pushReplacement(
           MaterialPageRoute(
-            builder: (context) => const Inception(),
+            builder: (context) => const Login(),
           ),
         ):null;
       }

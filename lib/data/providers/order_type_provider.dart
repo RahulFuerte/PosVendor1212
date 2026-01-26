@@ -22,4 +22,10 @@ class OrderTypeProvider extends ChangeNotifier {
     _paymentType = type;
     notifyListeners();
   }
+
+  void reset() {
+    _orderType = OrderType.dineIn;
+    _paymentType = PaymentType.cash;
+    notifyListeners();
+  }
 }

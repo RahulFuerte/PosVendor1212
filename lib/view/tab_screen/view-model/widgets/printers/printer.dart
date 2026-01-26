@@ -879,6 +879,7 @@ class DirectPrintHelper {
         final logoBytes = await loadLogoOfflineSafe(logoUrl, generator);
 
         bytes += logoBytes;
+        bytes += generator.feed(is58mm ? 2 : 0);
       }
       bytes += generator.feed(1);
       bytes += generator.text(shopName, styles: const PosStyles(bold: true, align: PosAlign.center));
@@ -1055,10 +1056,11 @@ class DirectPrintHelper {
 
       if (upiId.isNotEmpty) {
         String upiUrl = "upi://pay?pa=$upiId&pn=$shopName&am=${fmt(grandTotal)}&cu=INR";
+        bytes += generator.feed(1);
 
         bytes += generator.qrcode(
           upiUrl,
-          size: is58mm ? QRSize.Size2 : QRSize.Size3,
+          size: is58mm ? QRSize.Size6 : QRSize.Size3,
           align: PosAlign.center,
         );
         bytes += generator.feed(1);

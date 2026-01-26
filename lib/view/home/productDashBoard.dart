@@ -324,7 +324,10 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
           ),
         ],
       ),
-      drawer: MyDrawer(phoneNo: widget.phoneNo ,  adminPhoneNo: adminUid,),
+      drawer: MyDrawer(
+        phoneNo: widget.phoneNo,
+        adminPhoneNo: adminUid,
+      ),
       body: Column(
         children: [
           banner.OfflineStatusBanner(adminUid: adminUid),
@@ -360,112 +363,80 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
 
                       // billCountContainer(),
                       Expanded(
-                        child: LayoutBuilder(builder: (context, constraints) {
-                          // Calculate number of columns based on screen width
-                          int crossAxisCount;
-                          double childAspectRatio;
-                          double horizontalPadding;
-                          double spacing;
-                          double availableWidth = constraints.maxWidth;
-
-                          if (availableWidth > 1400) {
-                            crossAxisCount = 5;
-                            childAspectRatio = 0.80;
-                            horizontalPadding = 16;
-                            spacing = 16;
-                          } else if (availableWidth > 1000) {
-                            crossAxisCount = 4;
-                            childAspectRatio = 0.78;
-                            horizontalPadding = 12;
-                            spacing = 12;
-                          } else if (availableWidth > 700) {
-                            crossAxisCount = 3;
-                            childAspectRatio = 0.75;
-                            horizontalPadding = 10;
-                            spacing = 10;
-                          } else {
-                            // For smaller screens (phones), always 2 columns
-                            crossAxisCount = 3;
-                            childAspectRatio = 0.7;
-                            horizontalPadding = 8;
-                            spacing = 8;
-                          }
-
-                          return Padding(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: horizontalPadding,
-                              vertical: 8,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 9,
+                            vertical: 8,
+                          ),
+                          child: GridView.builder(
+                            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                              maxCrossAxisExtent: 170,
+                              childAspectRatio: 0.75,
+                              crossAxisSpacing: 8,
+                              mainAxisSpacing: 8,
                             ),
-                            child: GridView.builder(
-                              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                                maxCrossAxisExtent: 170, 
-                                childAspectRatio: 0.75,
-                                crossAxisSpacing: 8,
-                                mainAxisSpacing: 8,
-                              ),
-                              itemCount: filteredItems.length,
-                              itemBuilder: (context, index) {
-                                final item = filteredItems[index];
-                                return MenuItem(
-                                  context: context,
-                                  imagePath: item['imagePath']?.toString() ?? '',
-                                  text: item['name']?.toString() ?? '',
-                                  code: item['foodCode']?.toString() ?? '',
-                                  imagerecordId: item['id']?.toString(),
-                                  price: item['price']?.toString() ?? '0',
-                                  price2: item['price2']?.toString() ?? '0',
-                                  price3: item['price3']?.toString() ?? '0',
-                                  priceType: item['priceType']?.toString() ?? 'Fixed',
-                                  stocks: item['stocks']?.toString() ?? 'N/A',
-                                  baseVariant: item['baseVariant']?.toString(),
-                                  variants: item['variants'] as List<dynamic>?,
-                                  addons: item['addons'] as List<dynamic>?,
-                                  onAdd: (name, price, quantity, unit, unitQty, addOnList) {
-                                    audioPlayer.play(AssetSource('sounds/beep.mp3'));
-
-                                    setState(() {
-                                      isTapped = true;
-
-                                      final displayName = unit.isNotEmpty ? '$name ($unitQty $unit)' : name;
-
-                                      final parsedPrice = (double.tryParse(price) ?? 0).toInt();
-
-                                      // 🔍 Check if same item + same unit already exists
-                                      final existingIndex = selectedItemsDetails.indexWhere(
-                                        (element) => element['name'] == displayName && element['price'] == parsedPrice,
-                                      );
-
-                                      if (existingIndex != -1) {
-                                        selectedItemsDetails[existingIndex]['quantity'] += quantity;
-                                        selectedItemsDetails[existingIndex]['addons'] = addOnList;
-                                      } else {
-                                        selectedItemsDetails.add({
-                                          'name': displayName,
-                                          'price': parsedPrice,
-                                          'quantity': quantity,
-                                          'unit': unit,
-                                          'addons': addOnList,
-                                        });
-                                      }
-
-                                      subtotal += parsedPrice * quantity;
-
-                                      printprovider.additem(selectedItemsDetails, subtotal);
-
-                                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                                        if (_listScrollController.hasClients) {
-                                          _listScrollController.jumpTo(
-                                            _listScrollController.position.maxScrollExtent,
-                                          );
-                                        }
+                            itemCount: filteredItems.length,
+                            itemBuilder: (context, index) {
+                              final item = filteredItems[index];
+                              return MenuItem(
+                                context: context,
+                                imagePath: item['imagePath']?.toString() ?? '',
+                                text: item['name']?.toString() ?? '',
+                                code: item['foodCode']?.toString() ?? '',
+                                imagerecordId: item['id']?.toString(),
+                                price: item['price']?.toString() ?? '0',
+                                price2: item['price2']?.toString() ?? '0',
+                                price3: item['price3']?.toString() ?? '0',
+                                priceType: item['priceType']?.toString() ?? 'Fixed',
+                                stocks: item['stocks']?.toString() ?? 'N/A',
+                                baseVariant: item['baseVariant']?.toString(),
+                                variants: item['variants'] as List<dynamic>?,
+                                addons: item['addons'] as List<dynamic>?,
+                                onAdd: (name, price, quantity, unit, unitQty, addOnList) {
+                                  audioPlayer.play(AssetSource('sounds/beep.mp3'));
+                        
+                                  setState(() {
+                                    isTapped = true;
+                        
+                                    final displayName = unit.isNotEmpty ? '$name ($unitQty $unit)' : name;
+                        
+                                    final parsedPrice = double.tryParse(price) ?? 0.0;
+                        
+                                    // 🔍 Check if same item + same unit already exists
+                                    final existingIndex = selectedItemsDetails.indexWhere(
+                                      (element) => element['name'] == displayName && element['price'] == parsedPrice,
+                                    );
+                        
+                                    if (existingIndex != -1) {
+                                      selectedItemsDetails[existingIndex]['quantity'] += quantity;
+                                      selectedItemsDetails[existingIndex]['addons'] = addOnList;
+                                    } else {
+                                      selectedItemsDetails.add({
+                                        'name': displayName,
+                                        'price': parsedPrice,
+                                        'quantity': quantity,
+                                        'unit': unit,
+                                        'addons': addOnList,
                                       });
+                                    }
+                        
+                                    subtotal += parsedPrice * quantity;
+                        
+                                    printprovider.additem(selectedItemsDetails, subtotal);
+                        
+                                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                                      if (_listScrollController.hasClients) {
+                                        _listScrollController.jumpTo(
+                                          _listScrollController.position.maxScrollExtent,
+                                        );
+                                      }
                                     });
-                                  },
-                                );
-                              },
-                            ),
-                          );
-                        }),
+                                  });
+                                },
+                              );
+                            },
+                          ),
+                        ),
                       ),
                       printprovider.posts.isEmpty
                           ? const SizedBox()
@@ -516,8 +487,6 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
       ),
     );
   }
-
-
 
   void _saveDataAndNavigate() async {
     final userMap = {
