@@ -8,6 +8,10 @@ import 'package:hive_flutter/adapters.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pos/data/providers/admin_uid_provider.dart';
 import 'package:pos/data/providers/order_type_provider.dart';
+import 'package:pos/data/providers/subscription_provider.dart';
+import 'package:pos/view/Super%20Admin/super_admin_dashboard.dart';
+import 'package:pos/view/home/screens/expense_main.dart';
+
 import 'package:provider/provider.dart';
 
 // Project imports:
@@ -66,10 +70,12 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AdminUidProvider()),
         ChangeNotifierProvider(create: (_) => PrintProvider()),
         ChangeNotifierProvider(create: (_) => OrderTypeProvider()),
+        ChangeNotifierProvider(create: (_) => SubscriptionProvider()),
       ],
       child: const MaterialApp(
         title: 'POS',
         home: SplashScreen(),
+        // home: SuperAdminDashboard(),
         debugShowCheckedModeBanner: false,
       ),
     );

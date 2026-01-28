@@ -777,45 +777,18 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
 
                                 return LayoutBuilder(
                                   builder: (context, constraints) {
-                                    int crossAxisCount;
-                                    double childAspectRatio;
-                                    double horizontalPadding;
-                                    double spacing;
-                                    double availableWidth = constraints.maxWidth;
-
-                                    if (availableWidth > 1400) {
-                                      crossAxisCount = isContainerVisible ? 4 : 5;
-                                      childAspectRatio = 0.80;
-                                      horizontalPadding = 16;
-                                      spacing = 16;
-                                    } else if (availableWidth > 1000) {
-                                      crossAxisCount = isContainerVisible ? 3 : 4;
-                                      childAspectRatio = 0.78;
-                                      horizontalPadding = 12;
-                                      spacing = 12;
-                                    } else if (availableWidth > 700) {
-                                      crossAxisCount = isContainerVisible ? 2 : 3;
-                                      childAspectRatio = 0.75;
-                                      horizontalPadding = 10;
-                                      spacing = 10;
-                                    } else {
-                                      // For smaller screens (phones), always 2 columns
-                                      crossAxisCount = isContainerVisible ? 2 : 3;
-                                      childAspectRatio = isContainerVisible ? 0.82 : 0.7;
-                                      horizontalPadding = 8;
-                                      spacing = 8;
-                                    }
+                                    
 
                                     return Padding(
-                                      padding: EdgeInsets.symmetric(
-                                        horizontal: horizontalPadding,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
                                         vertical: 8,
                                       ),
                                       child: GridView.builder(
                                         controller: _gridViewController,
-                                        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                                          maxCrossAxisExtent: 150,
-                                          childAspectRatio: 0.85,
+                                        gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+                                          maxCrossAxisExtent: isContainerVisible ?  150 :140,
+                                          childAspectRatio: isContainerVisible ? 0.86 : 0.8,
                                           crossAxisSpacing: 5,
                                           mainAxisSpacing: 6,
                                         ),
@@ -844,9 +817,8 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
 
                                                 final displayName = unit.isNotEmpty ? '$name ($unitQty $unit)' : name;
 
-                                                final parsedPrice = (double.tryParse(price) ?? 0).toInt();
+                                                final parsedPrice = double.tryParse(price) ?? 0.0;
 
-                                                // 🔍 Check if same item + same unit already exists
                                                 final existingIndex = selectedItemsDetails.indexWhere(
                                                   (element) =>
                                                       element['name'] == displayName && element['price'] == parsedPrice,
