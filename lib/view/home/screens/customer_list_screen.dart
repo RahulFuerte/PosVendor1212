@@ -40,6 +40,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
   void initState() {
     super.initState();
     _loadCustomers();
+    _searchController.addListener(_filterCustomers);
   }
 
   Future<void> _loadCustomers() async {
@@ -89,10 +90,23 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
         }
       }
 
+      final query = _searchController.text.toLowerCase();
+
+      final List<CustomerModel> filtered = query.isEmpty
+          ? mergedList
+          : mergedList.where((customer) {
+              return customer.name.toLowerCase().contains(query) ||
+                  customer.phone.toLowerCase().contains(query) ||
+                  (customer.gstNo?.toLowerCase().contains(query) ?? false) ||
+                  (customer.address?.toLowerCase().contains(query) ?? false);
+            }).toList();
+
+      if (!mounted) return;
+
       setState(() {
         customers = mergedList;
+        filteredCustomers = filtered;
         notUploadedCustomers = pendingSync;
-        filteredCustomers = mergedList; // Initialize filtered list
         isLoading = false;
       });
     } catch (e) {
@@ -916,7 +930,6 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
             'address': customer.address ?? '',
             'createdAt': FieldValue.serverTimestamp(),
           };
-          print("These Is Customer Data ...............$customerData");
           // Upload to Firebase: AllAdmins/{adminUid}/customers/{customerPhone}
           await firestore
               .collection('AllAdmins')
@@ -958,6 +971,34 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
           ),
         );
       }
+    }
+  }
+
+  void _filterCustomers() {
+    final query = _searchController.text.toLowerCase();
+
+    setState(() {
+      filteredCustomers = customers.where((customer) {
+        return customer.name.toLowerCase().contains(query) ||
+            customer.phone.toLowerCase().contains(query) ||
+            (customer.gstNo?.toLowerCase().contains(query) ?? false) ||
+            (customer.address?.toLowerCase().contains(query) ?? false);
+      }).toList();
+    });
+  }
+
+  Future<void> deleteCustomerFromFirebase(String phone) async {
+    final query = await FirebaseFirestore.instance
+        .collection('AllAdmins')
+        .doc(widget.adminUid)
+        .collection('customer')
+        .doc(widget.phoneNo)
+        .collection('myCustomers')
+        .where('phone', isEqualTo: phone)
+        .get();
+
+    for (final doc in query.docs) {
+      await doc.reference.delete();
     }
   }
 
@@ -1029,41 +1070,32 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
 
     if (confirm == true) {
       try {
+        // 1️⃣ Delete from Firebase if uploaded
+        if (customer.isUploaded) {
+          await deleteCustomerFromFirebase(customer.phone);
+        }
+
+        // 2️⃣ Delete from SQLite
         await SQLiteHelper().deleteCustomerData(customer.phone);
+
+        // 3️⃣ Update UI instantly
+        setState(() {
+          customers.removeWhere((c) => c.phone == customer.phone);
+          filteredCustomers.removeWhere((c) => c.phone == customer.phone);
+          notUploadedCustomers.removeWhere((c) => c.phone == customer.phone);
+        });
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Row(
-              children: [
-                Icon(Icons.check_circle, color: Colors.white),
-                SizedBox(width: 12),
-                Text(
-                  'Customer deleted successfully',
-                  style: TextStyle(fontSize: 16),
-                ),
-              ],
-            ),
+            content: Text('Customer deleted from device & cloud'),
             backgroundColor: Colors.green,
-            behavior: SnackBarBehavior.fixed,
           ),
         );
-        _loadCustomers();
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.error, color: Colors.white),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Error deleting: $e',
-                    style: const TextStyle(fontSize: 16),
-                  ),
-                ),
-              ],
-            ),
+            content: Text('Delete failed: $e'),
             backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.fixed,
           ),
         );
       }
@@ -1534,15 +1566,6 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Add search functionality
-    filteredCustomers = customers.where((customer) {
-      final lowerQuery = _searchController.text.toLowerCase();
-      return customer.name.toLowerCase().contains(lowerQuery) ||
-          customer.phone.toLowerCase().contains(lowerQuery) ||
-          (customer.gstNo?.toLowerCase().contains(lowerQuery) ?? false) ||
-          (customer.address?.toLowerCase().contains(lowerQuery) ?? false);
-    }).toList();
-
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(

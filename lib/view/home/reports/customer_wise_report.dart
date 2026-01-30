@@ -121,7 +121,7 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
   ) async {
     final List<Map<String, dynamic>> allBills = [];
     try {
-      final billsRef = FirebaseFirestore.instance.collection('AllBills').doc(widget.adminUid).collection('myBills');
+      final billsRef = FirebaseFirestore.instance.collection('AllBills').doc(widget.uid).collection('myBills');
 
       final yearMonths = _generateYearMonthsInRange(startDate, endDate);
 

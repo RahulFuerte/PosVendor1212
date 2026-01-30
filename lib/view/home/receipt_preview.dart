@@ -93,7 +93,7 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
         .collection('AllAdmins')
         .doc(widget.adminUid)
         .collection('customer')
-        .doc(widget.adminUid)
+        .doc(widget.phoneNo)
         .collection('myCustomers')
         .get();
 
@@ -129,7 +129,7 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
           .collection('AllAdmins')
           .doc(widget.adminUid)
           .collection('customer')
-          .doc(widget.adminUid)
+          .doc(widget.phoneNo)
           .collection('myCustomers')
           .doc(customer.phone)
           .get();
@@ -140,7 +140,7 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
             .collection('AllAdmins')
             .doc(widget.adminUid)
             .collection('customer')
-            .doc(widget.adminUid)
+            .doc(widget.phoneNo)
             .collection('myCustomers')
             .doc(customer.phone)
             .set({
@@ -174,7 +174,7 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
           .collection('AllAdmins')
           .doc(widget.adminUid)
           .collection('customer')
-          .doc(widget.adminUid)
+          .doc(widget.phoneNo)
           .collection('myCustomers')
           .doc(phone)
           .get();
