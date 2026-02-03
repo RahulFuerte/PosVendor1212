@@ -130,6 +130,7 @@ class _DashboardState extends State<Dashboard> {
     String contact = 'N/A';
     String address = 'N/A';
     String logoUrl = '';
+    String upiId = '';
 
     try {
       // First try to get from local SQLite
@@ -140,6 +141,7 @@ class _DashboardState extends State<Dashboard> {
         contact = localData['shopContact'] ?? 'N/A';
         address = localData['address'] ?? 'N/A';
         logoUrl = localData['shopLogoUrl'] ?? '';
+        upiId = localData['upiId'] ?? '';
         debugPrint('Shop data loaded from local cache');
       } else {
         // Not found locally, fetch from Firebase
@@ -156,6 +158,7 @@ class _DashboardState extends State<Dashboard> {
             shopName = data['shopName'] ?? 'N/A';
             contact = data['contact'] ?? 'N/A';
             address = data['address'] ?? 'N/A';
+            upiId = data['upiId'] ?? '';
 
             // Save all fields to local SQLite for future use
             await _sqliteHelper.saveUserData({
@@ -164,6 +167,7 @@ class _DashboardState extends State<Dashboard> {
               'shopName': shopName,
               'contact': contact,
               'address': address,
+              'upiId': upiId,
               'logoUrl': data['logoUrl'],
               'name': data['name'],
               'email': data['email'],
@@ -184,6 +188,7 @@ class _DashboardState extends State<Dashboard> {
       'contact': contact,
       'address': address,
       'logoUrl': logoUrl,
+      'upiId': upiId,
     };
   }
 

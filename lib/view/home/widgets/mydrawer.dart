@@ -403,6 +403,7 @@ class _MyDrawerState extends State<MyDrawer> {
                     _navigate(
                       SalesReportScreen(
                         adminUid: adminUid,
+                        uid: widget.phoneNo,
                       ),
                     );
                   },
@@ -480,35 +481,6 @@ class _MyDrawerState extends State<MyDrawer> {
                 Expenses(uid: widget.phoneNo),
               );
             },
-          ),
-          Theme(
-            data: ThemeData(dividerColor: Colors.transparent),
-            child: ExpansionTile(
-              leading: Icon(MdiIcons.packageVariantClosed, color: primaryColor),
-              childrenPadding: const EdgeInsets.only(left: 16),
-              title: const Text('Items'),
-              children: [
-                ListTile(
-                  leading: Icon(MdiIcons.plusBoxOutline, color: primaryColor),
-                  title: const Text('Add Items'),
-                  onTap: () {
-                    _navigate(SalesReportScreen(adminUid: adminUid));
-                  },
-                ),
-                ListTile(
-                  leading: Icon(MdiIcons.viewListOutline, color: primaryColor),
-                  title: const Text('View Items'),
-                  onTap: () {
-                    _navigate(
-                      CustomerWiseReport(
-                        adminUid: adminUid,
-                        uid: widget.phoneNo,
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ),
           ),
 
           ListTile(
