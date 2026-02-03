@@ -17,8 +17,8 @@ import 'package:provider/provider.dart';
 
 // Project imports:
 import 'package:pos/core/error/network_error_handler.dart';
-import 'package:pos/data/datasources/database_service.dart';
 import 'package:pos/data/datasources/local/sqlite_helper.dart';
+import 'package:pos/data/datasources/smart_database_service.dart';
 import 'package:pos/view/home/navigation.dart';
 import 'package:pos/data/providers/print_provider.dart';
 import 'package:pos/view/home/screens/users_data_screen.dart';
@@ -27,7 +27,8 @@ import 'package:pos/view/tab_screen/view-model/widgets/offline_status_indicator.
 import 'widgets/bill_cart_widget.dart';
 import 'widgets/show_save_order_bottom_sheet.dart';
 
-import 'package:pos/view/tab_screen/view-model/widgets/offline_status_banner.dart' as banner;
+import 'package:pos/view/tab_screen/view-model/widgets/offline_status_banner.dart'
+    as banner;
 
 class ProductDashBoard extends StatefulWidget {
   final String phoneNo;
@@ -69,9 +70,20 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
   }
 
   Future<String> fetchAdminUid() async {
+    // Check connection status first
+    final smartDB = SmartDatabaseService();
+    await smartDB.initialize();
+
+    if (!smartDB.isOnline) {
+      developer.log('Offline: Skipping Firebase fetch for adminUid',
+          name: 'ProductDashBoard');
+      return await _getCachedAdminUid();
+    }
+
     // Try Firebase with short timeout - DatabaseService handles offline data
     try {
-      DocumentSnapshot<Map<String, dynamic>> snapshot = await FirebaseFirestore.instance
+      DocumentSnapshot<Map<String, dynamic>> snapshot = await FirebaseFirestore
+          .instance
           .collection('AllCustomer')
           .doc(widget.phoneNo)
           .get()
@@ -93,7 +105,8 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
             'createdAt': data?['createdAt'],
           });
         } catch (cacheError) {
-          developer.log('Error caching adminUid in SQLite: $cacheError', name: 'ProductDashBoard');
+          developer.log('Error caching adminUid in SQLite: $cacheError',
+              name: 'ProductDashBoard');
         }
 
         if (mounted) {
@@ -120,7 +133,8 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
       final cachedAdminUid = await sqliteHelper.getAdminUid(widget.phoneNo);
 
       if (cachedAdminUid != null && cachedAdminUid.isNotEmpty) {
-        developer.log('Using cached adminUid from SQLite: $cachedAdminUid', name: 'ProductDashBoard');
+        developer.log('Using cached adminUid from SQLite: $cachedAdminUid',
+            name: 'ProductDashBoard');
         if (mounted) {
           setState(() {
             adminUid = cachedAdminUid;
@@ -130,7 +144,8 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
       }
 
       // Last resort: use phoneNo as adminUid (common pattern in this app)
-      developer.log('No cached adminUid found, using phoneNo as fallback', name: 'ProductDashBoard');
+      developer.log('No cached adminUid found, using phoneNo as fallback',
+          name: 'ProductDashBoard');
       if (mounted) {
         setState(() {
           adminUid = widget.phoneNo;
@@ -138,7 +153,8 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
       }
       return widget.phoneNo;
     } catch (e) {
-      developer.log('Error getting cached adminUid from SQLite: $e', name: 'ProductDashBoard');
+      developer.log('Error getting cached adminUid from SQLite: $e',
+          name: 'ProductDashBoard');
       // Ultimate fallback: use phoneNo
       if (mounted) {
         setState(() {
@@ -152,16 +168,23 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
   Future<List<Map<String, dynamic>>> fetchFoodItems() async {
     try {
       final String adminUid = await fetchAdminUid();
-      final DatabaseService databaseService = Provider.of<DatabaseService>(context, listen: false);
 
-      // Get all food items using DatabaseService
-      final List<Map<String, dynamic>> allItems = await databaseService.getFoodItems(adminUid);
+      // Use SmartDatabaseService for online/offline handling
+      final smartDB = SmartDatabaseService();
+      await smartDB.initialize();
+
+      // Get all food items using SmartDatabaseService
+      final List<Map<String, dynamic>> allItems =
+          await smartDB.getFoodItems(adminUid);
 
       // Debug: show count and sample types
-      developer.log('All items count: ${allItems.length}', name: 'ProductDashBoard');
+      developer.log('All items count: ${allItems.length}',
+          name: 'ProductDashBoard');
       if (allItems.isNotEmpty) {
-        developer.log('First item keys: ${allItems.first.keys.toList()}', name: 'ProductDashBoard');
-        developer.log('First item sample: ${allItems.first}', name: 'ProductDashBoard');
+        developer.log('First item keys: ${allItems.first.keys.toList()}',
+            name: 'ProductDashBoard');
+        developer.log('First item sample: ${allItems.first}',
+            name: 'ProductDashBoard');
       }
 
       final List<Map<String, dynamic>> hotItems = allItems.map((item) {
@@ -169,7 +192,8 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
         List<dynamic> parsedAddons = [];
 
         try {
-          if (item['variants'] != null && item['variants'].toString().isNotEmpty) {
+          if (item['variants'] != null &&
+              item['variants'].toString().isNotEmpty) {
             parsedVariants = jsonDecode(item['variants'].toString());
           }
           if (item['addons'] != null && item['addons'].toString().isNotEmpty) {
@@ -185,8 +209,14 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
           'price2': item['price2']?.toString() ?? '0',
           'price3': item['price3']?.toString() ?? '0',
           'priceType': item['priceType']?.toString(),
-          'imagePath': item['imagePath'] ?? item['image_path'] ?? item['imagepath'] ?? 'N/A',
-          'foodCode': item['foodCode'] ?? item['food_code'] ?? item['foodcode'] ?? 'N/A',
+          'imagePath': item['imagePath'] ??
+              item['image_path'] ??
+              item['imagepath'] ??
+              'N/A',
+          'foodCode': item['foodCode'] ??
+              item['food_code'] ??
+              item['foodcode'] ??
+              'N/A',
           'department': item['department'] ?? 'N/A',
           'stocks': item['stocks'] ?? 'N/A',
           'baseVariant': item['baseVariant'] ?? '',
@@ -196,13 +226,17 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
       }).toList();
 
       // Log for debugging
-      developer.log('Fetched hot food items (count ${hotItems.length}): $hotItems', name: 'ProductDashBoard');
+      developer.log(
+          'Fetched hot food items (count ${hotItems.length}): $hotItems',
+          name: 'ProductDashBoard');
       developer.log('adminNO: $adminUid', name: 'ProductDashBoard');
-      developer.log('All food items (unfiltered): $allItems', name: 'ProductDashBoard');
+      developer.log('All food items (unfiltered): $allItems',
+          name: 'ProductDashBoard');
 
       return hotItems;
     } catch (e, st) {
-      NetworkErrorHandler.logNetworkError(e, 'ProductDashBoard', 'fetchFoodItems');
+      NetworkErrorHandler.logNetworkError(
+          e, 'ProductDashBoard', 'fetchFoodItems');
       developer.log('Stack trace: $st', name: 'ProductDashBoard');
       return [];
     }
@@ -334,7 +368,8 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
           Expanded(
             child: FutureBuilder(
               future: foodItemsFuture,
-              builder: (context, AsyncSnapshot<List<Map<String, dynamic>>> snapshot) {
+              builder: (context,
+                  AsyncSnapshot<List<Map<String, dynamic>>> snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return Center(
                     child: CircularProgressIndicator(
@@ -346,17 +381,22 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                     child: Text('Error: ${snapshot.error}'),
                   );
                 } else {
-                  List<Map<String, dynamic>> foodItemsList = snapshot.data ?? [];
+                  List<Map<String, dynamic>> foodItemsList =
+                      snapshot.data ?? [];
                   // Filter items based on search
                   List<Map<String, dynamic>> filteredItems = foodItemsList
-                      .where((item) => item['name'].toString().toLowerCase().contains(search1.toLowerCase()))
+                      .where((item) => item['name']
+                          .toString()
+                          .toLowerCase()
+                          .contains(search1.toLowerCase()))
                       .toList();
 
                   return Column(
                     children: [
                       Container(
                         height: 50,
-                        margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 10),
+                        margin: const EdgeInsets.symmetric(
+                            vertical: 5, horizontal: 10),
                         width: double.infinity,
                         child: const OrderTypeSelector(),
                       ),
@@ -369,7 +409,8 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                             vertical: 8,
                           ),
                           child: GridView.builder(
-                            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                            gridDelegate:
+                                const SliverGridDelegateWithMaxCrossAxisExtent(
                               maxCrossAxisExtent: 170,
                               childAspectRatio: 0.75,
                               crossAxisSpacing: 8,
@@ -387,29 +428,40 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                                 price: item['price']?.toString() ?? '0',
                                 price2: item['price2']?.toString() ?? '0',
                                 price3: item['price3']?.toString() ?? '0',
-                                priceType: item['priceType']?.toString() ?? 'Fixed',
+                                priceType:
+                                    item['priceType']?.toString() ?? 'Fixed',
                                 stocks: item['stocks']?.toString() ?? 'N/A',
                                 baseVariant: item['baseVariant']?.toString(),
                                 variants: item['variants'] as List<dynamic>?,
                                 addons: item['addons'] as List<dynamic>?,
-                                onAdd: (name, price, quantity, unit, unitQty, addOnList) {
-                                  audioPlayer.play(AssetSource('sounds/beep.mp3'));
-                        
+                                onAdd: (name, price, quantity, unit, unitQty,
+                                    addOnList) {
+                                  audioPlayer
+                                      .play(AssetSource('sounds/beep.mp3'));
+
                                   setState(() {
                                     isTapped = true;
-                        
-                                    final displayName = unit.isNotEmpty ? '$name ($unitQty $unit)' : name;
-                        
-                                    final parsedPrice = double.tryParse(price) ?? 0.0;
-                        
+
+                                    final displayName = unit.isNotEmpty
+                                        ? '$name ($unitQty $unit)'
+                                        : name;
+
+                                    final parsedPrice =
+                                        double.tryParse(price) ?? 0.0;
+
                                     // 🔍 Check if same item + same unit already exists
-                                    final existingIndex = selectedItemsDetails.indexWhere(
-                                      (element) => element['name'] == displayName && element['price'] == parsedPrice,
+                                    final existingIndex =
+                                        selectedItemsDetails.indexWhere(
+                                      (element) =>
+                                          element['name'] == displayName &&
+                                          element['price'] == parsedPrice,
                                     );
-                        
+
                                     if (existingIndex != -1) {
-                                      selectedItemsDetails[existingIndex]['quantity'] += quantity;
-                                      selectedItemsDetails[existingIndex]['addons'] = addOnList;
+                                      selectedItemsDetails[existingIndex]
+                                          ['quantity'] += quantity;
+                                      selectedItemsDetails[existingIndex]
+                                          ['addons'] = addOnList;
                                     } else {
                                       selectedItemsDetails.add({
                                         'name': displayName,
@@ -419,15 +471,18 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                                         'addons': addOnList,
                                       });
                                     }
-                        
+
                                     subtotal += parsedPrice * quantity;
-                        
-                                    printprovider.additem(selectedItemsDetails, subtotal);
-                        
-                                    WidgetsBinding.instance.addPostFrameCallback((_) {
+
+                                    printprovider.additem(
+                                        selectedItemsDetails, subtotal);
+
+                                    WidgetsBinding.instance
+                                        .addPostFrameCallback((_) {
                                       if (_listScrollController.hasClients) {
                                         _listScrollController.jumpTo(
-                                          _listScrollController.position.maxScrollExtent,
+                                          _listScrollController
+                                              .position.maxScrollExtent,
                                         );
                                       }
                                     });
@@ -449,7 +504,9 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                                   subtotal = 0.0;
                                 });
                               },
-                              onCartUpdated: (List<Map<String, dynamic>> updatedItems, double updatedTotal) {
+                              onCartUpdated:
+                                  (List<Map<String, dynamic>> updatedItems,
+                                      double updatedTotal) {
                                 setState(() {
                                   selectedItemsDetails = updatedItems;
                                   subtotal = updatedTotal;
@@ -471,7 +528,8 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                                     printprovider.clearCart();
                                     nameController.clear();
                                     mobileController.clear();
-                                    developer.log('Order saved for ${nameController.text}, ${mobileController.text}',
+                                    developer.log(
+                                        'Order saved for ${nameController.text}, ${mobileController.text}',
                                         name: 'ProductDashBoard');
                                   },
                                 );
@@ -511,7 +569,8 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
     );
   }
 
-  List<Map<String, dynamic>> _encodeDetails(List<Map<String, dynamic>> details) {
+  List<Map<String, dynamic>> _encodeDetails(
+      List<Map<String, dynamic>> details) {
     return details.map((item) {
       return {
         'name': item['name'],

@@ -35,7 +35,12 @@ class RestaurantScreen extends StatefulWidget {
   final String phoneNo;
   final bool isEditBill;
   final String? receiptNo;
-  const RestaurantScreen({required this.phoneNo, Key? key, this.isEditBill = false, this.receiptNo}) : super(key: key);
+  const RestaurantScreen(
+      {required this.phoneNo,
+      Key? key,
+      this.isEditBill = false,
+      this.receiptNo})
+      : super(key: key);
 
   @override
   _RestaurantScreenState createState() => _RestaurantScreenState();
@@ -67,8 +72,10 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
   final ScrollController _gridViewController = ScrollController();
 
   // Offline functionality
-  final CompleteOfflineDataManager _offlineDataManager = CompleteOfflineDataManager();
-  final DataPreloadingCoordinator _preloadingCoordinator = DataPreloadingCoordinator();
+  final CompleteOfflineDataManager _offlineDataManager =
+      CompleteOfflineDataManager();
+  final DataPreloadingCoordinator _preloadingCoordinator =
+      DataPreloadingCoordinator();
   final SmartDatabaseService _smartDB = SmartDatabaseService();
   final OfflineBillManager _offlineBillManager = OfflineBillManager();
   final ConnectionMonitor _connectionMonitor = ConnectionMonitor();
@@ -109,7 +116,8 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
       await _connectionMonitor.initialize();
       _isOnline = _connectionMonitor.isConnected;
 
-      _connectionSubscription = _connectionMonitor.connectivityStream.listen((isConnected) {
+      _connectionSubscription =
+          _connectionMonitor.connectivityStream.listen((isConnected) {
         if (mounted) {
           setState(() {
             _isOnline = isConnected;
@@ -120,9 +128,11 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
         }
       });
 
-      developer.log('Connection status initialized: $_isOnline', name: 'RestaurantScreen');
+      developer.log('Connection status initialized: $_isOnline',
+          name: 'RestaurantScreen');
     } catch (e) {
-      developer.log('Error setting up connection listener: $e', name: 'RestaurantScreen');
+      developer.log('Error setting up connection listener: $e',
+          name: 'RestaurantScreen');
       _isOnline = false; // Assume offline on error
     }
   }
@@ -130,9 +140,11 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
   Future<void> _initializeSmartDatabase() async {
     try {
       await _smartDB.initialize();
-      developer.log('Smart Database Service initialized successfully', name: 'RestaurantScreen');
+      developer.log('Smart Database Service initialized successfully',
+          name: 'RestaurantScreen');
     } catch (e) {
-      developer.log('Error initializing Smart Database Service: $e', name: 'RestaurantScreen');
+      developer.log('Error initializing Smart Database Service: $e',
+          name: 'RestaurantScreen');
     }
   }
 
@@ -143,7 +155,9 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
       await _connectionMonitor.initialize();
 
       final adminUid = await fetchAdminUid();
-      if (adminUid.isNotEmpty && !adminUid.contains('Error') && !adminUid.contains('Offline')) {
+      if (adminUid.isNotEmpty &&
+          !adminUid.contains('Error') &&
+          !adminUid.contains('Offline')) {
         _preloadingCoordinator.setUserPreloadingStrategy(
           adminUid,
           PreloadingStrategy(priority: PreloadingPriority.medium),
@@ -151,7 +165,8 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
         _preloadingCoordinator.triggerImmediatePreloading(adminUid);
       }
     } catch (e) {
-      developer.log('Error initializing offline data: $e', name: 'RestaurantScreen');
+      developer.log('Error initializing offline data: $e',
+          name: 'RestaurantScreen');
     }
   }
 
@@ -160,7 +175,8 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
       await _offlineBillManager.initialize();
       _updatePendingBillsCount();
     } catch (e) {
-      developer.log('Error initializing offline bill manager: $e', name: 'RestaurantScreen');
+      developer.log('Error initializing offline bill manager: $e',
+          name: 'RestaurantScreen');
     }
   }
 
@@ -205,7 +221,9 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
   // Connection listener is now setup in _setupConnectionListenerAsync()
 
   Future<void> _updatePendingBillsCount() async {
-    if (adminUid.isNotEmpty && !adminUid.contains('Error') && !adminUid.contains('not found')) {
+    if (adminUid.isNotEmpty &&
+        !adminUid.contains('Error') &&
+        !adminUid.contains('not found')) {
       final count = await _offlineBillManager.getOfflineBillsCount(adminUid);
       if (mounted) {
         setState(() {
@@ -237,10 +255,18 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
   }
 
   Future<String> fetchAdminUid() async {
+    // Check connection using the tracked state or monitor directly
+    if (!_isOnline && !_connectionMonitor.isConnected) {
+      developer.log('Offline: Skipping Firebase fetch for adminUid',
+          name: 'RestaurantScreen');
+      return await _getCachedAdminUid();
+    }
+
     // Use SmartDatabaseService which handles online/offline automatically
     try {
       // Try Firebase with short timeout - SmartDatabaseService handles caching
-      DocumentSnapshot<Map<String, dynamic>> snapshot = await FirebaseFirestore.instance
+      DocumentSnapshot<Map<String, dynamic>> snapshot = await FirebaseFirestore
+          .instance
           .collection('AllCustomer')
           .doc(widget.phoneNo)
           .get()
@@ -262,7 +288,8 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
             'createdAt': data?['createdAt'],
           });
         } catch (cacheError) {
-          developer.log('Error caching adminUid in SQLite: $cacheError', name: 'RestaurantScreen');
+          developer.log('Error caching adminUid in SQLite: $cacheError',
+              name: 'RestaurantScreen');
         }
 
         setState(() {
@@ -287,7 +314,8 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
       final cachedAdminUid = await sqliteHelper.getAdminUid(widget.phoneNo);
 
       if (cachedAdminUid != null && cachedAdminUid.isNotEmpty) {
-        developer.log('Using cached adminUid from SQLite: $cachedAdminUid', name: 'RestaurantScreen');
+        developer.log('Using cached adminUid from SQLite: $cachedAdminUid',
+            name: 'RestaurantScreen');
         setState(() {
           adminUid = cachedAdminUid;
         });
@@ -295,13 +323,15 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
       }
 
       // Last resort: use phoneNo as adminUid (common pattern in this app)
-      developer.log('No cached adminUid found, using phoneNo as fallback', name: 'RestaurantScreen');
+      developer.log('No cached adminUid found, using phoneNo as fallback',
+          name: 'RestaurantScreen');
       setState(() {
         adminUid = widget.phoneNo;
       });
       return widget.phoneNo;
     } catch (e) {
-      developer.log('Error getting cached adminUid from SQLite: $e', name: 'RestaurantScreen');
+      developer.log('Error getting cached adminUid from SQLite: $e',
+          name: 'RestaurantScreen');
       // Ultimate fallback: use phoneNo
       setState(() {
         adminUid = widget.phoneNo;
@@ -323,12 +353,16 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
           .map((dept) => {
                 'id': dept['id'] ?? dept['name'],
                 'name': dept['name'] ?? 'N/A',
-                'imageUrl': dept['imageUrl'] ?? dept['image_url'] ?? dept['imageurl'] ?? 'N/A',
+                'imageUrl': dept['imageUrl'] ??
+                    dept['image_url'] ??
+                    dept['imageurl'] ??
+                    'N/A',
                 'status': dept['status'] ?? 'Active',
               })
           .toList();
 
-      developer.log('Fetched ${departments.length} departments via SmartDB', name: 'RestaurantScreen');
+      developer.log('Fetched ${departments.length} departments via SmartDB',
+          name: 'RestaurantScreen');
       return departments;
     } catch (e) {
       developer.log('Error fetching departments: $e', name: 'RestaurantScreen');
@@ -339,11 +373,14 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
   /// Fetch food items using SmartDatabaseService (handles online/offline automatically)
   Future<List<Map<String, dynamic>>> fetchFoodItems(String department) async {
     try {
-      final String currentAdminUid = adminUid.isNotEmpty ? adminUid : await fetchAdminUid();
-      final String deptToFetch =
-          department.isEmpty ? (selectedDepartment.isEmpty ? 'Pizza' : selectedDepartment) : department;
+      final String currentAdminUid =
+          adminUid.isNotEmpty ? adminUid : await fetchAdminUid();
+      final String deptToFetch = department.isEmpty
+          ? (selectedDepartment.isEmpty ? 'Pizza' : selectedDepartment)
+          : department;
 
-      final rawItems = await _smartDB.getFoodItems(currentAdminUid, department: deptToFetch);
+      final rawItems =
+          await _smartDB.getFoodItems(currentAdminUid, department: deptToFetch);
 
       // Map SQLite field names to UI expected names
       final items = rawItems.map((item) {
@@ -351,7 +388,8 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
         List<dynamic> parsedVariants = [];
         List<dynamic> parsedAddons = [];
         try {
-          if (item['variants'] != null && item['variants'].toString().isNotEmpty) {
+          if (item['variants'] != null &&
+              item['variants'].toString().isNotEmpty) {
             parsedVariants = jsonDecode(item['variants'].toString());
           }
           if (item['addons'] != null && item['addons'].toString().isNotEmpty) {
@@ -369,8 +407,14 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
           'price2': item['price2']?.toString() ?? '0',
           'price3': item['price3']?.toString() ?? '0',
           'priceType': item['priceType']?.toString(),
-          'imagePath': item['imagePath'] ?? item['image_path'] ?? item['imagepath'] ?? 'N/A',
-          'foodCode': item['foodCode'] ?? item['food_code'] ?? item['foodcode'] ?? 'N/A',
+          'imagePath': item['imagePath'] ??
+              item['image_path'] ??
+              item['imagepath'] ??
+              'N/A',
+          'foodCode': item['foodCode'] ??
+              item['food_code'] ??
+              item['foodcode'] ??
+              'N/A',
           'department': item['department'] ?? 'N/A',
           'stocks': item['stocks'] ?? 'N/A',
           'baseVariant': item['baseVariant'] ?? '',
@@ -383,7 +427,9 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
         isLoading = false;
       });
 
-      developer.log('Fetched ${items.length} food items for $deptToFetch via SmartDB', name: 'RestaurantScreen');
+      developer.log(
+          'Fetched ${items.length} food items for $deptToFetch via SmartDB',
+          name: 'RestaurantScreen');
       return items;
     } catch (e) {
       developer.log('Error fetching food items: $e', name: 'RestaurantScreen');
@@ -408,7 +454,9 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: _isOnline ? Colors.green.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
+        color: _isOnline
+            ? Colors.green.withOpacity(0.1)
+            : Colors.orange.withOpacity(0.1),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: _isOnline ? Colors.green : Colors.orange,
@@ -522,7 +570,8 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
               )
             : const Text(
                 'Restaurants',
-                style: TextStyle(color: Colors.black, fontFamily: 'tabfont', fontSize: 17),
+                style: TextStyle(
+                    color: Colors.black, fontFamily: 'tabfont', fontSize: 17),
               ),
         actions: [
           if (!isSearching)
@@ -536,7 +585,9 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
             Padding(
               padding: const EdgeInsets.only(right: 12.0),
               child: GestureDetector(
-                child: Icon(isContainerVisible ? MdiIcons.fullscreen : MdiIcons.fullscreenExit),
+                child: Icon(isContainerVisible
+                    ? MdiIcons.fullscreen
+                    : MdiIcons.fullscreenExit),
                 onTap: () {
                   setState(() {
                     isContainerVisible = !isContainerVisible;
@@ -554,7 +605,8 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                 onTap: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => const UsersScreen()),
+                    MaterialPageRoute(
+                        builder: (context) => const UsersScreen()),
                   );
                 },
                 child: const Icon(Icons.save),
@@ -608,7 +660,8 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                 children: [
                   Container(
                     height: 50,
-                    margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 10),
+                    margin:
+                        const EdgeInsets.symmetric(vertical: 5, horizontal: 10),
                     width: double.infinity,
                     child: const OrderTypeSelector(),
                   ),
@@ -619,69 +672,111 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                           SizedBox(
                             width: 80,
                             child: Container(
-                              decoration: const BoxDecoration(color: Colors.white),
+                              decoration:
+                                  const BoxDecoration(color: Colors.white),
                               padding: const EdgeInsets.only(left: 5),
                               child: FutureBuilder<List<Map<String, dynamic>>>(
                                 future: foodDepartmentsFuture,
                                 builder: (context, snapshot) {
                                   if (snapshot.hasError) {
-                                    return Center(child: Text('Error: ${snapshot.error}'));
+                                    return Center(
+                                        child:
+                                            Text('Error: ${snapshot.error}'));
                                   } else {
-                                    List<Map<String, dynamic>> departments = snapshot.data ?? [];
+                                    List<Map<String, dynamic>> departments =
+                                        snapshot.data ?? [];
                                     return ListView.builder(
                                       itemCount: departments.length,
                                       itemBuilder: (context, index) {
-                                        bool isSelected = currentCategoryIndex == index;
+                                        bool isSelected =
+                                            currentCategoryIndex == index;
                                         return GestureDetector(
                                           onTap: () {
                                             setState(() {
                                               currentCategoryIndex = index;
-                                              selectedDepartment = departments[index]['name'] ?? '';
-                                              foodItemsFuture = fetchFoodItems(selectedDepartment);
+                                              selectedDepartment =
+                                                  departments[index]['name'] ??
+                                                      '';
+                                              foodItemsFuture = fetchFoodItems(
+                                                  selectedDepartment);
                                             });
                                           },
                                           child: Padding(
-                                            padding: const EdgeInsets.only(bottom: 15),
+                                            padding: const EdgeInsets.only(
+                                                bottom: 15),
                                             child: Row(
-                                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment
+                                                      .spaceBetween,
                                               children: [
                                                 Column(
                                                   children: [
                                                     Stack(
-                                                      alignment: Alignment.center,
+                                                      alignment:
+                                                          Alignment.center,
                                                       children: [
                                                         // Background Circle
                                                         AnimatedContainer(
-                                                          duration: const Duration(milliseconds: 300),
+                                                          duration:
+                                                              const Duration(
+                                                                  milliseconds:
+                                                                      300),
                                                           curve: Curves.easeOut,
-                                                          margin: const EdgeInsets.all(5),
+                                                          margin:
+                                                              const EdgeInsets
+                                                                  .all(5),
                                                           height: 60,
                                                           width: 60,
-                                                          decoration: BoxDecoration(
-                                                            color: appbar1.withOpacity(0.15),
-                                                            borderRadius: BorderRadius.circular(30),
+                                                          decoration:
+                                                              BoxDecoration(
+                                                            color: appbar1
+                                                                .withOpacity(
+                                                                    0.15),
+                                                            borderRadius:
+                                                                BorderRadius
+                                                                    .circular(
+                                                                        30),
                                                           ),
                                                         ),
 
                                                         // Image with scale animation
                                                         AnimatedScale(
-                                                          scale: isSelected ? 1.1 : 1.0,
-                                                          duration: const Duration(milliseconds: 300),
+                                                          scale: isSelected
+                                                              ? 1.1
+                                                              : 1.0,
+                                                          duration:
+                                                              const Duration(
+                                                                  milliseconds:
+                                                                      300),
                                                           curve: Curves.easeIn,
-                                                          child: CachedBlobImage(
-                                                            imageUrl: departments[index]['imageUrl'],
-                                                            tableName: 'departments',
-                                                            recordId: departments[index]['id'] ??
-                                                                departments[index]['name'] ??
+                                                          child:
+                                                              CachedBlobImage(
+                                                            imageUrl:
+                                                                departments[
+                                                                        index][
+                                                                    'imageUrl'],
+                                                            tableName:
+                                                                'departments',
+                                                            recordId: departments[
+                                                                        index]
+                                                                    ['id'] ??
+                                                                departments[
+                                                                        index]
+                                                                    ['name'] ??
                                                                 'unknown',
                                                             width: 50,
                                                             height: 50,
                                                             fit: BoxFit.fill,
-                                                            borderRadius: BorderRadius.circular(100),
-                                                            placeholder: const SizedBox(
+                                                            borderRadius:
+                                                                BorderRadius
+                                                                    .circular(
+                                                                        100),
+                                                            placeholder:
+                                                                const SizedBox(
                                                               width: 20,
                                                               height: 20,
-                                                              child: CircularProgressIndicator(
+                                                              child:
+                                                                  CircularProgressIndicator(
                                                                 strokeWidth: 2,
                                                               ),
                                                             ),
@@ -693,20 +788,32 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                                                     // Text with animation
                                                     SizedBox(
                                                       width: 60,
-                                                      child: AnimatedDefaultTextStyle(
-                                                        duration: const Duration(milliseconds: 300),
+                                                      child:
+                                                          AnimatedDefaultTextStyle(
+                                                        duration:
+                                                            const Duration(
+                                                                milliseconds:
+                                                                    300),
                                                         curve: Curves.easeOut,
                                                         style: TextStyle(
                                                           fontSize: 13,
                                                           // fontFamily: 'tabfont',
-                                                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w400,
-                                                          color: isSelected ? Colors.black : Colors.grey,
+                                                          fontWeight: isSelected
+                                                              ? FontWeight.bold
+                                                              : FontWeight.w400,
+                                                          color: isSelected
+                                                              ? Colors.black
+                                                              : Colors.grey,
                                                         ),
                                                         child: Text(
-                                                          departments[index]['name'] ?? 'N/A',
-                                                          textAlign: TextAlign.center,
+                                                          departments[index]
+                                                                  ['name'] ??
+                                                              'N/A',
+                                                          textAlign:
+                                                              TextAlign.center,
                                                           maxLines: 2,
-                                                          overflow: TextOverflow.ellipsis,
+                                                          overflow: TextOverflow
+                                                              .ellipsis,
                                                         ),
                                                       ),
                                                     ),
@@ -715,15 +822,21 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
 
                                                 // Side indicator
                                                 AnimatedContainer(
-                                                  duration: const Duration(milliseconds: 300),
+                                                  duration: const Duration(
+                                                      milliseconds: 300),
                                                   curve: Curves.easeOut,
                                                   height: 50,
                                                   width: 5,
                                                   decoration: BoxDecoration(
-                                                    color: isSelected ? appbar1 : Colors.white,
-                                                    borderRadius: const BorderRadius.only(
-                                                      topLeft: Radius.circular(21),
-                                                      bottomLeft: Radius.circular(21),
+                                                    color: isSelected
+                                                        ? appbar1
+                                                        : Colors.white,
+                                                    borderRadius:
+                                                        const BorderRadius.only(
+                                                      topLeft:
+                                                          Radius.circular(21),
+                                                      bottomLeft:
+                                                          Radius.circular(21),
                                                     ),
                                                   ),
                                                 ),
@@ -743,8 +856,11 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                         Expanded(
                           child: FutureBuilder(
                             future: foodItemsFuture,
-                            builder: (context, AsyncSnapshot<List<Map<String, dynamic>>> snapshot) {
-                              if (snapshot.connectionState == ConnectionState.waiting) {
+                            builder: (context,
+                                AsyncSnapshot<List<Map<String, dynamic>>>
+                                    snapshot) {
+                              if (snapshot.connectionState ==
+                                  ConnectionState.waiting) {
                                 return const Center(
                                   child: SizedBox(
                                     width: 30,
@@ -756,9 +872,11 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                                   ),
                                 );
                               } else if (snapshot.hasError) {
-                                return Center(child: Text('Error: ${snapshot.error}'));
+                                return Center(
+                                    child: Text('Error: ${snapshot.error}'));
                               } else {
-                                List<Map<String, dynamic>> allFoodItems = snapshot.data ?? [];
+                                List<Map<String, dynamic>> allFoodItems =
+                                    snapshot.data ?? [];
 
                                 List<Map<String, dynamic>> filteredFoodItems;
 
@@ -767,18 +885,24 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                                 } else {
                                   final query = search1.toLowerCase();
 
-                                  filteredFoodItems = allFoodItems.where((item) {
-                                    final name = item['name']?.toString().toLowerCase() ?? '';
-                                    final code = item['foodCode']?.toString().toLowerCase() ?? '';
+                                  filteredFoodItems =
+                                      allFoodItems.where((item) {
+                                    final name = item['name']
+                                            ?.toString()
+                                            .toLowerCase() ??
+                                        '';
+                                    final code = item['foodCode']
+                                            ?.toString()
+                                            .toLowerCase() ??
+                                        '';
 
-                                    return name.contains(query) || code.contains(query);
+                                    return name.contains(query) ||
+                                        code.contains(query);
                                   }).toList();
                                 }
 
                                 return LayoutBuilder(
                                   builder: (context, constraints) {
-                                    
-
                                     return Padding(
                                       padding: const EdgeInsets.symmetric(
                                         horizontal: 8,
@@ -786,9 +910,12 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                                       ),
                                       child: GridView.builder(
                                         controller: _gridViewController,
-                                        gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-                                          maxCrossAxisExtent: isContainerVisible ?  150 :140,
-                                          childAspectRatio: isContainerVisible ? 0.86 : 0.8,
+                                        gridDelegate:
+                                            SliverGridDelegateWithMaxCrossAxisExtent(
+                                          maxCrossAxisExtent:
+                                              isContainerVisible ? 150 : 140,
+                                          childAspectRatio:
+                                              isContainerVisible ? 0.86 : 0.8,
                                           crossAxisSpacing: 5,
                                           mainAxisSpacing: 6,
                                         ),
@@ -797,36 +924,70 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                                           final item = filteredFoodItems[index];
                                           return MenuItem(
                                             context: context,
-                                            imagePath: item['imagePath']?.toString() ?? '',
-                                            text: item['name']?.toString() ?? '',
-                                            code: item['foodCode']?.toString() ?? '',
-                                            imagerecordId: item['id']?.toString(),
-                                            price: item['price']?.toString() ?? '0',
-                                            price2: item['price2']?.toString() ?? '0',
-                                            price3: item['price3']?.toString() ?? '0',
-                                            priceType: item['priceType']?.toString() ?? 'Fixed',
-                                            stocks: item['stocks']?.toString() ?? 'N/A',
-                                            baseVariant: item['baseVariant']?.toString(),
-                                            variants: item['variants'] as List<dynamic>?,
-                                            addons: item['addons'] as List<dynamic>?,
-                                            onAdd: (name, price, quantity, unit, unitQty, addOnList) {
-                                              audioPlayer.play(AssetSource('sounds/beep.mp3'));
+                                            imagePath:
+                                                item['imagePath']?.toString() ??
+                                                    '',
+                                            text:
+                                                item['name']?.toString() ?? '',
+                                            code:
+                                                item['foodCode']?.toString() ??
+                                                    '',
+                                            imagerecordId:
+                                                item['id']?.toString(),
+                                            price: item['price']?.toString() ??
+                                                '0',
+                                            price2:
+                                                item['price2']?.toString() ??
+                                                    '0',
+                                            price3:
+                                                item['price3']?.toString() ??
+                                                    '0',
+                                            priceType:
+                                                item['priceType']?.toString() ??
+                                                    'Fixed',
+                                            stocks:
+                                                item['stocks']?.toString() ??
+                                                    'N/A',
+                                            baseVariant:
+                                                item['baseVariant']?.toString(),
+                                            variants: item['variants']
+                                                as List<dynamic>?,
+                                            addons: item['addons']
+                                                as List<dynamic>?,
+                                            onAdd: (name, price, quantity, unit,
+                                                unitQty, addOnList) {
+                                              audioPlayer.play(AssetSource(
+                                                  'sounds/beep.mp3'));
 
                                               setState(() {
                                                 isTapped = true;
 
-                                                final displayName = unit.isNotEmpty ? '$name ($unitQty $unit)' : name;
+                                                final displayName = unit
+                                                        .isNotEmpty
+                                                    ? '$name ($unitQty $unit)'
+                                                    : name;
 
-                                                final parsedPrice = double.tryParse(price) ?? 0.0;
+                                                final parsedPrice =
+                                                    double.tryParse(price) ??
+                                                        0.0;
 
-                                                final existingIndex = selectedItemsDetails.indexWhere(
+                                                final existingIndex =
+                                                    selectedItemsDetails
+                                                        .indexWhere(
                                                   (element) =>
-                                                      element['name'] == displayName && element['price'] == parsedPrice,
+                                                      element['name'] ==
+                                                          displayName &&
+                                                      element['price'] ==
+                                                          parsedPrice,
                                                 );
 
                                                 if (existingIndex != -1) {
-                                                  selectedItemsDetails[existingIndex]['quantity'] += quantity;
-                                                  selectedItemsDetails[existingIndex]['addons'] = addOnList;
+                                                  selectedItemsDetails[
+                                                          existingIndex]
+                                                      ['quantity'] += quantity;
+                                                  selectedItemsDetails[
+                                                          existingIndex]
+                                                      ['addons'] = addOnList;
                                                 } else {
                                                   selectedItemsDetails.add({
                                                     'name': displayName,
@@ -837,14 +998,22 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                                                   });
                                                 }
 
-                                                subtotal += parsedPrice * quantity;
+                                                subtotal +=
+                                                    parsedPrice * quantity;
 
-                                                printprovider.additem(selectedItemsDetails, subtotal);
+                                                printprovider.additem(
+                                                    selectedItemsDetails,
+                                                    subtotal);
 
-                                                WidgetsBinding.instance.addPostFrameCallback((_) {
-                                                  if (_listScrollController.hasClients) {
-                                                    _listScrollController.jumpTo(
-                                                      _listScrollController.position.maxScrollExtent,
+                                                WidgetsBinding.instance
+                                                    .addPostFrameCallback((_) {
+                                                  if (_listScrollController
+                                                      .hasClients) {
+                                                    _listScrollController
+                                                        .jumpTo(
+                                                      _listScrollController
+                                                          .position
+                                                          .maxScrollExtent,
                                                     );
                                                   }
                                                 });
@@ -875,7 +1044,9 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                               subtotal = 0.0;
                             });
                           },
-                          onCartUpdated: (List<Map<String, dynamic>> updatedItems, double updatedTotal) {
+                          onCartUpdated:
+                              (List<Map<String, dynamic>> updatedItems,
+                                  double updatedTotal) {
                             setState(() {
                               selectedItemsDetails = updatedItems;
                               subtotal = updatedTotal;
