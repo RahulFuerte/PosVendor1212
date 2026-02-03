@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:pos/view/home/navigation.dart';
+import 'plan_selection_screen.dart';
 
 class SignUp extends StatefulWidget {
   const SignUp({super.key});
@@ -11,14 +12,7 @@ class SignUp extends StatefulWidget {
 class _SignUpState extends State<SignUp> {
   final TextEditingController nameController = TextEditingController();
   final TextEditingController phoneController = TextEditingController();
-
-  String? selectedPackage;
-
-  final List<String> packages = [
-    "Basic Plan",
-    "Standard Plan",
-    "Premium Plan",
-  ];
+  final TextEditingController emailController = TextEditingController();
 
   @override
   Widget build(BuildContext context) {
@@ -27,7 +21,9 @@ class _SignUpState extends State<SignUp> {
       body: Column(
         children: [
           // 🔥 TOP IMAGE / COLOR
-          const SizedBox(height: 15,),
+          const SizedBox(
+            height: 15,
+          ),
           Container(
             color: Colors.white,
             height: 180,
@@ -64,7 +60,7 @@ class _SignUpState extends State<SignUp> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 20),
-          
+
                     // 🧾 TITLE
                     const Text(
                       "Create Account",
@@ -81,9 +77,9 @@ class _SignUpState extends State<SignUp> {
                         fontSize: 14,
                       ),
                     ),
-          
+
                     const SizedBox(height: 30),
-          
+
                     // 👤 NAME FIELD
                     _inputLabel("Name"),
                     _inputField(
@@ -91,9 +87,9 @@ class _SignUpState extends State<SignUp> {
                       hint: "Enter your name",
                       icon: Icons.person,
                     ),
-          
+
                     const SizedBox(height: 20),
-          
+
                     // 📱 PHONE FIELD
                     _inputLabel("Phone"),
                     _inputField(
@@ -102,46 +98,22 @@ class _SignUpState extends State<SignUp> {
                       icon: Icons.phone,
                       keyboardType: TextInputType.phone,
                     ),
-          
+
                     const SizedBox(height: 20),
-          
-                    // 📦 PACKAGE DROPDOWN
-                    _inputLabel("Select Package"),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey.shade300),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          padding: EdgeInsets.symmetric(vertical: 5),
-                          value: selectedPackage,
-                          hint: const Text("Choose a package"),
-                          isExpanded: true,
-                          icon: const Icon(Icons.arrow_drop_down),
-                          items: packages.map((pkg) {
-                            return DropdownMenuItem(
-                              value: pkg,
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.workspace_premium, color: Colors.green),
-                                  const SizedBox(width: 10),
-                                  Text(pkg),
-                                ],
-                              ),
-                            );
-                          }).toList(),
-                          onChanged: (value) {
-                            setState(() => selectedPackage = value);
-                          },
-                        ),
-                      ),
+
+                    _inputLabel("Email"),
+                    _inputField(
+                      controller: emailController,
+                      hint: "Enter your email",
+                      icon: Icons.email,
+                      keyboardType: TextInputType.emailAddress,
                     ),
-          
+
+                    const SizedBox(height: 20),
+
                     const SizedBox(height: 35),
-          
-                    // 🟢 REGISTER BUTTON
+
+                    // 🟢 NEXT BUTTON
                     SizedBox(
                       width: double.infinity,
                       height: 56,
@@ -152,20 +124,40 @@ class _SignUpState extends State<SignUp> {
                           elevation: 0,
                         ),
                         onPressed: () {
-                          debugPrint("Name: ${nameController.text}");
-                          debugPrint("Phone: ${phoneController.text}");
-                          debugPrint("Package: $selectedPackage");
+                          if (nameController.text.isEmpty ||
+                              phoneController.text.isEmpty ||
+                              emailController.text.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                  content: Text("Please fill all fields")),
+                            );
+                            return;
+                          }
+
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => PlanSelectionScreen(
+                                name: nameController.text,
+                                phone: phoneController.text,
+                                email: emailController.text,
+                              ),
+                            ),
+                          );
                         },
                         child: const Text(
-                          "REGISTER",
+                          "NEXT",
                           style: TextStyle(
-                              color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 1, fontSize: 15),
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1,
+                              fontSize: 15),
                         ),
                       ),
                     ),
-          
+
                     const SizedBox(height: 20),
-          
+
                     // 🔙 BACK TO LOGIN
                     Center(
                       child: TextButton(
