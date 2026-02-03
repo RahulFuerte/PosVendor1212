@@ -12,10 +12,11 @@ import 'package:pos/core/utils/price_utils.dart';
 
 class SalesReportScreen extends StatefulWidget {
   final String adminUid;
+  final String uid;
 
   const SalesReportScreen({
     Key? key,
-    required this.adminUid,
+    required this.adminUid, required this.uid,
   }) : super(key: key);
 
   @override
@@ -60,7 +61,7 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
       // Fetch all bills for the selected date
       final billsSnapshot = await FirebaseFirestore.instance
           .collection('AllBills')
-          .doc(widget.adminUid)
+          .doc(widget.uid)
           .collection('myBills')
           .doc(selectedMonth)
           .collection(dateDoc)
@@ -125,6 +126,7 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[100],
+      
       appBar: AppBar(
         elevation: 0,
         backgroundColor: Colors.white,
@@ -138,7 +140,7 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
         ),
       ),
       drawer: MyDrawer(
-        phoneNo: widget.adminUid,
+        phoneNo: widget.uid,
         adminPhoneNo: widget.adminUid,
       ),
       body: Column(
