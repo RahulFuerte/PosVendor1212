@@ -142,7 +142,6 @@ class _MyDrawerState extends State<MyDrawer> {
 
   @override
   Widget build(BuildContext context) {
-    print("These Is the rebuild of drawer...................................${DateTime.now()}");
     return Drawer(
       child: ListView(
         padding: EdgeInsets.zero,
