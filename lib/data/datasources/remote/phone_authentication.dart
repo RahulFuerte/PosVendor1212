@@ -4,12 +4,13 @@ import 'package:flutter/material.dart';
 // Package imports:
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 // Project imports:
 import 'package:pos/view/home/navigation.dart';
 import 'package:pos/view/tab_screen/view-model/frontend/snack_bar.dart';
 import '../../../view/login/providers/login_provider.dart';
-import '../../../view/login/screens/set_user_name_screen.dart';
+import '../../../view/Super Admin/super_admin_dashboard.dart';
 
 class PhoneAuthentication {
   final BuildContext context;
@@ -25,9 +26,28 @@ class PhoneAuthentication {
   // final Backend _backend = Backend();
   // bool _isLoading = false;
   String adminUid = '';
-  Future<String> sendPhoneOtp() async {
+  Future<String> sendPhoneOtp({bool skipDocCheck = false}) async {
     String result = "";
     lp.startProcessing();
+
+    if (!skipDocCheck) {
+      // 1. Check if user exists in Firestore (AllUsers)
+      try {
+        final userDoc = await FirebaseFirestore.instance
+            .collection('AllUsers')
+            .doc(lp.phone) // Assuming lp.phone includes country code
+            .get();
+
+        if (!userDoc.exists) {
+          lp.endProcessing();
+          return "You are not a member, please register or signup.";
+        }
+      } catch (e) {
+        lp.endProcessing();
+        return "Error checking user: ${e.toString()}";
+      }
+    }
+
     await _fa.verifyPhoneNumber(
       timeout: const Duration(seconds: 120),
       phoneNumber: lp.phone,
@@ -88,6 +108,29 @@ class PhoneAuthentication {
     }
   }
 
+  Future<User?> verifyOtpOnly() async {
+    String code = "";
+    for (TextEditingController controller in lp.controllers) {
+      code += controller.text;
+    }
+    lp.setSmsCodeManually = code;
+    if (lp.smsCode.length == 6) {
+      try {
+        UserCredential userCredential = await _fa.signInWithCredential(
+          PhoneAuthProvider.credential(
+            verificationId: lp.verificationID,
+            smsCode: lp.smsCode,
+          ),
+        );
+        return userCredential.user;
+      } catch (e) {
+        debugPrint("OTP Verification Failed: $e");
+        return null;
+      }
+    }
+    return null;
+  }
+
   Future<String> _afterSendingOtp(
       PhoneAuthCredential phoneAuthCredential) async {
     lp.startProcessing();
@@ -96,32 +139,30 @@ class PhoneAuthentication {
     try {
       UserCredential userCredential =
           await FirebaseAuth.instance.signInWithCredential(phoneAuthCredential);
-      if (userCredential.user != null) {
+      User? user = userCredential.user;
+
+      if (user != null) {
         try {
-          if (userCredential.additionalUserInfo!.isNewUser) {
-            // ignore: use_build_context_synchronously
-            Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute(
-                builder: (context) => SetNameScreen(
-                  phoneNumber: lp.phone,
-                  verificationID: lp.verificationID,
-                ),
-              ),
-              (route) => false,
-            );
+          // Optimize: Check Custom Claims for Role
+          final idTokenResult = await user.getIdTokenResult(true);
+          bool isAdmin = idTokenResult.claims?['admin'] == true;
+
+          Widget nextScreen;
+          if (isAdmin) {
+            nextScreen = const SuperAdminDashboard();
           } else {
-            // ignore: use_build_context_synchronously
-            Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute(
-                builder: (context) => Navigation(
-                  uId: lp.phone,
-                ),
-              ),
-              (route) => false,
-            );
+            // Default User
+            nextScreen = Navigation(uId: lp.phone);
           }
+
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(
+              builder: (context) => nextScreen,
+            ),
+            (route) => false,
+          );
         } catch (e) {
-          result = "Something went wrong!";
+          result = "Something went wrong fetching user data!";
           debugPrint(e.toString());
         }
       }

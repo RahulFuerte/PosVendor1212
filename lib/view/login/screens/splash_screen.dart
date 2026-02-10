@@ -6,11 +6,10 @@ import 'package:flutter/material.dart';
 
 // Package imports:
 import 'package:lottie/lottie.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 // Project imports:
-import 'package:pos/view/home/navigation.dart';
 import 'package:pos/view/login/screens/inception_screen.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:pos/view/tab_screen/view-model/frontend/appbar.dart';
 import 'package:pos/view/tab_screen/view-model/frontend/appname.dart';
@@ -31,28 +30,50 @@ class SplashScreenState extends State<SplashScreen> {
     super.initState();
 
     Timer(const Duration(seconds: 3), () async {
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-      bool isLogged = prefs.getBool('isLogged') ?? false;
-      String myPhone = prefs.getString('myPhone') ?? '';
-
-      if (isLogged && mounted) {
-        // User is already logged in, navigate to HomeScreen
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (context) => Navigation(
-              uId: myPhone,
-            ),
-          ),
-        );
-      } else {
-        // User is not logged in, navigate to LoginScreen
-        mounted?Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (context) => const Login(),
-          ),
-        ):null;
-      }
+      await checkRoleAndNavigate(context);
     });
+  }
+
+  Future<void> checkRoleAndNavigate(BuildContext context) async {
+    User? user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      try {
+        IdTokenResult tokenResult = await user.getIdTokenResult(true);
+        bool isAdmin = tokenResult.claims?['admin'] == true;
+        bool isSuperAdmin = tokenResult.claims?['superAdmin'] == true;
+        if (isSuperAdmin) {
+          // It's a Super Admin!
+          if (context.mounted) {
+            Navigator.pushReplacementNamed(context, '/super_admin_home');
+          }
+        } else if (isAdmin) {
+          // It's an Admin!
+          if (context.mounted) {
+            Navigator.pushReplacementNamed(context, '/admin_home');
+          }
+        } else {
+          // It's a regular User/Customer
+          if (context.mounted) {
+            Navigator.pushReplacementNamed(context, '/user_home');
+          }
+        }
+      } catch (e) {
+        debugPrint("Error checking role: $e");
+        // Fallback to login if something goes wrong
+        if (context.mounted) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (context) => const Login()),
+          );
+        }
+      }
+    } else {
+      // User is not logged in, navigate to LoginScreen
+      if (mounted) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const Login()),
+        );
+      }
+    }
   }
 
   @override

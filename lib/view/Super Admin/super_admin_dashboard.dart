@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class SuperAdminDashboard extends StatefulWidget {
   const SuperAdminDashboard({super.key});
@@ -35,83 +36,141 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
         ),
       ),
 
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 🔹 Stats Cards
-            GridView.count(
-              crossAxisCount: 2,
-              shrinkWrap: true,
-              crossAxisSpacing: 14,
-              mainAxisSpacing: 14,
-              physics: const NeverScrollableScrollPhysics(),
-              children: const [
-                _StatCard(
-                  title: 'Total Admins',
-                  value: '12',
-                  icon: Icons.admin_panel_settings,
-                  color: Colors.blue,
+      body: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('AllAdmins')
+            .orderBy('createdAt', descending: true)
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (snapshot.hasError) {
+            return Center(child: Text("Error: ${snapshot.error}"));
+          }
+
+          final docs = snapshot.data?.docs ?? [];
+          final now = DateTime.now();
+
+          int totalAdmins = docs.length;
+          int activeSubscriptions = 0;
+          int trialUsers = 0;
+          int expiredUsers = 0;
+
+          for (var doc in docs) {
+            final data = doc.data() as Map<String, dynamic>;
+            final expiry = (data['expiryDate'] as Timestamp?)?.toDate();
+            final package = data['package'] ?? 'trial';
+
+            if (expiry != null && expiry.isAfter(now)) {
+              if (package == 'trial') {
+                trialUsers++;
+              } else {
+                activeSubscriptions++;
+              }
+            } else {
+              expiredUsers++;
+            }
+          }
+
+          return Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 🔹 Stats Cards
+                GridView.count(
+                  crossAxisCount: 2,
+                  shrinkWrap: true,
+                  crossAxisSpacing: 14,
+                  mainAxisSpacing: 14,
+                  physics: const NeverScrollableScrollPhysics(),
+                  children: [
+                    _StatCard(
+                      title: 'Total Admins',
+                      value: totalAdmins.toString(),
+                      icon: Icons.admin_panel_settings,
+                      color: Colors.blue,
+                    ),
+                    _StatCard(
+                      title: 'Active Subscriptions',
+                      value: activeSubscriptions.toString(),
+                      icon: Icons.check_circle,
+                      color: Colors.green,
+                    ),
+                    _StatCard(
+                      title: 'Trial Users',
+                      value: trialUsers.toString(),
+                      icon: Icons.timer,
+                      color: Colors.orange,
+                    ),
+                    _StatCard(
+                      title: 'Expired',
+                      value: expiredUsers.toString(),
+                      icon: Icons.cancel,
+                      color: Colors.red,
+                    ),
+                  ],
                 ),
-                _StatCard(
-                  title: 'Active Subscriptions',
-                  value: '320',
-                  icon: Icons.check_circle,
-                  color: Colors.green,
+
+                const SizedBox(height: 24),
+
+                // 🔹 Admin List Title
+                const Text(
+                  'Admins',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-                _StatCard(
-                  title: 'Trial Users',
-                  value: '45',
-                  icon: Icons.timer,
-                  color: Colors.orange,
-                ),
-                _StatCard(
-                  title: 'Expired',
-                  value: '18',
-                  icon: Icons.cancel,
-                  color: Colors.red,
+
+                const SizedBox(height: 12),
+
+                // 🔹 Admin List
+                Expanded(
+                  child: docs.isEmpty
+                      ? const Center(child: Text("No admins found"))
+                      : ListView.separated(
+                          itemCount: docs.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 12),
+                          itemBuilder: (context, index) {
+                            final data =
+                                docs[index].data() as Map<String, dynamic>;
+                            final name = data['name'] ?? 'Shop Keeper';
+                            final phone = data['phone'] ?? 'No Phone';
+                            final adminCode = data['adminCode'] ?? 'No Code';
+                            final expiry =
+                                (data['expiryDate'] as Timestamp?)?.toDate();
+                            final package = data['package'] ?? 'trial';
+
+                            AdminStatus status;
+                            if (expiry != null && expiry.isAfter(now)) {
+                              status = package == 'trial'
+                                  ? AdminStatus.trial
+                                  : AdminStatus.active;
+                            } else {
+                              status = AdminStatus.expired;
+                            }
+
+                            return _AdminTile(
+                              adminName: "$name ($adminCode)",
+                              phone: phone,
+                              totalCustomers:
+                                  0, // Need to fetch separately if needed
+                              status: status,
+                              onTap: () {
+                                // 👉 Navigate to specific admin details if needed
+                              },
+                            );
+                          },
+                        ),
                 ),
               ],
             ),
-
-            const SizedBox(height: 24),
-
-            // 🔹 Admin List Title
-            const Text(
-              'Admins',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-
-            const SizedBox(height: 12),
-
-            // 🔹 Admin List
-            Expanded(
-              child: ListView.separated(
-                itemCount: 6,
-                separatorBuilder: (_, __) => const SizedBox(height: 12),
-                itemBuilder: (context, index) {
-                  return _AdminTile(
-                    adminName: 'Admin ${index + 1}',
-                    phone: '+91 99999 0000$index',
-                    totalCustomers: 40 + index,
-                    status: index % 3 == 0
-                        ? AdminStatus.trial
-                        : index % 4 == 0
-                            ? AdminStatus.expired
-                            : AdminStatus.active,
-                    onTap: () {
-                      // 👉 Navigate to Admin → Customers screen
-                    },
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -255,9 +314,7 @@ class _AdminTile extends StatelessWidget {
                 ),
                 child: const Icon(Icons.store, color: Colors.white),
               ),
-
               const SizedBox(width: 14),
-
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -280,13 +337,12 @@ class _AdminTile extends StatelessWidget {
                   ],
                 ),
               ),
-
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     decoration: BoxDecoration(
                       color: statusColor.withOpacity(0.15),
                       borderRadius: BorderRadius.circular(20),
@@ -310,7 +366,6 @@ class _AdminTile extends StatelessWidget {
                   ),
                 ],
               ),
-
               const SizedBox(width: 6),
               const Icon(Icons.chevron_right),
             ],

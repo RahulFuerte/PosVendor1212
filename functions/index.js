@@ -9,8 +9,7 @@ initializeApp();
 
 setGlobalOptions({ maxInstances: 10 });
 
-export const registerSpecificAdmin = onCall(async (request) => {
-    invoker: "public"
+export const registerSpecificAdmin = onCall({ invoker: "public" }, async (request) => {
   // 1. Auth Check
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "Login required.");
@@ -18,16 +17,25 @@ export const registerSpecificAdmin = onCall(async (request) => {
 
   const uid = request.auth.uid;
   const phone = request.auth.token.phone_number;
-  const { adminCode, package: selectedPlan } = request.data;
+  const { adminCode, package: selectedPlan, trialDays: trialDays } = request.data;
 
-  // 2. Security Code Check
-  if (adminCode !== "BOSS2026") {
-    return { success: false, message: "Invalid Security Code" };
+  // 2. Dynamic & Unique Admin Code Check
+  if (!adminCode || adminCode.trim() === "") {
+    return { success: false, message: "Admin Code is required." };
+  }
+
+  const db = getFirestore();
+  const adminQuery = await db.collection("AllAdmins")
+    .where("adminCode", "==", adminCode)
+    .get();
+
+  if (!adminQuery.empty) {
+    return { success: false, message: "Admin Code already taken. Please choose another." };
   }
 
   // 3. Expiry Calculation
   const expiryDate = new Date();
-  if (selectedPlan === "trial") expiryDate.setDate(expiryDate.getDate() + 30);
+  if (selectedPlan === "trial") expiryDate.setDate(expiryDate.getDate() + trialDays);
   else if (selectedPlan === "monthly") expiryDate.setMonth(expiryDate.getMonth() + 1);
   else if (selectedPlan === "half_year") expiryDate.setMonth(expiryDate.getMonth() + 6);
   else if (selectedPlan === "yearly") expiryDate.setFullYear(expiryDate.getFullYear() + 1);
@@ -41,6 +49,7 @@ export const registerSpecificAdmin = onCall(async (request) => {
     await db.collection("AllAdmins").doc(phone).set({
       uid: uid,
       phone: phone,
+      adminCode: adminCode,
       role: "admin",
       package: selectedPlan,
       expiryDate: Timestamp.fromDate(expiryDate),

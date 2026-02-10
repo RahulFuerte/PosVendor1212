@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:pos/view/home/navigation.dart';
 import 'plan_selection_screen.dart';
 
@@ -97,6 +98,10 @@ class _SignUpState extends State<SignUp> {
                       hint: "Enter your phone number",
                       icon: Icons.phone,
                       keyboardType: TextInputType.phone,
+                      inputFormatters: [
+                        LengthLimitingTextInputFormatter(10),
+                        FilteringTextInputFormatter.digitsOnly,
+                      ],
                     ),
 
                     const SizedBox(height: 20),
@@ -199,12 +204,15 @@ class _SignUpState extends State<SignUp> {
     required String hint,
     required IconData icon,
     TextInputType keyboardType = TextInputType.text,
+    List<TextInputFormatter>? inputFormatters,
   }) {
     return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
+      inputFormatters: inputFormatters,
       decoration: InputDecoration(
         hintText: hint,
+        counterText: "", // Hide counter
         prefixIcon: Icon(
           icon,
           color: appbar1,

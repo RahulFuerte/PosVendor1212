@@ -4,7 +4,9 @@ import 'package:flutter/services.dart';
 
 // Package imports:
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:hive_flutter/adapters.dart';
+import 'package:pos/view/home/navigation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pos/data/providers/admin_uid_provider.dart';
 import 'package:pos/data/providers/order_type_provider.dart';
@@ -20,6 +22,8 @@ import 'package:pos/data/datasources/unified_database_service.dart';
 import 'package:pos/data/providers/print_provider.dart';
 import 'package:pos/view/login/providers/login_provider.dart';
 import 'package:pos/view/login/screens/splash_screen.dart';
+
+import 'view/login/screens/new_admin_screen.dart';
 
 //3.16.9
 void main() async {
@@ -72,11 +76,18 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => OrderTypeProvider()),
         ChangeNotifierProvider(create: (_) => SubscriptionProvider()),
       ],
-      child: const MaterialApp(
+      child: MaterialApp(
         title: 'POS',
-        home: SplashScreen(),
-        // home: SuperAdminDashboard(),
         debugShowCheckedModeBanner: false,
+        initialRoute: '/',
+        routes: {
+          '/': (context) => const SplashScreen(),
+          '/super_admin_home': (context) => const SuperAdminDashboard(),
+          '/admin_home': (context) => const NewAdminScreen(),
+          '/user_home': (context) => Navigation(
+                uId: FirebaseAuth.instance.currentUser?.phoneNumber ?? "",
+              ),
+        },
       ),
     );
   }

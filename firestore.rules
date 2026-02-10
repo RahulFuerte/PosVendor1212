@@ -1,8 +1,41 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-       allow read, write: if request.auth.uid != null;
+
+    // --- HELPER FUNCTIONS ---
+    // Check if user is logged in
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Check if user is a Super Admin
+    function isSuperAdmin() {
+      return isSignedIn() && request.auth.token.superadmin == true;
+    }
+
+    // Check if user is a standard Admin
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.admin == true;
+    }
+
+    // --- RULES ---
+
+    // 1. AllAdmins Collection
+    match /AllAdmins/{adminPhone} {
+      // Admins can read/write their own data. 
+      // Super Admins can manage all admins.
+      allow read, write: if isSuperAdmin() || (isSignedIn() && request.auth.token.phone_number == adminPhone);
+
+      // 2. Customers Sub-collection (Inside an Admin's doc)
+      match /customers/{customerId} {
+        // Only the Admin who owns this list (or a Super Admin) can access it
+        allow read, write: if isSuperAdmin() || (isAdmin() && request.auth.token.phone_number == adminPhone);
+      }
+    }
+
+    // 3. Global Settings or Logs (Example)
+    match /SystemLogs/{logId} {
+      allow read, write: if isSuperAdmin(); // ONLY Super Admins can touch this
     }
   }
 }

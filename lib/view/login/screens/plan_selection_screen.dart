@@ -1,4 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_functions/cloud_functions.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:pos/view/tab_screen/view-model/frontend/snack_bar.dart';
+import 'package:provider/provider.dart';
+import 'package:pos/data/datasources/remote/phone_authentication.dart';
+import 'package:pos/view/login/providers/login_provider.dart';
+import 'package:flutter/services.dart';
+import 'new_admin_screen.dart';
 
 // Assuming appbar1 is defined globally or we define it locally if not accessible.
 // Ideally we import it, but for now defining it here to match the requested style or importing if I knew the path.
@@ -26,6 +35,9 @@ class PlanSelectionScreen extends StatefulWidget {
 class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
   int selectedTrialDays = 30; // Default to 30 Days
   String selectedPlan = "Standard"; // Default to Standard
+  final TextEditingController adminCodeController = TextEditingController();
+  bool isOtpSent = false;
+  bool isVerifying = false;
 
   final List<int> trialOptions = [7, 30, 60];
 
@@ -145,6 +157,100 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
               ),
 
               const SizedBox(height: 40),
+
+              const Text(
+                "UNIQUE ADMIN CODE",
+                style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.green),
+              ),
+              const SizedBox(height: 15),
+
+              TextField(
+                controller: adminCodeController,
+                decoration: InputDecoration(
+                  hintText: "Enter unique code (e.g. SHOP-123)",
+                  fillColor: Colors.white,
+                  filled: true,
+                  prefixIcon: const Icon(Icons.token, color: Colors.green),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: const BorderSide(color: Color(0xFF1ED760)),
+                  ),
+                ),
+              ),
+
+              if (isOtpSent) ...[
+                const SizedBox(height: 30),
+                const Text(
+                  "ENTER OTP",
+                  style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green),
+                ),
+                const SizedBox(height: 15),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: List.generate(6, (index) {
+                    final lp = context.read<LoginProvider>();
+                    return SizedBox(
+                      width: 45,
+                      child: TextField(
+                        controller: lp.controllers[index],
+                        textAlign: TextAlign.center,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          LengthLimitingTextInputFormatter(1),
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
+                        decoration: InputDecoration(
+                          fillColor: Colors.white,
+                          filled: true,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide(color: Colors.grey.shade300),
+                          ),
+                        ),
+                        onChanged: (value) {
+                          if (value.length == 1 && index < 5) {
+                            FocusScope.of(context).nextFocus();
+                          }
+                          if (value.isEmpty && index > 0) {
+                            FocusScope.of(context).previousFocus();
+                          }
+                        },
+                      ),
+                    );
+                  }),
+                ),
+                const SizedBox(height: 10),
+                TextButton(
+                  onPressed: () async {
+                    final lp = context.read<LoginProvider>();
+                    lp.setPhone = "+91${widget.phone}";
+                    PhoneAuthentication pa = PhoneAuthentication(
+                      context: context,
+                      mounted: mounted,
+                      lp: lp,
+                    );
+                    await pa.sendPhoneOtp(skipDocCheck: true);
+                  },
+                  child: const Text("Resend OTP",
+                      style: TextStyle(color: Colors.green)),
+                ),
+              ],
+
+              const SizedBox(height: 30),
 
               // Plan Cards
               // We'll display the "Most Popular" (Standard) prominently if we can, or just list them.
@@ -284,36 +390,115 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
                     elevation: 5,
                     shadowColor: Colors.green.withOpacity(0.4),
                   ),
-                  onPressed: () {
-                    // Final Action
-                    debugPrint("Combines Data:");
-                    debugPrint("Name: ${widget.name}");
-                    debugPrint("Phone: ${widget.phone}");
-                    debugPrint("Email: ${widget.email}");
-                    debugPrint("Plan: $selectedPlan");
-                    debugPrint("Trial: $selectedTrialDays Days");
-
-                    // Here you would typically call your API or Navigate to Home
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                          content: Text(
-                              "Registered for $selectedPlan ($selectedTrialDays days trial)")),
+                  onPressed: () async {
+                    final lp = context.read<LoginProvider>();
+                    lp.setPhone = "+91${widget.phone}";
+                    PhoneAuthentication pa = PhoneAuthentication(
+                      context: context,
+                      mounted: mounted,
+                      lp: lp,
                     );
+
+                    if (!isOtpSent) {
+                      // 1. SEND OTP
+                      showDialog(
+                        context: context,
+                        barrierDismissible: false,
+                        builder: (context) => const Center(
+                          child: CircularProgressIndicator(),
+                        ),
+                      );
+
+                      String result = await pa.sendPhoneOtp(skipDocCheck: true);
+                      if (context.mounted) Navigator.pop(context); // Close loader
+
+                      if (result.isEmpty ||
+                          result == "OTP sent successfully.") {
+                        setState(() {
+                          isOtpSent = true;
+                        });
+                      } else {
+                        if (context.mounted) {
+                          CustomSnackBar(context).build(result);
+                        }
+                      }
+                      return;
+                    }
+
+                    // 2. VERIFY OTP & REGISTER
+                    try {
+                      showDialog(
+                        context: context,
+                        barrierDismissible: false,
+                        builder: (context) => const Center(
+                          child: CircularProgressIndicator(),
+                        ),
+                      );
+
+                      User? user = await pa.verifyOtpOnly();
+
+                      if (user == null) {
+                        if (context.mounted) Navigator.pop(context);
+                        if (context.mounted) {
+                          CustomSnackBar(context)
+                              .build("Invalid OTP. Please try again.");
+                        }
+                        return;
+                      }
+
+                      // 🛠️ CALL CLOUD FUNCTION
+                      HttpsCallable callable = FirebaseFunctions.instance
+                          .httpsCallable('registerSpecificAdmin');
+
+                      final result = await callable.call({
+                        "adminCode": adminCodeController.text.trim(),
+                        "package": selectedPlan, // Defaulting to trial as per design
+                        "trialDays": selectedTrialDays,
+                      });
+
+                      if (context.mounted) Navigator.pop(context); // Close loading dialog
+
+                      if (result.data['success'] == true) {
+                        // 1. Force refresh to get the new 'admin' claim
+                        await user.getIdToken(true);
+
+                        if (context.mounted) {
+                          CustomSnackBar(context).build(result.data['message']);
+                          // Success! Navigate to Admin Dashboard
+                          Navigator.pushAndRemoveUntil(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) => const NewAdminScreen()),
+                            (route) => false,
+                          );
+                        }
+                      } else {
+                        if (context.mounted) {
+                          CustomSnackBar(context).build(result.data['message']);
+                        }
+                      }
+                    } catch (e) {
+                      if (context.mounted) Navigator.pop(context);
+                      if (context.mounted) {
+                        CustomSnackBar(context).build("Error: ${e.toString()}");
+                      }
+                    }
                   },
-                  child: const Row(
+                  child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        "REGISTER & START TRIAL",
-                        style: TextStyle(
-                          color: Colors
-                              .black, // Dark text on green button per design
+                        isOtpSent
+                            ? "VERIFY & REGISTER"
+                            : "REGISTER & START TRIAL",
+                        style: const TextStyle(
+                          color: Colors.black,
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
                         ),
                       ),
-                      SizedBox(width: 8),
-                      Icon(Icons.arrow_forward, color: Colors.black),
+                      const SizedBox(width: 8),
+                      const Icon(Icons.arrow_forward, color: Colors.black),
                     ],
                   ),
                 ),
@@ -342,4 +527,23 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
       ),
     );
   }
+
+  // Future<void> registerAdmin() async {
+  //   try {
+  //     HttpsCallable callable =
+  //         FirebaseFunctions.instance.httpsCallable('registerSpecificAdmin');
+  //     final response = await callable.call({
+  //       "adminCode": "BOSS2026",
+  //       "package": "trial", // Change based on your UI selection
+  //     });
+
+  //     if (response.data['success']) {
+  //       // SUCCESS! Now refresh the user token to activate the 'admin' status
+  //       await FirebaseAuth.instance.currentUser?.getIdToken(true);
+  //       print("Admin registered! Role is now active.");
+  //     }
+  //   } catch (e) {
+  //     print("Registration failed: $e");
+  //   }
+  // }
 }
