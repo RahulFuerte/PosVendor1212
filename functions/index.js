@@ -61,3 +61,36 @@ export const registerSpecificAdmin = onCall({ invoker: "public" }, async (reques
     throw new HttpsError("internal", error.message);
   }
 });
+
+/**
+ * Checks if a user exists in the AllUsers collection before they sign in.
+ * This function bypasses Firestore rules and allows unauthenticated checks.
+ */
+export const checkUserExists = onCall({ invoker: "public" }, async (request) => {
+  const { phone } = request.data;
+
+  if (!phone) {
+    throw new HttpsError("invalid-argument", "Phone number is required.");
+  }
+
+  const db = getFirestore();
+  try {
+    // 1. Check if they are an Admin
+    const adminDoc = await db.collection("AllAdmins").doc(phone).get();
+    if (adminDoc.exists) return { exists: true, role: "admin" };
+
+    // 2. Check if they are a Customer of ANY Admin (Collection Group Query)
+    // Note: This requires a 'phone' field inside the document to search
+    const customerQuery = await db.collectionGroup("customer")
+      .where("phone", "==", phone)
+      .limit(1)
+      .get();
+
+    return { 
+      exists: !customerQuery.empty, 
+      role: customerQuery.empty ? null : "user" 
+    };
+  } catch (error) {
+    throw new HttpsError("internal", error.message);
+  }
+});

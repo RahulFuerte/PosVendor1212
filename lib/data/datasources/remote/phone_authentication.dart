@@ -3,8 +3,11 @@ import 'package:flutter/material.dart';
 
 // Package imports:
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:pos/view/login/screens/new_admin_screen.dart';
+import 'package:pos/view/login/screens/role_selection_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 
 // Project imports:
 import 'package:pos/view/home/navigation.dart';
@@ -30,23 +33,23 @@ class PhoneAuthentication {
     String result = "";
     lp.startProcessing();
 
-    if (!skipDocCheck) {
-      // 1. Check if user exists in Firestore (AllUsers)
-      try {
-        final userDoc = await FirebaseFirestore.instance
-            .collection('AllUsers')
-            .doc(lp.phone) // Assuming lp.phone includes country code
-            .get();
+    // if (!skipDocCheck) {
+    //   try {
+    //     final result = await FirebaseFunctions.instance
+    //         .httpsCallable('checkUserExists')
+    //         .call({
+    //       'phone': lp.phone,
+    //     });
 
-        if (!userDoc.exists) {
-          lp.endProcessing();
-          return "You are not a member, please register or signup.";
-        }
-      } catch (e) {
-        lp.endProcessing();
-        return "Error checking user: ${e.toString()}";
-      }
-    }
+    //     if (result.data['exists'] == false) {
+    //       lp.endProcessing();
+    //       return "You are not a member, please register or signup.";
+    //     }
+    //   } catch (e) {
+    //     lp.endProcessing();
+    //     return "Error checking user: ${e.toString()}";
+    //   }
+    // }
 
     await _fa.verifyPhoneNumber(
       timeout: const Duration(seconds: 120),
@@ -146,10 +149,15 @@ class PhoneAuthentication {
           // Optimize: Check Custom Claims for Role
           final idTokenResult = await user.getIdTokenResult(true);
           bool isAdmin = idTokenResult.claims?['admin'] == true;
+          bool isSuperAdmin = idTokenResult.claims?['superAdmin'] == true;
 
           Widget nextScreen;
-          if (isAdmin) {
+          if (lp.phone == "+919999999999") {
+            nextScreen = RoleSelectionScreen(phone: lp.phone);
+          } else if (isSuperAdmin) {
             nextScreen = const SuperAdminDashboard();
+          } else if (isAdmin) {
+            nextScreen = const NewAdminScreen();
           } else {
             // Default User
             nextScreen = Navigation(uId: lp.phone);
@@ -172,6 +180,7 @@ class PhoneAuthentication {
         result = "Account already exists.";
       } else {
         result = "Something went wrong.";
+        debugPrint("Error: ${e.toString()}");
       }
     }
 

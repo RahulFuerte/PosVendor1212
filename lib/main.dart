@@ -12,7 +12,7 @@ import 'package:pos/data/providers/admin_uid_provider.dart';
 import 'package:pos/data/providers/order_type_provider.dart';
 import 'package:pos/data/providers/subscription_provider.dart';
 import 'package:pos/view/Super%20Admin/super_admin_dashboard.dart';
-import 'package:pos/view/home/screens/expense_main.dart';
+
 
 import 'package:provider/provider.dart';
 
@@ -78,16 +78,17 @@ class MyApp extends StatelessWidget {
       ],
       child: MaterialApp(
         title: 'POS',
+        home: const SplashScreen(),
         debugShowCheckedModeBanner: false,
-        initialRoute: '/',
-        routes: {
-          '/': (context) => const SplashScreen(),
-          '/super_admin_home': (context) => const SuperAdminDashboard(),
-          '/admin_home': (context) => const NewAdminScreen(),
-          '/user_home': (context) => Navigation(
-                uId: FirebaseAuth.instance.currentUser?.phoneNumber ?? "",
-              ),
-        },
+        // initialRoute: '/',
+        // routes: {
+        //   '/': (context) => const SplashScreen(),
+        //   '/super_admin_home': (context) => const SuperAdminDashboard(),
+        //   '/admin_home': (context) => const NewAdminScreen(),
+        //   '/user_home': (context) => Navigation(
+        //         uId: FirebaseAuth.instance.currentUser?.phoneNumber ?? "",
+        //       ),
+        // },
       ),
     );
   }

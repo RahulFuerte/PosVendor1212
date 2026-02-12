@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_functions/cloud_functions.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:pos/view/tab_screen/view-model/frontend/snack_bar.dart';
 import 'package:provider/provider.dart';
@@ -410,7 +410,8 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
                       );
 
                       String result = await pa.sendPhoneOtp(skipDocCheck: true);
-                      if (context.mounted) Navigator.pop(context); // Close loader
+                      if (context.mounted)
+                        Navigator.pop(context); // Close loader
 
                       if (result.isEmpty ||
                           result == "OTP sent successfully.") {
@@ -452,11 +453,13 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
 
                       final result = await callable.call({
                         "adminCode": adminCodeController.text.trim(),
-                        "package": selectedPlan, // Defaulting to trial as per design
+                        "package":
+                            selectedPlan, // Defaulting to trial as per design
                         "trialDays": selectedTrialDays,
                       });
 
-                      if (context.mounted) Navigator.pop(context); // Close loading dialog
+                      if (context.mounted)
+                        Navigator.pop(context); // Close loading dialog
 
                       if (result.data['success'] == true) {
                         // 1. Force refresh to get the new 'admin' claim

@@ -15,6 +15,11 @@ import 'package:pos/view/tab_screen/view-model/frontend/appbar.dart';
 import 'package:pos/view/tab_screen/view-model/frontend/appname.dart';
 import 'package:pos/view/tab_screen/view-model/frontend/screen.dart';
 
+import 'package:pos/view/login/screens/role_selection_screen.dart';
+import '../../Super Admin/super_admin_dashboard.dart';
+import '../../home/navigation.dart';
+import 'new_admin_screen.dart';
+
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -41,20 +46,39 @@ class SplashScreenState extends State<SplashScreen> {
         IdTokenResult tokenResult = await user.getIdTokenResult(true);
         bool isAdmin = tokenResult.claims?['admin'] == true;
         bool isSuperAdmin = tokenResult.claims?['superAdmin'] == true;
-        if (isSuperAdmin) {
+
+        if (user.phoneNumber == "+919999999999") {
+          if (context.mounted) {
+            Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                    builder: (context) =>
+                        RoleSelectionScreen(phone: user.phoneNumber!)));
+          }
+        } else if (isSuperAdmin) {
           // It's a Super Admin!
           if (context.mounted) {
-            Navigator.pushReplacementNamed(context, '/super_admin_home');
+            Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => const SuperAdminDashboard()));
           }
         } else if (isAdmin) {
           // It's an Admin!
           if (context.mounted) {
-            Navigator.pushReplacementNamed(context, '/admin_home');
+            Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => const NewAdminScreen()));
           }
         } else {
           // It's a regular User/Customer
           if (context.mounted) {
-            Navigator.pushReplacementNamed(context, '/user_home');
+            Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                    builder: (context) =>
+                        Navigation(uId: user.phoneNumber ?? "")));
           }
         }
       } catch (e) {
