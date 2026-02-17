@@ -53,8 +53,8 @@ app.*.map.json
 
 lib/view/login/screens/auth_with_firebase_function/serviceAccountKey.json
 lib/view/login/screens/auth_with_firebase_function/make-me-admin.js
-lib/view/login/screens/auth_with_firebase_function
-
+.lib/view/login/screens/auth_with_firebase_function
+.lib\view\login\screens\auth_with_firebase_function
 # Example and Demo files (not needed in production)
 *_example.dart
 *_demo.dart
