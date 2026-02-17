@@ -48,7 +48,8 @@ class _LoginState extends State<Login> {
 
       lp.setPhone = "+91${phoneController.text}";
 
-      await PhoneAuthentication(
+      // Wait for the OTP to be sent (or fail) before proceeding
+      String result = await PhoneAuthentication(
         context: context,
         mounted: mounted,
         lp: lp,
@@ -56,15 +57,22 @@ class _LoginState extends State<Login> {
 
       if (!mounted) return;
 
-      setState(() {
-        isOtpSent = true;
-      });
+      if (result == "OTP sent successfully.") {
+        setState(() {
+          isOtpSent = true;
+        });
+      } else {
+        CustomSnackBar(context).build(result);
+      }
     } catch (e) {
       if (mounted) {
-        CustomSnackBar(context).build("Failed to send OTP");
+        CustomSnackBar(context)
+            .build("An unexpected error occurred: ${e.toString()}");
       }
     } finally {
-      lp.endProcessing();
+      if (mounted) {
+        lp.endProcessing();
+      }
     }
   }
 
@@ -306,12 +314,15 @@ class _LoginState extends State<Login> {
         FilteringTextInputFormatter.digitsOnly,
       ],
       onChanged: (_) => setState(() {}),
-      style: const TextStyle(letterSpacing: 2, fontSize: 18, fontWeight: FontWeight.w600),
+      style: const TextStyle(
+          letterSpacing: 2, fontSize: 18, fontWeight: FontWeight.w600),
       decoration: InputDecoration(
         counterText: "",
         hintText: hint,
         prefixIcon: Icon(icon, color: appbar1),
-        suffixIcon: controller.text.length == 10 ? Icon(Icons.check_circle, color: appbar1) : null,
+        suffixIcon: controller.text.length == 10
+            ? Icon(Icons.check_circle, color: appbar1)
+            : null,
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide(color: Colors.grey.shade300),
