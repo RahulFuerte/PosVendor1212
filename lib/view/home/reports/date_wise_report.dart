@@ -8,6 +8,7 @@ import 'package:flutter_pos_printer_platform_image_3/flutter_pos_printer_platfor
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'package:pos/data/datasources/local/sqlite_helper.dart';
 import 'package:pos/view/home/widgets/mydrawer.dart';
 import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
@@ -36,6 +37,74 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
   bool showSummary = false;
   double totalAmount = 0;
   int totalBills = 0;
+  final SQLiteHelper _sqliteHelper = SQLiteHelper();
+
+  Future<Map<String, String>> _getShopData() async {
+    String shopName = 'N/A';
+    String contact = 'N/A';
+    String address = 'N/A';
+    String logoUrl = '';
+    String upiId = '';
+
+    try {
+      // First try to get from local SQLite
+      final localData = await _sqliteHelper.getUserData(widget.uid);
+
+      if (localData != null) {
+        shopName = localData['shopName'] ?? 'N/A';
+        contact = localData['shopContact'] ?? 'N/A';
+        address = localData['address'] ?? 'N/A';
+        logoUrl = localData['shopLogoUrl'] ?? '';
+        upiId = localData['upiId'] ?? '';
+        debugPrint('Shop data loaded from local cache');
+      } else {
+        // Not found locally, fetch from Firebase
+        final doc = await FirebaseFirestore.instance
+            .collection('AllAdmins')
+            .doc(widget.adminUid)
+            .collection('customer')
+            .doc(widget.uid)
+            .get();
+
+        if (doc.exists) {
+          final data = doc.data();
+          if (data != null) {
+            shopName = data['shopName'] ?? 'N/A';
+            contact = data['contact'] ?? 'N/A';
+            address = data['address'] ?? 'N/A';
+            upiId = data['upiId'] ?? '';
+
+            // Save all fields to local SQLite for future use
+            await _sqliteHelper.saveUserData({
+              'phoneNumber': data['phoneNumber'] ?? widget.uid,
+              'adminUid': data['adminUid'] ?? widget.adminUid,
+              'shopName': shopName,
+              'contact': contact,
+              'address': address,
+              'upiId': upiId,
+              'logoUrl': data['logoUrl'],
+              'name': data['name'],
+              'email': data['email'],
+              'customerCode': data['customerCode'],
+              'gstNumber': data['gstNo'],
+              'createdAt': data['createdAt'],
+            });
+            debugPrint('Shop data loaded from Firebase and saved locally');
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching shop data: $e');
+    }
+
+    return {
+      'shopName': shopName,
+      'contact': contact,
+      'address': address,
+      'logoUrl': logoUrl,
+      'upiId': upiId,
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -436,6 +505,8 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
   Future<void> _printThermalReceipt() async {
     final printProvider = Provider.of<PrintProvider>(context, listen: false);
     final printerManager = PrinterManager.instance;
+    final shopData = await _getShopData();
+    String shopName = shopData['shopName'] ?? '';
 
     try {
       PaperSize paperSize = printProvider.selectedPaperSize;
@@ -444,40 +515,55 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
       final generator = Generator(paperSize, profile);
       List<int> bytes = [];
 
+      // 🔹 SAFE FORMAT FUNCTION (NO ₹ SYMBOL)
+      String formatForPrinter(dynamic amount) {
+        final value = (amount ?? 0) as num;
+        return value.toStringAsFixed(2);
+      }
+
       // Header
-      bytes += generator.text('RICHEY RICH INFOTECH',
-          styles: const PosStyles(
-            align: PosAlign.center,
-            height: PosTextSize.size2,
-            width: PosTextSize.size2,
-            bold: true,
-          ));
+      bytes += generator.text(
+        shopName,
+        styles: const PosStyles(
+          align: PosAlign.center,
+          height: PosTextSize.size1,
+          width: PosTextSize.size2,
+          bold: true,
+        ),
+      );
+
       bytes += generator.emptyLines(1);
 
       bytes += generator.text(
         DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now()),
         styles: const PosStyles(align: PosAlign.center),
       );
-      bytes += generator.text("-" * 48, styles: const PosStyles(align: PosAlign.center));
 
-      bytes += generator.text('Sales Summary', styles: const PosStyles(align: PosAlign.left, bold: true));
-      bytes += generator.text("-" * 48, styles: const PosStyles(align: PosAlign.center));
+      bytes += generator.text("-" * 32);
 
       bytes += generator.text(
-        'From : ${DateFormat('dd/MM/yy').format(fromDate!)}              To : ${DateFormat('dd/MM/yy').format(toDate!)}',
-        styles: const PosStyles(align: PosAlign.left),
+        'Sales Summary',
+        styles: const PosStyles(bold: true),
       );
-      bytes += generator.text("-" * 48, styles: const PosStyles(align: PosAlign.center));
 
-      // Table header
+      bytes += generator.text("-" * 32);
+
+      bytes += generator.text(
+        'From : ${DateFormat('dd/MM/yy').format(fromDate!)}   To : ${DateFormat('dd/MM/yy').format(toDate!)}',
+      );
+
+      bytes += generator.text("-" * 32);
+
+      // Table Header
       bytes += generator.row([
         PosColumn(text: 'Date', width: 6, styles: const PosStyles(bold: true)),
         PosColumn(text: 'Qty', width: 3, styles: const PosStyles(bold: true, align: PosAlign.center)),
         PosColumn(text: 'Amount', width: 3, styles: const PosStyles(bold: true, align: PosAlign.right)),
       ]);
-      bytes += generator.text("-" * 48, styles: const PosStyles(align: PosAlign.center));
 
-      // Date data
+      bytes += generator.text("-" * 32);
+
+      // Data
       for (var date in dateData) {
         String displayDate = '';
         try {
@@ -492,36 +578,59 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
 
         bytes += generator.row([
           PosColumn(text: displayDate, width: 6),
-          PosColumn(text: date['totalBills'].toString(), width: 3, styles: const PosStyles(align: PosAlign.center)),
-          PosColumn(text: PriceUtils.formatPrice(date['amount']), width: 3, styles: const PosStyles(align: PosAlign.right))
+          PosColumn(
+            text: date['totalBills'].toString(),
+            width: 3,
+            styles: const PosStyles(align: PosAlign.center),
+          ),
+          PosColumn(
+            text: formatForPrinter(date['amount']), 
+            width: 3,
+            styles: const PosStyles(align: PosAlign.right),
+          ),
         ]);
       }
 
-      bytes += generator.text("-" * 48, styles: const PosStyles(align: PosAlign.center));
+      bytes += generator.text("-" * 32);
 
       // Grand Total
       bytes += generator.row([
         PosColumn(text: 'Grand Total', width: 6, styles: const PosStyles(bold: true)),
-        PosColumn(text: totalBills.toString(), width: 3, styles: const PosStyles(bold: true, align: PosAlign.center)),
         PosColumn(
-            text: totalAmount.toStringAsFixed(2), width: 3, styles: const PosStyles(bold: true, align: PosAlign.right)),
+          text: totalBills.toString(),
+          width: 3,
+          styles: const PosStyles(bold: true, align: PosAlign.center),
+        ),
+        PosColumn(
+          text: formatForPrinter(totalAmount), 
+          width: 3,
+          styles: const PosStyles(bold: true, align: PosAlign.right),
+        ),
       ]);
-      bytes += generator.text("-" * 48, styles: const PosStyles(align: PosAlign.center));
+
+      bytes += generator.text("-" * 32);
 
       // Payment Summary
       bytes += generator.text('Payment Summary', styles: const PosStyles(bold: true));
-      bytes += generator.text("-" * 48, styles: const PosStyles(align: PosAlign.center));
+      bytes += generator.text("-" * 32);
 
       bytes += generator.row([
         PosColumn(text: 'CASH', width: 9),
-        PosColumn(text: totalAmount.toStringAsFixed(2), width: 3, styles: const PosStyles(align: PosAlign.right)),
+        PosColumn(
+          text: formatForPrinter(totalAmount), // ✅ FIXED HERE
+          width: 3,
+          styles: const PosStyles(align: PosAlign.right),
+        ),
       ]);
-      bytes += generator.text("-" * 48, styles: const PosStyles(align: PosAlign.center));
 
-      bytes += generator.emptyLines(3);
-      bytes += generator.cut();
+      bytes += generator.text("-" * 32);
 
-      await printerManager.send(type: printProvider.selectedPrinter!.typePrinter, bytes: bytes);
+      bytes += generator.emptyLines(4);
+
+      await printerManager.send(
+        type: printProvider.selectedPrinter!.typePrinter,
+        bytes: bytes,
+      );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -699,11 +808,7 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
                       displayDate = date['date'].toString();
                     }
 
-                    return [
-                      displayDate,
-                      date['totalBills'].toString(),
-                      '${PriceUtils.formatPrice(date['amount'])}'
-                    ];
+                    return [displayDate, date['totalBills'].toString(), '${PriceUtils.formatPrice(date['amount'])}'];
                   }).toList(),
                 ),
 

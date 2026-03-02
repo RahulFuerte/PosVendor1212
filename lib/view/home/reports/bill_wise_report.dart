@@ -9,6 +9,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'package:pos/data/datasources/local/sqlite_helper.dart';
 import 'package:pos/view/home/navigation.dart';
 import 'package:pos/view/home/screens/search_receipt_screen.dart';
 import 'package:pos/view/home/widgets/mydrawer.dart';
@@ -39,11 +40,79 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
   bool showSummary = false;
   double totalAmount = 0;
   double totalItems = 0;
+  final SQLiteHelper _sqliteHelper = SQLiteHelper();
 
   @override
   void initState() {
     super.initState();
     _initializePrinterFromHive();
+  }
+
+  Future<Map<String, String>> _getShopData() async {
+    String shopName = 'N/A';
+    String contact = 'N/A';
+    String address = 'N/A';
+    String logoUrl = '';
+    String upiId = '';
+
+    try {
+      // First try to get from local SQLite
+      final localData = await _sqliteHelper.getUserData(widget.uid);
+
+      if (localData != null) {
+        shopName = localData['shopName'] ?? 'N/A';
+        contact = localData['shopContact'] ?? 'N/A';
+        address = localData['address'] ?? 'N/A';
+        logoUrl = localData['shopLogoUrl'] ?? '';
+        upiId = localData['upiId'] ?? '';
+        debugPrint('Shop data loaded from local cache');
+      } else {
+        // Not found locally, fetch from Firebase
+        final doc = await FirebaseFirestore.instance
+            .collection('AllAdmins')
+            .doc(widget.adminUid)
+            .collection('customer')
+            .doc(widget.uid)
+            .get();
+
+        if (doc.exists) {
+          final data = doc.data();
+          if (data != null) {
+            shopName = data['shopName'] ?? 'N/A';
+            contact = data['contact'] ?? 'N/A';
+            address = data['address'] ?? 'N/A';
+            upiId = data['upiId'] ?? '';
+
+            // Save all fields to local SQLite for future use
+            await _sqliteHelper.saveUserData({
+              'phoneNumber': data['phoneNumber'] ?? widget.uid,
+              'adminUid': data['adminUid'] ?? widget.adminUid,
+              'shopName': shopName,
+              'contact': contact,
+              'address': address,
+              'upiId': upiId,
+              'logoUrl': data['logoUrl'],
+              'name': data['name'],
+              'email': data['email'],
+              'customerCode': data['customerCode'],
+              'gstNumber': data['gstNo'],
+              'createdAt': data['createdAt'],
+            });
+            debugPrint('Shop data loaded from Firebase and saved locally');
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching shop data: $e');
+    }
+
+    return {
+      'shopName': shopName,
+      'contact': contact,
+      'address': address,
+      'logoUrl': logoUrl,
+      'upiId': upiId,
+    };
   }
 
   Future<void> _initializePrinterFromHive() async {
@@ -305,131 +374,161 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
   Future<void> _printThermalReceipt() async {
     final printProvider = Provider.of<PrintProvider>(context, listen: false);
     final printerManager = PrinterManager.instance;
+    final shopData = await _getShopData();
+    String shopName = shopData['shopName'] ?? '';
+
+    // 🔒 Safety checks
+    if (billsData.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("No data to print")),
+      );
+      return;
+    }
+
+    final printer = printProvider.selectedPrinter;
+    if (printer == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please select a printer first")),
+      );
+      return;
+    }
 
     try {
-      // Determine paper size based on saved setting
+      // Printer-safe amount formatter (NO ₹ symbol)
+      String formatForPrinter(dynamic amount) {
+        final value = (amount ?? 0) as num;
+        return value.toStringAsFixed(2);
+      }
+
       PaperSize paperSize = printProvider.selectedPaperSize;
 
-      // Create ESC/POS commands
       final profile = await CapabilityProfile.load();
       final generator = Generator(paperSize, profile);
       List<int> bytes = [];
 
-      // Header
-      bytes += generator.text('RICHEY RICH INFOTECH',
-          styles: const PosStyles(
-            align: PosAlign.center,
-            height: PosTextSize.size2,
-            width: PosTextSize.size2,
-            bold: true,
-          ));
+      // ================= HEADER =================
+      bytes += generator.text(
+        shopName,
+        styles: const PosStyles(
+          align: PosAlign.center,
+          height: PosTextSize.size1,
+          width: PosTextSize.size2,
+          bold: true,
+        ),
+      );
+
       bytes += generator.emptyLines(1);
 
-      // Date and report info
       bytes += generator.text(
         DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now()),
         styles: const PosStyles(align: PosAlign.center),
       );
-      bytes += generator.text('Bill Wise Sales Report', styles: const PosStyles(align: PosAlign.center, bold: true));
-      bytes += generator.text("-" * 32, styles: const PosStyles(align: PosAlign.center));
 
-      // Date range
       bytes += generator.text(
-        'From: ${DateFormat('dd/MM/yy').format(fromDate!)}     To: ${DateFormat('dd/MM/yy').format(toDate!)}',
-        styles: const PosStyles(align: PosAlign.left),
+        'Bill Wise Sales Report',
+        styles: const PosStyles(align: PosAlign.center, bold: true),
       );
-      bytes += generator.text("-" * 32, styles: const PosStyles(align: PosAlign.center));
 
-      // Table header
+      bytes += generator.hr();
+
+      // ================= DATE RANGE =================
+      bytes += generator.text(
+        'From: ${DateFormat('dd/MM/yy').format(fromDate!)}   To: ${DateFormat('dd/MM/yy').format(toDate!)}',
+      );
+
+      bytes += generator.hr();
+
+      // ================= TABLE HEADER =================
       bytes += generator.row([
         PosColumn(text: 'Bill', width: 4, styles: const PosStyles(bold: true)),
         PosColumn(text: 'Qty', width: 3, styles: const PosStyles(bold: true)),
         PosColumn(text: 'Amount', width: 5, styles: const PosStyles(bold: true)),
       ]);
-      bytes += generator.text("-" * 32, styles: const PosStyles(align: PosAlign.center));
 
-      // Bills data
+      bytes += generator.hr();
+
+      // ================= BILL DATA =================
       for (var bill in billsData) {
-        // Format date safely
         String dateDisplay = '';
+
         try {
           final dateStr = bill['orderDate'] as String;
           final year = dateStr.substring(0, 4);
           final month = dateStr.substring(4, 6);
           final day = dateStr.substring(6, 8);
           dateDisplay = '$day/$month/${year.substring(2)}';
-        } catch (e) {
+        } catch (_) {
           dateDisplay = bill['orderDate'].toString();
         }
 
         bytes += generator.text(dateDisplay);
+
         bytes += generator.row([
           PosColumn(text: bill['billNo'].toString(), width: 4),
-          PosColumn(text: bill['totalItems'].toStringAsFixed(1), width: 3),
           PosColumn(
-              text: PriceUtils.formatPrice(bill['totalAmount']), width: 5, styles: const PosStyles(align: PosAlign.right)),
+            text: ((bill['totalItems'] ?? 0) as num).toStringAsFixed(1),
+            width: 3,
+          ),
+          PosColumn(
+            text: formatForPrinter(bill['totalAmount']),
+            width: 5,
+            styles: const PosStyles(align: PosAlign.right),
+          ),
         ]);
       }
 
-      bytes += generator.text("-" * 32, styles: const PosStyles(align: PosAlign.center));
+      bytes += generator.hr();
 
-      // Subtotal
+      // ================= SUB TOTAL =================
       bytes += generator.row([
         PosColumn(text: 'Sub Total :', width: 6),
-        PosColumn(text: PriceUtils.formatPrice(totalAmount), width: 6, styles: const PosStyles(align: PosAlign.right)),
-      ]);
-      bytes += generator.text("-" * 32, styles: const PosStyles(align: PosAlign.center));
-
-      // Additional charges
-      bytes += generator.row([
-        PosColumn(text: 'Packing Charges (+) :', width: 9),
-        PosColumn(text: '0.00', width: 3, styles: const PosStyles(align: PosAlign.right)),
-      ]);
-      bytes += generator.row([
-        PosColumn(text: 'Service Charge (+) :', width: 9),
-        PosColumn(text: '0.00', width: 3, styles: const PosStyles(align: PosAlign.right)),
-      ]);
-      bytes += generator.emptyLines(1);
-
-      bytes += generator.row([
-        PosColumn(text: 'Rounding Amt (+) :', width: 9),
-        PosColumn(text: '0.00', width: 3, styles: const PosStyles(align: PosAlign.right)),
-      ]);
-      bytes += generator.row([
-        PosColumn(text: 'Rounding Amt (-) :', width: 9),
-        PosColumn(text: '0.00', width: 3, styles: const PosStyles(align: PosAlign.right)),
-      ]);
-      bytes += generator.row([
-        PosColumn(text: 'Discount (-) :', width: 9),
-        PosColumn(text: '0.00', width: 3, styles: const PosStyles(align: PosAlign.right)),
-      ]);
-      bytes += generator.row([
-        PosColumn(text: 'Cancel Amt (-) :', width: 9),
-        PosColumn(text: '0.00', width: 3, styles: const PosStyles(align: PosAlign.right)),
-      ]);
-      bytes += generator.text("-" * 32, styles: const PosStyles(align: PosAlign.center));
-
-      // Net Amount
-      bytes += generator.row([
-        PosColumn(text: 'Net Amount :', width: 6, styles: const PosStyles(bold: true)),
         PosColumn(
-            text: PriceUtils.formatPrice(totalAmount), width: 6, styles: const PosStyles(align: PosAlign.right, bold: true)),
+          text: formatForPrinter(totalAmount),
+          width: 6,
+          styles: const PosStyles(align: PosAlign.right),
+        ),
       ]);
-      bytes += generator.text("-" * 32, styles: const PosStyles(align: PosAlign.center));
 
-      // Payment Summary
-      bytes += generator.text('Payment Summary', styles: const PosStyles(bold: true));
-      bytes += generator.text("-" * 32, styles: const PosStyles(align: PosAlign.center));
+      bytes += generator.hr();
+
+      // ================= NET AMOUNT =================
+      bytes += generator.row([
+        PosColumn(
+          text: 'Net Amount :',
+          width: 6,
+          styles: PosStyles(bold: true),
+        ),
+        PosColumn(
+          text: formatForPrinter(totalAmount),
+          width: 6,
+          styles: const PosStyles(align: PosAlign.right, bold: true),
+        ),
+      ]);
+
+      bytes += generator.hr();
+
+      // ================= PAYMENT SUMMARY =================
+      bytes += generator.text(
+        'Payment Summary',
+        styles: const PosStyles(bold: true),
+      );
+
       bytes += generator.row([
         PosColumn(text: 'CASH', width: 6),
-        PosColumn(text: PriceUtils.formatPrice(totalAmount), width: 6, styles: const PosStyles(align: PosAlign.right)),
+        PosColumn(
+          text: formatForPrinter(totalAmount),
+          width: 6,
+          styles: const PosStyles(align: PosAlign.right),
+        ),
       ]);
 
-      bytes += generator.emptyLines(3);
-      bytes += generator.cut();
+      bytes += generator.emptyLines(4);
 
-      // Send to printer
-      await printerManager.send(type: printProvider.selectedPrinter!.typePrinter, bytes: bytes);
+      // ================= SEND TO PRINTER =================
+      await printerManager.send(
+        type: printer.typePrinter,
+        bytes: bytes,
+      );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -451,11 +550,157 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
     }
   }
 
-  Future<void> _downloadAndShareReport() async {
-    print('=== PDF Generation Started ===');
-    print('Bills data length: ${billsData.length}');
-    print('Total amount: $totalAmount');
+  // Future<void> _printThermalReceipt() async {
+  //   final printProvider = Provider.of<PrintProvider>(context, listen: false);
+  //   final printerManager = PrinterManager.instance;
 
+  //   try {
+  //     // Determine paper size based on saved setting
+  //     PaperSize paperSize = printProvider.selectedPaperSize;
+
+  //     // Create ESC/POS commands
+  //     final profile = await CapabilityProfile.load();
+  //     final generator = Generator(paperSize, profile);
+  //     List<int> bytes = [];
+
+  //     // Header
+  //     bytes += generator.text('RICHEY RICH INFOTECH',
+  //         styles: const PosStyles(
+  //           align: PosAlign.center,
+  //           height: PosTextSize.size2,
+  //           width: PosTextSize.size2,
+  //           bold: true,
+  //         ));
+  //     bytes += generator.emptyLines(1);
+
+  //     // Date and report info
+  //     bytes += generator.text(
+  //       DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now()),
+  //       styles: const PosStyles(align: PosAlign.center),
+  //     );
+  //     bytes += generator.text('Bill Wise Sales Report', styles: const PosStyles(align: PosAlign.center, bold: true));
+  //     bytes += generator.text("-" * 32, styles: const PosStyles(align: PosAlign.center));
+
+  //     // Date range
+  //     bytes += generator.text(
+  //       'From: ${DateFormat('dd/MM/yy').format(fromDate!)}     To: ${DateFormat('dd/MM/yy').format(toDate!)}',
+  //       styles: const PosStyles(align: PosAlign.left),
+  //     );
+  //     bytes += generator.text("-" * 32, styles: const PosStyles(align: PosAlign.center));
+
+  //     // Table header
+  //     bytes += generator.row([
+  //       PosColumn(text: 'Bill', width: 4, styles: const PosStyles(bold: true)),
+  //       PosColumn(text: 'Qty', width: 3, styles: const PosStyles(bold: true)),
+  //       PosColumn(text: 'Amount', width: 5, styles: const PosStyles(bold: true)),
+  //     ]);
+  //     bytes += generator.text("-" * 32, styles: const PosStyles(align: PosAlign.center));
+
+  //     // Bills data
+  //     for (var bill in billsData) {
+  //       // Format date safely
+  //       String dateDisplay = '';
+  //       try {
+  //         final dateStr = bill['orderDate'] as String;
+  //         final year = dateStr.substring(0, 4);
+  //         final month = dateStr.substring(4, 6);
+  //         final day = dateStr.substring(6, 8);
+  //         dateDisplay = '$day/$month/${year.substring(2)}';
+  //       } catch (e) {
+  //         dateDisplay = bill['orderDate'].toString();
+  //       }
+
+  //       bytes += generator.text(dateDisplay);
+  //       bytes += generator.row([
+  //         PosColumn(text: bill['billNo'].toString(), width: 4),
+  //         PosColumn(text: "", width: 3),
+  //         PosColumn(
+  //             text: PriceUtils.formatPrice(bill['totalAmount']), width: 5, styles: const PosStyles(align: PosAlign.right)),
+  //       ]);
+  //     }
+
+  //     bytes += generator.text("-" * 32, styles: const PosStyles(align: PosAlign.center));
+
+  //     // Subtotal
+  //     bytes += generator.row([
+  //       PosColumn(text: 'Sub Total :', width: 6),
+  //       PosColumn(text: PriceUtils.formatPrice(totalAmount), width: 6, styles: const PosStyles(align: PosAlign.right)),
+  //     ]);
+  //     bytes += generator.text("-" * 32, styles: const PosStyles(align: PosAlign.center));
+
+  //     // Additional charges
+  //     bytes += generator.row([
+  //       PosColumn(text: 'Packing Charges (+) :', width: 9),
+  //       PosColumn(text: '0.00', width: 3, styles: const PosStyles(align: PosAlign.right)),
+  //     ]);
+  //     bytes += generator.row([
+  //       PosColumn(text: 'Service Charge (+) :', width: 9),
+  //       PosColumn(text: '0.00', width: 3, styles: const PosStyles(align: PosAlign.right)),
+  //     ]);
+  //     bytes += generator.emptyLines(1);
+
+  //     bytes += generator.row([
+  //       PosColumn(text: 'Rounding Amt (+) :', width: 9),
+  //       PosColumn(text: '0.00', width: 3, styles: const PosStyles(align: PosAlign.right)),
+  //     ]);
+  //     bytes += generator.row([
+  //       PosColumn(text: 'Rounding Amt (-) :', width: 9),
+  //       PosColumn(text: '0.00', width: 3, styles: const PosStyles(align: PosAlign.right)),
+  //     ]);
+  //     bytes += generator.row([
+  //       PosColumn(text: 'Discount (-) :', width: 9),
+  //       PosColumn(text: '0.00', width: 3, styles: const PosStyles(align: PosAlign.right)),
+  //     ]);
+  //     bytes += generator.row([
+  //       PosColumn(text: 'Cancel Amt (-) :', width: 9),
+  //       PosColumn(text: '0.00', width: 3, styles: const PosStyles(align: PosAlign.right)),
+  //     ]);
+  //     bytes += generator.text("-" * 32, styles: const PosStyles(align: PosAlign.center));
+
+  //     // Net Amount
+  //     bytes += generator.row([
+  //       PosColumn(text: 'Net Amount :', width: 6, styles: const PosStyles(bold: true)),
+  //       PosColumn(
+  //           text: PriceUtils.formatPrice(totalAmount), width: 6, styles: const PosStyles(align: PosAlign.right, bold: true)),
+  //     ]);
+  //     bytes += generator.text("-" * 32, styles: const PosStyles(align: PosAlign.center));
+
+  //     // Payment Summary
+  //     bytes += generator.text('Payment Summary', styles: const PosStyles(bold: true));
+  //     bytes += generator.text("-" * 32, styles: const PosStyles(align: PosAlign.center));
+  //     bytes += generator.row([
+  //       PosColumn(text: 'CASH', width: 6),
+  //       PosColumn(text: PriceUtils.formatPrice(totalAmount), width: 6, styles: const PosStyles(align: PosAlign.right)),
+  //     ]);
+
+  //     bytes += generator.emptyLines(3);
+  //     bytes += generator.cut();
+
+  //     // Send to printer
+  //     await printerManager.send(type: printProvider.selectedPrinter!.typePrinter, bytes: bytes);
+
+  //     if (mounted) {
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         const SnackBar(
+  //           content: Text('Report printed successfully!'),
+  //           backgroundColor: Colors.green,
+  //         ),
+  //       );
+  //     }
+  //   } catch (e) {
+  //     print(e);
+  //     if (mounted) {
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         SnackBar(
+  //           content: Text('Print error: $e'),
+  //           backgroundColor: Colors.red,
+  //         ),
+  //       );
+  //     }
+  //   }
+  // }
+
+  Future<void> _downloadAndShareReport() async {
     // Check if data exists
     if (billsData.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(

@@ -86,7 +86,7 @@ class MenuItem extends StatelessWidget {
                       tableName: 'food_items',
                       recordId: imagerecordId ?? code,
                       width: double.infinity,
-                      fit: BoxFit.fill,
+                      fit: BoxFit.cover,
                       errorWidget: const Center(
                           child: Icon(
                         Icons.fastfood,

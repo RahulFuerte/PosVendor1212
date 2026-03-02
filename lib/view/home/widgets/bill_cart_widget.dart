@@ -382,7 +382,7 @@ class _BillCartState extends State<BillCart> {
         orderType: orderType,
         paymentType: paymentType,
         tableNumber: "",
-        discountAmount: 1,
+        discountAmount: 0,
         discountPercent: 0,
         customerNote: "",
         customerAddress: "",

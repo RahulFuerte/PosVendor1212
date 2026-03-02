@@ -386,78 +386,131 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
 
     try {
       PaperSize paperSize = printProvider.selectedPaperSize;
-
       final profile = await CapabilityProfile.load();
       final generator = Generator(paperSize, profile);
       List<int> bytes = [];
 
-      // Header
-      bytes += generator.text('RICHEY RICH INFOTECH',
-          styles: const PosStyles(
-            align: PosAlign.center,
-            height: PosTextSize.size2,
-            width: PosTextSize.size2,
-            bold: true,
-          ));
-      bytes += generator.emptyLines(1);
+      bool is58mm = paperSize == PaperSize.mm58;
+      int totalCols = is58mm ? 32 : 48;
+      String separator = '-' * totalCols;
+
+      // SAFE amount formatter (NO ₹)
+      String formatAmount(dynamic value) {
+        final amount = (value ?? 0) as num;
+        return amount.toStringAsFixed(2);
+      }
+
+      // ================= HEADER =================
 
       bytes += generator.text(
-        DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now()),
+        'ITEM WISE REPORT',
+        styles: const PosStyles(
+          align: PosAlign.center,
+          bold: true,
+          height: PosTextSize.size1,
+          width: PosTextSize.size2,
+        ),
+      );
+
+      bytes += generator.feed(1);
+
+      bytes += generator.text(
+        DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now()),
         styles: const PosStyles(align: PosAlign.center),
       );
-      bytes += generator.text('Item Wise Sales Report', styles: const PosStyles(align: PosAlign.center, bold: true));
-      bytes += generator.text("-" * 32, styles: const PosStyles(align: PosAlign.center));
+
+      bytes += generator.text(separator);
 
       bytes += generator.text(
-        'From: ${DateFormat('dd/MM/yy').format(fromDate!)}     To: ${DateFormat('dd/MM/yy').format(toDate!)}',
-        styles: const PosStyles(align: PosAlign.left),
+        'From: ${DateFormat('dd/MM/yy').format(fromDate!)}',
       );
-      bytes += generator.text("-" * 32, styles: const PosStyles(align: PosAlign.center));
 
-      // Table header
+      bytes += generator.text(
+        'To  : ${DateFormat('dd/MM/yy').format(toDate!)}',
+      );
+
+      bytes += generator.text(separator);
+
+      // ================= TABLE HEADER =================
+
       bytes += generator.row([
-        PosColumn(text: 'SR ITEM', width: 6, styles: const PosStyles(bold: true)),
-        PosColumn(text: 'QTY', width: 3, styles: const PosStyles(bold: true)),
-        PosColumn(text: 'AMOUNT', width: 3, styles: const PosStyles(bold: true)),
+        PosColumn(
+          text: 'Item',
+          width: 6,
+          styles: const PosStyles(bold: true),
+        ),
+        PosColumn(
+          text: 'Qty',
+          width: 3,
+          styles: const PosStyles(bold: true, align: PosAlign.center),
+        ),
+        PosColumn(
+          text: 'Amt',
+          width: 3,
+          styles: const PosStyles(bold: true, align: PosAlign.right),
+        ),
       ]);
-      bytes += generator.text("-" * 32, styles: const PosStyles(align: PosAlign.center));
 
-      // Items data
+      bytes += generator.text(separator);
+
+      // ================= ITEMS =================
+
       for (int i = 0; i < itemsData.length; i++) {
         final item = itemsData[i];
+
         bytes += generator.row([
-          PosColumn(text: '${i + 1}  ${item['name']}', width: 6),
-          PosColumn(text: item['quantity'].toStringAsFixed(1), width: 3),
-          PosColumn(text: PriceUtils.formatPrice(item['amount']), width: 3, styles: const PosStyles(align: PosAlign.right))
+          PosColumn(
+            text: item['name'].toString(),
+            width: 6,
+          ),
+          PosColumn(
+            text: (item['quantity'] as num).toStringAsFixed(1),
+            width: 3,
+            styles: const PosStyles(align: PosAlign.center),
+          ),
+          PosColumn(
+            text: formatAmount(item['amount']),
+            width: 3,
+            styles: const PosStyles(align: PosAlign.right),
+          ),
         ]);
       }
 
-      bytes += generator.text("-" * 32, styles: const PosStyles(align: PosAlign.center));
+      bytes += generator.text(separator);
 
-      // Total
+      // ================= TOTAL =================
+
       bytes += generator.row([
         PosColumn(
-            text: 'ITEM: ${itemsData.length} QTY: ${totalQuantity.toStringAsFixed(1)}',
-            width: 6,
-            styles: const PosStyles(bold: true)),
-        PosColumn(text: 'AMOUNT:', width: 3),
+          text: 'TOTAL',
+          width: 6,
+          styles: const PosStyles(bold: true),
+        ),
         PosColumn(
-            text: totalAmount.toStringAsFixed(2), width: 3, styles: const PosStyles(align: PosAlign.right, bold: true)),
-      ]);
-      bytes += generator.text("-" * 32, styles: const PosStyles(align: PosAlign.center));
-
-      bytes += generator.text('TOTAL AMOUNT', styles: const PosStyles(align: PosAlign.left, bold: true));
-      bytes += generator.row([
-        PosColumn(text: '', width: 6),
-        PosColumn(text: ':', width: 3),
+          text: totalQuantity.toStringAsFixed(1),
+          width: 3,
+          styles: const PosStyles(bold: true, align: PosAlign.center),
+        ),
         PosColumn(
-            text: totalAmount.toStringAsFixed(2), width: 3, styles: const PosStyles(align: PosAlign.right, bold: true)),
+          text: formatAmount(totalAmount),
+          width: 3,
+          styles: const PosStyles(bold: true, align: PosAlign.right),
+        ),
       ]);
 
-      bytes += generator.emptyLines(3);
-      bytes += generator.cut();
+      bytes += generator.text(separator);
 
-      await printerManager.send(type: printProvider.selectedPrinter!.typePrinter, bytes: bytes);
+      bytes += generator.feed(2);
+      bytes += generator.text(
+        '--- END OF REPORT ---',
+        styles: const PosStyles(align: PosAlign.center),
+      );
+      bytes += generator.feed(4);
+
+      await printerManager.send(
+        type: printProvider.selectedPrinter!.typePrinter,
+        bytes: bytes,
+      );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
