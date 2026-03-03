@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:pos/data/datasources/local/sqlite_helper.dart';
 import 'package:pos/data/providers/print_provider.dart';
@@ -19,7 +20,8 @@ import 'package:provider/provider.dart';
 class CustomerWiseReport extends StatefulWidget {
   final String adminUid;
   final String uid;
-  const CustomerWiseReport({super.key, required this.adminUid, required this.uid});
+  const CustomerWiseReport(
+      {super.key, required this.adminUid, required this.uid});
 
   @override
   State<CustomerWiseReport> createState() => _CustomerWiseReportState();
@@ -70,9 +72,13 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
         return CustomerModel(
           name: data['name'] ?? '',
           phone: data['phone'] ?? doc.id,
-          gstNo: (data['gstNo'] == null || data['gstNo'].toString().isEmpty) ? null : data['gstNo'],
+          gstNo: (data['gstNo'] == null || data['gstNo'].toString().isEmpty)
+              ? null
+              : data['gstNo'],
           address: data['address'],
-          createdAt: (data['createdAt'] is Timestamp) ? (data['createdAt'] as Timestamp).toDate() : DateTime.now(),
+          createdAt: (data['createdAt'] is Timestamp)
+              ? (data['createdAt'] as Timestamp).toDate()
+              : DateTime.now(),
           isUploaded: true,
         );
       }).toList();
@@ -92,10 +98,13 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
     setState(() => isLoading = true);
 
     try {
-      final startDt = DateTime(startDate!.year, startDate!.month, startDate!.day);
-      final endDt = DateTime(endDate!.year, endDate!.month, endDate!.day, 23, 59, 59);
+      final startDt =
+          DateTime(startDate!.year, startDate!.month, startDate!.day);
+      final endDt =
+          DateTime(endDate!.year, endDate!.month, endDate!.day, 23, 59, 59);
 
-      final firebaseBills = await _getCustomerBillsFromFirebase(customer.phone, startDt, endDt);
+      final firebaseBills =
+          await _getCustomerBillsFromFirebase(customer.phone, startDt, endDt);
 
       final processedData = _processBillsForPaymentTypes(firebaseBills);
 
@@ -107,7 +116,8 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
       });
     } catch (e) {
       print('ERROR: Fetching customer transactions: $e');
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error loading data: $e')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Error loading data: $e')));
     } finally {
       setState(() => isLoading = false);
     }
@@ -121,13 +131,17 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
   ) async {
     final List<Map<String, dynamic>> allBills = [];
     try {
-      final billsRef = FirebaseFirestore.instance.collection('AllBills').doc(widget.uid).collection('myBills');
+      final billsRef = FirebaseFirestore.instance
+          .collection('AllBills')
+          .doc(widget.uid)
+          .collection('myBills');
 
       final yearMonths = _generateYearMonthsInRange(startDate, endDate);
 
       for (final yearMonth in yearMonths) {
         final yearMonthDocRef = billsRef.doc(yearMonth);
-        final datesInMonth = _generateDatesInMonthRange(startDate, endDate, yearMonth);
+        final datesInMonth =
+            _generateDatesInMonthRange(startDate, endDate, yearMonth);
 
         for (final dateStr in datesInMonth) {
           final dateCollectionRef = yearMonthDocRef.collection(dateStr);
@@ -147,7 +161,8 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
       // Deduplicate by id/receiptNo
       final Map<String, Map<String, dynamic>> uniqueBills = {};
       for (var bill in allBills) {
-        final id = '${bill['receiptNo'] ?? bill['id']}_${bill['bill_timestamp']}';
+        final id =
+            '${bill['receiptNo'] ?? bill['id']}_${bill['bill_timestamp']}';
         uniqueBills[id] = bill;
       }
 
@@ -164,14 +179,16 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
     DateTime current = DateTime(start.year, start.month);
 
     while (!current.isAfter(end)) {
-      yearMonths.add('${current.year}${current.month.toString().padLeft(2, '0')}');
+      yearMonths
+          .add('${current.year}${current.month.toString().padLeft(2, '0')}');
       current = DateTime(current.year, current.month + 1);
     }
     return yearMonths;
   }
 
   // Generate all dates in a month that fall in range
-  List<String> _generateDatesInMonthRange(DateTime start, DateTime end, String yearMonth) {
+  List<String> _generateDatesInMonthRange(
+      DateTime start, DateTime end, String yearMonth) {
     final List<String> dates = [];
     final year = int.parse(yearMonth.substring(0, 4));
     final month = int.parse(yearMonth.substring(4, 6));
@@ -191,13 +208,17 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
   }
 
   /// Map Firebase bill data to our format
-  Map<String, dynamic> _mapFirebaseBillData(DocumentSnapshot doc, Map<String, dynamic> data) {
-    final customerPhone =
-        data['customerPhone']?.toString() ?? data['customer_phone']?.toString() ?? data['phone']?.toString() ?? '';
+  Map<String, dynamic> _mapFirebaseBillData(
+      DocumentSnapshot doc, Map<String, dynamic> data) {
+    final customerPhone = data['customerPhone']?.toString() ??
+        data['customer_phone']?.toString() ??
+        data['phone']?.toString() ??
+        '';
 
     // Use correct timestamp from Firebase
-    final Timestamp? billTimestamp =
-        data['bill_date'] as Timestamp? ?? data['createdAt'] as Timestamp? ?? data['updatedAt'] as Timestamp?;
+    final Timestamp? billTimestamp = data['bill_date'] as Timestamp? ??
+        data['createdAt'] as Timestamp? ??
+        data['updatedAt'] as Timestamp?;
 
     final billDate = billTimestamp?.toDate() ?? DateTime.now();
 
@@ -219,13 +240,15 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
   }
 
   /// Process bills to calculate totals and map for UI
-  ProcessedBillData _processBillsForPaymentTypes(List<Map<String, dynamic>> bills) {
+  ProcessedBillData _processBillsForPaymentTypes(
+      List<Map<String, dynamic>> bills) {
     double paid = 0.0;
     double due = 0.0;
     int orders = bills.length;
 
     final processedBills = bills.map((bill) {
-      final paymentType = (bill['payment_type'] ?? 'cash').toString().toLowerCase();
+      final paymentType =
+          (bill['payment_type'] ?? 'cash').toString().toLowerCase();
       final amount = (bill['final_total'] as num?)?.toDouble() ?? 0.0;
 
       if (paymentType == 'debit') {
@@ -235,7 +258,8 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
       }
 
       final billDate = DateTime.fromMillisecondsSinceEpoch(
-        (bill['bill_timestamp'] as int?) ?? DateTime.now().millisecondsSinceEpoch,
+        (bill['bill_timestamp'] as int?) ??
+            DateTime.now().millisecondsSinceEpoch,
       );
 
       final itemCount = (bill['items'] as List<dynamic>?)?.length ?? 1;
@@ -271,7 +295,8 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
   Future<void> pickDate(bool isStart) async {
     final picked = await showDatePicker(
       context: context,
-      initialDate: isStart ? startDate ?? DateTime.now() : endDate ?? DateTime.now(),
+      initialDate:
+          isStart ? startDate ?? DateTime.now() : endDate ?? DateTime.now(),
       firstDate: DateTime(2020),
       lastDate: DateTime.now(),
     );
@@ -317,9 +342,19 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
 
       // ================== PDF GENERATION ==================
       await Printing.layoutPdf(
-        name: 'CustomerWiseReport_${DateFormat('ddMMyyyy_HHmmss').format(DateTime.now())}.pdf',
+        name:
+            'CustomerWiseReport_${DateFormat('ddMMyyyy_HHmmss').format(DateTime.now())}.pdf',
         onLayout: (format) async {
-          final pdf = pw.Document();
+          // Load font for Rupee symbol support
+          final fontData = await rootBundle.load("fonts/Roboto-Regular.ttf");
+          final ttf = pw.Font.ttf(fontData);
+
+          final pdf = pw.Document(
+            theme: pw.ThemeData.withFont(
+              base: ttf,
+              bold: ttf,
+            ),
+          );
 
           pdf.addPage(
             pw.MultiPage(
@@ -338,11 +373,13 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
                 ),
                 if (address.isNotEmpty)
                   pw.Center(
-                    child: pw.Text(address, style: const pw.TextStyle(fontSize: 10)),
+                    child: pw.Text(address,
+                        style: const pw.TextStyle(fontSize: 10)),
                   ),
                 if (contact.isNotEmpty)
                   pw.Center(
-                    child: pw.Text('Contact: $contact', style: const pw.TextStyle(fontSize: 10)),
+                    child: pw.Text('Contact: $contact',
+                        style: const pw.TextStyle(fontSize: 10)),
                   ),
 
                 pw.SizedBox(height: 10),
@@ -354,7 +391,8 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
                   style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
                 ),
                 pw.Text('Phone: ${selectedCustomer!.phone}'),
-                if (selectedCustomer!.gstNo != null) pw.Text('GST: ${selectedCustomer!.gstNo}'),
+                if (selectedCustomer!.gstNo != null)
+                  pw.Text('GST: ${selectedCustomer!.gstNo}'),
 
                 pw.SizedBox(height: 6),
                 pw.Text(
@@ -367,8 +405,10 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
 
                 // ================= TABLE =================
                 pw.Table.fromTextArray(
-                  headerDecoration: const pw.BoxDecoration(color: PdfColors.grey300),
-                  headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11),
+                  headerDecoration:
+                      const pw.BoxDecoration(color: PdfColors.grey300),
+                  headerStyle: pw.TextStyle(
+                      fontWeight: pw.FontWeight.bold, fontSize: 11),
                   cellStyle: const pw.TextStyle(fontSize: 10),
                   cellAlignments: {
                     0: pw.Alignment.centerLeft,
@@ -635,7 +675,8 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
               child: const Center(
                 child: Text(
                   "Find Bills",
-                  style: TextStyle(color: white, fontSize: 18, fontWeight: FontWeight.w600),
+                  style: TextStyle(
+                      color: white, fontSize: 18, fontWeight: FontWeight.w600),
                 ),
               ),
             ),
@@ -655,13 +696,15 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
                         ? const Center(
                             child: Text(
                               'No transactions found for selected customer',
-                              style: TextStyle(color: Colors.grey, fontSize: 16),
+                              style:
+                                  TextStyle(color: Colors.grey, fontSize: 16),
                             ),
                           )
                         : Column(
                             children: [
                               Container(
-                                margin: const EdgeInsets.symmetric(horizontal: 16),
+                                margin:
+                                    const EdgeInsets.symmetric(horizontal: 16),
                                 padding: const EdgeInsets.all(16),
                                 decoration: BoxDecoration(
                                   color: appbar1,
@@ -678,7 +721,8 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
                                             backgroundColor: Colors.white,
                                             child: Text(
                                               selectedCustomer!.name.isNotEmpty
-                                                  ? selectedCustomer!.name[0].toUpperCase()
+                                                  ? selectedCustomer!.name[0]
+                                                      .toUpperCase()
                                                   : "?",
                                               style: const TextStyle(
                                                 fontSize: 22,
@@ -690,7 +734,8 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
                                           const SizedBox(width: 12),
                                           Expanded(
                                             child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
                                               children: [
                                                 Text(
                                                   selectedCustomer!.name,
@@ -711,10 +756,12 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
                                             ),
                                           ),
                                           Column(
-                                            crossAxisAlignment: CrossAxisAlignment.end,
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.end,
                                             children: [
                                               Text(
-                                                PriceUtils.formatPrice(totalPaid + totalDue),
+                                                PriceUtils.formatPrice(
+                                                    totalPaid + totalDue),
                                                 style: const TextStyle(
                                                   color: Colors.white,
                                                   fontSize: 18,
@@ -770,7 +817,8 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
                                 padding: EdgeInsets.symmetric(horizontal: 16),
                                 child: Row(
                                   children: [
-                                    Icon(Icons.receipt_long, color: Colors.blue),
+                                    Icon(Icons.receipt_long,
+                                        color: Colors.blue),
                                     SizedBox(width: 8),
                                     Text(
                                       "Bills",
@@ -788,7 +836,8 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
                               /// Bills List
                               Expanded(
                                 child: ListView.builder(
-                                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 16),
                                   itemCount: customerBills.length,
                                   itemBuilder: (context, index) {
                                     final bill = customerBills[index];
@@ -802,8 +851,11 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
                                           dividerColor: Colors.transparent,
                                         ),
                                         child: ExpansionTile(
-                                          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                          childrenPadding: const EdgeInsets.only(
+                                          tilePadding:
+                                              const EdgeInsets.symmetric(
+                                                  horizontal: 16, vertical: 8),
+                                          childrenPadding:
+                                              const EdgeInsets.only(
                                             left: 16,
                                             right: 16,
                                             bottom: 12,
@@ -812,12 +864,17 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
                                             width: 40,
                                             height: 40,
                                             decoration: BoxDecoration(
-                                              color: _getPaymentColor(bill['paymentType']).withOpacity(0.2),
-                                              borderRadius: BorderRadius.circular(10),
+                                              color: _getPaymentColor(
+                                                      bill['paymentType'])
+                                                  .withOpacity(0.2),
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
                                             ),
                                             child: Icon(
-                                              _getPaymentIcon(bill['paymentType']),
-                                              color: _getPaymentColor(bill['paymentType']),
+                                              _getPaymentIcon(
+                                                  bill['paymentType']),
+                                              color: _getPaymentColor(
+                                                  bill['paymentType']),
                                             ),
                                           ),
 
@@ -830,7 +887,8 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
                                           ),
 
                                           subtitle: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
                                             children: [
                                               Text(
                                                 "${bill['items']} items • ${bill['date']} ${bill['time']}",
@@ -845,7 +903,8 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
                                                 style: TextStyle(
                                                   fontSize: 12,
                                                   fontWeight: FontWeight.w500,
-                                                  color: _getPaymentColor(bill['paymentType']),
+                                                  color: _getPaymentColor(
+                                                      bill['paymentType']),
                                                 ),
                                               ),
                                             ],
@@ -856,14 +915,19 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
                                             style: TextStyle(
                                               fontSize: 16,
                                               fontWeight: FontWeight.bold,
-                                              color: bill['paymentType'] == 'debit' ? Colors.orange : Colors.green,
+                                              color:
+                                                  bill['paymentType'] == 'debit'
+                                                      ? Colors.orange
+                                                      : Colors.green,
                                             ),
                                           ),
 
                                           // 👇 Expanded item list
                                           children: items.map<Widget>((item) {
                                             return Padding(
-                                              padding: const EdgeInsets.symmetric(vertical: 6),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      vertical: 6),
                                               child: Row(
                                                 children: [
                                                   Expanded(
@@ -872,14 +936,18 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
                                                       item['name'],
                                                       style: const TextStyle(
                                                         fontSize: 14,
-                                                        fontWeight: FontWeight.w500,
+                                                        fontWeight:
+                                                            FontWeight.w500,
                                                       ),
                                                     ),
                                                   ),
                                                   Expanded(
                                                     child: Text(
                                                       "x${item['quantity']}",
-                                                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                                                      style: const TextStyle(
+                                                          fontSize: 13,
+                                                          fontWeight:
+                                                              FontWeight.w500),
                                                     ),
                                                   ),
                                                   const SizedBox(width: 12),
@@ -888,7 +956,8 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
                                                       "₹${item['price']}",
                                                       style: const TextStyle(
                                                         fontSize: 14,
-                                                        fontWeight: FontWeight.bold,
+                                                        fontWeight:
+                                                            FontWeight.bold,
                                                       ),
                                                     ),
                                                   ),
@@ -947,7 +1016,9 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
             ),
             const SizedBox(height: 6),
             Text(
-              date == null ? "Select Date" : DateFormat('dd MMM yyyy').format(date),
+              date == null
+                  ? "Select Date"
+                  : DateFormat('dd MMM yyyy').format(date),
               style: const TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.bold,
@@ -1028,7 +1099,8 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
   }
 
   String _formatPaymentType(String paymentType) {
-    return paymentType.substring(0, 1).toUpperCase() + paymentType.substring(1).toLowerCase();
+    return paymentType.substring(0, 1).toUpperCase() +
+        paymentType.substring(1).toLowerCase();
   }
 }
 
