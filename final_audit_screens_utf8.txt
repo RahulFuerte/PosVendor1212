@@ -1,0 +1,313 @@
+﻿lib\view\home\screens\calculator_screen.dart:419:                  : const MyText(
+lib\view\home\screens\calculator_screen.dart:438:                              title: MyText(
+lib\view\home\screens\calculator_screen.dart:443:                              subtitle: MyText(text: PriceUtils.formatPrice(item['price'])),
+lib\view\home\screens\calculator_screen.dart:526:                                    child: MyText(
+lib\view\home\screens\calculator_screen.dart:611:  //                 child: const MyText(text: 'Submit'),
+lib\view\home\screens\customer_list_screen.dart:92:            content: MyText(text: 'Error loading customers: $e'),
+lib\view\home\screens\customer_list_screen.dart:113:            MyText(
+lib\view\home\screens\customer_list_screen.dart:120:        content: const MyText(
+lib\view\home\screens\customer_list_screen.dart:127:            child: const MyText(text: 'Skip Help'),
+lib\view\home\screens\customer_list_screen.dart:134:            child: const MyText(
+lib\view\home\screens\customer_list_screen.dart:184:                  MyText(
+lib\view\home\screens\customer_list_screen.dart:191:                  MyText(
+lib\view\home\screens\customer_list_screen.dart:326:                MyText(
+lib\view\home\screens\customer_list_screen.dart:339:                  MyText(text: resultMessage),
+lib\view\home\screens\customer_list_screen.dart:342:                    MyText(
+lib\view\home\screens\customer_list_screen.dart:359:                child: const MyText(
+lib\view\home\screens\customer_list_screen.dart:380:                  child: const MyText(
+lib\view\home\screens\customer_list_screen.dart:399:            content: MyText(text: 'Error importing customers: $e'),
+lib\view\home\screens\customer_list_screen.dart:434:            MyText(
+lib\view\home\screens\customer_list_screen.dart:445:            const MyText(
+lib\view\home\screens\customer_list_screen.dart:450:            MyText(
+lib\view\home\screens\customer_list_screen.dart:460:            child: const MyText(text: 'Cancel'),
+lib\view\home\screens\customer_list_screen.dart:467:            child: const MyText(
+lib\view\home\screens\customer_list_screen.dart:496:                const MyText(
+lib\view\home\screens\customer_list_screen.dart:502:                const MyText(
+lib\view\home\screens\customer_list_screen.dart:527:                title: const MyText(text: 'Permission Required'),
+lib\view\home\screens\customer_list_screen.dart:528:                content: const MyText(text: 'Storage permission is required to save the file. Please enable it in settings.'),
+lib\view\home\screens\customer_list_screen.dart:532:                    child: const MyText(text: 'Cancel'),
+lib\view\home\screens\customer_list_screen.dart:539:                    child: const MyText(text: 'Open Settings'),
+lib\view\home\screens\customer_list_screen.dart:553:                content: const MyText(text: 'Storage permission denied'),
+lib\view\home\screens\customer_list_screen.dart:569:              content: const MyText(text: 'Sample download not available. Please create your own Excel template.'),
+lib\view\home\screens\customer_list_screen.dart:602:                content: MyText(text: 'Could not access storage directory'),
+lib\view\home\screens\customer_list_screen.dart:626:                    child: MyText(
+lib\view\home\screens\customer_list_screen.dart:651:                  MyText(
+lib\view\home\screens\customer_list_screen.dart:676:                  child: MyText(
+lib\view\home\screens\customer_list_screen.dart:701:            MyText(
+lib\view\home\screens\customer_list_screen.dart:714:              const MyText(
+lib\view\home\screens\customer_list_screen.dart:728:                    const MyText(text: 'Column A: Customer Name (Required)', fontWeight: FontWeight.w500),
+lib\view\home\screens\customer_list_screen.dart:729:                    const MyText(text: 'Column B: Phone Number (Required)', fontWeight: FontWeight.w500),
+lib\view\home\screens\customer_list_screen.dart:730:                    const MyText(text: 'Column C: Address (Optional)', fontWeight: FontWeight.w500),
+lib\view\home\screens\customer_list_screen.dart:731:                    const MyText(text: 'Column D: GST Number (Optional)', fontWeight: FontWeight.w500),
+lib\view\home\screens\customer_list_screen.dart:736:              const MyText(
+lib\view\home\screens\customer_list_screen.dart:751:                    const MyText(text: 'John Doe | 9876543210 | 123 Main St | GST123ABC'),
+lib\view\home\screens\customer_list_screen.dart:752:                    const MyText(text: 'Jane Smith | 9876543211 | 456 Oak Ave | '),
+lib\view\home\screens\customer_list_screen.dart:753:                    const MyText(text: 'Bob Johnson | 9876543212 | 789 Pine Rd | GST456DEF'),
+lib\view\home\screens\customer_list_screen.dart:758:              const MyText(
+lib\view\home\screens\customer_list_screen.dart:763:              const MyText(
+lib\view\home\screens\customer_list_screen.dart:780:            child: const MyText(
+lib\view\home\screens\customer_list_screen.dart:795:            child: const MyText(
+lib\view\home\screens\customer_list_screen.dart:810:          content: MyText(text: 'No customers to upload'),
+lib\view\home\screens\customer_list_screen.dart:843:            content: MyText(text: 'Successfully uploaded $successCount customers'),
+lib\view\home\screens\customer_list_screen.dart:855:            content: MyText(text: 'Error uploading: $e'),
+lib\view\home\screens\customer_list_screen.dart:897:            MyText(
+lib\view\home\screens\customer_list_screen.dart:906:          child: MyText(
+lib\view\home\screens\customer_list_screen.dart:920:            child: const MyText(
+lib\view\home\screens\customer_list_screen.dart:936:            child: const MyText(
+lib\view\home\screens\customer_list_screen.dart:965:            content: MyText(text: 'Customer deleted successfully'),
+lib\view\home\screens\customer_list_screen.dart:973:            content: MyText(text: 'Delete failed: $e'),
+lib\view\home\screens\customer_list_screen.dart:1021:                MyText(
+lib\view\home\screens\customer_list_screen.dart:1070:                            content: MyText(text: 'Please fill in required fields'),
+lib\view\home\screens\customer_list_screen.dart:1116:                                content: MyText(text: 'Customer updated successfully'),
+lib\view\home\screens\customer_list_screen.dart:1148:                                content: MyText(text: 'Customer added successfully'),
+lib\view\home\screens\customer_list_screen.dart:1159:                            content: MyText(text: isEdit ? 'Error updating customer: $e' : 'Error adding customer: $e'),
+lib\view\home\screens\customer_list_screen.dart:1173:                    child: MyText(
+lib\view\home\screens\customer_list_screen.dart:1193:                    child: const MyText(
+lib\view\home\screens\customer_list_screen.dart:1251:        title: const MyText(
+lib\view\home\screens\customer_list_screen.dart:1289:                label: MyText(
+lib\view\home\screens\customer_list_screen.dart:1331:        label: const MyText(
+lib\view\home\screens\customer_list_screen.dart:1356:          MyText(
+lib\view\home\screens\customer_list_screen.dart:1364:          MyText(
+lib\view\home\screens\customer_list_screen.dart:1408:              MyText(
+lib\view\home\screens\customer_list_screen.dart:1418:          MyText(
+lib\view\home\screens\customer_list_screen.dart:1484:                child: MyText(
+lib\view\home\screens\customer_list_screen.dart:1500:                          child: MyText(
+lib\view\home\screens\customer_list_screen.dart:1519:                        MyText(
+lib\view\home\screens\customer_list_screen.dart:1533:                          MyText(
+lib\view\home\screens\customer_list_screen.dart:1549:                            child: MyText(
+lib\view\home\screens\customer_list_screen.dart:1562:                    MyText(
+lib\view\home\screens\customer_list_screen.dart:1586:                        MyText(text: 'Edit', fontFamily: 'fontmain'),
+lib\view\home\screens\customer_list_screen.dart:1596:                        MyText(text: 'Delete', fontFamily: 'fontmain', color: Colors.red),
+lib\view\home\screens\dashboard.dart:92:            content: MyText(text: 'Failed to fetch dashboard data: $e'),
+lib\view\home\screens\dashboard.dart:104:  String _orderTypeText(String type) {
+lib\view\home\screens\dashboard.dart:143:          content: MyText(text: 'Please connect a printer first'),
+lib\view\home\screens\dashboard.dart:154:          content: MyText(text: 'No items to print'),
+lib\view\home\screens\dashboard.dart:227:                child: MyText(
+lib\view\home\screens\dashboard.dart:245:          content: MyText(text: 'Printing failed: $e'),
+lib\view\home\screens\dashboard.dart:283:            MyText(
+lib\view\home\screens\dashboard.dart:289:            MyText(
+lib\view\home\screens\dashboard.dart:360:                        const MyText(
+lib\view\home\screens\dashboard.dart:395:                                      MyText(
+lib\view\home\screens\dashboard.dart:430:                                    child: MyText(text: 'All Orders'),
+lib\view\home\screens\dashboard.dart:434:                                    child: MyText(text: '≡ƒì╜ Dine In'),
+lib\view\home\screens\dashboard.dart:438:                                    child: MyText(text: '≡ƒ¢ì Pick Up'),
+lib\view\home\screens\dashboard.dart:442:                                    child: MyText(text: '≡ƒÜÜ Delivery'),
+lib\view\home\screens\dashboard.dart:488:                          ? const Center(child: MyText(text: 'No Orders Found'))
+lib\view\home\screens\dashboard.dart:497:                                      const MyText(
+lib\view\home\screens\dashboard.dart:502:                                      const MyText(
+lib\view\home\screens\dashboard.dart:534:                                      typeText: _orderTypeText(data['orderType'] ?? data['order_type'] ?? 'all'),
+lib\view\home\screens\dashboard.dart:572:                                              orderType: _orderTypeText(data['orderType'] ?? data['order_type'] ?? ''),
+lib\view\home\screens\dashboard.dart:659:                        MyText(text: title, color: color, fontWeight: FontWeight.w600, fontSize: 18),
+lib\view\home\screens\dashboard.dart:664:                    MyText(
+lib\view\home\screens\dashboard.dart:705:        child: MyText(
+lib\view\home\screens\dashboard.dart:756:                  MyText(text: '$bill', fontWeight: FontWeight.bold, fontSize: 15),
+lib\view\home\screens\dashboard.dart:764:                    child: MyText(
+lib\view\home\screens\dashboard.dart:773:                MyText(text: '$time${edited ? '  Edited' : ''}', fontSize: 13, color: Colors.grey),
+lib\view\home\screens\dashboard.dart:778:                MyText(text: 'Γé╣$amount', fontSize: 21, fontWeight: FontWeight.bold),
+lib\view\home\screens\dashboard.dart:830:              const MyText(
+lib\view\home\screens\dashboard.dart:836:              MyText(
+lib\view\home\screens\dashboard.dart:859:              const MyText(
+lib\view\home\screens\dashboard.dart:864:              MyText(
+lib\view\home\screens\dashboard.dart:880:            child: MyText(
+lib\view\home\screens\edit_bill_receipt.dart:163:          const SnackBar(content: MyText(text: 'Settings saved successfully'), backgroundColor: Colors.green),
+lib\view\home\screens\edit_bill_receipt.dart:170:          SnackBar(content: MyText(text: 'Error saving settings: $e'), backgroundColor: Colors.red),
+lib\view\home\screens\edit_bill_receipt.dart:201:              const MyText(
+lib\view\home\screens\edit_bill_receipt.dart:268:            MyText(
+lib\view\home\screens\edit_bill_receipt.dart:299:            content: MyText(text: 'Error picking image: $e'),
+lib\view\home\screens\edit_bill_receipt.dart:323:        title: const MyText(
+lib\view\home\screens\edit_bill_receipt.dart:437:                              child: MyText(
+lib\view\home\screens\edit_bill_receipt.dart:447:                            const MyText(
+lib\view\home\screens\edit_bill_receipt.dart:454:                            MyText(
+lib\view\home\screens\edit_bill_receipt.dart:567:                            const MyText(
+lib\view\home\screens\edit_bill_receipt.dart:574:                            MyText(
+lib\view\home\screens\edit_bill_receipt.dart:604:                                                  const MyText(
+lib\view\home\screens\edit_bill_receipt.dart:609:                                                  MyText(
+lib\view\home\screens\edit_bill_receipt.dart:662:                                                child: MyText(
+lib\view\home\screens\edit_bill_receipt.dart:725:                                  MyText(
+lib\view\home\screens\edit_bill_receipt.dart:756:        MyText(
+lib\view\home\screens\edit_bill_receipt.dart:828:          child: MyText(
+lib\view\home\screens\expense_main.dart:110:        SnackBar(content: MyText(text: 'Error: $e')),
+lib\view\home\screens\expense_main.dart:122:        SnackBar(content: MyText(text: 'Error: $e')),
+lib\view\home\screens\expense_main.dart:153:                      MyText(
+lib\view\home\screens\expense_main.dart:183:                            child: const MyText(text: "Cancel"),
+lib\view\home\screens\expense_main.dart:212:                                        SnackBar(content: MyText(text: 'Error: $e')),
+lib\view\home\screens\expense_main.dart:225:                                : MyText(
+lib\view\home\screens\expense_main.dart:252:          title: const MyText(
+lib\view\home\screens\expense_main.dart:324:                          ? const Center(child: MyText(text: "No expenses"))
+lib\view\home\screens\expense_main.dart:345:                                        child: MyText(
+lib\view\home\screens\expense_main.dart:359:                                            MyText(
+lib\view\home\screens\expense_main.dart:364:                                            MyText(
+lib\view\home\screens\expense_main.dart:370:                                              MyText(
+lib\view\home\screens\expense_main.dart:384:                                          MyText(
+lib\view\home\screens\expense_main.dart:454:                            child: const MyText(
+lib\view\home\screens\expense_main.dart:489:                          ? const Center(child: MyText(text: "No categories"))
+lib\view\home\screens\expense_main.dart:510:                                        child: MyText(
+lib\view\home\screens\expense_main.dart:519:                                        child: MyText(
+lib\view\home\screens\expense_main.dart:557:                            child: const MyText(
+lib\view\home\screens\expense_main.dart:584:          child: MyText(
+lib\view\home\screens\expense_main.dart:647:        const SnackBar(content: MyText(text: 'Please create a category first')),
+lib\view\home\screens\expense_main.dart:659:            title: MyText(text: cat.name),
+lib\view\home\screens\expense_main.dart:675:          const SnackBar(content: MyText(text: 'Please enter an amount')),
+lib\view\home\screens\expense_main.dart:681:          const SnackBar(content: MyText(text: 'Please select a category')),
+lib\view\home\screens\expense_main.dart:710:        SnackBar(content: MyText(text: 'Error: $e')),
+lib\view\home\screens\expense_main.dart:725:      appBar: AppBar(title: MyText(text: widget.expense == null ? "Add Expense" : "Edit Expense")),
+lib\view\home\screens\expense_main.dart:740:                            child: MyText(
+lib\view\home\screens\expense_main.dart:782:                            child: MyText(
+lib\view\home\screens\expense_main.dart:817:                      : MyText(
+lib\view\home\screens\expense_main.dart:844:          MyText(
+lib\view\home\screens\Items\addItemScreen.dart:176:              const MyText(text: 'Product Image', fontSize: 18, fontWeight: FontWeight.bold),
+lib\view\home\screens\Items\addItemScreen.dart:214:          MyText(text: label, color: color, fontWeight: FontWeight.w600, fontSize: 12),
+lib\view\home\screens\Items\addItemScreen.dart:328:          content: MyText(text: msg),
+lib\view\home\screens\Items\addItemScreen.dart:344:        title: MyText(
+lib\view\home\screens\Items\addItemScreen.dart:425:                  const MyText(text: 'Change Photo',
+lib\view\home\screens\Items\addItemScreen.dart:487:          MyText(text: 'Tap to add product image',
+lib\view\home\screens\Items\addItemScreen.dart:490:          MyText(text: 'Gallery or Camera', color: Colors.grey.shade600, fontSize: 13),
+lib\view\home\screens\Items\addItemScreen.dart:515:              MyText(text: title, fontSize: 17, fontWeight: FontWeight.bold),
+lib\view\home\screens\Items\addItemScreen.dart:533:            items: categories.map((c) => DropdownMenuItem(value: c.id, child: MyText(text: c.name))).toList(),
+lib\view\home\screens\Items\addItemScreen.dart:555:            items: baseVarients.map((u) => DropdownMenuItem(value: u, child: MyText(text: u))).toList(),
+lib\view\home\screens\Items\addItemScreen.dart:594:                    child: MyText(text: type,
+lib\view\home\screens\Items\addItemScreen.dart:635:            title: const MyText(text: 'Enable Variants', fontWeight: FontWeight.w700, fontSize: 16),
+lib\view\home\screens\Items\addItemScreen.dart:636:            subtitle: MyText(text: 'Different sizes, weights, or quantities',
+lib\view\home\screens\Items\addItemScreen.dart:656:                  .map((e) => DropdownMenuItem(value: e, child: MyText(text: e)))
+lib\view\home\screens\Items\addItemScreen.dart:668:                hint: const MyText(text: 'Select size'),
+lib\view\home\screens\Items\addItemScreen.dart:670:                items: sizeOptions.map((e) => DropdownMenuItem(value: e, child: MyText(text: e))).toList(),
+lib\view\home\screens\Items\addItemScreen.dart:711:                label: const MyText(text: 'Add Variant', fontWeight: FontWeight.bold, fontSize: 15),
+lib\view\home\screens\Items\addItemScreen.dart:730:                      title: MyText(text: v['unitType'] == 'Size' ? '${v['size']}' : '${v['qty']} ${v['unitType']}',
+lib\view\home\screens\Items\addItemScreen.dart:733:                        MyText(text: 'Γé╣${v['price']}',
+lib\view\home\screens\Items\addItemScreen.dart:755:            title: const MyText(text: 'Enable Add-Ons', fontWeight: FontWeight.w700, fontSize: 16),
+lib\view\home\screens\Items\addItemScreen.dart:756:            subtitle: MyText(text: 'Extras customers can choose', fontSize: 13, color: Colors.grey.shade600),
+lib\view\home\screens\Items\addItemScreen.dart:796:                label: const MyText(text: 'Add Add-On', fontWeight: FontWeight.bold, fontSize: 15),
+lib\view\home\screens\Items\addItemScreen.dart:813:                    title: MyText(text: addons[i]['name'] ?? '',
+lib\view\home\screens\Items\addItemScreen.dart:816:                      MyText(text: 'Γé╣${addons[i]['price']}',
+lib\view\home\screens\Items\addItemScreen.dart:863:          label: MyText(
+lib\view\home\screens\Items\category_form_screen.dart:87:              const MyText(text: 'Select Image Source', fontSize: 18, fontWeight: FontWeight.bold),
+lib\view\home\screens\Items\category_form_screen.dart:149:          MyText(text: label, color: color, fontWeight: FontWeight.w600, fontSize: 13),
+lib\view\home\screens\Items\category_form_screen.dart:192:      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: MyText(text: msg), backgroundColor: color));
+lib\view\home\screens\Items\category_form_screen.dart:207:        title: MyText(
+lib\view\home\screens\Items\category_form_screen.dart:267:                    const MyText(
+lib\view\home\screens\Items\category_form_screen.dart:273:                    MyText(text: 'Provide a distinct name for your category',
+lib\view\home\screens\Items\category_form_screen.dart:333:                        label: MyText(
+lib\view\home\screens\Items\category_form_screen.dart:373:          MyText(
+lib\view\home\screens\Items\category_form_screen.dart:380:          MyText(text: 'Upload high quality image for better display',
+lib\view\home\screens\Items\category_management_screen.dart:64:      content: MyText(text: msg, fontWeight: FontWeight.w600),
+lib\view\home\screens\Items\category_management_screen.dart:85:        title: const MyText(text: 'Delete Category', fontWeight: FontWeight.bold),
+lib\view\home\screens\Items\category_management_screen.dart:93:              child: MyText(
+lib\view\home\screens\Items\category_management_screen.dart:103:            child: MyText(text: 'Cancel', color: Colors.grey.shade600),
+lib\view\home\screens\Items\category_management_screen.dart:112:            child: const MyText(text: 'Delete', fontWeight: FontWeight.bold),
+lib\view\home\screens\Items\category_management_screen.dart:154:        label: const MyText(
+lib\view\home\screens\Items\category_management_screen.dart:178:          const MyText(
+lib\view\home\screens\Items\category_management_screen.dart:185:          MyText(
+lib\view\home\screens\Items\category_management_screen.dart:248:          MyText(
+lib\view\home\screens\Items\category_management_screen.dart:333:                    MyText(
+lib\view\home\screens\Items\category_management_screen.dart:345:                        MyText(
+lib\view\home\screens\Items\category_management_screen.dart:407:            MyText(
+lib\view\home\screens\Items\category_management_screen.dart:414:            MyText(
+lib\view\home\screens\Items\category_management_screen.dart:432:                label: const MyText(
+lib\view\home\screens\Items\menu_image_upload_screen.dart:65:        content: MyText(text: msg),
+lib\view\home\screens\Items\menu_image_upload_screen.dart:77:        title: const MyText(text: "Upload Menu Image"),
+lib\view\home\screens\Items\menu_image_upload_screen.dart:124:                MyText(
+lib\view\home\screens\Items\menu_image_upload_screen.dart:139:        const MyText(
+lib\view\home\screens\Items\menu_image_upload_screen.dart:145:        MyText(
+lib\view\home\screens\Items\menu_image_upload_screen.dart:163:            label: const MyText(text: "Select From Gallery"),
+lib\view\home\screens\Items\menu_image_upload_screen.dart:181:              label: const MyText(text: "Upload Menu Now"),
+lib\view\home\screens\Items\menu_screen.dart:88:      content: MyText(text: msg, fontWeight: FontWeight.w600),
+lib\view\home\screens\Items\menu_screen.dart:126:        title: MyText(text: title, fontWeight: FontWeight.bold),
+lib\view\home\screens\Items\menu_screen.dart:127:        content: MyText(text: content),
+lib\view\home\screens\Items\menu_screen.dart:129:          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const MyText(text: 'Cancel')),
+lib\view\home\screens\Items\menu_screen.dart:133:            child: const MyText(text: 'Delete'),
+lib\view\home\screens\Items\menu_screen.dart:149:        title: const MyText(text: "Menu Management", fontWeight: FontWeight.w600),
+lib\view\home\screens\Items\menu_screen.dart:191:        label: MyText(
+lib\view\home\screens\Items\menu_screen.dart:233:          child: MyText(
+lib\view\home\screens\Items\menu_screen.dart:272:        child: MyText(
+lib\view\home\screens\Items\menu_screen.dart:284:      if (filteredProducts.isEmpty) return const Center(child: MyText(text: "No products found"));
+lib\view\home\screens\Items\menu_screen.dart:292:      if (filteredCategories.isEmpty) return const Center(child: MyText(text: "No categories found"));
+lib\view\home\screens\Items\menu_screen.dart:328:                MyText(text: p.name, fontWeight: FontWeight.bold, fontSize: 15),
+lib\view\home\screens\Items\menu_screen.dart:330:                MyText(text: "Γé╣${p.price.toStringAsFixed(2)}", color: appbar1, fontWeight: FontWeight.w600),
+lib\view\home\screens\Items\menu_screen.dart:362:            child: MyText(
+lib\view\home\screens\Items\menu_screen.dart:369:          Expanded(child: MyText(text: c.name, fontWeight: FontWeight.bold, fontSize: 15)),
+lib\view\home\screens\Items\product_management_screen.dart:77:      content: MyText(text: msg, fontWeight: FontWeight.w600),
+lib\view\home\screens\Items\product_management_screen.dart:107:        title: const MyText(text: 'Delete Product', fontWeight: FontWeight.bold),
+lib\view\home\screens\Items\product_management_screen.dart:115:              child: MyText(
+lib\view\home\screens\Items\product_management_screen.dart:125:            child: MyText(text: 'Cancel', color: Colors.grey.shade600),
+lib\view\home\screens\Items\product_management_screen.dart:134:            child: const MyText(text: 'Delete', fontWeight: FontWeight.bold),
+lib\view\home\screens\Items\product_management_screen.dart:180:        label: const MyText(
+lib\view\home\screens\Items\product_management_screen.dart:201:      title: const MyText(
+lib\view\home\screens\Items\product_management_screen.dart:291:        child: MyText(
+lib\view\home\screens\Items\product_management_screen.dart:307:        MyText(
+lib\view\home\screens\Items\product_management_screen.dart:385:                      MyText(
+lib\view\home\screens\Items\product_management_screen.dart:411:                            MyText(
+lib\view\home\screens\Items\product_management_screen.dart:423:                              MyText(
+lib\view\home\screens\Items\product_management_screen.dart:475:        child: MyText(
+lib\view\home\screens\Items\product_management_screen.dart:520:            MyText(
+lib\view\home\screens\Items\product_management_screen.dart:527:            MyText(
+lib\view\home\screens\Items\product_management_screen.dart:545:                label: const MyText(
+lib\view\home\screens\order_type_selector.dart:48:            child: MyText(
+lib\view\home\screens\receipt_data_screen.dart:82:        title: const MyText(
+lib\view\home\screens\receipt_data_screen.dart:92:      //   label: const Text(
+lib\view\home\screens\receipt_data_screen.dart:131:                    MyText(
+lib\view\home\screens\receipt_data_screen.dart:137:                    MyText(text: widget.address, textAlign: TextAlign.center),
+lib\view\home\screens\receipt_data_screen.dart:138:                    MyText(text: "Contact: ${widget.contact}"),
+lib\view\home\screens\receipt_data_screen.dart:196:                MyText(text: widget.note!),
+lib\view\home\screens\receipt_data_screen.dart:209:      child: MyText(
+lib\view\home\screens\receipt_data_screen.dart:223:          MyText(text: label, color: Colors.black54),
+lib\view\home\screens\receipt_data_screen.dart:224:          MyText(text: value, fontWeight: FontWeight.w600),
+lib\view\home\screens\receipt_data_screen.dart:239:          Expanded(flex: 3, child: MyText(text: "Item", fontWeight: FontWeight.bold)),
+lib\view\home\screens\receipt_data_screen.dart:240:          const Expanded(child: MyText(text: "Qty", textAlign: TextAlign.center)),
+lib\view\home\screens\receipt_data_screen.dart:241:          const Expanded(child: MyText(text: "Price", textAlign: TextAlign.center)),
+lib\view\home\screens\receipt_data_screen.dart:242:          const Expanded(child: MyText(text: "Total", textAlign: TextAlign.end)),
+lib\view\home\screens\receipt_data_screen.dart:257:          Expanded(flex: 3, child: MyText(text: item['name'])),
+lib\view\home\screens\receipt_data_screen.dart:258:          Expanded(child: MyText(text: "$qty", textAlign: TextAlign.center)),
+lib\view\home\screens\receipt_data_screen.dart:259:          Expanded(child: MyText(text: "${PriceUtils.formatPrice(price)}", textAlign: TextAlign.center)),
+lib\view\home\screens\receipt_data_screen.dart:260:          Expanded(child: MyText(text: "${PriceUtils.formatPrice(total)}", textAlign: TextAlign.end)),
+lib\view\home\screens\receipt_data_screen.dart:272:          MyText(
+lib\view\home\screens\receipt_data_screen.dart:276:          MyText(
+lib\view\home\screens\restaurant_screen.dart:388:          MyText(
+lib\view\home\screens\restaurant_screen.dart:402:              child: MyText(
+lib\view\home\screens\restaurant_screen.dart:447:      //   title: const Text(
+lib\view\home\screens\restaurant_screen.dart:480:            : const MyText(
+lib\view\home\screens\restaurant_screen.dart:587:                                    return Center(child: MyText(text: 'Error: ${snapshot.error}'));
+lib\view\home\screens\restaurant_screen.dart:655:                                                      child: MyText(
+lib\view\home\screens\restaurant_screen.dart:711:                                return Center(child: MyText(text: 'Error: ${snapshot.error}'));
+lib\view\home\screens\restaurant_screen.dart:897:                  child: const MyText(text: 'Submit'),
+lib\view\home\screens\search_receipt_screen.dart:175:            const MyText(
+lib\view\home\screens\search_receipt_screen.dart:218:                    child: MyText(
+lib\view\home\screens\search_receipt_screen.dart:264:                            MyText(
+lib\view\home\screens\search_receipt_screen.dart:369:                                  const MyText(text: 'Please select a bill date first!'),
+lib\view\home\screens\search_receipt_screen.dart:389:                                  const MyText(text: 'Please enter a valid receipt number!'),
+lib\view\home\screens\search_receipt_screen.dart:416:                          const MyText(
+lib\view\home\screens\search_receipt_screen.dart:443:                    MyText(
+lib\view\home\screens\search_receipt_screen.dart:512:                                    MyText(
+lib\view\home\screens\search_receipt_screen.dart:520:                                    MyText(
+lib\view\home\screens\search_receipt_screen.dart:536:                                      const MyText(text: 'Total', fontFamily: 'fontmain', color: Colors.white, fontSize: 12),
+lib\view\home\screens\search_receipt_screen.dart:538:                                      MyText(
+lib\view\home\screens\search_receipt_screen.dart:556:                                const MyText(
+lib\view\home\screens\search_receipt_screen.dart:583:                                            child: MyText(
+lib\view\home\screens\search_receipt_screen.dart:595:                                              MyText(
+lib\view\home\screens\search_receipt_screen.dart:603:                                              MyText(
+lib\view\home\screens\search_receipt_screen.dart:612:                                        MyText(
+lib\view\home\screens\search_receipt_screen.dart:663:            MyText(
+lib\view\home\screens\search_receipt_screen.dart:671:            MyText(
+lib\view\home\screens\settings\setting_main.dart:20:        title: const MyText(text: "Settings"),
+lib\view\home\screens\settings\setting_main.dart:51:      child: MyText(
+lib\view\home\screens\settings\setting_main.dart:71:      title: MyText(
+lib\view\home\screens\subscription_alert.dart:37:                 MyText(
+lib\view\home\screens\subscription_alert.dart:48:                const MyText(
+lib\view\home\screens\subscription_alert.dart:64:                    label: const MyText(
+lib\view\home\screens\users_data_screen.dart:29:        title: const MyText(
+lib\view\home\screens\users_data_screen.dart:44:            return Center(child: MyText(text: 'Error: ${snapshot.error}'));
+lib\view\home\screens\users_data_screen.dart:49:              return const Center(child: MyText(text: 'No users data available.'));
+lib\view\home\screens\users_data_screen.dart:102:                                      MyText(
+lib\view\home\screens\users_data_screen.dart:115:                                          MyText(
+lib\view\home\screens\users_data_screen.dart:124:                                      MyText(
+lib\view\home\screens\users_data_screen.dart:144:                                          content: const MyText(text: 'Cart Updated !'),
+lib\view\home\screens\users_data_screen.dart:167:                            DataColumn(label: MyText(text: 'Name')),
+lib\view\home\screens\users_data_screen.dart:168:                            DataColumn(label: MyText(text: 'Price')),
+lib\view\home\screens\users_data_screen.dart:169:                            DataColumn(label: MyText(text: 'Quantity')),
+lib\view\home\screens\users_data_screen.dart:174:                                      DataCell(MyText(text: detail['name'])),
+lib\view\home\screens\users_data_screen.dart:175:                                      DataCell(MyText(text: detail['price'].toString())),
+lib\view\home\screens\users_data_screen.dart:176:                                      DataCell(MyText(text: detail['quantity'].toString())),
+lib\view\home\screens\users_data_screen.dart:251:          title: const MyText(text: 'Confirm Deletion'),
+lib\view\home\screens\users_data_screen.dart:252:          content: const MyText(text: 'Are you sure you want to delete this user data?'),
+lib\view\home\screens\users_data_screen.dart:258:              child: const MyText(text: 'Cancel'),
+lib\view\home\screens\users_data_screen.dart:267:                    content: const MyText(text: 'User data deleted !'),
+lib\view\home\screens\users_data_screen.dart:272:              child: const MyText(text: 'Delete'),

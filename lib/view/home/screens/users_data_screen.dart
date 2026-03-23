@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pos/core/widgets/text.dart';
 import 'package:hive/hive.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:pos/data/models/user_model.dart';
@@ -25,9 +26,9 @@ class _UsersScreenState extends State<UsersScreen> {
     );
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Users Data',
-          style: TextStyle(fontFamily: 'tabfont'),
+        title: const MyText(
+          text: 'Users Data',
+          fontFamily: 'tabfont',
         ),
       ),
       drawer: MyDrawer(
@@ -40,12 +41,12 @@ class _UsersScreenState extends State<UsersScreen> {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           } else if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
+            return Center(child: MyText(text: 'Error: ${snapshot.error}'));
           } else {
             final usersData = snapshot.data;
 
             if (usersData!.isEmpty) {
-              return const Center(child: Text('No users data available.'));
+              return const Center(child: MyText(text: 'No users data available.'));
             }
 
             return ListView.builder(
@@ -98,13 +99,11 @@ class _UsersScreenState extends State<UsersScreen> {
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Text(
-                                        user.userName,
-                                        style: const TextStyle(
-                                          fontFamily: 'tabfont',
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w600,
-                                        ),
+                                      MyText(
+                                        text: user.userName,
+                                        fontFamily: 'tabfont',
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                       ),
@@ -113,25 +112,21 @@ class _UsersScreenState extends State<UsersScreen> {
                                         children: [
                                           const Icon(Icons.phone, size: 14, color: Colors.black54),
                                           const SizedBox(width: 4),
-                                          Text(
-                                            user.phoneNumber,
-                                            style: const TextStyle(
-                                              fontFamily: 'fontmain',
-                                              fontSize: 13,
-                                              color: Colors.black87,
-                                            ),
+                                          MyText(
+                                            text: user.phoneNumber,
+                                            fontFamily: 'fontmain',
+                                            fontSize: 13,
+                                            color: Colors.black87,
                                           ),
                                         ],
                                       ),
                                       const SizedBox(height: 4),
-                                      Text(
-                                        'Total: ₹${user.totalAmount}',
-                                        style: TextStyle(
-                                          fontFamily: 'fontmain',
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w600,
-                                          color: Colors.green.shade800,
-                                        ),
+                                      MyText(
+                                        text: 'Total: ₹${user.totalAmount}',
+                                        fontFamily: 'fontmain',
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.green.shade800,
                                       ),
                                     ],
                                   ),
@@ -146,7 +141,7 @@ class _UsersScreenState extends State<UsersScreen> {
                                       ScaffoldMessenger.of(context).showSnackBar(
                                         const SnackBar(
                                           backgroundColor: primaryColor,
-                                          content: Text('Cart Updated !'),
+                                          content: const MyText(text: 'Cart Updated !'),
                                         ),
                                       );
                                     },
@@ -169,16 +164,16 @@ class _UsersScreenState extends State<UsersScreen> {
                         ),
                         DataTable(
                           columns: const [
-                            DataColumn(label: Text('Name')),
-                            DataColumn(label: Text('Price')),
-                            DataColumn(label: Text('Quantity')),
+                            DataColumn(label: MyText(text: 'Name')),
+                            DataColumn(label: MyText(text: 'Price')),
+                            DataColumn(label: MyText(text: 'Quantity')),
                           ],
                           rows: user.details
                               .map<DataRow>((detail) => DataRow(
                                     cells: [
-                                      DataCell(Text(detail['name'])),
-                                      DataCell(Text(detail['price'].toString())),
-                                      DataCell(Text(detail['quantity'].toString())),
+                                      DataCell(MyText(text: detail['name'])),
+                                      DataCell(MyText(text: detail['price'].toString())),
+                                      DataCell(MyText(text: detail['quantity'].toString())),
                                     ],
                                   ))
                               .toList(),
@@ -208,10 +203,11 @@ class _UsersScreenState extends State<UsersScreen> {
         print("These Is The Details ............$details");
 
         final userModel = UserModel(
+          name: userMap['userName'] ?? userMap['phoneNumber'] ?? 'N/A',
           phoneNumber: userMap['phoneNumber'] ?? 'N/A',
           userName: userMap['userName'],
           details: details,
-          totalAmount: userMap['totalAmount'],
+          totalAmount: (userMap['totalAmount'] as num?)?.toDouble() ?? 0.0,
         );
 
         usersData.add(userModel);
@@ -252,14 +248,14 @@ class _UsersScreenState extends State<UsersScreen> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('Confirm Deletion'),
-          content: const Text('Are you sure you want to delete this user data?'),
+          title: const MyText(text: 'Confirm Deletion'),
+          content: const MyText(text: 'Are you sure you want to delete this user data?'),
           actions: [
             TextButton(
               onPressed: () {
                 Navigator.of(context).pop(); // Close the dialog
               },
-              child: const Text('Cancel'),
+              child: const MyText(text: 'Cancel'),
             ),
             TextButton(
               onPressed: () async {
@@ -268,12 +264,12 @@ class _UsersScreenState extends State<UsersScreen> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     backgroundColor: primaryColor,
-                    content: Text('User data deleted !'),
+                    content: const MyText(text: 'User data deleted !'),
                   ),
                 );
                 Navigator.of(context).pop(); // Close the dialog
               },
-              child: const Text('Delete'),
+              child: const MyText(text: 'Delete'),
             ),
           ],
         );

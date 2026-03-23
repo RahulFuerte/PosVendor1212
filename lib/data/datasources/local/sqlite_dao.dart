@@ -9,6 +9,7 @@ import 'package:sqflite/sqflite.dart';
 import '../../../core/utils/performance_monitor.dart';
 import '../data_integrity_service.dart';
 import '../database_service.dart';
+import 'package:pos/data/datasources/shared_preferences.dart';
 import 'sqlite_helper.dart';
 
 /// SQLite Data Access Object for local database operations
@@ -111,6 +112,16 @@ class SQLiteDAO implements DatabaseService {
   Future<bool> isOnline() async {
     // SQLite is always available locally
     return true;
+  }
+
+  @override
+  Future<Map<String, dynamic>?> getCurrentUser() async {
+    final myPrefs = MySharedPreferences();
+    final uid = await myPrefs.uID;
+    if (uid != null) {
+      return await _sqliteHelper.getUserData(uid);
+    }
+    return null;
   }
 
   /// Initialize optimized prepared statements for frequently used queries

@@ -3,6 +3,7 @@ import 'dart:async';
 
 // Flutter imports:
 import 'package:flutter/material.dart';
+import 'package:pos/core/widgets/text.dart';
 import 'package:pos/view/home/widgets/mydrawer.dart';
 
 // Project imports:
@@ -151,7 +152,7 @@ class _SyncStatusPageState extends State<SyncStatusPage> {
         _loadSyncStatistics();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Full sync completed successfully'),
+            content: MyText(text: 'Full sync completed successfully'),
             backgroundColor: Colors.green,
           ),
         );
@@ -166,7 +167,7 @@ class _SyncStatusPageState extends State<SyncStatusPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Manual sync failed: $e'),
+            content: MyText(text: 'Manual sync failed: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -201,21 +202,15 @@ class _SyncStatusPageState extends State<SyncStatusPage> {
             color: _isConnected ? primaryColor : Colors.red,
           ),
         ),
-        title: Text(
-          _isConnected ? 'Online' : 'Offline',
-          style: const TextStyle(
-            fontFamily: 'tabfont',
-            fontWeight: FontWeight.bold,
-            fontSize: 16,
-          ),
+        title: MyText(
+          text: _isConnected ? 'Online' : 'Offline',
+          fontWeight: FontWeight.bold,
+          fontSize: 16,
         ),
-        subtitle: Text(
-          _isConnected ? 'Connected to internet' : 'No internet connection',
-          style: TextStyle(
-            fontFamily: 'fontmain',
-            fontSize: 13,
-            color: Colors.grey[600],
-          ),
+        subtitle: MyText(
+          text: _isConnected ? 'Connected to internet' : 'No internet connection',
+          fontSize: 13,
+          color: Colors.grey[600],
         ),
         trailing: Icon(
           _isConnected ? Icons.check_circle : Icons.error,
@@ -282,39 +277,27 @@ class _SyncStatusPageState extends State<SyncStatusPage> {
           ),
           child: Icon(statusIcon, color: statusColor),
         ),
-        title: Text(
-          'Sync Status: $statusText',
-          style: const TextStyle(
-            fontFamily: 'tabfont',
-            fontWeight: FontWeight.bold,
-            fontSize: 16,
-          ),
+        title: MyText(
+          text: 'Sync Status: $statusText',
+          fontWeight: FontWeight.bold,
+          fontSize: 16,
         ),
         subtitle: _lastResult?.errorMessage != null
-            ? Text(
-                'Error: ${_lastResult!.errorMessage}',
-                style: const TextStyle(
-                  color: Colors.red,
-                  fontFamily: 'fontmain',
-                  fontSize: 13,
-                ),
+            ? MyText(
+                text: 'Error: ${_lastResult!.errorMessage}',
+                color: Colors.red,
+                fontSize: 13,
               )
             : _lastResult?.success == true
-                ? Text(
-                    'Last sync: ${_lastResult!.itemsSynced} items',
-                    style: TextStyle(
-                      fontFamily: 'fontmain',
-                      fontSize: 13,
-                      color: Colors.grey[600],
-                    ),
+                ? MyText(
+                    text: 'Last sync: ${_lastResult!.itemsSynced} items',
+                    fontSize: 13,
+                    color: Colors.grey[600],
                   )
-                : Text(
-                    'Ready to sync',
-                    style: TextStyle(
-                      fontFamily: 'fontmain',
-                      fontSize: 13,
-                      color: Colors.grey[600],
-                    ),
+                : MyText(
+                    text: 'Ready to sync',
+                    fontSize: 13,
+                    color: Colors.grey[600],
                   ),
         trailing: _currentStatus == SyncOperationStatus.syncing
             ? const SizedBox(
@@ -355,12 +338,9 @@ class _SyncStatusPageState extends State<SyncStatusPage> {
             ),
             child: const Icon(Icons.info, color: Colors.grey),
           ),
-          title: const Text(
-            'Loading statistics...',
-            style: TextStyle(
-              fontFamily: 'tabfont',
-              fontSize: 15,
-            ),
+          title: const MyText(
+            text: 'Loading statistics...',
+            fontSize: 15,
           ),
         ),
       );
@@ -391,13 +371,10 @@ class _SyncStatusPageState extends State<SyncStatusPage> {
             children: [
               Icon(Icons.analytics, color: primaryColor),
               SizedBox(width: 8),
-              Text(
-                'Sync Statistics',
-                style: TextStyle(
-                  fontFamily: 'tabfont',
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
+              MyText(
+                text: 'Sync Statistics',
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
               ),
             ],
           ),
@@ -418,22 +395,16 @@ class _SyncStatusPageState extends State<SyncStatusPage> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontFamily: 'fontmain',
-              fontWeight: FontWeight.w500,
-              fontSize: 14,
-            ),
+          MyText(
+            text: label,
+            fontWeight: FontWeight.w500,
+            fontSize: 14,
           ),
-          Text(
-            value,
-            style: TextStyle(
-              fontFamily: 'fontmain',
-              color: valueColor,
-              fontWeight: FontWeight.w600,
-              fontSize: 14,
-            ),
+          MyText(
+            text: value,
+            color: valueColor,
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
           ),
         ],
       ),
@@ -466,13 +437,10 @@ class _SyncStatusPageState extends State<SyncStatusPage> {
             children: [
               Icon(Icons.touch_app, color: primaryColor),
               SizedBox(width: 8),
-              Text(
-                'Sync Actions',
-                style: TextStyle(
-                  fontFamily: 'tabfont',
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
+              MyText(
+                text: 'Sync Actions',
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
               ),
             ],
           ),
@@ -480,12 +448,9 @@ class _SyncStatusPageState extends State<SyncStatusPage> {
           ElevatedButton.icon(
             onPressed: canSync && pendingCount > 0 ? _performManualSync : null,
             icon: const Icon(Icons.sync),
-            label: Text(
-              'Sync Pending Items ($pendingCount)',
-              style: const TextStyle(
-                fontFamily: 'tabfont',
-                fontWeight: FontWeight.w600,
-              ),
+            label: MyText(
+              text: 'Sync Pending Items ($pendingCount)',
+              fontWeight: FontWeight.w600,
             ),
             style: ElevatedButton.styleFrom(
               backgroundColor: primaryColor,
@@ -500,12 +465,9 @@ class _SyncStatusPageState extends State<SyncStatusPage> {
           ElevatedButton.icon(
             onPressed: canSync ? _performFullSync : null,
             icon: const Icon(Icons.sync_alt),
-            label: const Text(
-              'Full Sync',
-              style: TextStyle(
-                fontFamily: 'tabfont',
-                fontWeight: FontWeight.w600,
-              ),
+            label: const MyText(
+              text: 'Full Sync',
+              fontWeight: FontWeight.w600,
             ),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.blue,
@@ -520,13 +482,10 @@ class _SyncStatusPageState extends State<SyncStatusPage> {
           OutlinedButton.icon(
             onPressed: _loadData,
             icon: const Icon(Icons.refresh, color: primaryColor),
-            label: const Text(
-              'Refresh Status',
-              style: TextStyle(
-                fontFamily: 'tabfont',
-                fontWeight: FontWeight.w600,
-                color: primaryColor,
-              ),
+            label: const MyText(
+              text: 'Refresh Status',
+              fontWeight: FontWeight.w600,
+              color: primaryColor,
             ),
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 14),
@@ -552,14 +511,11 @@ class _SyncStatusPageState extends State<SyncStatusPage> {
       appBar: AppBar(
         backgroundColor: white,
         elevation: 0,
-        title: const Text(
-          'Sync Diagnostics',
-          style: TextStyle(
-            color: Colors.black87,
-            fontFamily: 'tabfont',
-            fontWeight: FontWeight.w600,
-            fontSize: 18,
-          ),
+        title: const MyText(
+          text: 'Sync Diagnostics',
+          color: Colors.black87,
+          fontWeight: FontWeight.w600,
+          fontSize: 18,
         ),
         actions: [
           IconButton(

@@ -1,5 +1,5 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:pos/core/widgets/text.dart';
 import 'package:intl/intl.dart';
 import 'package:pos/data/datasources/local/sqlite_helper.dart';
 import 'package:pos/data/datasources/smart_database_service.dart';
@@ -12,7 +12,9 @@ import 'package:pos/view/home/widgets/mydrawer.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:pos/core/utils/price_utils.dart';
 import 'package:pos/view/tab_screen/view-model/widgets/printers/printer.dart';
+import 'package:pos/data/services/report_service.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class Dashboard extends StatefulWidget {
   final String name;
@@ -25,7 +27,7 @@ class Dashboard extends StatefulWidget {
 }
 
 class _DashboardState extends State<Dashboard> {
-  List<QueryDocumentSnapshot> orders = [];
+  List<Map<String, dynamic>> orders = [];
   bool isLoading = false;
   int selectedTab = 0;
   int totalBills = 0;
@@ -39,7 +41,7 @@ class _DashboardState extends State<Dashboard> {
   String selectedOrderType = 'all';
 
   final SmartDatabaseService _databaseService = SmartDatabaseService();
-
+  final ReportService _reportService = ReportService();
   final SQLiteHelper _sqliteHelper = SQLiteHelper();
 
   @override
@@ -57,139 +59,62 @@ class _DashboardState extends State<Dashboard> {
     try {
       setState(() => isLoading = true);
 
-      final monthKey = DateFormat('yyyyMM').format(selectedDate);
-      final dateKey = DateFormat('yyyyMMdd').format(selectedDate);
-      final yearMonth = "${selectedDate.year}_${selectedDate.month.toString().padLeft(2, '0')}";
+      // Online-Only Fetch Logic
+      final apiResponse = await _reportService.getDashboardReport(
+        date: selectedDate,
+        orderType: selectedOrderType == 'all' ? null : selectedOrderType,
+      );
 
-      final snapshot = await FirebaseFirestore.instance
-          .collection('AllBills')
-          .doc(widget.phoneNo)
-          .collection('myBills')
-          .doc(monthKey)
-          .collection(dateKey)
-          .orderBy('createdAt', descending: true)
-          .get();
+      if (apiResponse['success'] == true) {
+        final data = apiResponse; // Fields are at top level
+        final List<dynamic> apiOrders = data['orders'] ?? [];
 
-      final expensesnapshot = await FirebaseFirestore.instance
-          .collection('AllExpense')
-          .doc(widget.phoneNo)
-          .collection('expenses')
-          .doc(yearMonth)
-          .collection('list')
-          .where('date', isGreaterThanOrEqualTo: DateTime(selectedDate.year, selectedDate.month, selectedDate.day))
-          .where('date', isLessThan: DateTime(selectedDate.year, selectedDate.month, selectedDate.day + 1))
-          .get();
-
-      List<QueryDocumentSnapshot> filtered = snapshot.docs;
-
-      if (selectedOrderType != 'all') {
-        filtered = filtered.where((doc) {
-          return doc['orderType'] == selectedOrderType;
-        }).toList();
+        setState(() {
+          orders = apiOrders.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+          totalBills = (data['totalBills'] ?? apiOrders.length).toInt();
+          totalSales = ((data['totalSales'] ?? 0) as num).toInt();
+          totalExpenses = ((data['totalExpense'] ?? 0) as num).toInt();
+        });
+      } else {
+        debugPrint('Dashboard API returned success: false');
+        setState(() {
+          orders = [];
+          totalBills = 0;
+          totalSales = 0;
+          totalExpenses = 0;
+        });
       }
-
-      int sales = 0;
-      for (var doc in filtered) {
-        sales += (doc['finalTotal'] as num).toInt();
-      }
-
-      int total = 0;
-      for (var doc in expensesnapshot.docs) {
-        total += (doc['amount'] as num).toInt();
-      }
-
-      setState(() {
-        orders = filtered;
-        totalBills = filtered.length;
-        totalSales = sales;
-        totalExpenses = total;
-      });
     } catch (e) {
-      debugPrint('Fetch Orders Error: $e');
+      debugPrint('Dashboard Fetch Error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: MyText(text: 'Failed to fetch dashboard data: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } finally {
-      setState(() => isLoading = false);
+      if (mounted) {
+        setState(() => isLoading = false);
+      }
     }
   }
 
   String _orderTypeText(String type) {
-    if (type == 'dineIn') return 'Dine In';
-    if (type == 'pickUp') return 'Pick Up';
-    if (type == 'delivery') return 'Delivery';
-    return 'Order';
+    String t = type.toLowerCase();
+    if (t == 'dinein') return 'DineIn';
+    if (t == 'pickup') return 'PickUp';
+    if (t == 'delivery') return 'Delivery';
+    return type;
   }
 
   Color _orderTypeColor(String type) {
-    if (type == 'dineIn') return Colors.teal;
-    if (type == 'pickUp') return Colors.orange;
-    if (type == 'delivery') return Colors.red;
+    String t = type.toLowerCase();
+    if (t == 'dinein') return Colors.teal;
+    if (t == 'pickup') return Colors.orange;
+    if (t == 'delivery') return Colors.red;
     return Colors.grey;
-  }
-
-  Future<Map<String, String>> _getShopData() async {
-    String shopName = 'N/A';
-    String contact = 'N/A';
-    String address = 'N/A';
-    String logoUrl = '';
-    String upiId = '';
-
-    try {
-      // First try to get from local SQLite
-      final localData = await _sqliteHelper.getUserData(widget.phoneNo);
-
-      if (localData != null) {
-        shopName = localData['shopName'] ?? 'N/A';
-        contact = localData['shopContact'] ?? 'N/A';
-        address = localData['address'] ?? 'N/A';
-        logoUrl = localData['shopLogoUrl'] ?? '';
-        upiId = localData['upiId'] ?? '';
-        debugPrint('Shop data loaded from local cache');
-      } else {
-        // Not found locally, fetch from Firebase
-        final doc = await FirebaseFirestore.instance
-            .collection('AllAdmins')
-            .doc(widget.adminUid)
-            .collection('customer')
-            .doc(widget.phoneNo)
-            .get();
-
-        if (doc.exists) {
-          final data = doc.data();
-          if (data != null) {
-            shopName = data['shopName'] ?? 'N/A';
-            contact = data['contact'] ?? 'N/A';
-            address = data['address'] ?? 'N/A';
-            upiId = data['upiId'] ?? '';
-
-            // Save all fields to local SQLite for future use
-            await _sqliteHelper.saveUserData({
-              'phoneNumber': data['phoneNumber'] ?? widget.phoneNo,
-              'adminUid': data['adminUid'] ?? widget.adminUid,
-              'shopName': shopName,
-              'contact': contact,
-              'address': address,
-              'upiId': upiId,
-              'logoUrl': data['logoUrl'],
-              'name': data['name'],
-              'email': data['email'],
-              'customerCode': data['customerCode'],
-              'gstNumber': data['gstNo'],
-              'createdAt': data['createdAt'],
-            });
-            debugPrint('Shop data loaded from Firebase and saved locally');
-          }
-        }
-      }
-    } catch (e) {
-      debugPrint('Error fetching shop data: $e');
-    }
-
-    return {
-      'shopName': shopName,
-      'contact': contact,
-      'address': address,
-      'logoUrl': logoUrl,
-      'upiId': upiId,
-    };
   }
 
   Future<void> _handlePrint({
@@ -215,7 +140,7 @@ class _DashboardState extends State<Dashboard> {
       );
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please connect a printer first'),
+          content: MyText(text: 'Please connect a printer first'),
           backgroundColor: Colors.orange,
           duration: Duration(seconds: 2),
         ),
@@ -226,7 +151,7 @@ class _DashboardState extends State<Dashboard> {
     if (items.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('No items to print'),
+          content: MyText(text: 'No items to print'),
           backgroundColor: Colors.orange,
           duration: Duration(seconds: 2),
         ),
@@ -247,13 +172,13 @@ class _DashboardState extends State<Dashboard> {
       String paymentType = orderTypeProvider.paymentType.toString().split('.').last;
       String orderType = orderTypeProvider.orderType.toString().split('.').last;
 
-      // Fetch shop data (local-first)
-      final shopData = await _getShopData();
-      String shopName = shopData['shopName']!;
-      String contact = shopData['contact']!;
-      String address = shopData['address']!;
-      String logoUrl = shopData['logoUrl']!;
-      String upiId = shopData['upiId']!;
+      // Fetch shop data from SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      String shopName = prefs.getString('shopName') ?? 'Shop Name';
+      String contact = prefs.getString('contact') ?? 'Contact';
+      String address = prefs.getString('address') ?? 'Address';
+      String logoUrl = prefs.getString('logoUrl') ?? '';
+      String upiId = prefs.getString('upiId') ?? "";
 
       if (!mounted) return;
       Navigator.pop(context);
@@ -299,8 +224,8 @@ class _DashboardState extends State<Dashboard> {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  isOnline
+                child: MyText(
+                  text: isOnline
                       ? 'Printed & saved! Receipt: $generatedReceiptNo'
                       : 'Printed & saved offline! Receipt: $generatedReceiptNo',
                 ),
@@ -317,7 +242,7 @@ class _DashboardState extends State<Dashboard> {
       debugPrint('Error printing receipt: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Printing failed: $e'),
+          content: MyText(text: 'Printing failed: $e'),
           backgroundColor: Colors.red,
           duration: const Duration(seconds: 3),
         ),
@@ -355,13 +280,16 @@ class _DashboardState extends State<Dashboard> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              widget.name,
-              style: TextStyle(color: Colors.black, fontWeight: FontWeight.w600, fontSize: 22),
+            MyText(
+              text: widget.name,
+              color: Colors.black,
+              fontWeight: FontWeight.w600,
+              fontSize: 22,
             ),
-            Text(
-              widget.phoneNo,
-              style: TextStyle(fontSize: 14, color: Colors.grey),
+            MyText(
+              text: widget.phoneNo,
+              fontSize: 14,
+              color: Colors.grey,
             ),
           ],
         ),
@@ -429,12 +357,10 @@ class _DashboardState extends State<Dashboard> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Filter Orders',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
+                        const MyText(
+                          text: 'Filter Orders',
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
                         ),
                         const SizedBox(height: 12),
                         Row(
@@ -466,12 +392,10 @@ class _DashboardState extends State<Dashboard> {
                                     children: [
                                       Icon(Icons.calendar_month, color: appbar1),
                                       const SizedBox(width: 10),
-                                      Text(
-                                        DateFormat('dd MMM yyyy').format(selectedDate),
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w600,
-                                          fontSize: 15,
-                                        ),
+                                      MyText(
+                                        text: DateFormat('dd MMM yyyy').format(selectedDate),
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 15,
                                       ),
                                     ],
                                   ),
@@ -503,19 +427,19 @@ class _DashboardState extends State<Dashboard> {
                                 items: const [
                                   DropdownMenuItem(
                                     value: 'all',
-                                    child: Text('All Orders'),
+                                    child: MyText(text: 'All Orders'),
                                   ),
                                   DropdownMenuItem(
-                                    value: 'dineIn',
-                                    child: Text('🍽 Dine In'),
+                                    value: 'DineIn',
+                                    child: MyText(text: '🍽 Dine In'),
                                   ),
                                   DropdownMenuItem(
-                                    value: 'pickUp',
-                                    child: Text('🛍 Pick Up'),
+                                    value: 'PickUp',
+                                    child: MyText(text: '🛍 Pick Up'),
                                   ),
                                   DropdownMenuItem(
-                                    value: 'delivery',
-                                    child: Text('🚚 Delivery'),
+                                    value: 'Delivery',
+                                    child: MyText(text: '🚚 Delivery'),
                                   ),
                                 ],
                                 onChanged: (value) {
@@ -561,7 +485,7 @@ class _DashboardState extends State<Dashboard> {
                   const SizedBox(height: 15),
                   selectedTab == 0
                       ? orders.isEmpty
-                          ? const Center(child: Text('No Orders Found'))
+                          ? const Center(child: MyText(text: 'No Orders Found'))
                           : Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -570,13 +494,16 @@ class _DashboardState extends State<Dashboard> {
                                   child: Row(
                                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
-                                      Text(
-                                        "Recent Orders",
-                                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+                                      const MyText(
+                                        text: "Recent Orders",
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.w600,
                                       ),
-                                      Text(
-                                        "",
-                                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.blue),
+                                      const MyText(
+                                        text: "",
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.blue,
                                       ),
                                     ],
                                   ),
@@ -587,64 +514,90 @@ class _DashboardState extends State<Dashboard> {
                                   itemCount: orders.length,
                                   itemBuilder: (context, index) {
                                     final data = orders[index];
+                                    final dateMs = data['bill_date'] ?? data['created_at'];
+                                    String timeStr = DateFormat('dd/MM/yy hh:mm a').format(DateTime.now());
+                                    if (dateMs != null) {
+                                      try {
+                                        final dt = dateMs is int
+                                            ? DateTime.fromMillisecondsSinceEpoch(dateMs)
+                                            : DateTime.parse(dateMs.toString());
+                                        timeStr = DateFormat('dd/MM/yy hh:mm a').format(dt);
+                                      } catch (_) {}
+                                    }
 
                                     return OrderTile(
-                                      bill: int.tryParse(data['receiptNo'].toString()) ?? 0,
-                                      amount: (data['finalTotal'] as num).toInt(),
-                                      time: DateFormat('dd/MM/yy hh:mm a').format(data['createdAt'].toDate()),
-                                      typeText: _orderTypeText(data['orderType']),
-                                      typeColor: _orderTypeColor(data['orderType']),
+                                      bill: data['billNumber'] ?? data['id'] ?? '0',
+                                      amount: ((data['finalAmount'] ?? data['final_total'] ?? data['sub_total'] ?? 0)
+                                              as num)
+                                          .toInt(),
+                                      time: timeStr,
+                                      typeText: _orderTypeText(data['orderType'] ?? data['order_type'] ?? 'all'),
+                                      typeColor: _orderTypeColor(data['orderType'] ?? data['order_type'] ?? 'all'),
                                       onTap: () async {
-                                        final shopData = await _getShopData();
-                                        final data = orders[index];
-
+                                        final prefs = await SharedPreferences.getInstance();
+                                        final items = (data['items'] as List<dynamic>? ?? [])
+                                            .map((e) => Map<String, dynamic>.from(e as Map))
+                                            .toList();
                                         // ignore: use_build_context_synchronously
                                         Navigator.push(
                                           context,
                                           MaterialPageRoute(
                                             builder: (context) => ReceiptPreviewOnlyWidget(
                                               userPhoneNumber: widget.phoneNo,
-                                              shopName: shopData['shopName']!,
-                                              address: shopData['address']!,
-                                              contact: shopData['contact']!,
-                                              receiptNo: data['receiptNo'].toString(),
-                                              dateTime: data['createdAt'].toDate(),
-                                              items: List<Map<String, dynamic>>.from(data['items']),
-                                              subTotal: (data['subTotal'] as num).toDouble(),
-                                              finalTotal: (data['finalTotal'] as num).toDouble(),
-                                              discountAmount: (data['discountAmount'] ?? 0).toDouble(),
+                                              shopName: prefs.getString('shopName') ?? 'Shop Name',
+                                              address: prefs.getString('address') ?? 'Address',
+                                              contact: prefs.getString('contact') ?? 'Contact',
+                                              receiptNo: (data['billNumber'] ?? '').toString(),
+                                              dateTime: DateTime.fromMillisecondsSinceEpoch(
+                                                  dateMs is int ? dateMs : int.tryParse(dateMs.toString()) ?? 0),
+                                              items: items,
+                                              subTotal: ((data['totalAmount'] ??
+                                                      data['subTotal'] ??
+                                                      data['sub_total'] ??
+                                                      0) as num)
+                                                  .toDouble(),
+                                              finalTotal: ((data['finalAmount'] ??
+                                                      data['final_total'] ??
+                                                      data['sub_total'] ??
+                                                      0) as num)
+                                                  .toDouble(),
+                                              discountAmount:
+                                                  ((data['discount'] ?? data['discount_amount'] ?? 0) as num)
+                                                      .toDouble(),
                                               roundOff: 0,
-                                              taxEnabled: data['taxEnabled'] ?? false,
-                                              cgstPercent: (data['cgstPercent'] ?? 0).toDouble(),
-                                              sgstPercent: (data['sgstPercent'] ?? 0).toDouble(),
-                                              paymentType: data['paymentType'],
-                                              orderType: _orderTypeText(data['orderType']),
-                                              customerName: data['customerName'],
-                                              customerPhone: data['customerPhone'],
-                                              customerGst: data['customerGst'],
-                                              customerAddress: data['customerAddress'],
-                                              note: data['customerNote'],
+                                              taxEnabled: (data['tax'] ?? 0) > 0 || data['tax_enabled'] == 1,
+                                              cgstPercent: ((data['cgst_percent'] ?? 0) as num).toDouble(),
+                                              sgstPercent: ((data['sgst_percent'] ?? 0) as num).toDouble(),
+                                              paymentType: data['payment_type'] ?? 'cash',
+                                              orderType: _orderTypeText(data['orderType'] ?? data['order_type'] ?? ''),
+                                              customerName: data['customer_name'],
+                                              customerPhone: data['customer_phone'],
+                                              customerGst: data['customer_gst'],
+                                              customerAddress: data['customer_address'],
+                                              note: data['customer_note'],
                                             ),
                                           ),
                                         );
                                       },
                                       onPrint: () {
-                                        final rawItems = data['items'] as List<dynamic>;
-                                        final items = rawItems.map((e) => Map<String, dynamic>.from(e)).toList();
-
+                                        final rawItems = data['items'] as List<dynamic>? ?? [];
+                                        final items = rawItems.map((e) => Map<String, dynamic>.from(e as Map)).toList();
                                         _handlePrint(
                                           items: items,
-                                          subTotal: (data['subTotal'] as num).toDouble(),
-                                          customerName: data['customerName'] ?? '',
-                                          customerPhone: data['customerPhone'] ?? '',
-                                          customerGst: data['customerGst'] ?? '',
-                                          customerNote: data['customerNote'] ?? '',
-                                          customerAddress: data['customerAddress'] ?? '',
-                                          discountAmount: (data['discountAmount'] ?? 0).toDouble(),
-                                          discountPercent: (data['discountPercent'] ?? 0).toDouble(),
-                                          receiptNo: data['receiptNo'].toString(),
-                                          orderType: data['orderType'],
-                                          paymentType: data['paymentType'],
+                                          subTotal: ((data['totalAmount'] ?? data['subTotal'] ?? data['sub_total'] ?? 0)
+                                                  as num)
+                                              .toDouble(),
+                                          customerName: data['customer_name'] ?? '',
+                                          customerPhone: data['customer_phone'] ?? '',
+                                          customerGst: data['customer_gst'] ?? '',
+                                          customerNote: data['customer_note'] ?? '',
+                                          customerAddress: data['customer_address'] ?? '',
+                                          discountAmount:
+                                              ((data['discount'] ?? data['discount_amount'] ?? 0) as num).toDouble(),
+                                          discountPercent: ((data['discount_percent'] ?? 0) as num).toDouble(),
+                                          receiptNo: data['billNumber']?.toString() ?? '',
+                                          orderType: data['orderType'] ?? data['order_type'] ?? '',
+                                          paymentType: data['payment_type'] ?? 'cash',
                                         );
                                       },
                                     );
@@ -703,14 +656,18 @@ class _InfoCard extends StatelessWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(title, style: TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: 18)),
+                        MyText(text: title, color: color, fontWeight: FontWeight.w600, fontSize: 18),
                         Icon(icon, color: color),
                       ],
                     ),
                     const SizedBox(height: 8),
-                    Text(value,
-                        style: TextStyle(
-                            fontSize: 22, fontWeight: FontWeight.bold, color: color, overflow: TextOverflow.ellipsis)),
+                    MyText(
+                      text: value,
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: color,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ],
                 ),
               ),
@@ -745,9 +702,11 @@ class _TabButton extends StatelessWidget {
           borderRadius: BorderRadius.circular(25),
         ),
         alignment: Alignment.center,
-        child: Text(
-          title,
-          style: TextStyle(color: active ? Colors.white : Colors.black, fontWeight: FontWeight.w600, fontSize: 18),
+        child: MyText(
+          text: title,
+          color: active ? Colors.white : Colors.black,
+          fontWeight: FontWeight.w600,
+          fontSize: 18,
         ),
       ),
     );
@@ -756,7 +715,7 @@ class _TabButton extends StatelessWidget {
 
 /// ORDER TILE
 class OrderTile extends StatelessWidget {
-  final int bill;
+  final String bill;
   final int amount;
   final String time;
   final bool edited;
@@ -794,7 +753,7 @@ class OrderTile extends StatelessWidget {
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Row(children: [
-                  Text('Bill No. $bill', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                  MyText(text: '$bill', fontWeight: FontWeight.bold, fontSize: 15),
                   const SizedBox(width: 15),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 4),
@@ -802,23 +761,21 @@ class OrderTile extends StatelessWidget {
                       color: typeColor,
                       borderRadius: BorderRadius.circular(15),
                     ),
-                    child: Text(
-                      typeText,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    child: MyText(
+                      text: typeText,
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ]),
                 const SizedBox(height: 6),
-                Text('$time${edited ? '  Edited' : ''}', style: const TextStyle(fontSize: 13, color: Colors.grey)),
+                MyText(text: '$time${edited ? '  Edited' : ''}', fontSize: 13, color: Colors.grey),
               ]),
             ),
             Column(
               children: [
-                Text('₹$amount', style: const TextStyle(fontSize: 21, fontWeight: FontWeight.bold)),
+                MyText(text: '₹$amount', fontSize: 21, fontWeight: FontWeight.bold),
                 IconButton(
                   onPressed: onPrint,
                   icon: Icon(Icons.local_print_shop_outlined, color: appbar1),
@@ -870,20 +827,16 @@ class KOTTile extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'KOT',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Colors.grey,
-                  fontWeight: FontWeight.w500,
-                ),
+              const MyText(
+                text: 'KOT',
+                fontSize: 11,
+                color: Colors.grey,
+                fontWeight: FontWeight.w500,
               ),
-              Text(
-                '#$kotNo',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+              MyText(
+                text: '#$kotNo',
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
               ),
             ],
           ),
@@ -903,13 +856,14 @@ class KOTTile extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'TABLE',
-                style: TextStyle(fontSize: 11, color: Colors.grey),
+              const MyText(
+                text: 'TABLE',
+                fontSize: 11,
+                color: Colors.grey,
               ),
-              Text(
-                table,
-                style: const TextStyle(fontWeight: FontWeight.w600),
+              MyText(
+                text: table,
+                fontWeight: FontWeight.w600,
               ),
             ],
           ),
@@ -923,12 +877,10 @@ class KOTTile extends StatelessWidget {
               color: appbar1.withOpacity(0.1),
               borderRadius: BorderRadius.circular(20),
             ),
-            child: Text(
-              '$items Items',
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                color: appbar1,
-              ),
+            child: MyText(
+              text: '$items Items',
+              fontWeight: FontWeight.w600,
+              color: appbar1,
             ),
           ),
         ],

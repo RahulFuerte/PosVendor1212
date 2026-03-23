@@ -3,6 +3,7 @@ import 'dart:async';
 
 // Flutter imports:
 import 'package:flutter/material.dart';
+import 'package:pos/core/widgets/text.dart';
 
 // Package imports:
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -105,15 +106,13 @@ class _OfflineStatusIndicatorState extends State<OfflineStatusIndicator> {
                 : (widget.onlineColor ?? appbar1),
           ),
           const SizedBox(width: 4),
-          Text(
-            !_isOnline ? 'Offline' : 'Online',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: !_isOnline 
-                  ? (widget.offlineColor ?? Colors.orange)
-                  : (widget.onlineColor ?? appbar1),
-            ),
+          MyText(
+            text: !_isOnline ? 'Offline' : 'Online',
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: !_isOnline 
+                ? (widget.offlineColor ?? Colors.orange)
+                : (widget.onlineColor ?? appbar1),
           ),
           if (!_isOnline && _pendingItemsCount > 0) ...[
             const SizedBox(width: 4),
@@ -123,13 +122,11 @@ class _OfflineStatusIndicatorState extends State<OfflineStatusIndicator> {
                 color: widget.offlineColor ?? Colors.orange,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Text(
-                '$_pendingItemsCount',
-                style: const TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
+              child: MyText(
+                text: '$_pendingItemsCount',
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
               ),
             ),
           ],

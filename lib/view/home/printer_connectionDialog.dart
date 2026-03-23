@@ -4,6 +4,7 @@ import 'dart:io';
 
 // Flutter imports:
 import 'package:flutter/material.dart';
+import 'package:pos/core/widgets/text.dart';
 
 // Package imports:
 import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
@@ -146,7 +147,7 @@ class _PrinterConnectionDialogState extends State<PrinterConnectionDialog> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Printer connected successfully!'),
+            content: MyText(text: 'Printer connected successfully!'),
             backgroundColor: Colors.green,
           ),
         );
@@ -159,7 +160,7 @@ class _PrinterConnectionDialogState extends State<PrinterConnectionDialog> {
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Connection failed: $e'),
+            content: MyText(text: 'Connection failed: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -179,9 +180,10 @@ class _PrinterConnectionDialogState extends State<PrinterConnectionDialog> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  'Connect Printer',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                const MyText(
+                  text: 'Connect Printer',
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
                 ),
                 IconButton(
                   icon: const Icon(Icons.close),
@@ -198,8 +200,8 @@ class _PrinterConnectionDialogState extends State<PrinterConnectionDialog> {
                 border: OutlineInputBorder(),
               ),
               items: const [
-                DropdownMenuItem(value: PaperSize.mm58, child: Text("58mm")),
-                DropdownMenuItem(value: PaperSize.mm80, child: Text("80mm")),
+                DropdownMenuItem(value: PaperSize.mm58, child: MyText(text: "58mm")),
+                DropdownMenuItem(value: PaperSize.mm80, child: MyText(text: "80mm")),
               ],
               onChanged: (value) {
                 if (value != null) {
@@ -221,16 +223,16 @@ class _PrinterConnectionDialogState extends State<PrinterConnectionDialog> {
                 if (Platform.isAndroid || Platform.isIOS)
                   const DropdownMenuItem(
                     value: PrinterType.bluetooth,
-                    child: Text("Bluetooth"),
+                    child: MyText(text: "Bluetooth"),
                   ),
                 if (Platform.isAndroid || Platform.isWindows)
                   const DropdownMenuItem(
                     value: PrinterType.usb,
-                    child: Text("USB"),
+                    child: MyText(text: "USB"),
                   ),
                 const DropdownMenuItem(
                   value: PrinterType.network,
-                  child: Text("WiFi"),
+                  child: MyText(text: "WiFi"),
                 ),
               ],
               onChanged: (value) {
@@ -256,9 +258,9 @@ class _PrinterConnectionDialogState extends State<PrinterConnectionDialog> {
               //   },
               // ),
               const SizedBox(height: 16),
-            const Text(
-              'Available Devices:',
-              style: TextStyle(fontWeight: FontWeight.bold),
+            const MyText(
+              text: 'Available Devices:',
+              fontWeight: FontWeight.bold,
             ),
             const Divider(),
             Expanded(
@@ -276,9 +278,9 @@ class _PrinterConnectionDialogState extends State<PrinterConnectionDialog> {
                             Icons.print,
                             color: isSelected ? Colors.green : null,
                           ),
-                          title: Text(device.deviceName ?? 'Unknown'),
+                          title: MyText(text: device.deviceName ?? 'Unknown'),
                           subtitle: device.address != null
-                              ? Text(device.address!)
+                              ? MyText(text: device.address!)
                               : null,
                           trailing: isSelected
                               ? const Icon(Icons.check_circle,
@@ -305,7 +307,7 @@ class _PrinterConnectionDialogState extends State<PrinterConnectionDialog> {
                       )
                     : const Icon(Icons.link),
                 label:
-                    Text(_isConnecting ? 'Connecting...' : 'Connect Printer'),
+                    MyText(text: _isConnecting ? 'Connecting...' : 'Connect Printer'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.green,
                   foregroundColor: Colors.white,

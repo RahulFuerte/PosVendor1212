@@ -1,19 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_functions/cloud_functions.dart';
+import 'package:pos/core/widgets/text.dart';
 
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:pos/view/tab_screen/view-model/frontend/snack_bar.dart';
-import 'package:provider/provider.dart';
-import 'package:pos/data/datasources/remote/phone_authentication.dart';
-import 'package:pos/view/login/providers/login_provider.dart';
 import 'package:flutter/services.dart';
 import 'new_admin_screen.dart';
 
-// Assuming appbar1 is defined globally or we define it locally if not accessible.
-// Ideally we import it, but for now defining it here to match the requested style or importing if I knew the path.
-// Based on grep, it's in navigation.dart, but importing that might bring circular deps or unused code.
-// I will just use the color directly or import if possible.
-// To be safe and quick, I'll use the color value found: Color.fromARGB(255, 12, 107, 15)
 const Color appColor = Color.fromARGB(255, 12, 107, 15);
 
 class PlanSelectionScreen extends StatefulWidget {
@@ -36,7 +26,6 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
   int selectedTrialDays = 30; // Default to 30 Days
   String selectedPlan = "Standard"; // Default to Standard
   final TextEditingController adminCodeController = TextEditingController();
-  bool isOtpSent = false;
   bool isVerifying = false;
 
   final List<int> trialOptions = [7, 30, 60];
@@ -47,8 +36,7 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
       "name": "Basic",
       "price": "₹3650",
       "subtitle": "/ year",
-      "description":
-          "Perfect for starters", // Placeholder as image content is cut off or generic
+      "description": "Perfect for starters", // Placeholder as image content is cut off or generic
     },
     {
       "name": "Standard",
@@ -76,9 +64,10 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
           icon: const Icon(Icons.arrow_back_ios, color: Colors.black),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
-          "Choose Your Plan",
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+        title: const MyText(
+          text: "Choose Your Plan",
+          color: Colors.black,
+          fontWeight: FontWeight.bold,
         ),
         centerTitle: true,
       ),
@@ -89,26 +78,25 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               const SizedBox(height: 10),
-              const Text(
-                "Unlock Invoice Pro",
-                style: TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87),
+              const MyText(
+                text: "Unlock Invoice Pro",
+                fontSize: 26,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
               ),
               const SizedBox(height: 8),
-              const Text(
-                "Start your journey with a free trial.",
-                style: TextStyle(fontSize: 16, color: Colors.green),
+              const MyText(
+                text: "Start your journey with a free trial.",
+                fontSize: 16,
+                color: Colors.green,
               ),
               const SizedBox(height: 30),
 
-              const Text(
-                "SELECT TRIAL DURATION",
-                style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.green),
+              const MyText(
+                text: "SELECT TRIAL DURATION",
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: Colors.green,
               ),
               const SizedBox(height: 15),
 
@@ -120,36 +108,25 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
                   return GestureDetector(
                     onTap: () => setState(() => selectedTrialDays = days),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 24, vertical: 12),
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                       decoration: BoxDecoration(
-                        color: isSelected
-                            ? const Color(0xFF1ED760)
-                            : Colors.white, // Bright green if selected
+                        color: isSelected ? const Color(0xFF1ED760) : Colors.white, // Bright green if selected
                         borderRadius: BorderRadius.circular(25),
                         boxShadow: isSelected
                             ? [
                                 BoxShadow(
-                                    color: Colors.green.withOpacity(0.4),
-                                    blurRadius: 10,
-                                    offset: const Offset(0, 5))
+                                    color: Colors.green.withOpacity(0.4), blurRadius: 10, offset: const Offset(0, 5))
                               ]
                             : [
                                 BoxShadow(
-                                    color: Colors.grey.withOpacity(0.1),
-                                    blurRadius: 4,
-                                    offset: const Offset(0, 2))
+                                    color: Colors.grey.withOpacity(0.1), blurRadius: 4, offset: const Offset(0, 2))
                               ],
-                        border: isSelected
-                            ? null
-                            : Border.all(color: Colors.grey.shade300),
+                        border: isSelected ? null : Border.all(color: Colors.grey.shade300),
                       ),
-                      child: Text(
-                        "$days Days",
-                        style: TextStyle(
-                          color: isSelected ? Colors.black : Colors.black87,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      child: MyText(
+                        text: "$days Days",
+                        color: isSelected ? Colors.black : Colors.black87,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   );
@@ -158,12 +135,11 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
 
               const SizedBox(height: 40),
 
-              const Text(
-                "UNIQUE ADMIN CODE",
-                style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.green),
+              const MyText(
+                text: "UNIQUE ADMIN CODE",
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: Colors.green,
               ),
               const SizedBox(height: 15),
 
@@ -188,67 +164,6 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
                   ),
                 ),
               ),
-
-              if (isOtpSent) ...[
-                const SizedBox(height: 30),
-                const Text(
-                  "ENTER OTP",
-                  style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.green),
-                ),
-                const SizedBox(height: 15),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: List.generate(6, (index) {
-                    final lp = context.read<LoginProvider>();
-                    return SizedBox(
-                      width: 45,
-                      child: TextField(
-                        controller: lp.controllers[index],
-                        textAlign: TextAlign.center,
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          LengthLimitingTextInputFormatter(1),
-                          FilteringTextInputFormatter.digitsOnly,
-                        ],
-                        decoration: InputDecoration(
-                          fillColor: Colors.white,
-                          filled: true,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: BorderSide(color: Colors.grey.shade300),
-                          ),
-                        ),
-                        onChanged: (value) {
-                          if (value.length == 1 && index < 5) {
-                            FocusScope.of(context).nextFocus();
-                          }
-                          if (value.isEmpty && index > 0) {
-                            FocusScope.of(context).previousFocus();
-                          }
-                        },
-                      ),
-                    );
-                  }),
-                ),
-                const SizedBox(height: 10),
-                TextButton(
-                  onPressed: () async {
-                    final lp = context.read<LoginProvider>();
-                    lp.setPhone = "+91${widget.phone}";
-                    PhoneAuthentication pa = PhoneAuthentication(
-                      context: context,
-                      mounted: mounted,
-                      lp: lp,
-                    );
-                    await pa.sendPhoneOtp(skipDocCheck: true);
-                  },
-                  child: const Text("Resend OTP",
-                      style: TextStyle(color: Colors.green)),
-                ),
-              ],
 
               const SizedBox(height: 30),
 
@@ -279,8 +194,7 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(20),
                             border: isSelected || isPopular
-                                ? Border.all(
-                                    color: const Color(0xFF1ED760), width: 2)
+                                ? Border.all(color: const Color(0xFF1ED760), width: 2)
                                 : Border.all(color: Colors.transparent),
                             boxShadow: [
                               BoxShadow(
@@ -296,35 +210,31 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
                               Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    plan['name'],
-                                    style: const TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold),
+                                  MyText(
+                                    text: plan['name'],
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
                                   ),
                                   const SizedBox(height: 5),
-                                  Text(
-                                    plan['description'] ?? "",
-                                    style: TextStyle(
-                                        fontSize: 13,
-                                        color: Colors.grey.shade500),
+                                  MyText(
+                                    text: plan['description'] ?? "",
+                                    fontSize: 13,
+                                    color: Colors.grey.shade500,
                                   ),
                                 ],
                               ),
                               Column(
                                 crossAxisAlignment: CrossAxisAlignment.end,
                                 children: [
-                                  Text(
-                                    plan['price'],
-                                    style: const TextStyle(
-                                        fontSize: 24,
-                                        fontWeight: FontWeight.bold),
+                                  MyText(
+                                    text: plan['price'],
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.bold,
                                   ),
-                                  Text(
-                                    plan['subtitle'],
-                                    style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey.shade500),
+                                  MyText(
+                                    text: plan['subtitle'],
+                                    fontSize: 12,
+                                    color: Colors.grey.shade500,
                                   ),
                                 ],
                               ),
@@ -338,18 +248,16 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
                             right: 0,
                             child: Center(
                               child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 16, vertical: 4),
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                                 decoration: BoxDecoration(
                                   color: const Color(0xFF1ED760),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
-                                child: const Text(
-                                  "MOST POPULAR",
-                                  style: TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.black),
+                                child: const MyText(
+                                  text: "MOST POPULAR",
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black,
                                 ),
                               ),
                             ),
@@ -365,9 +273,10 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
               // Features List
               const Align(
                 alignment: Alignment.centerLeft,
-                child: Text(
-                  "Included in Standard:",
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                child: MyText(
+                  text: "Included in Standard:",
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
               const SizedBox(height: 15),
@@ -378,134 +287,134 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
               const SizedBox(height: 30),
 
               // Register Button
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1ED760),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    elevation: 5,
-                    shadowColor: Colors.green.withOpacity(0.4),
-                  ),
-                  onPressed: () async {
-                    final lp = context.read<LoginProvider>();
-                    lp.setPhone = "+91${widget.phone}";
-                    PhoneAuthentication pa = PhoneAuthentication(
-                      context: context,
-                      mounted: mounted,
-                      lp: lp,
-                    );
+              // SizedBox(
+              //   width: double.infinity,
+              //   height: 56,
+              //   child: ElevatedButton(
+              //     style: ElevatedButton.styleFrom(
+              //       backgroundColor: const Color(0xFF1ED760),
+              //       shape: RoundedRectangleBorder(
+              //         borderRadius: BorderRadius.circular(14),
+              //       ),
+              //       elevation: 5,
+              //       shadowColor: Colors.green.withOpacity(0.4),
+              //     ),
+              //     onPressed: () async {
+              //       final lp = context.read<LoginProvider>();
+              //       lp.setPhone = "+91${widget.phone}";
+              //       PhoneAuthentication pa = PhoneAuthentication(
+              //         context: context,
+              //         mounted: mounted,
+              //         lp: lp,
+              //       );
 
-                    if (!isOtpSent) {
-                      // 1. SEND OTP
-                      showDialog(
-                        context: context,
-                        barrierDismissible: false,
-                        builder: (context) => const Center(
-                          child: CircularProgressIndicator(),
-                        ),
-                      );
+              //       if (!isOtpSent) {
+              //         // 1. SEND OTP
+              //         showDialog(
+              //           context: context,
+              //           barrierDismissible: false,
+              //           builder: (context) => const Center(
+              //             child: CircularProgressIndicator(),
+              //           ),
+              //         );
 
-                      String result = await pa.sendPhoneOtp(skipDocCheck: true);
-                      if (context.mounted)
-                        Navigator.pop(context); // Close loader
+              //         String result = await pa.sendPhoneOtp(skipDocCheck: true);
+              //         if (context.mounted)
+              //           Navigator.pop(context); // Close loader
 
-                      if (result.isEmpty ||
-                          result == "OTP sent successfully.") {
-                        setState(() {
-                          isOtpSent = true;
-                        });
-                      } else {
-                        if (context.mounted) {
-                          CustomSnackBar(context).build(result);
-                        }
-                      }
-                      return;
-                    }
+              //         if (result.isEmpty ||
+              //             result == "OTP sent successfully.") {
+              //           setState(() {
+              //             isOtpSent = true;
+              //           });
+              //         } else {
+              //           if (context.mounted) {
+              //             CustomSnackBar(context).build(result);
+              //           }
+              //         }
+              //         return;
+              //       }
 
-                    // 2. VERIFY OTP & REGISTER
-                    try {
-                      showDialog(
-                        context: context,
-                        barrierDismissible: false,
-                        builder: (context) => const Center(
-                          child: CircularProgressIndicator(),
-                        ),
-                      );
+              //       // 2. VERIFY OTP & REGISTER
+              //       try {
+              //         showDialog(
+              //           context: context,
+              //           barrierDismissible: false,
+              //           builder: (context) => const Center(
+              //             child: CircularProgressIndicator(),
+              //           ),
+              //         );
 
-                      User? user = await pa.verifyOtpOnly();
+              //         User? user = await pa.verifyOtpOnly();
 
-                      if (user == null) {
-                        if (context.mounted) Navigator.pop(context);
-                        if (context.mounted) {
-                          CustomSnackBar(context)
-                              .build("Invalid OTP. Please try again.");
-                        }
-                        return;
-                      }
+              //         if (user == null) {
+              //           if (context.mounted) Navigator.pop(context);
+              //           if (context.mounted) {
+              //             CustomSnackBar(context)
+              //                 .build("Invalid OTP. Please try again.");
+              //           }
+              //           return;
+              //         }
 
-                      // 🛠️ CALL CLOUD FUNCTION
-                      HttpsCallable callable = FirebaseFunctions.instance
-                          .httpsCallable('registerSpecificAdmin');
+              //         // 🛠️ CALL CLOUD FUNCTION
+              //         HttpsCallable callable = FirebaseFunctions.instance
+              //             .httpsCallable('registerSpecificAdmin');
 
-                      final result = await callable.call({
-                        "adminCode": adminCodeController.text.trim(),
-                        "package":
-                            selectedPlan, // Defaulting to trial as per design
-                        "trialDays": selectedTrialDays,
-                      });
+              //         final result = await callable.call({
+              //           "adminCode": adminCodeController.text.trim(),
+              //           "package":
+              //               selectedPlan, // Defaulting to trial as per design
+              //           "trialDays": selectedTrialDays,
+              //         });
 
-                      if (context.mounted)
-                        Navigator.pop(context); // Close loading dialog
+              //         if (context.mounted)
+              //           Navigator.pop(context); // Close loading dialog
 
-                      if (result.data['success'] == true) {
-                        // 1. Force refresh to get the new 'admin' claim
-                        await user.getIdToken(true);
+              //         if (result.data['success'] == true) {
+              //           // 1. Force refresh to get the new 'admin' claim
+              //           await user.getIdToken(true);
 
-                        if (context.mounted) {
-                          CustomSnackBar(context).build(result.data['message']);
-                          // Success! Navigate to Admin Dashboard
-                          Navigator.pushAndRemoveUntil(
-                            context,
-                            MaterialPageRoute(
-                                builder: (context) => const NewAdminScreen()),
-                            (route) => false,
-                          );
-                        }
-                      } else {
-                        if (context.mounted) {
-                          CustomSnackBar(context).build(result.data['message']);
-                        }
-                      }
-                    } catch (e) {
-                      if (context.mounted) Navigator.pop(context);
-                      if (context.mounted) {
-                        CustomSnackBar(context).build("Error: ${e.toString()}");
-                      }
-                    }
-                  },
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        isOtpSent
-                            ? "VERIFY & REGISTER"
-                            : "REGISTER & START TRIAL",
-                        style: const TextStyle(
-                          color: Colors.black,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      const Icon(Icons.arrow_forward, color: Colors.black),
-                    ],
-                  ),
-                ),
-              ),
+              //           if (context.mounted) {
+              //             CustomSnackBar(context).build(result.data['message']);
+              //             // Success! Navigate to Admin Dashboard
+              //             Navigator.pushAndRemoveUntil(
+              //               context,
+              //               MaterialPageRoute(
+              //                   builder: (context) => const NewAdminScreen()),
+              //               (route) => false,
+              //             );
+              //           }
+              //         } else {
+              //           if (context.mounted) {
+              //             CustomSnackBar(context).build(result.data['message']);
+              //           }
+              //         }
+              //       } catch (e) {
+              //         if (context.mounted) Navigator.pop(context);
+              //         if (context.mounted) {
+              //           CustomSnackBar(context).build("Error: ${e.toString()}");
+              //         }
+              //       }
+              //     },
+              //     child: Row(
+              //       mainAxisAlignment: MainAxisAlignment.center,
+              //       children: [
+              //         Text(
+              //           isOtpSent
+              //               ? "VERIFY & REGISTER"
+              //               : "REGISTER & START TRIAL",
+              //           style: const TextStyle(
+              //             color: Colors.black,
+              //             fontWeight: FontWeight.bold,
+              //             fontSize: 16,
+              //           ),
+              //         ),
+              //         const SizedBox(width: 8),
+              //         const Icon(Icons.arrow_forward, color: Colors.black),
+              //       ],
+              //     ),
+              //   ),
+              // ),
 
               const SizedBox(height: 30),
             ],
@@ -522,9 +431,10 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
         children: [
           const Icon(Icons.check_circle, color: Color(0xFF1ED760), size: 24),
           const SizedBox(width: 12),
-          Text(
-            text,
-            style: const TextStyle(fontSize: 15, color: Colors.black87),
+          MyText(
+            text: text,
+            fontSize: 15,
+            color: Colors.black87,
           ),
         ],
       ),

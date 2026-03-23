@@ -3,6 +3,7 @@ import 'dart:async';
 
 // Flutter imports:
 import 'package:flutter/material.dart';
+import 'package:pos/core/widgets/text.dart';
 
 import '../../../../data/datasources/sync_manager.dart';
 
@@ -215,33 +216,27 @@ class _SyncProgressDialogState extends State<SyncProgressDialog>
   Widget _buildStatusText() {
     return Column(
       children: [
-        Text(
-          _currentOperation ?? 'Initializing...',
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-          ),
+        MyText(
+          text: _currentOperation ?? 'Initializing...',
+          fontSize: 16,
+          fontWeight: FontWeight.w500,
           textAlign: TextAlign.center,
         ),
         if (_itemsSynced > 0) ...[
           const SizedBox(height: 8),
-          Text(
-            '$_itemsSynced items synced',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[600],
-            ),
+          MyText(
+            text: '$_itemsSynced items synced',
+            fontSize: 14,
+            color: Colors.grey[600],
             textAlign: TextAlign.center,
           ),
         ],
         if (_lastResult?.errorMessage != null) ...[
           const SizedBox(height: 8),
-          Text(
-            _lastResult!.errorMessage!,
-            style: const TextStyle(
-              fontSize: 12,
-              color: Colors.red,
-            ),
+          MyText(
+            text: _lastResult!.errorMessage!,
+            fontSize: 12,
+            color: Colors.red,
             textAlign: TextAlign.center,
           ),
         ],
@@ -256,11 +251,11 @@ class _SyncProgressDialogState extends State<SyncProgressDialog>
         children: [
           TextButton(
             onPressed: _cancelSync,
-            child: const Text('Cancel'),
+            child: const MyText(text: 'Cancel'),
           ),
           ElevatedButton(
             onPressed: _retrySync,
-            child: const Text('Retry'),
+            child: const MyText(text: 'Retry'),
           ),
         ],
       );
@@ -269,7 +264,7 @@ class _SyncProgressDialogState extends State<SyncProgressDialog>
     if (_currentStatus == SyncOperationStatus.syncing || _currentStatus == SyncOperationStatus.retrying) {
       return TextButton(
         onPressed: _cancelSync,
-        child: const Text('Cancel'),
+        child: const MyText(text: 'Cancel'),
       );
     }
 
@@ -285,8 +280,8 @@ class _SyncProgressDialogState extends State<SyncProgressDialog>
                _currentStatus != SyncOperationStatus.retrying;
       },
       child: AlertDialog(
-        title: const Text(
-          'Sync Progress',
+        title: const MyText(
+          text: 'Sync Progress',
           textAlign: TextAlign.center,
         ),
         content: SizedBox(

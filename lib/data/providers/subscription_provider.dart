@@ -7,11 +7,28 @@ class SubscriptionProvider extends ChangeNotifier {
   Timer? _timer;
   bool _initialized = false;
 
+  String _status = 'inactive';
+  String _planType = 'free';
+
   Duration? get remaining => _remaining;
   bool get isInitialized => _initialized;
   bool get isExpired => _initialized && _remaining != null && _remaining! <= Duration.zero;
+  String get status => _status;
+  String get planType => _planType;
 
-  void setExpiry(DateTime expiry) {
+  void setExpiry(DateTime? expiry, {String status = 'active', String planType = 'free'}) {
+    _status = status;
+    _planType = planType;
+    
+    if (expiry == null) {
+      _expiryDate = null;
+      _remaining = null;
+      _initialized = true;
+      _timer?.cancel();
+      notifyListeners();
+      return;
+    }
+
     if (_expiryDate == expiry && _initialized) return;
 
     _expiryDate = expiry;

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pos/core/widgets/text.dart';
 import 'package:pos/view/home/navigation.dart';
 import 'package:pos/view/login/screens/new_admin_screen.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
@@ -11,6 +12,14 @@ class RoleSelectionScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios, color: Colors.black),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
@@ -23,20 +32,16 @@ class RoleSelectionScreen extends StatelessWidget {
                 color: primaryColor,
               ),
               const SizedBox(height: 24),
-              const Text(
-                "Select Login Role",
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                ),
+              const MyText(
+                text: "Select Login Role",
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
               ),
               const SizedBox(height: 8),
-              Text(
-                "Logged in as $phone",
-                style: const TextStyle(
-                  color: Colors.grey,
-                  fontSize: 16,
-                ),
+              MyText(
+                text: "Logged in as $phone",
+                color: Colors.grey,
+                fontSize: 16,
               ),
               const SizedBox(height: 48),
               _RoleButton(
@@ -110,20 +115,16 @@ class _RoleButton extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: color,
-                    ),
+                  MyText(
+                    text: title,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: color,
                   ),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: Colors.black54,
-                    ),
+                  MyText(
+                    text: subtitle,
+                    fontSize: 14,
+                    color: Colors.black54,
                   ),
                 ],
               ),

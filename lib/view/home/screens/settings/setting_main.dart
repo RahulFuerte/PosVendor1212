@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pos/core/widgets/text.dart';
 
 class Setting extends StatefulWidget {
   const Setting({super.key});
@@ -12,7 +13,11 @@ class _SettingState extends State<Setting> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Settings"),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios, color: Colors.black),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: const MyText(text: "Settings"),
         centerTitle: true,
       ),
       body: ListView(
@@ -43,13 +48,11 @@ class _SettingState extends State<Setting> {
   Widget _sectionTitle(String title) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: Text(
-        title,
-        style: const TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.bold,
-          color: Colors.grey,
-        ),
+      child: MyText(
+        text: title,
+        fontSize: 14,
+        fontWeight: FontWeight.bold,
+        color: Colors.grey,
       ),
     );
   }
@@ -65,13 +68,12 @@ class _SettingState extends State<Setting> {
   }) {
     return ListTile(
       leading: Icon(icon, color: iconColor ?? Colors.black),
-      title: Text(
-        title,
-        style: TextStyle(color: textColor),
+      title: MyText(
+        text: title,
+        color: textColor,
       ),
       trailing: trailing ?? const Icon(Icons.arrow_forward_ios, size: 16),
       onTap: onTap,
     );
   }
-
 }

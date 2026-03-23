@@ -25,7 +25,7 @@ class ErrorRecoveryService {
   ConnectionMonitor? _connectionMonitor;
   DataIntegrityService? _dataIntegrityService;
   SQLiteDAO? _sqliteDAO;
-  FirebaseDAO? _firebaseDAO;
+  NodeApiDAO? _NodeApiDAO;
 
   bool _isInitialized = false;
   final Map<String, Timer> _retryTimers = {};
@@ -47,13 +47,13 @@ class ErrorRecoveryService {
       _connectionMonitor = ConnectionMonitor();
       _dataIntegrityService = DataIntegrityService();
       _sqliteDAO = SQLiteDAO();
-      _firebaseDAO = FirebaseDAO();
+      _NodeApiDAO = NodeApiDAO();
 
       await _syncManager!.initialize();
       await _connectionMonitor!.initialize();
       await _dataIntegrityService!.initialize();
       await _sqliteDAO!.initialize();
-      await _firebaseDAO!.initialize();
+      await _NodeApiDAO!.initialize();
 
       // Listen for user error notifications and handle automatic recovery
       _userErrorService.notificationStream.listen(_handleUserNotification);
@@ -264,10 +264,10 @@ class ErrorRecoveryService {
   Future<bool> _recoverCloudServiceError() async {
     try {
       // Re-initialize Firebase connection
-      await _firebaseDAO!.initialize();
+      await _NodeApiDAO!.initialize();
       
       // Test connection with a simple operation
-      // This would depend on having a test method in FirebaseDAO
+      // This would depend on having a test method in NodeApiDAO
       
       // If successful, trigger sync
       final syncResult = await _syncManager!.syncPendingData();

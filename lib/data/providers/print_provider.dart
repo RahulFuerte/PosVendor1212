@@ -19,6 +19,12 @@ class PrintProvider extends ChangeNotifier {
   String _receiptNumber = '';
   bool isEditBill = false;
   String? editingReceiptNo;
+  String? _customerId;
+  String? _customerName;
+  String? _customerPhone;
+  String? _customerGst;
+  String? _customerAddress;
+  String? _customerNote;
 
   // Printer connection state
   bool _isConnected = false;
@@ -42,6 +48,12 @@ class PrintProvider extends ChangeNotifier {
   bool get taxEnabled => _taxEnabled;
   double get cgstPercent => _cgstPercent;
   double get sgstPercent => _sgstPercent;
+  String? get customerId => _customerId;
+  String? get customerName => _customerName;
+  String? get customerPhone => _customerPhone;
+  String? get customerGst => _customerGst;
+  String? get customerAddress => _customerAddress;
+  String? get customerNote => _customerNote;
 
   PrintProvider() {
     _loadTaxSettings();
@@ -113,6 +125,29 @@ class PrintProvider extends ChangeNotifier {
     _posts = [];
     _total = 0;
     _receiptNumber = '';
+    _customerId = null;
+    _customerName = null;
+    _customerPhone = null;
+    _customerGst = null;
+    _customerAddress = null;
+    _customerNote = null;
+    notifyListeners();
+  }
+
+  void setCustomerDetails({
+    String? id,
+    String? name,
+    String? phone,
+    String? gst,
+    String? address,
+    String? note,
+  }) {
+    _customerId = id;
+    _customerName = name;
+    _customerPhone = phone;
+    _customerGst = gst;
+    _customerAddress = address;
+    _customerNote = note;
     notifyListeners();
   }
 

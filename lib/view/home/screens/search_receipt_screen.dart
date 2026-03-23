@@ -1,15 +1,16 @@
+import 'dart:convert';
 // Flutter imports:
 import 'package:flutter/material.dart';
+import 'package:pos/core/widgets/text.dart';
 
 // Package imports:
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:lottie/lottie.dart';
 import 'package:provider/provider.dart';
 
 // Project imports:
+import 'package:pos/data/datasources/local/sqlite_helper.dart';
 import 'package:pos/data/providers/print_provider.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
-
 import '../../../core/utils/price_utils.dart';
 
 class SearchReceiptScreen extends StatefulWidget {
@@ -25,7 +26,7 @@ class SearchReceiptScreen extends StatefulWidget {
 }
 
 class _SearchReceiptScreenState extends State<SearchReceiptScreen> {
-  final FirebaseFirestore firestore = FirebaseFirestore.instance;
+  final SQLiteHelper _sqliteHelper = SQLiteHelper();
   String receiptNo = '';
   String adminUid = '';
   TextEditingController receiptNoController = TextEditingController();
@@ -33,25 +34,72 @@ class _SearchReceiptScreenState extends State<SearchReceiptScreen> {
   bool isTapped = false;
   bool isLoading = false;
   bool hasSearched = false;
+  Map<String, dynamic>? foundBill;
 
   Future<String> fetchAdminUid() async {
     try {
-      DocumentSnapshot<Map<String, dynamic>> snapshot =
-          await FirebaseFirestore.instance.collection('AllCustomer').doc(widget.phoneNumber).get();
-
-      final String? fetchedAdminUid = snapshot.data()?['adminUid'];
-
-      setState(() {
-        adminUid = fetchedAdminUid ?? 'Admin UID not found';
-      });
-
-      return fetchedAdminUid ?? 'Admin UID not found';
+      // Try SQLite cache first
+      final sqliteHelper = SQLiteHelper();
+      final cachedUid = await sqliteHelper.getAdminUid(widget.phoneNumber);
+      if (cachedUid != null && cachedUid.isNotEmpty) {
+        setState(() => adminUid = cachedUid);
+        return cachedUid;
+      }
+      // Fallback to phoneNumber as adminUid
+      setState(() => adminUid = widget.phoneNumber);
+      return widget.phoneNumber;
     } catch (e) {
       print('Error fetching adminUid: $e');
+      setState(() => adminUid = widget.phoneNumber);
+      return widget.phoneNumber;
+    }
+  }
+
+  Future<void> _searchReceipt() async {
+    if (receiptNo.isEmpty || selectedDate == null) return;
+    setState(() {
+      isLoading = true;
+      foundBill = null;
+    });
+    try {
+      final dayStart = DateTime(selectedDate!.year, selectedDate!.month, selectedDate!.day).millisecondsSinceEpoch;
+      final dayEnd = DateTime(selectedDate!.year, selectedDate!.month, selectedDate!.day)
+          .add(const Duration(days: 1))
+          .millisecondsSinceEpoch;
+      final db = (await _sqliteHelper.database);
+      // Try bills table
+      List<Map<String, dynamic>> results = [];
+      try {
+        results = await db.query(
+          'bills',
+          where: 'admin_uid = ? AND (receipt_no = ? OR id = ?) AND bill_date BETWEEN ? AND ?',
+          whereArgs: [widget.phoneNumber, receiptNo, receiptNo, dayStart, dayEnd],
+          limit: 1,
+        );
+      } catch (_) {}
+      // Fallback to orders table
+      if (results.isEmpty) {
+        try {
+          results = await db.query(
+            'orders',
+            where: 'admin_uid = ? AND (receipt_no = ? OR id = ?) AND bill_date BETWEEN ? AND ?',
+            whereArgs: [widget.phoneNumber, receiptNo, receiptNo, dayStart, dayEnd],
+            limit: 1,
+          );
+        } catch (_) {}
+      }
       setState(() {
-        adminUid = 'Error fetching adminUid';
+        foundBill = results.isNotEmpty ? results.first : null;
+        hasSearched = true;
       });
-      return 'Error fetching adminUid';
+    } catch (e) {
+      print('Search failed: $e');
+      setState(() {
+        foundBill = null;
+        hasSearched = true;
+      });
+    } finally {
+      setState(() => isLoading = false);
     }
   }
 
@@ -102,6 +150,10 @@ class _SearchReceiptScreenState extends State<SearchReceiptScreen> {
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios, color: Colors.black),
+          onPressed: () => Navigator.pop(context),
+        ),
         backgroundColor: Colors.white,
         elevation: 0,
         scrolledUnderElevation: 0,
@@ -120,14 +172,12 @@ class _SearchReceiptScreenState extends State<SearchReceiptScreen> {
               ),
             ),
             const SizedBox(width: 12),
-            const Text(
-              'Search Receipt',
-              style: TextStyle(
-                color: Colors.black87,
-                fontFamily: 'tabfont',
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
+            const MyText(
+              text: 'Search Receipt',
+              color: Colors.black87,
+              fontFamily: 'tabfont',
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
             ),
           ],
         ),
@@ -165,13 +215,10 @@ class _SearchReceiptScreenState extends State<SearchReceiptScreen> {
                   ),
                   const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                    child: Text(
-                      'Select date and enter receipt number to view details',
-                      style: TextStyle(
-                        color: Colors.black54,
-                        fontSize: 14,
-                        fontFamily: 'fontmain',
-                      ),
+                    child: MyText(
+                      text: 'Select date and enter receipt number to view details',
+                      color: Colors.black54,
+                      fontSize: 14,
                     ),
                   ),
                 ],
@@ -214,16 +261,14 @@ class _SearchReceiptScreenState extends State<SearchReceiptScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              selectedDate != null
+                            MyText(
+                              text: selectedDate != null
                                   ? '${selectedDate!.day}/${selectedDate!.month}/${selectedDate!.year}'
                                   : 'Select bill date',
-                              style: TextStyle(
-                                fontFamily: 'tabfont',
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: selectedDate != null ? Colors.black87 : Colors.grey[400],
-                              ),
+                              fontFamily: 'tabfont',
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: selectedDate != null ? Colors.black87 : Colors.grey[400],
                             ),
                           ],
                         ),
@@ -321,7 +366,7 @@ class _SearchReceiptScreenState extends State<SearchReceiptScreen> {
                                 children: [
                                   Icon(Icons.date_range, color: Colors.white),
                                   SizedBox(width: 10),
-                                  Text('Please select a bill date first!'),
+                                  const MyText(text: 'Please select a bill date first!'),
                                 ],
                               ),
                             ),
@@ -341,7 +386,7 @@ class _SearchReceiptScreenState extends State<SearchReceiptScreen> {
                                 children: [
                                   Icon(Icons.error_outline, color: Colors.white),
                                   SizedBox(width: 10),
-                                  Text('Please enter a valid receipt number!'),
+                                  const MyText(text: 'Please enter a valid receipt number!'),
                                 ],
                               ),
                             ),
@@ -349,21 +394,10 @@ class _SearchReceiptScreenState extends State<SearchReceiptScreen> {
                           return;
                         }
 
-                        // Fetch adminUid only when searching
-                        if (adminUid.isEmpty) {
-                          setState(() {
-                            isLoading = true;
-                          });
-                          await fetchAdminUid();
-                          setState(() {
-                            isLoading = false;
-                          });
-                        }
-
                         setState(() {
                           receiptNo = enteredReceiptNo;
-                          hasSearched = true;
                         });
+                        await _searchReceipt();
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: primaryColor,
@@ -379,13 +413,11 @@ class _SearchReceiptScreenState extends State<SearchReceiptScreen> {
                         children: [
                           Icon(Icons.search, size: 22),
                           SizedBox(width: 8),
-                          Text(
-                            'Search Receipt',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontFamily: 'fontmain',
-                              fontWeight: FontWeight.bold,
-                            ),
+                          const MyText(
+                            text: 'Search Receipt',
+                            fontSize: 16,
+                            fontFamily: 'fontmain',
+                            fontWeight: FontWeight.bold,
                           ),
                         ],
                       ),
@@ -408,70 +440,35 @@ class _SearchReceiptScreenState extends State<SearchReceiptScreen> {
                       strokeWidth: 3,
                     ),
                     const SizedBox(height: 16),
-                    Text(
-                      'Loading...',
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontFamily: 'fontmain',
-                        fontSize: 14,
-                      ),
+                    MyText(
+                      text: 'Loading...',
+                      color: Colors.grey[600],
+                      fontFamily: 'fontmain',
+                      fontSize: 14,
                     ),
                   ],
                 ),
               ),
 
             // Results Section
-            if (!isLoading)
-              StreamBuilder(
-                stream: receiptNo.isNotEmpty &&
-                        selectedDate != null &&
-                        adminUid.isNotEmpty &&
-                        adminUid != 'Admin UID not found' &&
-                        adminUid != 'Error fetching adminUid'
-                    ? firestore
-                        .collection('AllBills')
-                        .doc(widget.phoneNumber)
-                        .collection('myBills')
-                        .doc(getMonthDoc(selectedDate!))
-                        .collection(getDateDoc(selectedDate!))
-                        .doc(receiptNo)
-                        .snapshots()
-                    : null,
-                builder: (BuildContext context, AsyncSnapshot<DocumentSnapshot> snapshot) {
-                  if (snapshot.hasError) {
-                    return _buildErrorCard('Error: ${snapshot.error}');
-                  }
-
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 50),
-                      child: Column(
-                        children: [
-                          const CircularProgressIndicator(
-                            color: primaryColor,
-                            strokeWidth: 3,
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Searching...',
-                            style: TextStyle(
-                              color: Colors.grey[600],
-                              fontFamily: 'fontmain',
-                              fontSize: 14,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }
-
-                  if (!snapshot.hasData || !snapshot.data!.exists) {
-                    return hasSearched ? _buildEmptyState() : const SizedBox.shrink();
-                  }
-
-                  Map<String, dynamic> data = snapshot.data!.data() as Map<String, dynamic>;
-                  List<dynamic> items = data['items'];
-
+            if (!isLoading && hasSearched)
+              Builder(
+                builder: (context) {
+                  if (foundBill == null) return _buildEmptyState();
+                  final data = foundBill!;
+                  List<dynamic> items = [];
+                  try {
+                    final rawItems = data['items'];
+                    if (rawItems is String && rawItems.isNotEmpty) {
+                      try {
+                        items = jsonDecode(rawItems);
+                      } catch (e) {
+                        items = [];
+                      }
+                    } else if (rawItems is List) {
+                      items = rawItems;
+                    }
+                  } catch (_) {}
                   return Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: Container(
@@ -490,7 +487,6 @@ class _SearchReceiptScreenState extends State<SearchReceiptScreen> {
                       ),
                       child: Column(
                         children: [
-                          // Header with Receipt Info
                           Container(
                             padding: const EdgeInsets.all(20),
                             decoration: BoxDecoration(
@@ -510,61 +506,41 @@ class _SearchReceiptScreenState extends State<SearchReceiptScreen> {
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Row(
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'Receipt #$receiptNo',
-                                          style: const TextStyle(
-                                            fontFamily: 'tabfont',
-                                            color: Colors.black87,
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          '${items.length} items',
-                                          style: TextStyle(
-                                            fontFamily: 'fontmain',
-                                            color: Colors.grey[600],
-                                            fontSize: 13,
-                                          ),
-                                        ),
-                                      ],
+                                    MyText(
+                                      text: 'Receipt #$receiptNo',
+                                      fontFamily: 'tabfont',
+                                      color: Colors.black87,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    const SizedBox(height: 4),
+                                    MyText(
+                                      text: '${items.length} items',
+                                      fontFamily: 'fontmain',
+                                      color: Colors.grey[600],
+                                      fontSize: 13,
                                     ),
                                   ],
                                 ),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 10,
-                                  ),
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                                   decoration: BoxDecoration(
                                     color: green,
                                     borderRadius: BorderRadius.circular(15),
                                   ),
                                   child: Column(
                                     children: [
-                                      const Text(
-                                        'Total',
-                                        style: TextStyle(
-                                          fontFamily: 'fontmain',
-                                          color: Colors.white,
-                                          fontSize: 12,
-                                        ),
-                                      ),
+                                      const MyText(text: 'Total', fontFamily: 'fontmain', color: Colors.white, fontSize: 12),
                                       const SizedBox(height: 2),
-                                      Text(
-                                        '₹${data['subTotal']}',
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontFamily: 'tabfont',
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 18,
-                                        ),
+                                      MyText(
+                                        text: '₹${data['sub_total'] ?? data['total_amount'] ?? 0}',
+                                        color: Colors.white,
+                                        fontFamily: 'tabfont',
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 18,
                                       ),
                                     ],
                                   ),
@@ -572,35 +548,28 @@ class _SearchReceiptScreenState extends State<SearchReceiptScreen> {
                               ],
                             ),
                           ),
-
-                          // Items List
                           Padding(
                             padding: const EdgeInsets.all(16),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
-                                  'Items',
-                                  style: TextStyle(
+                                const MyText(
+                                    text: 'Items',
                                     fontFamily: 'tabfont',
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
-                                    color: Colors.black87,
-                                  ),
-                                ),
+                                    color: Colors.black87),
                                 const SizedBox(height: 12),
                                 ...items.asMap().entries.map((entry) {
                                   int index = entry.key;
-                                  var item = entry.value;
+                                  var item = entry.value as Map<String, dynamic>? ?? {};
                                   return Container(
                                     margin: const EdgeInsets.only(bottom: 10),
                                     padding: const EdgeInsets.all(12),
                                     decoration: BoxDecoration(
                                       color: Colors.grey[50],
                                       borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(
-                                        color: Colors.grey.shade200,
-                                      ),
+                                      border: Border.all(color: Colors.grey.shade200),
                                     ),
                                     child: Row(
                                       children: [
@@ -608,16 +577,13 @@ class _SearchReceiptScreenState extends State<SearchReceiptScreen> {
                                           width: 36,
                                           height: 36,
                                           decoration: BoxDecoration(
-                                            color: primaryColor.withOpacity(0.1),
-                                            borderRadius: BorderRadius.circular(8),
-                                          ),
+                                              color: primaryColor.withOpacity(0.1),
+                                              borderRadius: BorderRadius.circular(8)),
                                           child: Center(
-                                            child: Text(
-                                              '${index + 1}',
-                                              style: const TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                color: primaryColor,
-                                              ),
+                                            child: MyText(
+                                              text: '${index + 1}',
+                                              fontWeight: FontWeight.bold,
+                                              color: primaryColor,
                                             ),
                                           ),
                                         ),
@@ -626,35 +592,29 @@ class _SearchReceiptScreenState extends State<SearchReceiptScreen> {
                                           child: Column(
                                             crossAxisAlignment: CrossAxisAlignment.start,
                                             children: [
-                                              Text(
-                                                item['name'],
-                                                style: const TextStyle(
-                                                  fontFamily: 'fontmain',
-                                                  fontSize: 15,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: Colors.black87,
-                                                ),
+                                              MyText(
+                                                text: item['name']?.toString() ?? '',
+                                                fontFamily: 'fontmain',
+                                                fontSize: 15,
+                                                fontWeight: FontWeight.w600,
+                                                color: Colors.black87,
                                               ),
                                               const SizedBox(height: 4),
-                                              Text(
-                                                'Qty: ${item['quantity']}',
-                                                style: TextStyle(
-                                                  fontFamily: 'fontmain',
-                                                  fontSize: 13,
-                                                  color: Colors.grey[600],
-                                                ),
+                                              MyText(
+                                                text: 'Qty: ${item['quantity']}',
+                                                fontFamily: 'fontmain',
+                                                fontSize: 13,
+                                                color: Colors.grey[600],
                                               ),
                                             ],
                                           ),
                                         ),
-                                        Text(
-                                          PriceUtils.formatPrice(item['price']),
-                                          style: const TextStyle(
-                                            fontFamily: 'tabfont',
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
-                                            color: green,
-                                          ),
+                                        MyText(
+                                          text: PriceUtils.formatPrice(item['price']),
+                                          fontFamily: 'tabfont',
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                          color: green,
                                         ),
                                       ],
                                     ),
@@ -700,54 +660,20 @@ class _SearchReceiptScreenState extends State<SearchReceiptScreen> {
               color: Colors.grey[300],
             ),
             const SizedBox(height: 20),
-            Text(
-              'Receipt Not Found $adminUid, ',
-              style: TextStyle(
-                fontFamily: 'tabfont',
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey[700],
-              ),
+            MyText(
+              text: 'Receipt Not Found $adminUid, ',
+              fontFamily: 'tabfont',
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey[700],
             ),
             const SizedBox(height: 10),
-            Text(
-              'Receipt #$receiptNo does not exist for the selected date.\nPlease check the details and try again.',
+            MyText(
+              text: 'Receipt #$receiptNo does not exist for the selected date.\nPlease check the details and try again.',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                fontFamily: 'fontmain',
-                fontSize: 14,
-                color: Colors.grey[600],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildErrorCard(String message) {
-    return Padding(
-      padding: const EdgeInsets.all(20),
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.red[50],
-          borderRadius: BorderRadius.circular(15),
-          border: Border.all(color: Colors.red.shade200),
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.error_outline, color: Colors.red[700], size: 30),
-            const SizedBox(width: 15),
-            Expanded(
-              child: Text(
-                message,
-                style: TextStyle(
-                  fontFamily: 'fontmain',
-                  color: Colors.red[700],
-                  fontSize: 14,
-                ),
-              ),
+              fontFamily: 'fontmain',
+              fontSize: 14,
+              color: Colors.grey[600],
             ),
           ],
         ),

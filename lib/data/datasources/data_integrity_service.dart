@@ -17,12 +17,12 @@ class DataIntegrityService {
   DataIntegrityService._internal();
 
   final SQLiteHelper _sqliteHelper = SQLiteHelper();
-  FirebaseDAO? _firebaseDAO;
+  NodeApiDAO? _NodeApiDAO;
 
   /// Initialize the data integrity service
   Future<void> initialize() async {
-    _firebaseDAO = FirebaseDAO();
-    await _firebaseDAO!.initialize();
+    _NodeApiDAO = NodeApiDAO();
+    await _NodeApiDAO!.initialize();
   }
 
   /// Execute a database operation within an ACID transaction
@@ -354,7 +354,7 @@ class DataIntegrityService {
 
   /// Restore database from Firebase backup
   Future<RestoreResult> _restoreFromFirebase(String adminUid) async {
-    if (_firebaseDAO == null) {
+    if (_NodeApiDAO == null) {
       throw Exception('Firebase DAO not initialized');
     }
     
@@ -371,7 +371,7 @@ class DataIntegrityService {
       int restoredCount = 0;
       
       // Restore food items from Firebase
-      final foodItems = await _firebaseDAO!.getFoodItems(adminUid);
+      final foodItems = await _NodeApiDAO!.getFoodItems(adminUid);
       for (final item in foodItems) {
         await executeInTransaction((txn) async {
           await txn.insert('food_items', {
@@ -386,7 +386,7 @@ class DataIntegrityService {
       }
       
       // Restore departments from Firebase
-      final departments = await _firebaseDAO!.getDepartments(adminUid);
+      final departments = await _NodeApiDAO!.getDepartments(adminUid);
       for (final dept in departments) {
         await executeInTransaction((txn) async {
           await txn.insert('departments', {
@@ -401,7 +401,7 @@ class DataIntegrityService {
       }
       
       // Restore bills from Firebase
-      final bills = await _firebaseDAO!.getBills(adminUid);
+      final bills = await _NodeApiDAO!.getBills(adminUid);
       for (final bill in bills) {
         await executeInTransaction((txn) async {
           await txn.insert('bills', {

@@ -6,10 +6,11 @@ import 'package:flutter/material.dart';
 
 // Package imports:
 import 'package:lottie/lottie.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // Project imports:
-import 'package:pos/view/login/screens/inception_screen.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:pos/core/widgets/text.dart';
+import 'package:pos/view/login/screens/login.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:pos/view/tab_screen/view-model/frontend/appbar.dart';
 import 'package:pos/view/tab_screen/view-model/frontend/appname.dart';
@@ -33,65 +34,32 @@ class SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-
     Timer(const Duration(seconds: 3), () async {
       await checkRoleAndNavigate(context);
     });
   }
 
   Future<void> checkRoleAndNavigate(BuildContext context) async {
-    User? user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      try {
-        IdTokenResult tokenResult = await user.getIdTokenResult(true);
-        bool isAdmin = tokenResult.claims?['admin'] == true;
-        bool isSuperAdmin = tokenResult.claims?['superAdmin'] == true;
+    final prefs = await SharedPreferences.getInstance();
+    final bool isLogged = prefs.getBool('isLogged') ?? false;
+    final String role = prefs.getString('role') ?? '';
+    final String phone = prefs.getString('myPhone') ?? '';
 
-        if (user.phoneNumber == "+919999999999") {
-          if (context.mounted) {
-            Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                    builder: (context) =>
-                        RoleSelectionScreen(phone: user.phoneNumber!)));
-          }
-        } else if (isSuperAdmin) {
-          // It's a Super Admin!
-          if (context.mounted) {
-            Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                    builder: (context) => const SuperAdminDashboard()));
-          }
-        } else if (isAdmin) {
-          // It's an Admin!
-          if (context.mounted) {
-            Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                    builder: (context) => const NewAdminScreen()));
-          }
-        } else {
-          // It's a regular User/Customer
-          if (context.mounted) {
-            Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                    builder: (context) =>
-                        Navigation(uId: user.phoneNumber ?? "")));
-          }
-        }
-      } catch (e) {
-        debugPrint("Error checking role: $e");
-        // Fallback to login if something goes wrong
-        if (context.mounted) {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => const Login()),
-          );
-        }
+    if (isLogged && phone.isNotEmpty) {
+      Widget nextScreen;
+      if (role == 'superAdmin') {
+        nextScreen = const SuperAdminDashboard();
+      } else {
+        nextScreen = Navigation(uId: phone);
+      }
+      if (context.mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => nextScreen),
+        );
       }
     } else {
-      // User is not logged in, navigate to LoginScreen
+      // Not logged in — go to Login
       if (mounted) {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (context) => const Login()),
@@ -118,20 +86,16 @@ class SplashScreenState extends State<SplashScreen> {
             width: Screen(context).width * 0.9,
             frameRate: FrameRate(90),
           ),
-          SizedBox(
-            height: 80 * s.customWidth,
-          ),
+          SizedBox(height: 80 * s.customWidth),
           Column(
             children: [
               Image.asset("$imagesPath/bbblogo.png", height: 50),
-              const Text(
-                "Streamlining Success, One Bill at a Time.",
+              const MyText(
+                text: "Streamlining Success, One Bill at a Time.",
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: black,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                ),
+                color: black,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
               ),
             ],
           ),

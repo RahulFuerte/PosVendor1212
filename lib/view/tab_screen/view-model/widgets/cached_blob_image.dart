@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'dart:io';
 import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
+import 'package:pos/core/widgets/text.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:provider/provider.dart';
@@ -256,22 +257,18 @@ class _CachedBlobImageState extends State<CachedBlobImage> {
                       if (error is SocketException) ...[
                         Padding(
                           padding: const EdgeInsets.only(top: 4),
-                          child: Text(
-                            'Offline',
-                            style: TextStyle(
-                              color: Colors.grey[600],
-                              fontSize: 10,
-                            ),
+                          child: MyText(
+                            text: 'Offline',
+                            color: Colors.grey[600],
+                            fontSize: 10,
                           ),
                         ),
                         Padding(
                           padding: const EdgeInsets.only(top: 2),
-                          child: Text(
-                            'Tap to retry',
-                            style: TextStyle(
-                              color: Colors.grey[500],
-                              fontSize: 8,
-                            ),
+                          child: MyText(
+                            text: 'Tap to retry',
+                            color: Colors.grey[500],
+                            fontSize: 8,
                           ),
                         ),
                       ],

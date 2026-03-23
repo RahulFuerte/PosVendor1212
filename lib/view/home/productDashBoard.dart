@@ -5,10 +5,10 @@ import 'dart:developer' as developer;
 
 // Flutter imports:
 import 'package:flutter/material.dart';
+import 'package:pos/core/widgets/text.dart';
 
 // Package imports:
 import 'package:audioplayers/audioplayers.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:hive/hive.dart';
 import 'package:pos/view/home/screens/order_type_selector.dart';
 import 'package:pos/view/home/widgets/mydrawer.dart';
@@ -17,18 +17,17 @@ import 'package:provider/provider.dart';
 
 // Project imports:
 import 'package:pos/core/error/network_error_handler.dart';
-import 'package:pos/data/datasources/local/sqlite_helper.dart';
 import 'package:pos/data/datasources/smart_database_service.dart';
 import 'package:pos/view/home/navigation.dart';
 import 'package:pos/data/providers/print_provider.dart';
+import 'package:pos/data/services/product_service.dart';
 import 'package:pos/view/home/screens/users_data_screen.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:pos/view/tab_screen/view-model/widgets/offline_status_indicator.dart';
 import 'widgets/bill_cart_widget.dart';
 import 'widgets/show_save_order_bottom_sheet.dart';
 
-import 'package:pos/view/tab_screen/view-model/widgets/offline_status_banner.dart'
-    as banner;
+import 'package:pos/view/tab_screen/view-model/widgets/offline_status_banner.dart' as banner;
 
 class ProductDashBoard extends StatefulWidget {
   final String phoneNo;
@@ -57,7 +56,6 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
   List<Map<String, dynamic>> selectedItemsDetails = [];
   bool isTapped = false;
   bool isLoading = false;
-  final FirebaseFirestore firestore = FirebaseFirestore.instance;
   Map<String, dynamic> userData = {};
   bool isSearching = false;
   TextEditingController searchController = TextEditingController();
@@ -65,179 +63,15 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
   @override
   void initState() {
     super.initState();
-    foodItemsFuture = fetchFoodItems();
-    // fetchUserData();
+    foodItemsFuture = _fetchProducts();
   }
 
-  Future<String> fetchAdminUid() async {
-    // Check connection status first
-    final smartDB = SmartDatabaseService();
-    await smartDB.initialize();
-
-    if (!smartDB.isOnline) {
-      developer.log('Offline: Skipping Firebase fetch for adminUid',
-          name: 'ProductDashBoard');
-      return await _getCachedAdminUid();
-    }
-
-    // Try Firebase with short timeout - DatabaseService handles offline data
+  Future<List<Map<String, dynamic>>> _fetchProducts() async {
     try {
-      DocumentSnapshot<Map<String, dynamic>> snapshot = await FirebaseFirestore
-          .instance
-          .collection('AllCustomer')
-          .doc(widget.phoneNo)
-          .get()
-          .timeout(const Duration(seconds: 3));
-
-      final data = snapshot.data();
-      final String? fetchedAdminUid = data?['adminUid'];
-
-      if (fetchedAdminUid != null && fetchedAdminUid.isNotEmpty) {
-        // Cache the admin data in SQLite for offline use
-        try {
-          final sqliteHelper = SQLiteHelper();
-          await sqliteHelper.saveAdminData({
-            'adminUid': fetchedAdminUid,
-            'phoneNumber': widget.phoneNo,
-            'name': data?['name'],
-            'email': data?['email'],
-            'customerCode': data?['customerCode'],
-            'createdAt': data?['createdAt'],
-          });
-        } catch (cacheError) {
-          developer.log('Error caching adminUid in SQLite: $cacheError',
-              name: 'ProductDashBoard');
-        }
-
-        if (mounted) {
-          setState(() {
-            adminUid = fetchedAdminUid;
-          });
-        }
-        return fetchedAdminUid;
-      }
-
-      // If Firebase returned null, try SQLite cache
-      return await _getCachedAdminUid();
+      final products = await ProductService().getProducts();
+      return products.map((p) => p.toJson()).toList();
     } catch (e) {
-      developer.log('Error fetching adminUid: $e', name: 'ProductDashBoard');
-      // Fall back to cached adminUid from SQLite when offline
-      return await _getCachedAdminUid();
-    }
-  }
-
-  /// Get cached adminUid from SQLite for offline use
-  Future<String> _getCachedAdminUid() async {
-    try {
-      final sqliteHelper = SQLiteHelper();
-      final cachedAdminUid = await sqliteHelper.getAdminUid(widget.phoneNo);
-
-      if (cachedAdminUid != null && cachedAdminUid.isNotEmpty) {
-        developer.log('Using cached adminUid from SQLite: $cachedAdminUid',
-            name: 'ProductDashBoard');
-        if (mounted) {
-          setState(() {
-            adminUid = cachedAdminUid;
-          });
-        }
-        return cachedAdminUid;
-      }
-
-      // Last resort: use phoneNo as adminUid (common pattern in this app)
-      developer.log('No cached adminUid found, using phoneNo as fallback',
-          name: 'ProductDashBoard');
-      if (mounted) {
-        setState(() {
-          adminUid = widget.phoneNo;
-        });
-      }
-      return widget.phoneNo;
-    } catch (e) {
-      developer.log('Error getting cached adminUid from SQLite: $e',
-          name: 'ProductDashBoard');
-      // Ultimate fallback: use phoneNo
-      if (mounted) {
-        setState(() {
-          adminUid = widget.phoneNo;
-        });
-      }
-      return widget.phoneNo;
-    }
-  }
-
-  Future<List<Map<String, dynamic>>> fetchFoodItems() async {
-    try {
-      final String adminUid = await fetchAdminUid();
-
-      // Use SmartDatabaseService for online/offline handling
-      final smartDB = SmartDatabaseService();
-      await smartDB.initialize();
-
-      // Get all food items using SmartDatabaseService
-      final List<Map<String, dynamic>> allItems =
-          await smartDB.getFoodItems(adminUid);
-
-      // Debug: show count and sample types
-      developer.log('All items count: ${allItems.length}',
-          name: 'ProductDashBoard');
-      if (allItems.isNotEmpty) {
-        developer.log('First item keys: ${allItems.first.keys.toList()}',
-            name: 'ProductDashBoard');
-        developer.log('First item sample: ${allItems.first}',
-            name: 'ProductDashBoard');
-      }
-
-      final List<Map<String, dynamic>> hotItems = allItems.map((item) {
-        List<dynamic> parsedVariants = [];
-        List<dynamic> parsedAddons = [];
-
-        try {
-          if (item['variants'] != null &&
-              item['variants'].toString().isNotEmpty) {
-            parsedVariants = jsonDecode(item['variants'].toString());
-          }
-          if (item['addons'] != null && item['addons'].toString().isNotEmpty) {
-            parsedAddons = jsonDecode(item['addons'].toString());
-          }
-        } catch (e) {
-          parsedVariants = [];
-        }
-        return {
-          'id': item['id'] ?? item['name'],
-          'name': item['name'] ?? 'N/A',
-          'price': item['price']?.toString() ?? '0',
-          'price2': item['price2']?.toString() ?? '0',
-          'price3': item['price3']?.toString() ?? '0',
-          'priceType': item['priceType']?.toString(),
-          'imagePath': item['imagePath'] ??
-              item['image_path'] ??
-              item['imagepath'] ??
-              'N/A',
-          'foodCode': item['foodCode'] ??
-              item['food_code'] ??
-              item['foodcode'] ??
-              'N/A',
-          'department': item['department'] ?? 'N/A',
-          'stocks': item['stocks'] ?? 'N/A',
-          'baseVariant': item['baseVariant'] ?? '',
-          'variants': parsedVariants,
-          'addons': parsedAddons,
-        };
-      }).toList();
-
-      // Log for debugging
-      developer.log(
-          'Fetched hot food items (count ${hotItems.length}): $hotItems',
-          name: 'ProductDashBoard');
-      developer.log('adminNO: $adminUid', name: 'ProductDashBoard');
-      developer.log('All food items (unfiltered): $allItems',
-          name: 'ProductDashBoard');
-
-      return hotItems;
-    } catch (e, st) {
-      NetworkErrorHandler.logNetworkError(
-          e, 'ProductDashBoard', 'fetchFoodItems');
-      developer.log('Stack trace: $st', name: 'ProductDashBoard');
+      developer.log('Error fetching products: $e', name: 'ProductDashBoard');
       return [];
     }
   }
@@ -251,7 +85,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
     required TextEditingController gstController,
     required int itemCount,
     required double totalAmount,
-    required VoidCallback onSave,
+    required void Function(String? customerId) onSave,
     required Color primaryColor,
   }) {
     return showModalBottomSheet(
@@ -269,9 +103,9 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
           totalAmount: totalAmount,
           primaryColor: primaryColor,
           onCancel: () => Navigator.pop(context),
-          onSave: () {
+          onSave: (customerId) {
             if (formKey.currentState!.validate()) {
-              onSave();
+              onSave(customerId);
               Navigator.pop(context);
             }
           },
@@ -368,8 +202,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
           Expanded(
             child: FutureBuilder(
               future: foodItemsFuture,
-              builder: (context,
-                  AsyncSnapshot<List<Map<String, dynamic>>> snapshot) {
+              builder: (context, AsyncSnapshot<List<Map<String, dynamic>>> snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return Center(
                     child: CircularProgressIndicator(
@@ -378,25 +211,20 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                   );
                 } else if (snapshot.hasError) {
                   return Center(
-                    child: Text('Error: ${snapshot.error}'),
+                    child: MyText(text: 'Error: ${snapshot.error}'),
                   );
                 } else {
-                  List<Map<String, dynamic>> foodItemsList =
-                      snapshot.data ?? [];
+                  List<Map<String, dynamic>> foodItemsList = snapshot.data ?? [];
                   // Filter items based on search
                   List<Map<String, dynamic>> filteredItems = foodItemsList
-                      .where((item) => item['name']
-                          .toString()
-                          .toLowerCase()
-                          .contains(search1.toLowerCase()))
+                      .where((item) => item['name'].toString().toLowerCase().contains(search1.toLowerCase()))
                       .toList();
 
                   return Column(
                     children: [
                       Container(
                         height: 50,
-                        margin: const EdgeInsets.symmetric(
-                            vertical: 5, horizontal: 10),
+                        margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 10),
                         width: double.infinity,
                         child: const OrderTypeSelector(),
                       ),
@@ -409,8 +237,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                             vertical: 8,
                           ),
                           child: GridView.builder(
-                            gridDelegate:
-                                const SliverGridDelegateWithMaxCrossAxisExtent(
+                            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
                               maxCrossAxisExtent: 170,
                               childAspectRatio: 0.75,
                               crossAxisSpacing: 8,
@@ -424,46 +251,39 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                                 imagePath: item['imagePath']?.toString() ?? '',
                                 text: item['name']?.toString() ?? '',
                                 code: item['foodCode']?.toString() ?? '',
-                                imagerecordId: item['id']?.toString(),
+                                imagerecordId: item['_id']?.toString() ?? item['id']?.toString(),
                                 price: item['price']?.toString() ?? '0',
                                 price2: item['price2']?.toString() ?? '0',
                                 price3: item['price3']?.toString() ?? '0',
-                                priceType:
-                                    item['priceType']?.toString() ?? 'Fixed',
+                                priceType: item['priceType']?.toString() ?? 'Fixed',
                                 stocks: item['stocks']?.toString() ?? 'N/A',
                                 baseVariant: item['baseVariant']?.toString(),
                                 variants: item['variants'] as List<dynamic>?,
                                 addons: item['addons'] as List<dynamic>?,
-                                onAdd: (name, price, quantity, unit, unitQty,
-                                    addOnList) {
-                                  audioPlayer
-                                      .play(AssetSource('sounds/beep.mp3'));
+                                onAdd: (id, name, price, quantity, unit, unitQty, addOnList) {
+                                  audioPlayer.play(AssetSource('sounds/beep.mp3'));
 
                                   setState(() {
                                     isTapped = true;
 
-                                    final displayName = unit.isNotEmpty
-                                        ? '$name ($unitQty $unit)'
-                                        : name;
+                                    final displayName = unit.toString().isNotEmpty ? '$name ($unitQty $unit)' : name;
 
-                                    final parsedPrice =
-                                        double.tryParse(price) ?? 0.0;
+                                    final parsedPrice = double.tryParse(price) ?? 0.0;
 
                                     // 🔍 Check if same item + same unit already exists
-                                    final existingIndex =
-                                        selectedItemsDetails.indexWhere(
+                                    final existingIndex = selectedItemsDetails.indexWhere(
                                       (element) =>
                                           element['name'] == displayName &&
-                                          element['price'] == parsedPrice,
+                                          element['price'] == parsedPrice &&
+                                          element['productId'] == id,
                                     );
 
                                     if (existingIndex != -1) {
-                                      selectedItemsDetails[existingIndex]
-                                          ['quantity'] += quantity;
-                                      selectedItemsDetails[existingIndex]
-                                          ['addons'] = addOnList;
+                                      selectedItemsDetails[existingIndex]['quantity'] += quantity;
+                                      selectedItemsDetails[existingIndex]['addons'] = addOnList;
                                     } else {
                                       selectedItemsDetails.add({
+                                        'productId': id,
                                         'name': displayName,
                                         'price': parsedPrice,
                                         'quantity': quantity,
@@ -474,15 +294,12 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
 
                                     subtotal += parsedPrice * quantity;
 
-                                    printprovider.additem(
-                                        selectedItemsDetails, subtotal);
+                                    printprovider.additem(selectedItemsDetails, subtotal);
 
-                                    WidgetsBinding.instance
-                                        .addPostFrameCallback((_) {
+                                    WidgetsBinding.instance.addPostFrameCallback((_) {
                                       if (_listScrollController.hasClients) {
                                         _listScrollController.jumpTo(
-                                          _listScrollController
-                                              .position.maxScrollExtent,
+                                          _listScrollController.position.maxScrollExtent,
                                         );
                                       }
                                     });
@@ -504,9 +321,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                                   subtotal = 0.0;
                                 });
                               },
-                              onCartUpdated:
-                                  (List<Map<String, dynamic>> updatedItems,
-                                      double updatedTotal) {
+                              onCartUpdated: (List<Map<String, dynamic>> updatedItems, double updatedTotal) {
                                 setState(() {
                                   selectedItemsDetails = updatedItems;
                                   subtotal = updatedTotal;
@@ -523,13 +338,13 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                                   gstController: gstController,
                                   totalAmount: subtotal,
                                   primaryColor: primaryColor,
-                                  onSave: () {
-                                    _saveDataAndNavigate();
+                                  onSave: (customerId) {
+                                    _saveDataAndNavigate(customerId);
                                     printprovider.clearCart();
                                     nameController.clear();
                                     mobileController.clear();
                                     developer.log(
-                                        'Order saved for ${nameController.text}, ${mobileController.text}',
+                                        'Order saved with id: $customerId for ${nameController.text}, ${mobileController.text}',
                                         name: 'ProductDashBoard');
                                   },
                                 );
@@ -546,12 +361,13 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
     );
   }
 
-  void _saveDataAndNavigate() async {
+  void _saveDataAndNavigate(String? customerId) async {
     final userMap = {
       'userName': nameController.text,
       'phoneNumber': mobileController.text,
       'details': _encodeDetails(selectedItemsDetails),
       'totalAmount': subtotal,
+      'customerId': customerId,
       'timestamp': DateTime.now().toIso8601String(),
     };
 
@@ -569,8 +385,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
     );
   }
 
-  List<Map<String, dynamic>> _encodeDetails(
-      List<Map<String, dynamic>> details) {
+  List<Map<String, dynamic>> _encodeDetails(List<Map<String, dynamic>> details) {
     return details.map((item) {
       return {
         'name': item['name'],

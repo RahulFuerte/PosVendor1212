@@ -42,6 +42,7 @@ abstract class DatabaseService {
   Future<Uint8List?> downloadAndCacheImage(String imageUrl, {String? tableName, String? recordId});
 
   // Utility operations
+  Future<Map<String, dynamic>?> getCurrentUser();
   Future<bool> isOnline();
   Future<void> initialize();
   Future<void> close();

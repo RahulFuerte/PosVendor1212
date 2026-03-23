@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pos/core/widgets/text.dart';
 import 'package:intl/intl.dart';
 import 'package:pos/data/providers/print_provider.dart';
 import 'package:pos/view/home/navigation.dart';
@@ -73,10 +74,14 @@ class _ReceiptPreviewOnlyWidgetState extends State<ReceiptPreviewOnlyWidget> {
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
       appBar: AppBar(
-        iconTheme: IconThemeData(color: Colors.white),
-        title: const Text(
-          "Receipt Preview",
-          style: TextStyle(color: Colors.white),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+        iconTheme: const IconThemeData(color: Colors.white),
+        title: const MyText(
+          text: "Receipt Preview",
+          color: Colors.white,
         ),
         backgroundColor: appbar1,
       ),
@@ -84,7 +89,7 @@ class _ReceiptPreviewOnlyWidgetState extends State<ReceiptPreviewOnlyWidget> {
       //   backgroundColor: appbar1,
       //   foregroundColor: Colors.white,
       //   icon: const Icon(Icons.add),
-      //   label: const Text(
+      //   label: const MyText(text: "Receipt Preview"),
       //     "Add Item",
       //   ),
       //   onPressed: () async {
@@ -123,16 +128,14 @@ class _ReceiptPreviewOnlyWidgetState extends State<ReceiptPreviewOnlyWidget> {
               Center(
                 child: Column(
                   children: [
-                    Text(
-                      widget.shopName,
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    MyText(
+                      text: widget.shopName,
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
                     ),
                     const SizedBox(height: 4),
-                    Text(widget.address, textAlign: TextAlign.center),
-                    Text("Contact: ${widget.contact}"),
+                    MyText(text: widget.address, textAlign: TextAlign.center),
+                    MyText(text: "Contact: ${widget.contact}"),
                   ],
                 ),
               ),
@@ -190,7 +193,7 @@ class _ReceiptPreviewOnlyWidgetState extends State<ReceiptPreviewOnlyWidget> {
               if (widget.note != null && widget.note!.isNotEmpty) ...[
                 const SizedBox(height: 16),
                 _sectionTitle("Note"),
-                Text(widget.note!),
+                MyText(text: widget.note!),
               ],
             ],
           ),
@@ -203,9 +206,10 @@ class _ReceiptPreviewOnlyWidgetState extends State<ReceiptPreviewOnlyWidget> {
   Widget _sectionTitle(String title) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Text(
-        title,
-        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+      child: MyText(
+        text: title,
+        fontSize: 16,
+        fontWeight: FontWeight.bold,
       ),
     );
   }
@@ -216,8 +220,8 @@ class _ReceiptPreviewOnlyWidgetState extends State<ReceiptPreviewOnlyWidget> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(color: Colors.black54)),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.w600)),
+          MyText(text: label, color: Colors.black54),
+          MyText(text: value, fontWeight: FontWeight.w600),
         ],
       ),
     );
@@ -232,10 +236,10 @@ class _ReceiptPreviewOnlyWidgetState extends State<ReceiptPreviewOnlyWidget> {
       ),
       child: const Row(
         children: [
-          Expanded(flex: 3, child: Text("Item", style: TextStyle(fontWeight: FontWeight.bold))),
-          Expanded(child: Text("Qty", textAlign: TextAlign.center)),
-          Expanded(child: Text("Price", textAlign: TextAlign.center)),
-          Expanded(child: Text("Total", textAlign: TextAlign.end)),
+          Expanded(flex: 3, child: MyText(text: "Item", fontWeight: FontWeight.bold)),
+          const Expanded(child: MyText(text: "Qty", textAlign: TextAlign.center)),
+          const Expanded(child: MyText(text: "Price", textAlign: TextAlign.center)),
+          const Expanded(child: MyText(text: "Total", textAlign: TextAlign.end)),
         ],
       ),
     );
@@ -250,10 +254,10 @@ class _ReceiptPreviewOnlyWidgetState extends State<ReceiptPreviewOnlyWidget> {
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         children: [
-          Expanded(flex: 3, child: Text(item['name'])),
-          Expanded(child: Text("$qty", textAlign: TextAlign.center)),
-          Expanded(child: Text("${PriceUtils.formatPrice(price)}", textAlign: TextAlign.center)),
-          Expanded(child: Text("${PriceUtils.formatPrice(total)}", textAlign: TextAlign.end)),
+          Expanded(flex: 3, child: MyText(text: item['name'])),
+          Expanded(child: MyText(text: "$qty", textAlign: TextAlign.center)),
+          Expanded(child: MyText(text: "${PriceUtils.formatPrice(price)}", textAlign: TextAlign.center)),
+          Expanded(child: MyText(text: "${PriceUtils.formatPrice(total)}", textAlign: TextAlign.end)),
         ],
       ),
     );
@@ -265,16 +269,14 @@ class _ReceiptPreviewOnlyWidgetState extends State<ReceiptPreviewOnlyWidget> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label,
-              style: TextStyle(
-                fontWeight: bold ? FontWeight.bold : FontWeight.w500,
-              )),
-          Text(
-            "${PriceUtils.formatPrice(amount)}",
-            style: TextStyle(
-              fontWeight: bold ? FontWeight.bold : FontWeight.w600,
-              color: color,
-            ),
+          MyText(
+            text: label,
+            fontWeight: bold ? FontWeight.bold : FontWeight.w500,
+          ),
+          MyText(
+            text: "${PriceUtils.formatPrice(amount)}",
+            fontWeight: bold ? FontWeight.bold : FontWeight.w600,
+            color: color,
           ),
         ],
       ),

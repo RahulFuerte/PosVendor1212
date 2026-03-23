@@ -12,7 +12,7 @@ import '../shared_preferences.dart';
 class SQLiteHelper {
   static final SQLiteHelper _instance = SQLiteHelper._internal();
   static Database? _database;
-  static const int _currentVersion = 1; // Testing phase - fresh database each install
+  static const int _currentVersion = 8; // Testing phase - fresh database each install
   static const String _migrationCompleteKey = 'initial_migration_complete';
 
   // Database maintenance service (lazy initialization to avoid circular dependency)
@@ -141,6 +141,7 @@ class SQLiteHelper {
         sgst_percent REAL DEFAULT 0.0,
         cgst_amount REAL DEFAULT 0.0,
         sgst_amount REAL DEFAULT 0.0,
+        customer_id TEXT,
         customer_name TEXT,
         customer_gst TEXT,
         customer_address TEXT,
@@ -239,6 +240,7 @@ class SQLiteHelper {
         id TEXT PRIMARY KEY,
         admin_uid TEXT NOT NULL,
         order_type TEXT NOT NULL,
+        customer_id TEXT,
         customer_name TEXT,
         customer_phone TEXT,
         gst_number TEXT,
@@ -277,6 +279,95 @@ class SQLiteHelper {
       )
     ''');
 
+    // ─── Node.js API Cache Tables ─────────────────────────────────────────────
+
+    // api_categories: cache for /api/categories
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS api_categories (
+        id TEXT PRIMARY KEY,
+        admin_uid TEXT NOT NULL,
+        name TEXT NOT NULL,
+        imageUrl TEXT DEFAULT '',
+        synced_at INTEGER
+      )
+    ''');
+
+    // api_customers: cache for /api/customers
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS api_customers (
+        id TEXT PRIMARY KEY,
+        admin_uid TEXT NOT NULL,
+        name TEXT NOT NULL,
+        phoneNumber TEXT NOT NULL,
+        address TEXT DEFAULT '',
+        synced_at INTEGER
+      )
+    ''');
+
+    // api_expense_categories: cache for /api/expense-categories
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS api_expense_categories (
+        id TEXT PRIMARY KEY,
+        admin_uid TEXT NOT NULL,
+        name TEXT NOT NULL,
+        synced_at INTEGER
+      )
+    ''');
+
+    // api_expenses: cache for /api/expenses
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS api_expenses (
+        id TEXT PRIMARY KEY,
+        admin_uid TEXT NOT NULL,
+        expenseCategoryId TEXT NOT NULL,
+        amount REAL NOT NULL,
+        note TEXT DEFAULT '',
+        date INTEGER,
+        synced_at INTEGER
+      )
+    ''');
+
+    // api_products: cache for /api/products
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS api_products (
+        id TEXT PRIMARY KEY,
+        admin_uid TEXT NOT NULL,
+        categoryId TEXT NOT NULL,
+        name TEXT NOT NULL,
+        price REAL NOT NULL,
+        description TEXT DEFAULT '',
+        foodCode TEXT DEFAULT '',
+        department TEXT DEFAULT '',
+        imagePath TEXT DEFAULT '',
+        imageUrl TEXT DEFAULT '',
+        baseVariant TEXT DEFAULT '',
+        priceType TEXT DEFAULT 'Fixed',
+        price2 REAL DEFAULT 0,
+        price3 REAL DEFAULT 0,
+        stocks INTEGER DEFAULT 0,
+        tax TEXT DEFAULT '',
+        isHot INTEGER DEFAULT 0,
+        inStock INTEGER DEFAULT 1,
+        addons TEXT DEFAULT '[]',
+        variants TEXT DEFAULT '[]',
+        synced_at INTEGER
+      )
+    ''');
+
+    // api_subscriptions: cache for /api/subscriptions/my-subscription
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS api_subscriptions (
+        id TEXT PRIMARY KEY,
+        admin_uid TEXT NOT NULL UNIQUE,
+        planId TEXT,
+        status TEXT DEFAULT 'inactive',
+        startDate INTEGER,
+        endDate INTEGER,
+        autoRenew INTEGER DEFAULT 0,
+        synced_at INTEGER
+      )
+    ''');
+
     // Create comprehensive indexes for better performance
     await _createPerformanceIndexes(db);
   }
@@ -311,6 +402,9 @@ class SQLiteHelper {
         break;
       case 7:
         await _migrateToVersion7(db);
+        break;
+      case 8:
+        await _migrateToVersion8(db);
         break;
       // Add future migration cases here
       default:
@@ -791,6 +885,61 @@ class SQLiteHelper {
     }
   }
 
+  Future<void> _migrateToVersion8(Database db) async {
+    // Migration to version 8: Add customer_id column to bills and orders tables
+    try {
+      print('Migrating to version 8: Adding customer_id column to bills and orders...');
+
+      // Add customer_id column to bills table
+      try {
+        await db.execute('ALTER TABLE bills ADD COLUMN customer_id TEXT');
+        print('Added customer_id column to bills table');
+      } catch (e) {
+        if (e.toString().contains('duplicate column name')) {
+          print('customer_id column already exists in bills table');
+        } else {
+          print('Error adding customer_id to bills: $e');
+        }
+      }
+
+      // Add customer_id column to orders table
+      try {
+        await db.execute('ALTER TABLE orders ADD COLUMN customer_id TEXT');
+        print('Added customer_id column to orders table');
+      } catch (e) {
+        if (e.toString().contains('duplicate column name')) {
+          print('customer_id column already exists in orders table');
+        } else {
+          print('Error adding customer_id to orders: $e');
+        }
+      }
+
+      // Log this migration
+      await db.insert('migration_log', {
+        'version': 8,
+        'migration_name': 'add_customer_id_column',
+        'executed_at': DateTime.now().millisecondsSinceEpoch,
+        'success': 1,
+      });
+
+      print('Successfully migrated to version 8');
+    } catch (e) {
+      print('Error migrating to version 8: $e');
+      // Log failed migration
+      try {
+        await db.insert('migration_log', {
+          'version': 8,
+          'migration_name': 'add_customer_id_column',
+          'executed_at': DateTime.now().millisecondsSinceEpoch,
+          'success': 0,
+        });
+      } catch (logError) {
+        print('Error logging failed migration: $logError');
+      }
+      rethrow;
+    }
+  }
+
   // Database initialization method
   Future<void> initializeDatabase() async {
     await database;
@@ -827,8 +976,8 @@ class SQLiteHelper {
       final prefs = await SharedPreferences.getInstance();
       // If no UID found, try to get current user UID and save it
       if (adminUid.isEmpty) {
-        final firebaseDao = FirebaseDAO();
-        final currentUser = await firebaseDao.getCurrentUser();
+        final _apiDAO = NodeApiDAO();
+        final currentUser = await _apiDAO.getCurrentUser();
         if (currentUser != null) {
           adminUid = currentUser['uid'];
           await prefs.setString('uid', adminUid);
@@ -840,26 +989,26 @@ class SQLiteHelper {
         return;
       }
 
-      final firebaseDao = FirebaseDAO();
+      final _apiDAO = NodeApiDAO();
       final db = await database;
 
-      // Check if Firebase is accessible
-      final isOnline = await firebaseDao.isOnline();
+      // Check if API is accessible
+      final isOnline = await _apiDAO.isOnline();
       if (!isOnline) {
-        print('Firebase not accessible, skipping initial migration');
+        print('API not accessible, skipping initial migration');
         return;
       }
 
       print('Starting migration for admin: $adminUid');
 
       // Migrate food items
-      await _migrateFoodItems(firebaseDao, db, adminUid);
+      await _migrateFoodItems(_apiDAO, db, adminUid);
 
       // Migrate departments
-      await _migrateDepartments(firebaseDao, db, adminUid);
+      await _migrateDepartments(_apiDAO, db, adminUid);
 
       // Migrate recent bills (last 30 days)
-      await _migrateRecentBills(firebaseDao, db, adminUid);
+      await _migrateRecentBills(_apiDAO, db, adminUid);
 
       print('Initial data migration completed successfully');
     } catch (e) {
@@ -869,10 +1018,10 @@ class SQLiteHelper {
     }
   }
 
-  Future<void> _migrateFoodItems(FirebaseDAO firebaseDao, Database db, String adminUid) async {
+  Future<void> _migrateFoodItems(NodeApiDAO NodeApiDAO, Database db, String adminUid) async {
     try {
       print('Migrating food items.................................');
-      final foodItems = await firebaseDao.getFoodItems(adminUid);
+      final foodItems = await NodeApiDAO.getFoodItems(adminUid);
 
       for (final item in foodItems) {
         print('Migrating food items................................. Inside The For Loop .................');
@@ -910,9 +1059,9 @@ class SQLiteHelper {
     }
   }
 
-  Future<void> _migrateDepartments(FirebaseDAO firebaseDao, Database db, String adminUid) async {
+  Future<void> _migrateDepartments(NodeApiDAO NodeApiDAO, Database db, String adminUid) async {
     try {
-      final departments = await firebaseDao.getDepartments(adminUid);
+      final departments = await NodeApiDAO.getDepartments(adminUid);
 
       for (final dept in departments) {
         await db.insert(
@@ -938,11 +1087,11 @@ class SQLiteHelper {
     }
   }
 
-  Future<void> _migrateRecentBills(FirebaseDAO firebaseDao, Database db, String adminUid) async {
+  Future<void> _migrateRecentBills(NodeApiDAO NodeApiDAO, Database db, String adminUid) async {
     try {
       print('Migrating recent bills...');
       final thirtyDaysAgo = DateTime.now().subtract(const Duration(days: 30));
-      final bills = await firebaseDao.getBills(adminUid, startDate: thirtyDaysAgo);
+      final bills = await NodeApiDAO.getBills(adminUid, startDate: thirtyDaysAgo);
 
       for (final bill in bills) {
         await db.insert(
@@ -1761,6 +1910,47 @@ class SQLiteHelper {
       print('All customer data cleared');
     } catch (e) {
       print('Error clearing customer data: $e');
+    }
+  }
+
+  /// Get bills within a date range for reporting purposes.
+  /// Returns a list of raw bill maps from the local SQLite `bills` table.
+  Future<List<Map<String, dynamic>>> getBillsInRange({
+    required String adminUid,
+    required DateTime startDate,
+    required DateTime endDate,
+  }) async {
+    try {
+      final db = await database;
+      final startMs = DateTime(startDate.year, startDate.month, startDate.day).millisecondsSinceEpoch;
+      final endMs =
+          DateTime(endDate.year, endDate.month, endDate.day).add(const Duration(days: 1)).millisecondsSinceEpoch;
+
+      // Try bills table first
+      final results = await db.query(
+        'bills',
+        where: 'admin_uid = ? AND bill_date BETWEEN ? AND ?',
+        whereArgs: [adminUid, startMs, endMs],
+        orderBy: 'bill_date DESC',
+      );
+
+      if (results.isNotEmpty) return results;
+
+      // Fall back to orders table if bills table is empty / not present
+      try {
+        final orderResults = await db.query(
+          'orders',
+          where: 'admin_uid = ? AND bill_date BETWEEN ? AND ?',
+          whereArgs: [adminUid, startMs, endMs],
+          orderBy: 'bill_date DESC',
+        );
+        return orderResults;
+      } catch (_) {
+        return [];
+      }
+    } catch (e) {
+      print('getBillsInRange error: $e');
+      return [];
     }
   }
 }

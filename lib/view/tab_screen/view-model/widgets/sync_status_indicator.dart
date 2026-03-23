@@ -3,6 +3,7 @@ import 'dart:async';
 
 // Flutter imports:
 import 'package:flutter/material.dart';
+import 'package:pos/core/widgets/text.dart';
 
 import '../../../../core/network/connection_monitor.dart';
 import '../../../../data/datasources/sync_manager.dart';
@@ -227,13 +228,11 @@ class _SyncStatusIndicatorState extends State<SyncStatusIndicator>
           minWidth: 16,
           minHeight: 16,
         ),
-        child: Text(
-          _pendingItemsCount > 99 ? '99+' : _pendingItemsCount.toString(),
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
-          ),
+        child: MyText(
+          text: _pendingItemsCount > 99 ? '99+' : _pendingItemsCount.toString(),
+          color: Colors.white,
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
           textAlign: TextAlign.center,
         ),
       ),

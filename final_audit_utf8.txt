@@ -1,0 +1,193 @@
+﻿lib\view\home\reports\bill_wise_report.dart:168:        const SnackBar(content: MyText(text: 'Please select both dates')),
+lib\view\home\reports\bill_wise_report.dart:222:          SnackBar(content: MyText(text: 'Error fetching data: $e')),
+lib\view\home\reports\bill_wise_report.dart:280:        const SnackBar(content: MyText(text: "No data to print")),
+lib\view\home\reports\bill_wise_report.dart:288:        const SnackBar(content: MyText(text: "Please select a printer first")),
+lib\view\home\reports\bill_wise_report.dart:421:            content: MyText(text: 'Report printed successfully!'),
+lib\view\home\reports\bill_wise_report.dart:430:            content: MyText(text: 'Print error: $e'),
+lib\view\home\reports\bill_wise_report.dart:442:          content: MyText(text: 'No data available. Please select dates and wait for data to load.'),
+lib\view\home\reports\bill_wise_report.dart:483:                  child: pw.Text(
+lib\view\home\reports\bill_wise_report.dart:492:                if (address.isNotEmpty) pw.Center(child: pw.Text(address, style: pw.TextStyle(fontSize: 10))),
+lib\view\home\reports\bill_wise_report.dart:495:                  pw.Center(child: pw.Text('Contact: $contact', style: pw.TextStyle(fontSize: 10))),
+lib\view\home\reports\bill_wise_report.dart:497:                if (gstNo.isNotEmpty) pw.Center(child: pw.Text('GST: $gstNo', style: pw.TextStyle(fontSize: 10))),
+lib\view\home\reports\bill_wise_report.dart:504:                  child: pw.Text(
+lib\view\home\reports\bill_wise_report.dart:511:                  child: pw.Text(
+lib\view\home\reports\bill_wise_report.dart:525:                  child: pw.Text(
+lib\view\home\reports\bill_wise_report.dart:592:                          pw.Text('Total Bills: ${billsData.length}',
+lib\view\home\reports\bill_wise_report.dart:594:                          pw.Text(
+lib\view\home\reports\bill_wise_report.dart:604:                          pw.Text(
+lib\view\home\reports\bill_wise_report.dart:608:                          pw.Text(
+lib\view\home\reports\bill_wise_report.dart:635:          content: MyText(text: 'Error creating PDF: $e'),
+lib\view\home\reports\bill_wise_report.dart:646:      child: pw.Text(
+lib\view\home\reports\bill_wise_report.dart:658:      child: pw.Text(
+lib\view\home\reports\bill_wise_report.dart:671:        title: const MyText(text: 'Billwise report', color: Colors.white),
+lib\view\home\reports\bill_wise_report.dart:725:                                    MyText(
+lib\view\home\reports\bill_wise_report.dart:731:                                    MyText(
+lib\view\home\reports\bill_wise_report.dart:778:                                    MyText(
+lib\view\home\reports\bill_wise_report.dart:784:                                    MyText(
+lib\view\home\reports\bill_wise_report.dart:819:                            MyText(
+lib\view\home\reports\bill_wise_report.dart:869:                                      MyText(
+lib\view\home\reports\bill_wise_report.dart:877:                                      MyText(
+lib\view\home\reports\bill_wise_report.dart:897:                                              MyText(
+lib\view\home\reports\bill_wise_report.dart:919:                                              MyText(
+lib\view\home\reports\bill_wise_report.dart:926:                                              MyText(
+lib\view\home\reports\bill_wise_report.dart:1018:        MyText(
+lib\view\home\reports\bill_wise_report.dart:1026:        MyText(
+lib\view\home\reports\bill_wise_report.dart:1048:          MyText(
+lib\view\home\reports\bill_wise_report.dart:1085:                MyText(
+lib\view\home\reports\bill_wise_report.dart:1097:              child: MyText(
+lib\view\home\reports\bill_wise_report.dart:1132:              MyText(
+lib\view\home\reports\customer_wise_report.dart:75:      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: MyText(text: 'Customer ID missing')));
+lib\view\home\reports\customer_wise_report.dart:115:      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: MyText(text: 'Error loading data: $e')));
+lib\view\home\reports\customer_wise_report.dart:145:          content: MyText(text: 'No data available to generate report'),
+lib\view\home\reports\customer_wise_report.dart:189:                  child: pw.Text(
+lib\view\home\reports\customer_wise_report.dart:199:                    child: pw.Text(address, style: const pw.TextStyle(fontSize: 10)),
+lib\view\home\reports\customer_wise_report.dart:203:                    child: pw.Text('Contact: $contact', style: const pw.TextStyle(fontSize: 10)),
+lib\view\home\reports\customer_wise_report.dart:211:                  child: pw.Text(
+lib\view\home\reports\customer_wise_report.dart:217:                  child: pw.Text(
+lib\view\home\reports\customer_wise_report.dart:239:                          pw.Text(
+lib\view\home\reports\customer_wise_report.dart:244:                          pw.Text(
+lib\view\home\reports\customer_wise_report.dart:248:                          pw.Text('Phone: ${selectedCustomer!.phone}', style: const pw.TextStyle(fontSize: 10)),
+lib\view\home\reports\customer_wise_report.dart:250:                            pw.Text('GST: ${selectedCustomer!.gstNo}', style: const pw.TextStyle(fontSize: 10)),
+lib\view\home\reports\customer_wise_report.dart:256:                          pw.Text(
+lib\view\home\reports\customer_wise_report.dart:261:                          pw.Text(
+lib\view\home\reports\customer_wise_report.dart:265:                          pw.Text('Orders: $totalOrders', style: const pw.TextStyle(fontSize: 10)),
+lib\view\home\reports\customer_wise_report.dart:338:                  child: pw.Text(
+lib\view\home\reports\customer_wise_report.dart:354:            content: MyText(text: 'PDF generated successfully'),
+lib\view\home\reports\customer_wise_report.dart:367:          content: MyText(text: 'PDF generation failed: $e'),
+lib\view\home\reports\customer_wise_report.dart:379:        child: pw.Text(
+lib\view\home\reports\customer_wise_report.dart:392:        child: pw.Text(
+lib\view\home\reports\customer_wise_report.dart:404:        pw.Text(
+lib\view\home\reports\customer_wise_report.dart:411:        pw.Text(
+lib\view\home\reports\customer_wise_report.dart:433:          content: MyText(text: 'Please connect a printer first'),
+lib\view\home\reports\customer_wise_report.dart:489:        title: const MyText(
+lib\view\home\reports\customer_wise_report.dart:526:                hint: const MyText(text: "Select Customer"),
+lib\view\home\reports\customer_wise_report.dart:536:                    child: MyText(text: "${customer.name} (${customer.phone})"),
+lib\view\home\reports\customer_wise_report.dart:593:                child: MyText(
+lib\view\home\reports\customer_wise_report.dart:615:                            child: MyText(
+lib\view\home\reports\customer_wise_report.dart:639:                                            child: MyText(
+lib\view\home\reports\customer_wise_report.dart:653:                                                MyText(
+lib\view\home\reports\customer_wise_report.dart:659:                                                MyText(
+lib\view\home\reports\customer_wise_report.dart:670:                                              MyText(
+lib\view\home\reports\customer_wise_report.dart:676:                                              MyText(
+lib\view\home\reports\customer_wise_report.dart:725:                                    MyText(
+lib\view\home\reports\customer_wise_report.dart:772:                                          title: MyText(
+lib\view\home\reports\customer_wise_report.dart:781:                                              MyText(
+lib\view\home\reports\customer_wise_report.dart:787:                                              MyText(
+lib\view\home\reports\customer_wise_report.dart:796:                                          trailing: MyText(
+lib\view\home\reports\customer_wise_report.dart:811:                                                    child: MyText(
+lib\view\home\reports\customer_wise_report.dart:818:                                                    child: MyText(
+lib\view\home\reports\customer_wise_report.dart:826:                                                    child: MyText(
+lib\view\home\reports\customer_wise_report.dart:877:            MyText(
+lib\view\home\reports\customer_wise_report.dart:884:            MyText(
+lib\view\home\reports\customer_wise_report.dart:914:              MyText(
+lib\view\home\reports\customer_wise_report.dart:919:              MyText(
+lib\view\home\reports\customer_wise_report.dart:1201://         SnackBar(content: MyText(text: 'Error loading customer data: $e')),
+lib\view\home\reports\customer_wise_report.dart:1740://         title: const MyText(
+lib\view\home\reports\customer_wise_report.dart:1777://                 hint: const MyText(text: "Select Customer"),
+lib\view\home\reports\customer_wise_report.dart:1787://                     child: MyText(text: "${customer.name} (${customer.phone})"),
+lib\view\home\reports\customer_wise_report.dart:1837://                     : const MyText(
+lib\view\home\reports\customer_wise_report.dart:1863://                         child: MyText(
+lib\view\home\reports\customer_wise_report.dart:1877://                             MyText(
+lib\view\home\reports\customer_wise_report.dart:1885://                             MyText(
+lib\view\home\reports\customer_wise_report.dart:1898://                           MyText(
+lib\view\home\reports\customer_wise_report.dart:1906://                           MyText(
+lib\view\home\reports\customer_wise_report.dart:1957://                 MyText(
+lib\view\home\reports\customer_wise_report.dart:1974://                     child: MyText(
+lib\view\home\reports\customer_wise_report.dart:2008://                                   MyText(
+lib\view\home\reports\customer_wise_report.dart:2015://                                   MyText(
+lib\view\home\reports\customer_wise_report.dart:2022://                                   MyText(
+lib\view\home\reports\customer_wise_report.dart:2033://                             MyText(
+lib\view\home\reports\customer_wise_report.dart:2081://             MyText(
+lib\view\home\reports\customer_wise_report.dart:2090://             MyText(
+lib\view\home\reports\customer_wise_report.dart:2122://               MyText(
+lib\view\home\reports\customer_wise_report.dart:2129://               MyText(
+lib\view\home\reports\date_wise_report.dart:51:        title: const MyText(
+lib\view\home\reports\date_wise_report.dart:111:                                MyText(
+lib\view\home\reports\date_wise_report.dart:118:                                MyText(
+lib\view\home\reports\date_wise_report.dart:165:                                MyText(
+lib\view\home\reports\date_wise_report.dart:172:                                MyText(
+lib\view\home\reports\date_wise_report.dart:238:                            MyText(
+lib\view\home\reports\date_wise_report.dart:301:                                      MyText(
+lib\view\home\reports\date_wise_report.dart:322:                                          MyText(
+lib\view\home\reports\date_wise_report.dart:334:                                          MyText(
+lib\view\home\reports\date_wise_report.dart:341:                                          MyText(
+lib\view\home\reports\date_wise_report.dart:427:        const SnackBar(content: MyText(text: 'Please select both dates')),
+lib\view\home\reports\date_wise_report.dart:474:          SnackBar(content: MyText(text: 'Error fetching data: $e')),
+lib\view\home\reports\date_wise_report.dart:623:            content: MyText(text: 'Report printed successfully!'),
+lib\view\home\reports\date_wise_report.dart:632:            content: MyText(text: 'Print error: $e'),
+lib\view\home\reports\date_wise_report.dart:644:          content: MyText(text: 'No data available. Please select dates and wait for data to load.'),
+lib\view\home\reports\date_wise_report.dart:685:                  child: pw.Text(
+lib\view\home\reports\date_wise_report.dart:690:                if (address.isNotEmpty) pw.Center(child: pw.Text(address, style: const pw.TextStyle(fontSize: 10))),
+lib\view\home\reports\date_wise_report.dart:692:                  pw.Center(child: pw.Text('Contact: $contact', style: const pw.TextStyle(fontSize: 10))),
+lib\view\home\reports\date_wise_report.dart:693:                if (gstNo.isNotEmpty) pw.Center(child: pw.Text('GST: $gstNo', style: const pw.TextStyle(fontSize: 10))),
+lib\view\home\reports\date_wise_report.dart:700:                  child: pw.Text(
+lib\view\home\reports\date_wise_report.dart:706:                  child: pw.Text(
+lib\view\home\reports\date_wise_report.dart:720:                  child: pw.Text(
+lib\view\home\reports\date_wise_report.dart:783:                          pw.Text('Total Days: ${dateData.length}',
+lib\view\home\reports\date_wise_report.dart:785:                          pw.Text('Total Bills: $totalBills', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+lib\view\home\reports\date_wise_report.dart:792:                          pw.Text('Grand Total: ', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 14)),
+lib\view\home\reports\date_wise_report.dart:793:                          pw.Text(
+lib\view\home\reports\date_wise_report.dart:811:                  child: pw.Text(
+lib\view\home\reports\date_wise_report.dart:827:            content: MyText(text: 'PDF generated successfully!'),
+lib\view\home\reports\date_wise_report.dart:838:          content: MyText(text: 'Error creating PDF: $e'),
+lib\view\home\reports\date_wise_report.dart:848:      child: pw.Text(
+lib\view\home\reports\date_wise_report.dart:859:      child: pw.Text(
+lib\view\home\reports\date_wise_report.dart:894:            MyText(
+lib\view\home\reports\date_wise_report.dart:904:            MyText(
+lib\view\home\reports\date_wise_report.dart:930:          MyText(
+lib\view\home\reports\date_wise_report.dart:946:        MyText(
+lib\view\home\reports\date_wise_report.dart:954:        MyText(
+lib\view\home\reports\date_wise_report.dart:997:                MyText(
+lib\view\home\reports\item_wise_report.dart:50:        title: const MyText(
+lib\view\home\reports\item_wise_report.dart:110:                                MyText(
+lib\view\home\reports\item_wise_report.dart:117:                                MyText(
+lib\view\home\reports\item_wise_report.dart:164:                                MyText(
+lib\view\home\reports\item_wise_report.dart:171:                                MyText(
+lib\view\home\reports\item_wise_report.dart:237:                            MyText(
+lib\view\home\reports\item_wise_report.dart:288:                                        child: MyText(
+lib\view\home\reports\item_wise_report.dart:311:                                          MyText(
+lib\view\home\reports\item_wise_report.dart:323:                                          MyText(
+lib\view\home\reports\item_wise_report.dart:330:                                          MyText(
+lib\view\home\reports\item_wise_report.dart:416:        const SnackBar(content: MyText(text: 'Please select both dates')),
+lib\view\home\reports\item_wise_report.dart:467:          SnackBar(content: MyText(text: 'Error fetching data: $e')),
+lib\view\home\reports\item_wise_report.dart:624:            content: MyText(text: 'Report printed successfully!'),
+lib\view\home\reports\item_wise_report.dart:633:            content: MyText(text: 'Print error: $e'),
+lib\view\home\reports\item_wise_report.dart:645:          content: MyText(text: 'No data available. Please select dates and wait for data to load.'),
+lib\view\home\reports\item_wise_report.dart:686:                  child: pw.Text(
+lib\view\home\reports\item_wise_report.dart:691:                if (address.isNotEmpty) pw.Center(child: pw.Text(address, style: const pw.TextStyle(fontSize: 10))),
+lib\view\home\reports\item_wise_report.dart:693:                  pw.Center(child: pw.Text('Contact: $contact', style: const pw.TextStyle(fontSize: 10))),
+lib\view\home\reports\item_wise_report.dart:694:                if (gstNo.isNotEmpty) pw.Center(child: pw.Text('GST: $gstNo', style: const pw.TextStyle(fontSize: 10))),
+lib\view\home\reports\item_wise_report.dart:701:                  child: pw.Text(
+lib\view\home\reports\item_wise_report.dart:707:                  child: pw.Text(
+lib\view\home\reports\item_wise_report.dart:721:                  child: pw.Text(
+lib\view\home\reports\item_wise_report.dart:777:                          pw.Text('Total Items: ${itemsData.length}',
+lib\view\home\reports\item_wise_report.dart:779:                          pw.Text('Total Qty: $totalQuantity', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+lib\view\home\reports\item_wise_report.dart:786:                          pw.Text('Grand Total: ', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 14)),
+lib\view\home\reports\item_wise_report.dart:787:                          pw.Text(
+lib\view\home\reports\item_wise_report.dart:811:            content: MyText(text: 'PDF generated successfully!'),
+lib\view\home\reports\item_wise_report.dart:822:          content: MyText(text: 'Error creating PDF: $e'),
+lib\view\home\reports\item_wise_report.dart:832:      child: pw.Text(
+lib\view\home\reports\item_wise_report.dart:843:      child: pw.Text(
+lib\view\home\reports\item_wise_report.dart:878:            MyText(
+lib\view\home\reports\item_wise_report.dart:888:            MyText(
+lib\view\home\reports\item_wise_report.dart:914:          MyText(
+lib\view\home\reports\item_wise_report.dart:930:        MyText(
+lib\view\home\reports\item_wise_report.dart:938:        MyText(
+lib\view\home\reports\item_wise_report.dart:981:                MyText(
+lib\view\home\reports\sales_report_screen.dart:93:        SnackBar(content: MyText(text: 'Error: ${e.toString()}')),
+lib\view\home\reports\sales_report_screen.dart:114:        title: const MyText(
+lib\view\home\reports\sales_report_screen.dart:175:                      child: MyText(
+lib\view\home\reports\sales_report_screen.dart:223:                    MyText(
+lib\view\home\reports\sales_report_screen.dart:234:                    : MyText(
+lib\view\home\reports\sales_report_screen.dart:283:                const MyText(
+lib\view\home\reports\sales_report_screen.dart:290:                MyText(
+lib\view\home\reports\sales_report_screen.dart:317:                            MyText(
+lib\view\home\reports\sales_report_screen.dart:363:                                        child: MyText(
+lib\view\home\reports\sales_report_screen.dart:376:                                          MyText(
+lib\view\home\reports\sales_report_screen.dart:384:                                          MyText(
+lib\view\home\reports\sales_report_screen.dart:395:                                        MyText(
+lib\view\home\reports\sales_report_screen.dart:411:                                          child: MyText(
+lib\view\home\reports\sales_report_screen.dart:455:                                MyText(
+lib\view\home\reports\sales_report_screen.dart:503:                child: MyText(
+lib\view\home\reports\sales_report_screen.dart:512:            MyText(
+lib\view\home\reports\widgets\report_nav_bar.dart:46:        label: MyText(

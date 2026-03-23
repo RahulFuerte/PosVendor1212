@@ -3,20 +3,22 @@ import 'dart:io';
 
 // Flutter imports:
 import 'package:flutter/material.dart';
+import 'package:pos/core/widgets/text.dart';
 import 'package:flutter/services.dart';
 
 // Package imports:
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 // Project imports:
 import 'package:pos/data/datasources/local/sqlite_helper.dart';
 import 'package:pos/data/providers/print_provider.dart';
+import 'package:pos/data/services/cloudinary_service.dart';
+import 'package:pos/data/services/user_service.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:pos/core/utils/price_utils.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class EditBillReceiptScreen extends StatefulWidget {
   final String AdminUid;
@@ -41,6 +43,7 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
   final _fssaiNumberController = TextEditingController();
   final _upiIdController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
+  final CloudinaryService _storageService = CloudinaryService();
 
   bool _isSaving = false;
   bool _isLoading = true;
@@ -50,55 +53,126 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
   @override
   void initState() {
     super.initState();
-
-    _fetchExistingData();
+    _loadSettings();
   }
 
-  Future<void> _fetchExistingData() async {
+  Future<void> _loadSettings() async {
+    setState(() => _isLoading = true);
     try {
-      final doc = await FirebaseFirestore.instance
-          .collection('AllAdmins')
-          .doc(widget.AdminUid)
-          .collection('customer')
-          .doc(widget.phoneNo)
-          .get();
+      final sqliteData = await SQLiteHelper().getUserData(widget.phoneNo);
+      final prefs = await SharedPreferences.getInstance();
 
-      if (doc.exists && mounted) {
-        final data = doc.data();
-        if (data != null) {
-          _shopNameController.text = data['shopName'] ?? '';
-          _imageUrl = data['logoUrl'];
+      if (sqliteData != null) {
+        _shopNameController.text = sqliteData['shopName'] ?? '';
+        _contactController.text = sqliteData['shopContact'] ?? '';
+        _addressController.text = sqliteData['address'] ?? '';
+        _gstNumberController.text = sqliteData['gstNumber'] ?? '';
+        _fssaiNumberController.text = sqliteData['fssaiNo'] ?? '';
+        _upiIdController.text = sqliteData['upiId'] ?? '';
+        _imageUrl = sqliteData['shopLogoUrl'];
+      } else {
+        // Fallback to SharedPreferences if SQLite is empty
+        _shopNameController.text = prefs.getString('shopName') ?? '';
+        _contactController.text = prefs.getString('contact') ?? '';
+        _addressController.text = prefs.getString('address') ?? '';
+        _gstNumberController.text = prefs.getString('gstNumber') ?? '';
+        _fssaiNumberController.text = prefs.getString('fssaiNo') ?? '';
+        _upiIdController.text = prefs.getString('upiId') ?? '';
+        _imageUrl = prefs.getString('logoUrl');
+      }
+    } catch (e) {
+      debugPrint('Error loading settings: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
 
-          // Remove +91 prefix if present for display
-          String contact = data['contact'] ?? '';
-          if (contact.startsWith('+91')) {
-            contact = contact.substring(3);
-          }
-          _contactController.text = contact;
+  Future<void> _uploadImageAndSave() async {
+    debugPrint('Starting image upload process...');
+    if (_imageFile == null) {
+      debugPrint('No image file selected, skipping upload');
+      return;
+    }
 
-          _addressController.text = data['address'] ?? '';
-          _gstNumberController.text = data['gstNo'] ?? '';
-          _fssaiNumberController.text = data['fssaiNo'] ?? '';
-          _upiIdController.text = data['upiId'] ?? '';
+    try {
+      debugPrint('Image file path: ${_imageFile!.path}');
+      if (_imageUrl != null && _imageUrl!.isNotEmpty) {
+        debugPrint('Deleting old image at URL: $_imageUrl');
+        await _storageService.deleteImage(_imageUrl!);
+      }
 
-          print('Loaded receipt data from Firebase and saved locally');
-        }
-        // }
+      debugPrint('Uploading new image to Firebase Storage...');
+      _imageUrl = await _storageService.uploadImage(_imageFile!, 'profile');
+      debugPrint('Upload complete! New image URL: $_imageUrl');
+    } catch (e) {
+      debugPrint('Error uploading image: $e');
+      throw Exception('Failed to upload image: $e');
+    }
+  }
+
+  Future<void> _saveSettings() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isSaving = true);
+
+    try {
+      await _uploadImageAndSave();
+
+      final prefs = await SharedPreferences.getInstance();
+
+      // 1. Save to SharedPreferences
+      await prefs.setString('shopName', _shopNameController.text.trim());
+      await prefs.setString('contact', _contactController.text.trim());
+      await prefs.setString('address', _addressController.text.trim());
+      await prefs.setString('gstNumber', _gstNumberController.text.trim());
+      await prefs.setString('fssaiNo', _fssaiNumberController.text.trim());
+      await prefs.setString('upiId', _upiIdController.text.trim());
+      await prefs.setString('logoUrl', _imageUrl ?? "");
+
+      // 2. Save to SQLite
+      await SQLiteHelper().saveUserData({
+        'phone_number': widget.phoneNo,
+        'admin_uid': widget.AdminUid,
+        'shop_name': _shopNameController.text.trim(),
+        'shop_contact': _contactController.text.trim(),
+        'address': _addressController.text.trim(),
+        'gst_number': _gstNumberController.text.trim(),
+        'fssaiNo': _fssaiNumberController.text.trim(),
+        'upiId': _upiIdController.text.trim(),
+        'shop_logo_url': _imageUrl ?? "",
+      });
+
+      // 3. Save to MongoDB (Sync Profile)
+      await UserService().updateProfile({
+        'name': prefs.getString('name') ?? "", // Maintain current user name
+        'phoneNumber': widget.phoneNo,
+        'shopName': _shopNameController.text.trim(),
+        'address': _addressController.text.trim(),
+        'gstNo': _gstNumberController.text.trim(),
+        'fssaiNo': _fssaiNumberController.text.trim(),
+        'logoUrl': _imageUrl ?? "",
+        'logo_url': _imageUrl ?? "", // Backend fallback
+        'shopLogoUrl': _imageUrl ?? "", // Backend fallback
+        'upiId': _upiIdController.text.trim(),
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: MyText(text: 'Settings saved successfully'), backgroundColor: Colors.green),
+        );
+        Navigator.pop(context);
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error loading data: $e'),
-            backgroundColor: Colors.orange,
-          ),
+          SnackBar(content: MyText(text: 'Error saving settings: $e'), backgroundColor: Colors.red),
         );
       }
     } finally {
       if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
+        setState(() => _isSaving = false);
       }
     }
   }
@@ -124,12 +198,10 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              const Text(
-                'Select Logo',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+              const MyText(
+                text: 'Select Logo',
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
               ),
               const SizedBox(height: 20),
               Row(
@@ -193,13 +265,11 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
           children: [
             Icon(icon, size: 32, color: color ?? primaryColor),
             const SizedBox(height: 8),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: color ?? primaryColor,
-              ),
+            MyText(
+              text: label,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: color ?? primaryColor,
             ),
           ],
         ),
@@ -226,34 +296,11 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error picking image: $e'),
+            content: MyText(text: 'Error picking image: $e'),
             backgroundColor: Colors.red,
           ),
         );
       }
-    }
-  }
-
-  Future<String?> _uploadImage() async {
-    if (_imageFile == null) return _imageUrl;
-
-    try {
-      final String fileName = 'logos/${widget.AdminUid}/${widget.phoneNo}_${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final Reference storageRef = FirebaseStorage.instance.ref().child(fileName);
-      final UploadTask uploadTask = storageRef.putFile(_imageFile!);
-      final TaskSnapshot snapshot = await uploadTask;
-      final String downloadUrl = await snapshot.ref.getDownloadURL();
-      return downloadUrl;
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error uploading image: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-      return null;
     }
   }
 
@@ -268,107 +315,14 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
     super.dispose();
   }
 
-  Future<void> _saveReceipt() async {
-    if (_formKey.currentState!.validate()) {
-      setState(() {
-        _isSaving = true;
-      });
-
-      try {
-        // Upload image if selected
-        String? logoUrl = await _uploadImage();
-
-        // Add +91 prefix to contact number
-        String contactWithPrefix = '+91${_contactController.text.trim()}';
-
-        Map<String, dynamic> data = {
-          'shopName': _shopNameController.text.trim(),
-          'contact': contactWithPrefix,
-          'address': _addressController.text.trim(),
-          'gstNo': _gstNumberController.text.trim(),
-          'fssaiNo': _fssaiNumberController.text.trim(),
-          'upiId': _upiIdController.text.trim(),
-          'updatedAt': FieldValue.serverTimestamp(),
-        };
-
-        // Add logo URL if available
-        if (logoUrl != null && logoUrl.isNotEmpty) {
-          data['logoUrl'] = logoUrl;
-        }
-
-        await FirebaseFirestore.instance
-            .collection('AllAdmins')
-            .doc(widget.AdminUid)
-            .collection('customer')
-            .doc(widget.phoneNo)
-            .set(data, SetOptions(merge: true));
-
-        // Also save to local SQLite for offline access
-        final sqliteHelper = SQLiteHelper();
-        await sqliteHelper.saveUserData({
-          'phoneNumber': widget.phoneNo,
-          'adminUid': widget.AdminUid,
-          'shopName': _shopNameController.text.trim(),
-          'logoUrl': logoUrl,
-          'contact': contactWithPrefix,
-          'address': _addressController.text.trim(),
-          'gstNumber': _gstNumberController.text.trim(),
-          'fssaiNo': _fssaiNumberController.text.trim(),
-          'upiId': _upiIdController.text.trim(),
-        });
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Row(
-                children: [
-                  Icon(Icons.check_circle, color: Colors.white),
-                  SizedBox(width: 12),
-                  Text('Receipt saved successfully!'),
-                ],
-              ),
-              backgroundColor: Colors.green,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-
-          // Navigate back after successful save
-          Navigator.pop(context);
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Row(
-                children: [
-                  const Icon(Icons.error, color: Colors.white),
-                  const SizedBox(width: 12),
-                  Expanded(child: Text('Error saving receipt: $e')),
-                ],
-              ),
-              backgroundColor: Colors.red,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        }
-      } finally {
-        if (mounted) {
-          setState(() {
-            _isSaving = false;
-          });
-        }
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
-        title: const Text(
-          'Edit Bill Receipt',
-          style: TextStyle(fontWeight: FontWeight.w600),
+        title: const MyText(
+          text: 'Edit Bill Receipt',
+          fontWeight: FontWeight.w600,
         ),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black87,
@@ -480,33 +434,27 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
                             ),
                             const SizedBox(height: 12),
                             Center(
-                              child: Text(
-                                'Add Shop Logo',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.grey[600],
-                                  fontWeight: FontWeight.w500,
-                                ),
+                              child: MyText(
+                                text: 'Add Shop Logo',
+                                fontSize: 14,
+                                color: Colors.grey[600],
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
                             const SizedBox(height: 32),
 
                             // Form Header
-                            const Text(
-                              'Receipt Details',
-                              style: TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black87,
-                              ),
+                            const MyText(
+                              text: 'Receipt Details',
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
                             ),
                             const SizedBox(height: 8),
-                            Text(
-                              'Please fill in the information below',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey[600],
-                              ),
+                            MyText(
+                              text: 'Please fill in the information below',
+                              fontSize: 14,
+                              color: Colors.grey[600],
                             ),
                             const SizedBox(height: 24),
 
@@ -554,7 +502,7 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
                             _buildTextField(
                                 controller: _gstNumberController,
                                 label: 'GST Number',
-                                hint: 'Enter GST number (e.g., 22AAAAA0000A1Z5)',
+                                hint: 'GST number',
                                 icon: Icons.receipt_long,
                                 inputFormatters: [
                                   UpperCaseTextFormatter(),
@@ -616,21 +564,17 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
                             const SizedBox(height: 32),
 
                             // Tax Settings Section
-                            const Text(
-                              'Tax Settings',
-                              style: TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black87,
-                              ),
+                            const MyText(
+                              text: 'Tax Settings',
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
                             ),
                             const SizedBox(height: 8),
-                            Text(
-                              'Configure tax display on receipts',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey[600],
-                              ),
+                            MyText(
+                              text: 'Configure tax display on receipts',
+                              fontSize: 14,
+                              color: Colors.grey[600],
                             ),
                             const SizedBox(height: 16),
 
@@ -657,21 +601,17 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
                                               Column(
                                                 crossAxisAlignment: CrossAxisAlignment.start,
                                                 children: [
-                                                  const Text(
-                                                    'Enable Tax on Receipt',
-                                                    style: TextStyle(
-                                                      fontSize: 16,
-                                                      fontWeight: FontWeight.w600,
-                                                    ),
+                                                  const MyText(
+                                                    text: 'Enable Tax on Receipt',
+                                                    fontSize: 16,
+                                                    fontWeight: FontWeight.w600,
                                                   ),
-                                                  Text(
-                                                    printProvider.taxEnabled
+                                                  MyText(
+                                                    text: printProvider.taxEnabled
                                                         ? 'Tax will be shown'
                                                         : 'Tax will not be shown',
-                                                    style: TextStyle(
-                                                      fontSize: 12,
-                                                      color: Colors.grey[600],
-                                                    ),
+                                                    fontSize: 12,
+                                                    color: Colors.grey[600],
                                                   ),
                                                 ],
                                               ),
@@ -719,13 +659,12 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
                                               const Icon(Icons.info_outline, color: primaryColor, size: 20),
                                               const SizedBox(width: 8),
                                               Expanded(
-                                                child: Text(
-                                                  'Total Tax: ${PriceUtils.formatPrice(printProvider.cgstPercent + printProvider.sgstPercent).substring(1)}%',
-                                                  style: const TextStyle(
-                                                    fontSize: 14,
-                                                    fontWeight: FontWeight.w600,
-                                                    color: primaryColor,
-                                                  ),
+                                                child: MyText(
+                                                  text:
+                                                      'Total Tax: ${PriceUtils.formatPrice(printProvider.cgstPercent + printProvider.sgstPercent).substring(1)}%',
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: primaryColor,
                                                 ),
                                               ),
                                             ],
@@ -760,7 +699,7 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
                       width: double.infinity,
                       height: 56,
                       child: ElevatedButton(
-                        onPressed: _isSaving ? null : _saveReceipt,
+                        onPressed: _isSaving ? null : _saveSettings,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: primaryColor,
                           foregroundColor: Colors.white,
@@ -784,12 +723,11 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
                                 children: [
                                   Icon(Icons.save, size: 20),
                                   SizedBox(width: 8),
-                                  Text(
-                                    'Save Receipt',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                                  MyText(
+                                    text: 'Save Receipt',
+                                    fontSize: 16,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
                                   ),
                                 ],
                               ),
@@ -817,13 +755,11 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: Colors.black87,
-          ),
+        MyText(
+          text: label,
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          color: Colors.black87,
         ),
         const SizedBox(height: 8),
         TextFormField(
@@ -831,10 +767,11 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
           keyboardType: keyboardType,
           maxLength: maxLength,
           maxLines: maxLines,
+          style: TextStyle(fontFamily: "Outfit", fontWeight: FontWeight.w600),
           inputFormatters: inputFormatters,
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: TextStyle(color: Colors.grey[400]),
+            hintStyle: TextStyle(fontFamily: "Outfit", fontWeight: FontWeight.w500, color: Colors.grey[400]),
             prefixIcon: Padding(
               padding: EdgeInsets.only(bottom: maxLines > 1 ? 60 : 0),
               child: Icon(icon, color: primaryColor),
@@ -891,12 +828,10 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
       children: [
         Expanded(
           flex: 2,
-          child: Text(
-            label,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
+          child: MyText(
+            text: label,
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
           ),
         ),
         Expanded(

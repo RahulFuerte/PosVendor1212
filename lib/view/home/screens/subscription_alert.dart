@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pos/core/widgets/text.dart';
 import 'package:pos/view/home/navigation.dart';
 
 // These Page Is For Showing Subscription Expired Alert To User
@@ -33,28 +34,24 @@ class SubscriptionAlert extends StatelessWidget {
 
                 const SizedBox(height: 24),
 
-                 Text(
-                  'Subscription Expired',
+                 MyText(
+                  text: 'Subscription Expired',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: appbar1,
-                  ),
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: appbar1,
                 ),
 
                 const SizedBox(height: 12),
 
                 // ℹ️ Message
-                const Text(
-                  'Your subscription has expired.\n'
-                  'Please contact the administrator to renew your plan.',
+                const MyText(
+                  text: 'Your subscription has expired.\n'
+                      'Please contact the administrator to renew your plan.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.black87,
-                    height: 1.4,
-                  ),
+                  fontSize: 16,
+                  color: Colors.black87,
+                  height: 1.4,
                 ),
 
                 const SizedBox(height: 32),
@@ -64,9 +61,10 @@ class SubscriptionAlert extends StatelessWidget {
                   height: 65,
                   child: ElevatedButton.icon(
                     icon: const Icon(Icons.phone, color: Colors.white),
-                    label: const Text(
-                      'Contact Admin',
-                      style: TextStyle(fontSize: 16, color: Colors.white),
+                    label: const MyText(
+                      text: 'Contact Admin',
+                      fontSize: 16,
+                      color: Colors.white,
                     ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: appbar1,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pos/core/widgets/text.dart';
 import 'package:pos/data/providers/order_type_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:pos/view/home/navigation.dart';
@@ -44,12 +45,10 @@ class OrderTypeSelector extends StatelessWidget {
             ),
           ),
           child: Center(
-            child: Text(
-              text,
-              style: TextStyle(
-                color: isSelected ? Colors.white : Colors.black87,
-                fontWeight: FontWeight.w600,
-              ),
+            child: MyText(
+              text: text,
+              color: isSelected ? Colors.white : Colors.black87,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ),

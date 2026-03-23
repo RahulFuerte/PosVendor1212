@@ -1,7 +1,8 @@
-import 'package:firebase_auth/firebase_auth.dart';
+// Flutter imports:
 import 'package:flutter/material.dart';
-import 'package:pos/view/login/screens/inception_screen.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:pos/core/widgets/text.dart';
+import 'package:pos/view/login/screens/login.dart';
+import 'package:pos/data/datasources/shared_preferences.dart';
 
 class NewAdminScreen extends StatelessWidget {
   const NewAdminScreen({super.key});
@@ -10,7 +11,7 @@ class NewAdminScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("New Admin Dashboard"),
+        title: const MyText(text: "New Admin Dashboard"),
         actions: [
           IconButton(
             onPressed: () => _showLogoutDialog(context),
@@ -19,7 +20,7 @@ class NewAdminScreen extends StatelessWidget {
         ],
       ),
       body: const Center(
-        child: Text("Welcome, New Admin!"),
+        child: MyText(text: "Welcome, New Admin!"),
       ),
     );
   }
@@ -29,49 +30,79 @@ class NewAdminScreen extends StatelessWidget {
       context: context,
       builder: (context) {
         return Dialog(
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.0)),
-          child: Container(
-            padding: const EdgeInsets.all(20),
-            height: 200,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                const Text(
-                  "Are you sure you want to logout?",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-                  textAlign: TextAlign.center,
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.logout, color: Colors.red, size: 32),
                 ),
+                const SizedBox(height: 24),
+                const MyText(
+                  text: "Confirm Logout",
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+                const SizedBox(height: 12),
+                MyText(
+                  text: "Are you sure you want to logout? You will need to login again to access your account.",
+                  textAlign: TextAlign.center,
+                  color: Colors.grey.shade600,
+                  fontSize: 14,
+                ),
+                const SizedBox(height: 32),
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text("Cancel"),
-                    ),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          side: BorderSide(color: Colors.grey.shade300),
+                        ),
+                        child: MyText(
+                          text: "Cancel",
+                          color: Colors.grey.shade800,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                      onPressed: () async {
-                        final SharedPreferences prefs =
-                            await SharedPreferences.getInstance();
-                        await prefs.setBool('isLogged', false);
-                        await FirebaseAuth.instance.signOut();
-                        if (context.mounted) {
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                                builder: (context) => const Login()),
-                          );
-                        }
-                      },
-                      child: const Text(
-                        "Logout",
-                        style: TextStyle(color: Colors.white),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          await MySharedPreferences().clear();
+                          if (context.mounted) {
+                            Navigator.pushAndRemoveUntil(
+                              context,
+                              MaterialPageRoute(builder: (context) => const Login()),
+                              (route) => false,
+                            );
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const MyText(
+                          text: "Logout",
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ],

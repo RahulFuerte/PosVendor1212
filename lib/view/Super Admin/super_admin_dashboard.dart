@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:pos/view/login/screens/inception_screen.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:pos/core/widgets/text.dart';
+import 'package:pos/view/login/screens/login.dart';
+import 'package:pos/data/datasources/shared_preferences.dart';
 
 class SuperAdminDashboard extends StatefulWidget {
   const SuperAdminDashboard({super.key});
@@ -30,12 +29,10 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
             ),
           ),
         ),
-        title: const Text(
-          'Super Admin Dashboard',
-          style: TextStyle(
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.5,
-          ),
+        title: const MyText(
+          text: 'Super Admin Dashboard',
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.5,
         ),
         actions: [
           IconButton(
@@ -46,142 +43,142 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
         ],
       ),
 
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('AllAdmins')
-            .orderBy('createdAt', descending: true)
-            .snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
+      // body: StreamBuilder<QuerySnapshot>(
+      //   stream: FirebaseFirestore.instance
+      //       .collection('AllAdmins')
+      //       .orderBy('createdAt', descending: true)
+      //       .snapshots(),
+      //   builder: (context, snapshot) {
+      //     if (snapshot.connectionState == ConnectionState.waiting) {
+      //       return const Center(child: CircularProgressIndicator());
+      //     }
 
-          if (snapshot.hasError) {
-            return Center(child: Text("Error: ${snapshot.error}"));
-          }
+      //     if (snapshot.hasError) {
+      //       return Center(child: Text("Error: ${snapshot.error}"));
+      //     }
 
-          final docs = snapshot.data?.docs ?? [];
-          final now = DateTime.now();
+      //     final docs = snapshot.data?.docs ?? [];
+      //     final now = DateTime.now();
 
-          int totalAdmins = docs.length;
-          int activeSubscriptions = 0;
-          int trialUsers = 0;
-          int expiredUsers = 0;
+      //     int totalAdmins = docs.length;
+      //     int activeSubscriptions = 0;
+      //     int trialUsers = 0;
+      //     int expiredUsers = 0;
 
-          for (var doc in docs) {
-            final data = doc.data() as Map<String, dynamic>;
-            final expiry = (data['expiryDate'] as Timestamp?)?.toDate();
-            final package = data['package'] ?? 'trial';
+      //     for (var doc in docs) {
+      //       final data = doc.data() as Map<String, dynamic>;
+      //       final expiry = (data['expiryDate'] as Timestamp?)?.toDate();
+      //       final package = data['package'] ?? 'trial';
 
-            if (expiry != null && expiry.isAfter(now)) {
-              if (package == 'trial') {
-                trialUsers++;
-              } else {
-                activeSubscriptions++;
-              }
-            } else {
-              expiredUsers++;
-            }
-          }
+      //       if (expiry != null && expiry.isAfter(now)) {
+      //         if (package == 'trial') {
+      //           trialUsers++;
+      //         } else {
+      //           activeSubscriptions++;
+      //         }
+      //       } else {
+      //         expiredUsers++;
+      //       }
+      //     }
 
-          return Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 🔹 Stats Cards
-                GridView.count(
-                  crossAxisCount: 2,
-                  shrinkWrap: true,
-                  crossAxisSpacing: 14,
-                  mainAxisSpacing: 14,
-                  physics: const NeverScrollableScrollPhysics(),
-                  children: [
-                    _StatCard(
-                      title: 'Total Admins',
-                      value: totalAdmins.toString(),
-                      icon: Icons.admin_panel_settings,
-                      color: Colors.blue,
-                    ),
-                    _StatCard(
-                      title: 'Active Subscriptions',
-                      value: activeSubscriptions.toString(),
-                      icon: Icons.check_circle,
-                      color: Colors.green,
-                    ),
-                    _StatCard(
-                      title: 'Trial Users',
-                      value: trialUsers.toString(),
-                      icon: Icons.timer,
-                      color: Colors.orange,
-                    ),
-                    _StatCard(
-                      title: 'Expired',
-                      value: expiredUsers.toString(),
-                      icon: Icons.cancel,
-                      color: Colors.red,
-                    ),
-                  ],
-                ),
+      //     return Padding(
+      //       padding: const EdgeInsets.all(16),
+      //       child: Column(
+      //         crossAxisAlignment: CrossAxisAlignment.start,
+      //         children: [
+      //           // 🔹 Stats Cards
+      //           GridView.count(
+      //             crossAxisCount: 2,
+      //             shrinkWrap: true,
+      //             crossAxisSpacing: 14,
+      //             mainAxisSpacing: 14,
+      //             physics: const NeverScrollableScrollPhysics(),
+      //             children: [
+      //               _StatCard(
+      //                 title: 'Total Admins',
+      //                 value: totalAdmins.toString(),
+      //                 icon: Icons.admin_panel_settings,
+      //                 color: Colors.blue,
+      //               ),
+      //               _StatCard(
+      //                 title: 'Active Subscriptions',
+      //                 value: activeSubscriptions.toString(),
+      //                 icon: Icons.check_circle,
+      //                 color: Colors.green,
+      //               ),
+      //               _StatCard(
+      //                 title: 'Trial Users',
+      //                 value: trialUsers.toString(),
+      //                 icon: Icons.timer,
+      //                 color: Colors.orange,
+      //               ),
+      //               _StatCard(
+      //                 title: 'Expired',
+      //                 value: expiredUsers.toString(),
+      //                 icon: Icons.cancel,
+      //                 color: Colors.red,
+      //               ),
+      //             ],
+      //           ),
 
-                const SizedBox(height: 24),
+      //           const SizedBox(height: 24),
 
-                // 🔹 Admin List Title
-                const Text(
-                  'Admins',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
+      //           // 🔹 Admin List Title
+      //           const Text(
+      //             'Admins',
+      //             style: TextStyle(
+      //               fontSize: 20,
+      //               fontWeight: FontWeight.w700,
+      //             ),
+      //           ),
 
-                const SizedBox(height: 12),
+      //           const SizedBox(height: 12),
 
-                // 🔹 Admin List
-                Expanded(
-                  child: docs.isEmpty
-                      ? const Center(child: Text("No admins found"))
-                      : ListView.separated(
-                          itemCount: docs.length,
-                          separatorBuilder: (_, __) =>
-                              const SizedBox(height: 12),
-                          itemBuilder: (context, index) {
-                            final data =
-                                docs[index].data() as Map<String, dynamic>;
-                            final name = data['name'] ?? 'Shop Keeper';
-                            final phone = data['phone'] ?? 'No Phone';
-                            final adminCode = data['adminCode'] ?? 'No Code';
-                            final expiry =
-                                (data['expiryDate'] as Timestamp?)?.toDate();
-                            final package = data['package'] ?? 'trial';
+      //           // 🔹 Admin List
+      //           Expanded(
+      //             child: docs.isEmpty
+      //                 ? const Center(child: Text("No admins found"))
+      //                 : ListView.separated(
+      //                     itemCount: docs.length,
+      //                     separatorBuilder: (_, __) =>
+      //                         const SizedBox(height: 12),
+      //                     itemBuilder: (context, index) {
+      //                       final data =
+      //                           docs[index].data() as Map<String, dynamic>;
+      //                       final name = data['name'] ?? 'Shop Keeper';
+      //                       final phone = data['phone'] ?? 'No Phone';
+      //                       final adminCode = data['adminCode'] ?? 'No Code';
+      //                       final expiry =
+      //                           (data['expiryDate'] as Timestamp?)?.toDate();
+      //                       final package = data['package'] ?? 'trial';
 
-                            AdminStatus status;
-                            if (expiry != null && expiry.isAfter(now)) {
-                              status = package == 'trial'
-                                  ? AdminStatus.trial
-                                  : AdminStatus.active;
-                            } else {
-                              status = AdminStatus.expired;
-                            }
+      //                       AdminStatus status;
+      //                       if (expiry != null && expiry.isAfter(now)) {
+      //                         status = package == 'trial'
+      //                             ? AdminStatus.trial
+      //                             : AdminStatus.active;
+      //                       } else {
+      //                         status = AdminStatus.expired;
+      //                       }
 
-                            return _AdminTile(
-                              adminName: "$name ($adminCode)",
-                              phone: phone,
-                              totalCustomers:
-                                  0, // Need to fetch separately if needed
-                              status: status,
-                              onTap: () {
-                                // 👉 Navigate to specific admin details if needed
-                              },
-                            );
-                          },
-                        ),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
+      //                       return _AdminTile(
+      //                         adminName: "$name ($adminCode)",
+      //                         phone: phone,
+      //                         totalCustomers:
+      //                             0, // Need to fetch separately if needed
+      //                         status: status,
+      //                         onTap: () {
+      //                           // 👉 Navigate to specific admin details if needed
+      //                         },
+      //                       );
+      //                     },
+      //                   ),
+      //           ),
+      //         ],
+      //       ),
+      //     );
+      //   },
+      // ),
     );
   }
 
@@ -190,49 +187,79 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
       context: context,
       builder: (context) {
         return Dialog(
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.0)),
-          child: Container(
-            padding: const EdgeInsets.all(20),
-            height: 200,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                const Text(
-                  "Are you sure you want to logout?",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-                  textAlign: TextAlign.center,
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.logout, color: Colors.red, size: 32),
                 ),
+                const SizedBox(height: 24),
+                const MyText(
+                  text: "Confirm Logout",
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+                const SizedBox(height: 12),
+                MyText(
+                  text: "Are you sure you want to logout? You will need to login again to access your account.",
+                  textAlign: TextAlign.center,
+                  color: Colors.grey.shade600,
+                  fontSize: 14,
+                ),
+                const SizedBox(height: 32),
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text("Cancel"),
-                    ),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          side: BorderSide(color: Colors.grey.shade300),
+                        ),
+                        child: MyText(
+                          text: "Cancel",
+                          color: Colors.grey.shade800,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                      onPressed: () async {
-                        final SharedPreferences prefs =
-                            await SharedPreferences.getInstance();
-                        await prefs.setBool('isLogged', false);
-                        await FirebaseAuth.instance.signOut();
-                        if (context.mounted) {
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                                builder: (context) => const Login()),
-                          );
-                        }
-                      },
-                      child: const Text(
-                        "Logout",
-                        style: TextStyle(color: Colors.white),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          await MySharedPreferences().clear();
+                          if (context.mounted) {
+                            Navigator.pushAndRemoveUntil(
+                              context,
+                              MaterialPageRoute(builder: (context) => const Login()),
+                              (route) => false,
+                            );
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const MyText(
+                          text: "Logout",
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ],
@@ -294,20 +321,16 @@ class _StatCard extends StatelessWidget {
             child: Icon(icon, color: Colors.white, size: 22),
           ),
           const Spacer(),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
+          MyText(
+            text: value,
+            fontSize: 28,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
           ),
-          Text(
-            title,
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 13,
-            ),
+          MyText(
+            text: title,
+            color: Colors.white70,
+            fontSize: 13,
           ),
         ],
       ),
@@ -389,20 +412,16 @@ class _AdminTile extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      adminName,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 16,
-                      ),
+                    MyText(
+                      text: adminName,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
                     ),
                     const SizedBox(height: 4),
-                    Text(
-                      phone,
-                      style: const TextStyle(
-                        color: Colors.grey,
-                        fontSize: 13,
-                      ),
+                    MyText(
+                      text: phone,
+                      color: Colors.grey,
+                      fontSize: 13,
                     ),
                   ],
                 ),
@@ -411,28 +430,23 @@ class _AdminTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     decoration: BoxDecoration(
                       color: statusColor.withOpacity(0.15),
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: Text(
-                      statusText,
-                      style: TextStyle(
-                        color: statusColor,
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    child: MyText(
+                      text: statusText,
+                      color: statusColor,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
                   const SizedBox(height: 6),
-                  Text(
-                    '$totalCustomers Customers',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                    ),
+                  MyText(
+                    text: '$totalCustomers Customers',
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
                   ),
                 ],
               ),

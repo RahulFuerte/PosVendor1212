@@ -3,10 +3,10 @@ import 'dart:developer' as developer;
 
 // Flutter imports:
 import 'package:flutter/material.dart';
+import 'package:pos/core/widgets/text.dart';
 
 // Package imports:
 import 'package:audioplayers/audioplayers.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:hive/hive.dart';
 import 'package:provider/provider.dart';
@@ -14,7 +14,7 @@ import 'package:provider/provider.dart';
 // Project imports:
 import 'package:pos/core/utils/price_utils.dart';
 import 'package:pos/data/datasources/local/sqlite_helper.dart';
-import 'package:pos/data/datasources/smart_database_service.dart';
+import 'package:pos/data/services/product_service.dart';
 import 'package:pos/view/home/navigation.dart';
 import 'package:pos/data/providers/print_provider.dart';
 import 'package:pos/view/home/screens/users_data_screen.dart';
@@ -142,8 +142,7 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
     } else if (value == '⌫') {
       // Backspace - remove last character
       if (_textEditingController.text.isNotEmpty) {
-        _textEditingController.text = _textEditingController.text
-            .substring(0, _textEditingController.text.length - 1);
+        _textEditingController.text = _textEditingController.text.substring(0, _textEditingController.text.length - 1);
       }
     } else if (value == 'PLU') {
       String enteredCode = _textEditingController.text;
@@ -170,7 +169,7 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
     required TextEditingController mobileController,
     required int itemCount,
     required double totalAmount,
-    required VoidCallback onSave,
+    required void Function(String? customerId) onSave,
     required Color primaryColor,
   }) {
     return showModalBottomSheet(
@@ -188,9 +187,9 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
           totalAmount: totalAmount,
           primaryColor: primaryColor,
           onCancel: () => Navigator.pop(context),
-          onSave: () {
+          onSave: (customerId) {
             if (formKey.currentState!.validate()) {
-              onSave();
+              onSave(customerId);
               Navigator.pop(context);
             }
           },
@@ -200,55 +199,25 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
   }
 
   Future<String> fetchAdminUid() async {
-    // Check connection status first
-    final smartDB = SmartDatabaseService();
-    await smartDB.initialize();
-
-    if (!smartDB.isOnline) {
-      developer.log('Offline: Skipping Firebase fetch for adminUid',
-          name: 'CalculatorScreen');
-      return await _getCachedAdminUid();
-    }
-
     try {
-      DocumentSnapshot<Map<String, dynamic>> snapshot = await FirebaseFirestore
-          .instance
-          .collection('AllCustomer')
-          .doc(widget.phoneNumber)
-          .get()
-          .timeout(const Duration(seconds: 3));
-
-      final data = snapshot.data();
-      final String? fetchedAdminUid = data?['adminUid'];
-
-      if (fetchedAdminUid != null && fetchedAdminUid.isNotEmpty) {
-        // Cache the admin data in SQLite for offline use
-        try {
-          final sqliteHelper = SQLiteHelper();
-          await sqliteHelper.saveAdminData({
-            'adminUid': fetchedAdminUid,
-            'phoneNumber': widget.phoneNumber,
-            'name': data?['name'],
-            'email': data?['email'],
-            'customerCode': data?['customerCode'],
-            'createdAt': data?['createdAt'],
-          });
-        } catch (cacheError) {
-          developer.log('Error caching adminUid in SQLite: $cacheError',
-              name: 'CalculatorScreen');
-        }
-
+      // Check connection status first
+      final sqliteHelper = SQLiteHelper();
+      // Try SQLite cache first for adminUid
+      final cachedUid = await sqliteHelper.getAdminUid(widget.phoneNumber);
+      if (cachedUid != null && cachedUid.isNotEmpty) {
         setState(() {
-          adminUid = fetchedAdminUid;
+          adminUid = cachedUid;
         });
-        return fetchedAdminUid;
+        return cachedUid;
       }
-
-      // If Firebase returned null, try SQLite cache
-      return await _getCachedAdminUid();
+      // Fallback to phoneNumber as adminUid
+      developer.log('No cached adminUid, using phoneNumber', name: 'CalculatorScreen');
+      setState(() {
+        adminUid = widget.phoneNumber;
+      });
+      return widget.phoneNumber;
     } catch (e) {
       developer.log('Error fetching adminUid: $e', name: 'CalculatorScreen');
-      // Fall back to cached adminUid from SQLite when offline
       return await _getCachedAdminUid();
     }
   }
@@ -260,8 +229,7 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
       final cachedAdminUid = await sqliteHelper.getAdminUid(widget.phoneNumber);
 
       if (cachedAdminUid != null && cachedAdminUid.isNotEmpty) {
-        developer.log('Using cached adminUid from SQLite: $cachedAdminUid',
-            name: 'CalculatorScreen');
+        developer.log('Using cached adminUid from SQLite: $cachedAdminUid', name: 'CalculatorScreen');
         setState(() {
           adminUid = cachedAdminUid;
         });
@@ -269,15 +237,13 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
       }
 
       // Last resort: use phoneNumber as adminUid
-      developer.log('No cached adminUid found, using phoneNumber as fallback',
-          name: 'CalculatorScreen');
+      developer.log('No cached adminUid found, using phoneNumber as fallback', name: 'CalculatorScreen');
       setState(() {
         adminUid = widget.phoneNumber;
       });
       return widget.phoneNumber;
     } catch (e) {
-      developer.log('Error getting cached adminUid from SQLite: $e',
-          name: 'CalculatorScreen');
+      developer.log('Error getting cached adminUid from SQLite: $e', name: 'CalculatorScreen');
       setState(() {
         adminUid = widget.phoneNumber;
       });
@@ -287,27 +253,17 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
 
   Future<List<Map<String, dynamic>>> fetchFoodItems() async {
     try {
-      final String adminUid = await fetchAdminUid();
+      final products = await ProductService().getProducts();
 
-      // Use SmartDatabaseService for online/offline handling
-      final smartDB = SmartDatabaseService();
-      await smartDB.initialize();
-
-      // Get all food items using SmartDatabaseService
-      List<Map<String, dynamic>> allItems =
-          await smartDB.getFoodItems(adminUid);
-
-      List<Map<String, dynamic>> items = allItems
+      List<Map<String, dynamic>> items = products
           .map((item) => {
-                'name': PriceUtils.safeStringConversion(item['name']),
-                'price': PriceUtils.safeStringConversion(item['price']),
-                'foodCode': PriceUtils.safeStringConversion(item['food_code'] ??
-                    item['foodCode']) // Support both formats
+                'name': PriceUtils.safeStringConversion(item.name),
+                'price': PriceUtils.safeStringConversion(item.price),
+                'foodCode': PriceUtils.safeStringConversion(item.foodCode)
               })
           .toList();
 
-      developer.log('Fetched food items of cs: $items',
-          name: 'CalculatorScreen');
+      developer.log('Fetched food items of cs: $items', name: 'CalculatorScreen');
 
       return items;
     } catch (e) {
@@ -337,9 +293,7 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
             _textEditingController.clear(); // Clear input after adding
             return;
           } else {
-            developer.log(
-                'Invalid item data: name=$itemName, price=${item['price']}',
-                name: 'CalculatorScreen');
+            developer.log('Invalid item data: name=$itemName, price=${item['price']}', name: 'CalculatorScreen');
             Fluttertoast.showToast(
               msg: "Invalid item data for code: $foodCode",
               toastLength: Toast.LENGTH_SHORT,
@@ -352,8 +306,7 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
         }
       }
 
-      developer.log('Food Item not found for code: $foodCode',
-          name: 'CalculatorScreen');
+      developer.log('Food Item not found for code: $foodCode', name: 'CalculatorScreen');
       Fluttertoast.showToast(
         msg: "No item exists with code: $foodCode",
         toastLength: Toast.LENGTH_SHORT,
@@ -378,10 +331,7 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
       filteredFoodItems = allFoodItems;
     } else {
       filteredFoodItems = allFoodItems.where((item) {
-        return item['name']
-            .toString()
-            .toLowerCase()
-            .contains(query.toLowerCase());
+        return item['name'].toString().toLowerCase().contains(query.toLowerCase());
       }).toList();
     }
     setState(() {});
@@ -419,6 +369,10 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
               backgroundColor: Colors.white,
               elevation: 0,
               scrolledUnderElevation: 0,
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back_ios, color: Colors.black),
+                onPressed: () => Navigator.pop(context),
+              ),
               actions: [
                 Padding(
                   padding: const EdgeInsets.only(right: 12.0),
@@ -462,12 +416,11 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
                             contentPadding: EdgeInsets.all(15)),
                       ),
                     )
-                  : const Text(
-                      'Enter Food Code',
-                      style: TextStyle(
-                          color: Colors.black,
-                          fontFamily: 'tabfont',
-                          fontSize: 22),
+                  : const MyText(
+                      text: 'Enter Food Code',
+                      color: Colors.black,
+                      fontFamily: 'tabfont',
+                      fontSize: 22,
                     ),
             ),
             body: Column(
@@ -482,15 +435,12 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
                           itemBuilder: (_, i) {
                             final item = filteredFoodItems[i];
                             return ListTile(
-                              title: Text(
-                                item['name'],
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w500,
-                                ),
+                              title: MyText(
+                                text: item['name'],
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500,
                               ),
-                              subtitle:
-                                  Text(PriceUtils.formatPrice(item['price'])),
+                              subtitle: MyText(text: PriceUtils.formatPrice(item['price'])),
                               trailing: IconButton(
                                 icon: const Icon(
                                   Icons.add_circle,
@@ -500,8 +450,7 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
                                 onPressed: () {
                                   addToCart(
                                     item['name'],
-                                    PriceUtils.safePriceConversion(
-                                        item['price']),
+                                    PriceUtils.safePriceConversion(item['price']),
                                   );
                                 },
                               ),
@@ -536,13 +485,8 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
                                               color: primaryColor,
                                             ),
                                             onPressed: () {
-                                              _textEditingController.text =
-                                                  _textEditingController.text
-                                                      .substring(
-                                                          0,
-                                                          _textEditingController
-                                                                  .text.length -
-                                                              1);
+                                              _textEditingController.text = _textEditingController.text
+                                                  .substring(0, _textEditingController.text.length - 1);
                                             },
                                           )
                                         : null,
@@ -555,10 +499,8 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
                             Expanded(
                               child: GridView.builder(
                                 physics: const NeverScrollableScrollPhysics(),
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 8),
-                                gridDelegate:
-                                    const SliverGridDelegateWithFixedCrossAxisCount(
+                                padding: const EdgeInsets.symmetric(horizontal: 8),
+                                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                                   crossAxisCount: 3,
                                   childAspectRatio: 1.6,
                                   crossAxisSpacing: 8,
@@ -566,46 +508,26 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
                                 ),
                                 itemCount: 12,
                                 itemBuilder: (_, index) {
-                                  final keys = [
-                                    '1',
-                                    '2',
-                                    '3',
-                                    '4',
-                                    '5',
-                                    '6',
-                                    '7',
-                                    '8',
-                                    '9',
-                                    'C',
-                                    '0',
-                                    'PLU'
-                                  ];
+                                  final keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'C', '0', 'PLU'];
                                   final key = keys[index];
 
                                   return ElevatedButton(
                                     onPressed: () {
-                                      audioPlayer
-                                          .play(AssetSource('sounds/beep.mp3'));
+                                      audioPlayer.play(AssetSource('sounds/beep.mp3'));
                                       onKeyPressed(key);
                                     },
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: key == 'PLU'
-                                          ? primaryColor
-                                          : Colors.white,
+                                      backgroundColor: key == 'PLU' ? primaryColor : Colors.white,
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(12),
                                       ),
                                       elevation: 4,
                                     ),
-                                    child: Text(
-                                      key,
-                                      style: TextStyle(
-                                        fontSize: 26,
-                                        fontFamily: "tabfont",
-                                        color: key == 'PLU'
-                                            ? Colors.white
-                                            : appbar1,
-                                      ),
+                                    child: MyText(
+                                      text: key,
+                                      fontSize: 26,
+                                      fontFamily: "tabfont",
+                                      color: key == 'PLU' ? Colors.white : appbar1,
                                     ),
                                   );
                                 },
@@ -622,9 +544,7 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
                                     totalSum = 0.0;
                                   });
                                 },
-                                onCartUpdated:
-                                    (List<Map<String, dynamic>> items,
-                                        double total) {
+                                onCartUpdated: (List<Map<String, dynamic>> items, double total) {
                                   setState(() {
                                     cartItems = items;
                                     totalSum = total;
@@ -639,8 +559,8 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
                                     itemCount: cartItems.length,
                                     totalAmount: totalSum,
                                     primaryColor: primaryColor,
-                                    onSave: () {
-                                      _saveDataAndNavigate();
+                                    onSave: (customerId) {
+                                      _saveDataAndNavigate(customerId);
                                       printprovider.clearCart();
                                       userNameController.clear();
                                       mobileController.clear();
@@ -688,7 +608,7 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
   //                     userNameController.clear();
   //                   }
   //                 },
-  //                 child: const Text('Submit'),
+  //                 child: const MyText(text: 'Submit'),
   //               ),
   //             ],
   //           ),
@@ -698,13 +618,14 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
   //   );
   // }
 
-  void _saveDataAndNavigate() async {
+  void _saveDataAndNavigate(String? customerId) async {
     final printprovider = Provider.of<PrintProvider>(context, listen: false);
     final userMap = {
       'phoneNumber': mobileController.text,
       'userName': userNameController.text,
       'details': _encodeDetails(cartItems),
       'totalAmount': printprovider.total,
+      'customerId': customerId,
     };
 
     // Save data to Hive
@@ -720,8 +641,7 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
     );
   }
 
-  List<Map<String, dynamic>> _encodeDetails(
-      List<Map<String, dynamic>> details) {
+  List<Map<String, dynamic>> _encodeDetails(List<Map<String, dynamic>> details) {
     return details.map((item) {
       return {
         'name': item['name'],

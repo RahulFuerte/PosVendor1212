@@ -2,13 +2,14 @@
 
 // Flutter imports:
 import 'package:flutter/material.dart';
+import 'package:pos/core/widgets/text.dart';
 
 // Package imports:
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:pos/core/utils/offline_tts.dart';
 import 'package:pos/data/providers/order_type_provider.dart';
 import 'package:pos/view/home/widgets/my_choiceChip.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // Project imports:
 
@@ -86,75 +87,6 @@ class _BillCartState extends State<BillCart> {
     });
   }
 
-  /// Fetch shop data with local-first approach
-  /// First checks SQLite, then Firebase if not found locally
-  Future<Map<String, String>> _getShopData() async {
-    String shopName = 'N/A';
-    String contact = 'N/A';
-    String address = 'N/A';
-    String logoUrl = '';
-    String upiId = '';
-
-    try {
-      // First try to get from local SQLite
-      final localData = await _sqliteHelper.getUserData(widget.phoneNo);
-
-      if (localData != null) {
-        shopName = localData['shopName'] ?? 'N/A';
-        contact = localData['shopContact'] ?? 'N/A';
-        address = localData['address'] ?? 'N/A';
-        logoUrl = localData['shopLogoUrl'] ?? '';
-        upiId = localData['upiId'] ?? '';
-        debugPrint('Shop data loaded from local cache');
-      } else {
-        // Not found locally, fetch from Firebase
-        final doc = await FirebaseFirestore.instance
-            .collection('AllAdmins')
-            .doc(widget.adminUid)
-            .collection('customer')
-            .doc(widget.phoneNo)
-            .get();
-
-        if (doc.exists) {
-          final data = doc.data();
-          if (data != null) {
-            shopName = data['shopName'] ?? 'N/A';
-            contact = data['contact'] ?? 'N/A';
-            address = data['address'] ?? 'N/A';
-            upiId = data['upiId'] ?? '';
-
-            // Save all fields to local SQLite for future use
-            await _sqliteHelper.saveUserData({
-              'phoneNumber': data['phoneNumber'] ?? widget.phoneNo,
-              'adminUid': data['adminUid'] ?? widget.adminUid,
-              'shopName': shopName,
-              'contact': contact,
-              'address': address,
-              'upiId': upiId,
-              'logoUrl': data['logoUrl'],
-              'name': data['name'],
-              'email': data['email'],
-              'customerCode': data['customerCode'],
-              'gstNumber': data['gstNo'],
-              'createdAt': data['createdAt'],
-            });
-            debugPrint('Shop data loaded from Firebase and saved locally');
-          }
-        }
-      }
-    } catch (e) {
-      debugPrint('Error fetching shop data: $e');
-    }
-
-    return {
-      'shopName': shopName,
-      'contact': contact,
-      'address': address,
-      'logoUrl': logoUrl,
-      'upiId': upiId,
-    };
-  }
-
   void _updateCart() {
     final printProvider = Provider.of<PrintProvider>(context, listen: false);
     printProvider.additem(selectedItemsDetails, subtotal);
@@ -200,12 +132,12 @@ class _BillCartState extends State<BillCart> {
       String orderType = orderTypeProvider.orderType.toString().split('.').last;
 
       // Fetch shop data (local-first)
-      final shopData = await _getShopData();
-      String shopName = shopData['shopName']!;
-      String contact = shopData['contact']!;
-      String address = shopData['address']!;
-      String logoUrl = shopData['logoUrl']!;
-      String upiId = shopData['upiId'] ?? "";
+      final prefs = await SharedPreferences.getInstance();
+      String shopName = prefs.getString('shopName') ?? 'Shop Name';
+      String contact = prefs.getString('contact') ?? 'Contact';
+      String address = prefs.getString('address') ?? 'Address';
+      String logoUrl = prefs.getString('logoUrl') ?? '';
+      String upiId = prefs.getString('upiId') ?? "";
 
       if (!mounted) return;
       Navigator.pop(parentContext);
@@ -229,7 +161,6 @@ class _BillCartState extends State<BillCart> {
         customerPhone: "",
         customerGst: "",
         orderType: orderType,
-
         paymentType: paymentType,
         discountAmount: 0,
         discountPercent: 0,
@@ -238,7 +169,7 @@ class _BillCartState extends State<BillCart> {
         taxEnabled: printProvider.taxEnabled,
         cgstPercent: printProvider.cgstPercent,
         sgstPercent: printProvider.sgstPercent,
-        saveBill: false, // Bill already saved via SmartDatabaseService
+        saveBill: true,
       );
 
       _clearCart();
@@ -246,7 +177,7 @@ class _BillCartState extends State<BillCart> {
       if (!mounted) return;
       ScaffoldMessenger.of(parentContext).showSnackBar(
         SnackBar(
-          content: Text('Dine-in receipt printed for Table $tableNumber'),
+          content: MyText(text: 'Dine-in receipt printed for Table $tableNumber'),
           backgroundColor: Colors.green,
           duration: const Duration(seconds: 2),
         ),
@@ -256,7 +187,7 @@ class _BillCartState extends State<BillCart> {
       Navigator.pop(parentContext);
       ScaffoldMessenger.of(parentContext).showSnackBar(
         SnackBar(
-          content: Text('Printing failed: $e'),
+          content: MyText(text: 'Printing failed: $e'),
           backgroundColor: Colors.red,
           duration: const Duration(seconds: 3),
         ),
@@ -268,7 +199,7 @@ class _BillCartState extends State<BillCart> {
     if (selectedItemsDetails.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('No items in cart'),
+          content: const MyText(text: 'No items in cart'),
           backgroundColor: Colors.orange,
           duration: Duration(seconds: 2),
         ),
@@ -276,14 +207,15 @@ class _BillCartState extends State<BillCart> {
       return;
     }
 
-    // Fetch shop data (local-first)
-    final shopData = await _getShopData();
+    // Fetch shop data from SharedPreferences
+    final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
 
-    String shopName = shopData['shopName']!;
-    String contact = shopData['contact']!;
-    String address = shopData['address']!;
-    String upiId = shopData['upiId'] ?? "";
+    String shopName = prefs.getString('shopName') ?? 'Shop Name';
+    String contact = prefs.getString('contact') ?? 'Contact';
+    String address = prefs.getString('address') ?? 'Address';
+    String upiId = prefs.getString('upiId') ?? "";
+    String logoUrl = prefs.getString('logoUrl') ?? "";
 
     final result = await Navigator.push(
       context,
@@ -295,6 +227,7 @@ class _BillCartState extends State<BillCart> {
           address: address,
           upiId: upiId,
           phoneNo: widget.phoneNo,
+          logoUrl: logoUrl,
         ),
       ),
     );
@@ -319,7 +252,7 @@ class _BillCartState extends State<BillCart> {
       );
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please connect a printer first'),
+          content: const MyText(text: 'Please connect a printer first'),
           backgroundColor: Colors.orange,
           duration: Duration(seconds: 2),
         ),
@@ -330,7 +263,7 @@ class _BillCartState extends State<BillCart> {
     if (selectedItemsDetails.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('No items to print'),
+          content: const MyText(text: 'No items to print'),
           backgroundColor: Colors.orange,
           duration: Duration(seconds: 2),
         ),
@@ -353,13 +286,12 @@ class _BillCartState extends State<BillCart> {
       final int amount = subtotal.round();
       final String amountInWords = numberToWords(amount);
 
-      // Fetch shop data (local-first)
-      final shopData = await _getShopData();
-      String shopName = shopData['shopName']!;
-      String contact = shopData['contact']!;
-      String address = shopData['address']!;
-      String logoUrl = shopData['logoUrl']!;
-      String upiId = shopData['upiId'] ?? "";
+      final prefs = await SharedPreferences.getInstance();
+      String shopName = prefs.getString('shopName') ?? 'Shop Name';
+      String contact = prefs.getString('contact') ?? 'Contact';
+      String address = prefs.getString('address') ?? 'Address';
+      String logoUrl = prefs.getString('logoUrl') ?? '';
+      String upiId = prefs.getString('upiId') ?? "";
 
       if (!mounted) return;
       Navigator.pop(context);
@@ -375,18 +307,19 @@ class _BillCartState extends State<BillCart> {
         contact: contact,
         address: address,
         logoUrl: logoUrl,
-        customerName: "",
-        customerPhone: "",
+        customerName: printProvider.customerName ?? "",
+        customerPhone: printProvider.customerPhone ?? "",
         upiId: upiId,
-        customerGst: "",
+        customerGst: printProvider.customerGst ?? "",
         orderType: orderType,
         paymentType: paymentType,
         tableNumber: "",
         discountAmount: 0,
         discountPercent: 0,
-        customerNote: "",
-        customerAddress: "",
+        customerNote: printProvider.customerNote ?? "",
+        customerAddress: printProvider.customerAddress ?? "",
         receiptNo: generatedReceiptNo,
+        customerId: printProvider.customerId,
         taxEnabled: printProvider.taxEnabled,
         cgstPercent: printProvider.cgstPercent,
         sgstPercent: printProvider.sgstPercent,
@@ -414,8 +347,8 @@ class _BillCartState extends State<BillCart> {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  isOnline
+                child: MyText(
+                  text: isOnline
                       ? 'Printed & saved! Receipt: $generatedReceiptNo'
                       : 'Printed & saved offline! Receipt: $generatedReceiptNo',
                 ),
@@ -432,7 +365,7 @@ class _BillCartState extends State<BillCart> {
       debugPrint('Error printing receipt: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Printing failed: $e'),
+          content: MyText(text: 'Printing failed: $e'),
           backgroundColor: Colors.red,
           duration: const Duration(seconds: 3),
         ),
@@ -449,10 +382,30 @@ class _BillCartState extends State<BillCart> {
         subtotal = printProvider.total;
 
         return Container(
-          color: white,
-          margin: const EdgeInsets.only(top: 5, bottom: 5),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, -5),
+              ),
+            ],
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
+              // Pull handle indicator
+              Container(
+                margin: const EdgeInsets.only(top: 12, bottom: 8),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
               _buildItemsList(printProvider),
               _buildFooter(printProvider),
             ],
@@ -464,10 +417,12 @@ class _BillCartState extends State<BillCart> {
 
   Widget _buildItemsList(PrintProvider printProvider) {
     return SizedBox(
-      height: 120,
-      child: ListView.builder(
+      height: 100, // Slightly taller for breathing room
+      child: ListView.separated(
         controller: _listScrollController,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         itemCount: selectedItemsDetails.length,
+        separatorBuilder: (context, index) => const Divider(height: 16, color: Colors.black12),
         itemBuilder: (context, index) {
           return _buildCartItem(index, printProvider);
         },
@@ -478,73 +433,63 @@ class _BillCartState extends State<BillCart> {
   Widget _buildCartItem(int index, PrintProvider printProvider) {
     final item = selectedItemsDetails[index];
 
-    return Table(
-      columnWidths: const {
-        0: FlexColumnWidth(3),
-        1: FlexColumnWidth(2),
-        2: FlexColumnWidth(1),
-      },
-      defaultVerticalAlignment: TableCellVerticalAlignment.middle,
-      children: [
-        TableRow(
-          children: [
-            /// Item Name
-            Padding(
-              padding: const EdgeInsets.only(
-                left: 8,
-                top: 5,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item['name'],
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 14.5,
-                      fontWeight: FontWeight.w600,
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          /// Item Info
+          Expanded(
+            flex: 3,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                MyText(
+                  text: item['name'],
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                ),
+                const SizedBox(height: 4),
+                MyText(
+                  text: "${PriceUtils.formatPrice(item['price'])} × ${item['quantity']}",
+                  fontSize: 13,
+                  color: appbar1.withOpacity(0.8),
+                  fontWeight: FontWeight.w600,
+                ),
+                if (item['addons'] != null && item['addons'].isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4, left: 4),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: (item['addons'] as List).map((a) {
+                        return MyText(
+                          text: "+ ${a['name']} (${PriceUtils.formatPrice(a['price'])})",
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                        );
+                      }).toList(),
                     ),
                   ),
-                  Text(
-                    "${PriceUtils.formatPrice(item['price'])} × ${item['quantity']}",
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Colors.black54,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  if (item['addons'] != null && item['addons'].isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(left: 7),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: (item['addons'] as List).map((a) {
-                          return Text(
-                            "${a['name']} (${PriceUtils.formatPrice(a['price'])})",
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Colors.black54,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ),
-                ],
-              ),
+              ],
             ),
+          ),
 
-            /// Quantity Buttons
-            _buildQuantityControls(index, printProvider),
+          /// Quantity Controls
+          Expanded(
+            flex: 2,
+            child: _buildQuantityControls(index, printProvider),
+          ),
 
-            /// Delete Button
-            Center(
-              child: _buildDeleteButton(index, printProvider),
-            ),
-          ],
-        ),
-      ],
+          /// Delete Button
+          SizedBox(
+            width: 40,
+            child: _buildDeleteButton(index, printProvider),
+          ),
+        ],
+      ),
     );
   }
 
@@ -578,13 +523,11 @@ class _BillCartState extends State<BillCart> {
           Expanded(
             flex: 2,
             child: Center(
-              child: Text(
-                "${selectedItemsDetails[index]['quantity']}",
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.black,
-                ),
+              child: MyText(
+                text: "${selectedItemsDetails[index]['quantity']}",
+                fontSize: 18,
+                fontWeight: FontWeight.w500,
+                color: Colors.black,
               ),
             ),
           ),
@@ -632,51 +575,55 @@ class _BillCartState extends State<BillCart> {
 
   Widget _buildFooter(PrintProvider printProvider) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 15.0, vertical: 8),
-      color: Colors.grey.shade200,
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: primaryColor,
-                  borderRadius: BorderRadius.circular(12),
+                  color: appbar1.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: appbar1.withOpacity(0.2)),
                 ),
-                child: Text(
-                  '${selectedItemsDetails.length} Items',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.shopping_cart_outlined, size: 14, color: appbar1),
+                    const SizedBox(width: 6),
+                    MyText(
+                      text: '${selectedItemsDetails.length} Items',
+                      color: appbar1,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ],
                 ),
               ),
               const Spacer(),
-              Text(
-                'Grand Total :',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[600],
-                  fontWeight: FontWeight.w500,
-                ),
+              MyText(
+                text: 'Total: ',
+                fontSize: 15,
+                color: Colors.grey.shade600,
+                fontWeight: FontWeight.w600,
               ),
-              const SizedBox(
-                width: 10,
-              ),
-              Text(
-                PriceUtils.formatPrice(subtotal),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+              const SizedBox(width: 4),
+              MyText(
+                text: PriceUtils.formatPrice(subtotal),
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+                color: appbar1,
+                letterSpacing: -0.5,
               ),
             ],
           ),
+          const SizedBox(height: 16),
           Consumer<OrderTypeProvider>(
             builder: (context, provider, _) {
               return MyChoiceChip(
@@ -715,7 +662,7 @@ class _BillCartState extends State<BillCart> {
                     );
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('Please connect a printer first'),
+                        content: const MyText(text: 'Please connect a printer first'),
                         backgroundColor: Colors.orange,
                         duration: Duration(seconds: 2),
                       ),
@@ -726,7 +673,7 @@ class _BillCartState extends State<BillCart> {
                   if (selectedItemsDetails.isEmpty) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('No items in cart'),
+                        content: const MyText(text: 'No items in cart'),
                         backgroundColor: Colors.orange,
                         duration: Duration(seconds: 2),
                       ),
@@ -756,27 +703,38 @@ class _BillCartState extends State<BillCart> {
   }) {
     assert(icon != null || imagePath != null);
 
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: appbar1,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: GestureDetector(
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
         onTap: onPressed,
-        child: Center(
-          child: icon != null
-              ? Icon(
-                  icon,
-                  size: size,
-                  color: Colors.white,
-                )
-              : Image.asset(
-                  imagePath!,
-                  width: size,
-                  height: size,
-                  fit: BoxFit.contain,
-                ),
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: appbar1,
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: [
+              BoxShadow(
+                color: appbar1.withOpacity(0.3),
+                blurRadius: 8,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Center(
+            child: icon != null
+                ? Icon(
+                    icon,
+                    size: size,
+                    color: Colors.white,
+                  )
+                : Image.asset(
+                    imagePath!,
+                    width: size,
+                    height: size,
+                    fit: BoxFit.contain,
+                  ),
+          ),
         ),
       ),
     );

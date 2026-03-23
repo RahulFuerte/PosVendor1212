@@ -19,7 +19,7 @@ class DatabaseConnectionManager {
   UnifiedDatabaseService? _unifiedService;
   ConnectionMonitor? _connectionMonitor;
   SQLiteDAO? _sqliteDAO;
-  FirebaseDAO? _firebaseDAO;
+  NodeApiDAO? _NodeApiDAO;
   ComprehensiveErrorHandler? _errorHandler;
   
   bool _isInitialized = false;
@@ -57,9 +57,9 @@ class DatabaseConnectionManager {
       
       // Only initialize Firebase and unified service if online
       if (isCurrentlyOnline) {
-        _firebaseDAO = FirebaseDAO();
+        _NodeApiDAO = NodeApiDAO();
         try {
-          await _firebaseDAO!.initialize().timeout(const Duration(seconds: 5));
+          await _NodeApiDAO!.initialize().timeout(const Duration(seconds: 5));
         } catch (e) {
           developer.log('Firebase initialization failed: $e', name: 'DatabaseConnectionManager');
         }
@@ -96,10 +96,10 @@ class DatabaseConnectionManager {
         developer.log('Connection restored - initializing online services', name: 'DatabaseConnectionManager');
         
         // Initialize Firebase and unified service if not already done
-        if (_firebaseDAO == null) {
-          _firebaseDAO = FirebaseDAO();
+        if (_NodeApiDAO == null) {
+          _NodeApiDAO = NodeApiDAO();
           try {
-            await _firebaseDAO!.initialize().timeout(const Duration(seconds: 5));
+            await _NodeApiDAO!.initialize().timeout(const Duration(seconds: 5));
           } catch (e) {
             developer.log('Firebase initialization failed on reconnect: $e', name: 'DatabaseConnectionManager');
           }
@@ -191,7 +191,7 @@ class DatabaseConnectionManager {
     try {
       await _unifiedService?.close();
       await _sqliteDAO?.close();
-      await _firebaseDAO?.close();
+      await _NodeApiDAO?.close();
     } catch (e) {
       developer.log('Error closing connections: $e', name: 'DatabaseConnectionManager');
     }

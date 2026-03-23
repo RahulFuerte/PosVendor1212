@@ -1,17 +1,17 @@
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
+import 'package:pos/core/widgets/text.dart';
+import 'package:flutter/services.dart';
 import 'dart:io';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:excel/excel.dart' as excel;
 import 'package:http/http.dart' as http;
 import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:pos/data/services/customer_service.dart';
 
-import 'package:pos/view/home/navigation.dart';
 import 'package:pos/data/datasources/local/sqlite_helper.dart';
 import 'package:pos/data/models/customer_model.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 
 class CustomersListScreen extends StatefulWidget {
@@ -47,76 +47,51 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
     setState(() => isLoading = true);
 
     try {
-      // 1️⃣ Load local customers
-      final allCustomers = await SQLiteHelper().getAllCustomers();
+      // 1. Fetch from API
+      final apiCustomers = await CustomerService().getCustomers();
 
-      final localCustomers = allCustomers.map((customerMap) {
-        return CustomerModel(
-          id: null,
-          name: customerMap['name'] ?? '',
-          phone: customerMap['mobile_no'] ?? '',
-          gstNo: customerMap['gst_no'] ?? "",
-          address: customerMap['address'] ?? '',
-          createdAt: DateTime.fromMillisecondsSinceEpoch(customerMap['created_at']),
-          isUploaded: false, // local by default
-        );
-      }).toList();
+      // 2. Load local SQLite customers
+      final rawLocalData = await SQLiteHelper().getAllCustomers();
+      final localCustomers = rawLocalData.map((map) => CustomerModel.fromMap(map)).toList();
 
-      // 2️⃣ Load Firebase customers
-      final firebaseCustomers = await _loadCustomersFromFirebase();
-
-      // 3️⃣ Index Firebase customers by phone
-      final firebaseMap = {for (var c in firebaseCustomers) c.phone: c};
-
+      // Index API customers by phone
+      final apiMap = {for (var c in apiCustomers) c.phoneNumber: c};
       final List<CustomerModel> mergedList = [];
       final List<CustomerModel> pendingSync = [];
 
-      // 4️⃣ Merge + detect NOT uploaded customers
+      // Merge local and API
       for (final local in localCustomers) {
-        if (firebaseMap.containsKey(local.phone)) {
-          mergedList.add(
-            local.copyWith(isUploaded: true),
-          );
+        if (apiMap.containsKey(local.phoneNumber)) {
+          mergedList.add(apiMap[local.phoneNumber]!.copyWith(isUploaded: true));
         } else {
-          mergedList.add(local);
+          mergedList.add(local.copyWith(isUploaded: false));
           pendingSync.add(local);
         }
       }
 
-      // 5️⃣ Add Firebase-only customers
-      for (final fb in firebaseCustomers) {
-        if (!mergedList.any((c) => c.phone == fb.phone)) {
-          mergedList.add(fb.copyWith(isUploaded: true));
+      // Add API-only customers
+      for (final api in apiCustomers) {
+        if (!mergedList.any((c) => c.phoneNumber == api.phoneNumber)) {
+          mergedList.add(api.copyWith(isUploaded: true));
         }
       }
-
-      final query = _searchController.text.toLowerCase();
-
-      final List<CustomerModel> filtered = query.isEmpty
-          ? mergedList
-          : mergedList.where((customer) {
-              return customer.name.toLowerCase().contains(query) ||
-                  customer.phone.toLowerCase().contains(query) ||
-                  (customer.gstNo?.toLowerCase().contains(query) ?? false) ||
-                  (customer.address?.toLowerCase().contains(query) ?? false);
-            }).toList();
 
       if (!mounted) return;
 
       setState(() {
         customers = mergedList;
-        filteredCustomers = filtered;
+        _filterCustomers(); // This updates filteredCustomers
         notUploadedCustomers = pendingSync;
         isLoading = false;
       });
     } catch (e) {
-      setState(() => isLoading = false);
-
       if (mounted) {
+        setState(() => isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error loading customers: $e'),
+            content: MyText(text: 'Error loading customers: $e'),
             backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
           ),
         );
       }
@@ -135,32 +110,30 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
           children: [
             Icon(Icons.info, color: Colors.blue),
             SizedBox(width: 12),
-            Text(
-              'Import Customers',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-              ),
+            MyText(
+              text: 'Import Customers',
+              fontWeight: FontWeight.bold,
+              fontSize: 18,
             ),
           ],
         ),
-        content: const Text(
-          'Need help with Excel format? View detailed instructions first.',
-          style: TextStyle(fontSize: 16),
+        content: const MyText(
+          text: 'Need help with Excel format? View detailed instructions first.',
+          fontSize: 16,
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Skip Help'),
+            child: const MyText(text: 'Skip Help'),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(
               backgroundColor: primaryColor,
             ),
-            child: const Text(
-              'Show Help',
-              style: TextStyle(color: Colors.white),
+            child: const MyText(
+              text: 'Show Help',
+              color: Colors.white,
             ),
           ),
         ],
@@ -208,22 +181,18 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                     valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
                   ),
                   const SizedBox(height: 24),
-                  Text(
-                    'Importing customers...',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontFamily: 'fontmain',
-                      color: Colors.grey[600],
-                    ),
+                  MyText(
+                    text: 'Importing customers...',
+                    fontSize: 16,
+                    fontFamily: 'fontmain',
+                    color: Colors.grey[600],
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    'Processing ${file.name}',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontFamily: 'fontmain',
-                      color: Colors.grey[500],
-                    ),
+                  MyText(
+                    text: 'Processing ${file.name}',
+                    fontSize: 14,
+                    fontFamily: 'fontmain',
+                    color: Colors.grey[500],
                   ),
                 ],
               ),
@@ -300,10 +269,9 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
             // Create customer model
             CustomerModel customer = CustomerModel(
               name: name,
-              phone: phone,
+              phoneNumber: phone,
               address: address.isEmpty ? null : address,
               gstNo: gstNo.isEmpty ? null : gstNo,
-              createdAt: DateTime.now(),
               isUploaded: false,
             );
 
@@ -355,12 +323,10 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                   size: 28,
                 ),
                 const SizedBox(width: 12),
-                Text(
-                  successfulImports > 0 ? 'Import Complete' : 'Import Failed',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
-                  ),
+                MyText(
+                  text: successfulImports > 0 ? 'Import Complete' : 'Import Failed',
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
                 ),
               ],
             ),
@@ -370,15 +336,13 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(resultMessage),
+                  MyText(text: resultMessage),
                   if (successfulImports > 0) const SizedBox(height: 16),
                   if (successfulImports > 0)
-                    Text(
-                      'Would you like to sync the imported customers to the cloud?',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey[700],
-                      ),
+                    MyText(
+                      text: 'Would you like to sync the imported customers to the cloud?',
+                      fontSize: 14,
+                      color: Colors.grey[700],
                     ),
                 ],
               ),
@@ -392,12 +356,10 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                 ),
-                child: const Text(
-                  'Close',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                  ),
+                child: const MyText(
+                  text: 'Close',
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
               if (successfulImports > 0)
@@ -415,12 +377,10 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                       side: const BorderSide(color: primaryColor),
                     ),
                   ),
-                  child: const Text(
-                    'Sync Now',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                    ),
+                  child: const MyText(
+                    text: 'Sync Now',
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
             ],
@@ -436,7 +396,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error importing customers: $e'),
+            content: MyText(text: 'Error importing customers: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -455,34 +415,8 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
   }
 
   Future<void> downloadExcelFromFirebase() async {
-    try {
-      // 1. Reference the file in your screenshot
-      // Path: sample_data/Sample Customer Data Generation.xlsx
-      Reference ref = FirebaseStorage.instance.ref().child('sample_data/Sample Customer Data Generation.xlsx');
-
-      // 2. Get the temporary public URL
-      String url = await ref.getDownloadURL();
-
-      // 3. Prepare the local path (Downloads folder for Android)
-      Directory? downloadsDir;
-      if (Platform.isAndroid) {
-        downloadsDir = Directory('/storage/emulated/0/Download');
-      } else {
-        downloadsDir = await getApplicationDocumentsDirectory();
-      }
-
-      String fullPath = "${downloadsDir!.path}/Sample_Data.xlsx";
-
-      // 4. Use Dio to download the file directly to that path
-      // await Dio().download(url, fullPath);
-
-      print("Download Complete: $fullPath");
-
-      // 5. Optional: Open the file immediately for the user
-      // OpenFilex.open(fullPath);
-    } catch (e) {
-      print("Error downloading file: $e");
-    }
+    // Firebase Storage removed. Sample data is embedded in the app.
+    debugPrint('downloadExcelFromFirebase: Firebase Storage not available');
   }
 
   Future<void> downloadExcelWithHttp() async {
@@ -497,12 +431,10 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
           children: [
             Icon(Icons.download, color: Colors.blue),
             SizedBox(width: 12),
-            Text(
-              'Download Sample Data',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-              ),
+            MyText(
+              text: 'Download Sample Data',
+              fontWeight: FontWeight.bold,
+              fontSize: 18,
             ),
           ],
         ),
@@ -510,33 +442,31 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'This will download a sample Excel template to your device.',
-              style: TextStyle(fontSize: 16),
+            const MyText(
+              text: 'This will download a sample Excel template to your device.',
+              fontSize: 16,
             ),
             SizedBox(height: 12),
-            Text(
-              'After download, you can select this file when importing customers.',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey,
-              ),
+            MyText(
+              text: 'After download, you can select this file when importing customers.',
+              fontSize: 14,
+              color: Colors.grey,
             ),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: const MyText(text: 'Cancel'),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(
               backgroundColor: primaryColor,
             ),
-            child: const Text(
-              'Download',
-              style: TextStyle(color: Colors.white),
+            child: const MyText(
+              text: 'Download',
+              color: Colors.white,
             ),
           ),
         ],
@@ -563,20 +493,16 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                   valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
                 ),
                 const SizedBox(height: 24),
-                const Text(
-                  'Downloading sample data...',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                  ),
+                const MyText(
+                  text: 'Downloading sample data...',
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  'Please wait',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey,
-                  ),
+                const MyText(
+                  text: 'Please wait',
+                  fontSize: 14,
+                  color: Colors.grey,
                 ),
               ],
             ),
@@ -598,19 +524,19 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
             showDialog(
               context: context,
               builder: (context) => AlertDialog(
-                title: const Text('Permission Required'),
-                content: const Text('Storage permission is required to save the file. Please enable it in settings.'),
+                title: const MyText(text: 'Permission Required'),
+                content: const MyText(text: 'Storage permission is required to save the file. Please enable it in settings.'),
                 actions: [
                   TextButton(
                     onPressed: () => Navigator.pop(context),
-                    child: const Text('Cancel'),
+                    child: const MyText(text: 'Cancel'),
                   ),
                   ElevatedButton(
                     onPressed: () {
                       Navigator.pop(context);
                       openAppSettings();
                     },
-                    child: const Text('Open Settings'),
+                    child: const MyText(text: 'Open Settings'),
                   ),
                 ],
               ),
@@ -624,7 +550,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
             Navigator.pop(context); // Close progress dialog
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('Storage permission denied'),
+                content: const MyText(text: 'Storage permission denied'),
                 backgroundColor: Colors.red,
               ),
             );
@@ -633,9 +559,20 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
         }
       }
 
-      // 2. Get the Download URL from Firebase
-      Reference ref = FirebaseStorage.instance.ref().child('sample_data/Sample Customer Data Generation.xlsx');
-      String url = await ref.getDownloadURL();
+      // 2. Download via http from a public URL (Firebase Storage removed)
+      const url = ''; // No sample download URL configured
+      if (url.isEmpty) {
+        if (Navigator.canPop(context)) Navigator.pop(context);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: const MyText(text: 'Sample download not available. Please create your own Excel template.'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+        return;
+      }
 
       // 3. Fetch the file data using http
       final response = await http.get(Uri.parse(url));
@@ -662,7 +599,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('Could not access storage directory'),
+                content: MyText(text: 'Could not access storage directory'),
                 backgroundColor: Colors.red,
               ),
             );
@@ -686,9 +623,9 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                   const Icon(Icons.check_circle, color: Colors.white),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: Text(
-                      'Downloaded: $fileName\nYou can now select this file for import',
-                      style: const TextStyle(fontSize: 16),
+                    child: MyText(
+                      text: 'Downloaded: $fileName\nYou can now select this file for import',
+                      fontSize: 16,
                     ),
                   ),
                 ],
@@ -711,9 +648,9 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                 children: [
                   const Icon(Icons.error, color: Colors.white),
                   const SizedBox(width: 12),
-                  Text(
-                    'Download failed: ${response.statusCode}',
-                    style: const TextStyle(fontSize: 16),
+                  MyText(
+                    text: 'Download failed: ${response.statusCode}',
+                    fontSize: 16,
                   ),
                 ],
               ),
@@ -736,9 +673,9 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                 const Icon(Icons.error, color: Colors.white),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Text(
-                    'Download error: $e',
-                    style: const TextStyle(fontSize: 16),
+                  child: MyText(
+                    text: 'Download error: $e',
+                    fontSize: 16,
                   ),
                 ),
               ],
@@ -761,12 +698,10 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
           children: [
             Icon(Icons.info, color: Colors.blue),
             SizedBox(width: 12),
-            Text(
-              'Excel Format Guide',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-              ),
+            MyText(
+              text: 'Excel Format Guide',
+              fontWeight: FontWeight.bold,
+              fontSize: 18,
             ),
           ],
         ),
@@ -776,9 +711,9 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Your Excel file should have the following column structure:',
-                style: TextStyle(fontWeight: FontWeight.bold),
+              const MyText(
+                text: 'Your Excel file should have the following column structure:',
+                fontWeight: FontWeight.bold,
               ),
               const SizedBox(height: 16),
               Container(
@@ -790,17 +725,17 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                 child: const Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Column A: Customer Name (Required)', style: TextStyle(fontWeight: FontWeight.w500)),
-                    Text('Column B: Phone Number (Required)', style: TextStyle(fontWeight: FontWeight.w500)),
-                    Text('Column C: Address (Optional)', style: TextStyle(fontWeight: FontWeight.w500)),
-                    Text('Column D: GST Number (Optional)', style: TextStyle(fontWeight: FontWeight.w500)),
+                    const MyText(text: 'Column A: Customer Name (Required)', fontWeight: FontWeight.w500),
+                    const MyText(text: 'Column B: Phone Number (Required)', fontWeight: FontWeight.w500),
+                    const MyText(text: 'Column C: Address (Optional)', fontWeight: FontWeight.w500),
+                    const MyText(text: 'Column D: GST Number (Optional)', fontWeight: FontWeight.w500),
                   ],
                 ),
               ),
               const SizedBox(height: 16),
-              const Text(
-                'Example:',
-                style: TextStyle(fontWeight: FontWeight.bold),
+              const MyText(
+                text: 'Example:',
+                fontWeight: FontWeight.bold,
               ),
               const SizedBox(height: 8),
               Container(
@@ -813,21 +748,21 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                 child: const Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('John Doe | 9876543210 | 123 Main St | GST123ABC'),
-                    Text('Jane Smith | 9876543211 | 456 Oak Ave | '),
-                    Text('Bob Johnson | 9876543212 | 789 Pine Rd | GST456DEF'),
+                    const MyText(text: 'John Doe | 9876543210 | 123 Main St | GST123ABC'),
+                    const MyText(text: 'Jane Smith | 9876543211 | 456 Oak Ave | '),
+                    const MyText(text: 'Bob Johnson | 9876543212 | 789 Pine Rd | GST456DEF'),
                   ],
                 ),
               ),
               const SizedBox(height: 16),
-              const Text(
-                'Note: Make sure to remove any extra columns or rows before uploading.',
-                style: TextStyle(color: Colors.red),
+              const MyText(
+                text: 'Note: Make sure to remove any extra columns or rows before uploading.',
+                color: Colors.red,
               ),
               const SizedBox(height: 16),
-              const Text(
-                'Note: If you have no data then download a sample data by clicking on the "Download Sample" button.',
-                style: TextStyle(color: Colors.grey),
+              const MyText(
+                text: 'Note: If you have no data then download a sample data by clicking on the "Download Sample" button.',
+                color: Colors.grey,
               ),
             ],
           ),
@@ -842,13 +777,11 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                 borderRadius: BorderRadius.circular(8),
               ),
             ),
-            child: const Text(
-              'Download Sample',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
+            child: const MyText(
+              text: 'Download Sample',
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
             ),
           ),
           TextButton(
@@ -859,12 +792,10 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                 borderRadius: BorderRadius.circular(8),
               ),
             ),
-            child: const Text(
-              'OK',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
+            child: const MyText(
+              text: 'OK',
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ],
@@ -872,39 +803,11 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
     );
   }
 
-  Future<List<CustomerModel>> _loadCustomersFromFirebase() async {
-    try {
-      final firestore = FirebaseFirestore.instance;
-      final snapshot = await firestore
-          .collection('AllAdmins')
-          .doc(widget.adminUid)
-          .collection('customer')
-          .doc(widget.phoneNo)
-          .collection('myCustomers')
-          .get();
-
-      return snapshot.docs.map((doc) {
-        final data = doc.data();
-        return CustomerModel(
-          name: data['name'] ?? '',
-          phone: doc.id,
-          address: data['address'],
-          gstNo: data['gstNo']?.isEmpty == true ? null : data['gstNo'],
-          createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-          isUploaded: true,
-        );
-      }).toList();
-    } catch (e) {
-      debugPrint('Error loading customers from Firebase: $e');
-      return [];
-    }
-  }
-
   Future<void> _uploadToFirebase() async {
     if (notUploadedCustomers.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('No customers to upload'),
+          content: MyText(text: 'No customers to upload'),
           backgroundColor: Colors.orange,
           behavior: SnackBarBehavior.fixed,
         ),
@@ -915,33 +818,17 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
     setState(() => isUploading = true);
 
     try {
-      final firestore = FirebaseFirestore.instance;
+      final service = CustomerService();
       int successCount = 0;
 
       for (var customer in notUploadedCustomers) {
         try {
-          // Generate receipt number
-
-          // Create customer data
-          final customerData = {
-            'name': customer.name,
-            'phone': customer.phone,
-            'gstNo': customer.gstNo ?? '',
-            'address': customer.address ?? '',
-            'createdAt': FieldValue.serverTimestamp(),
-          };
-          // Upload to Firebase: AllAdmins/{adminUid}/customers/{customerPhone}
-          await firestore
-              .collection('AllAdmins')
-              .doc(widget.adminUid)
-              .collection('customer')
-              .doc(widget.phoneNo)
-              .collection('myCustomers')
-              .doc(customer.phone)
-              .set(customerData, SetOptions(merge: true));
-
-          // Customer is already considered uploaded in the unified database
-          // No action needed for marking as uploaded
+          await service.createCustomer(
+            name: customer.name,
+            phoneNumber: customer.phoneNumber,
+            address: customer.address,
+            gstNo: customer.gstNo,
+          );
           successCount++;
         } catch (e) {
           debugPrint('Error uploading customer ${customer.name}: $e');
@@ -953,7 +840,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Successfully uploaded $successCount customers'),
+            content: MyText(text: 'Successfully uploaded $successCount customers'),
             backgroundColor: Colors.green,
             behavior: SnackBarBehavior.fixed,
           ),
@@ -965,7 +852,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error uploading: $e'),
+            content: MyText(text: 'Error uploading: $e'),
             backgroundColor: Colors.red,
             behavior: SnackBarBehavior.fixed,
           ),
@@ -988,17 +875,11 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
   }
 
   Future<void> deleteCustomerFromFirebase(String phone) async {
-    final query = await FirebaseFirestore.instance
-        .collection('AllAdmins')
-        .doc(widget.adminUid)
-        .collection('customer')
-        .doc(widget.phoneNo)
-        .collection('myCustomers')
-        .where('phone', isEqualTo: phone)
-        .get();
-
-    for (final doc in query.docs) {
-      await doc.reference.delete();
+    // Firebase removed - delete via API instead (if needed)
+    try {
+      await CustomerService().deleteCustomer(phone);
+    } catch (e) {
+      debugPrint('deleteCustomerFromFirebase: $e');
     }
   }
 
@@ -1013,20 +894,18 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
           children: [
             Icon(Icons.delete_outline, color: Colors.red, size: 28),
             SizedBox(width: 12),
-            Text(
-              'Delete Customer',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-              ),
+            MyText(
+              text: 'Delete Customer',
+              fontWeight: FontWeight.bold,
+              fontSize: 18,
             ),
           ],
         ),
         content: Container(
           padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Text(
-            'Are you sure you want to delete ${customer.name}? This action cannot be undone.',
-            style: const TextStyle(fontSize: 16),
+          child: MyText(
+            text: 'Are you sure you want to delete ${customer.name}? This action cannot be undone.',
+            fontSize: 16,
           ),
         ),
         actions: [
@@ -1038,12 +917,10 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                 borderRadius: BorderRadius.circular(8),
               ),
             ),
-            child: const Text(
-              'Cancel',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
+            child: const MyText(
+              text: 'Cancel',
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
             ),
           ),
           ElevatedButton(
@@ -1056,12 +933,10 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                 borderRadius: BorderRadius.circular(8),
               ),
             ),
-            child: const Text(
-              'Delete',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
+            child: const MyText(
+              text: 'Delete',
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -1070,268 +945,46 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
 
     if (confirm == true) {
       try {
-        // 1️⃣ Delete from Firebase if uploaded
-        if (customer.isUploaded) {
-          await deleteCustomerFromFirebase(customer.phone);
+        // 1️⃣ Delete from API if uploaded
+        if (customer.isUploaded && customer.id != null) {
+          await CustomerService().deleteCustomer(customer.id!);
         }
 
         // 2️⃣ Delete from SQLite
-        await SQLiteHelper().deleteCustomerData(customer.phone);
+        await SQLiteHelper().deleteCustomerData(customer.phoneNumber);
 
         // 3️⃣ Update UI instantly
         setState(() {
-          customers.removeWhere((c) => c.phone == customer.phone);
-          filteredCustomers.removeWhere((c) => c.phone == customer.phone);
-          notUploadedCustomers.removeWhere((c) => c.phone == customer.phone);
+          customers.removeWhere((c) => c.phoneNumber == customer.phoneNumber);
+          _filterCustomers();
+          notUploadedCustomers.removeWhere((c) => c.phoneNumber == customer.phoneNumber);
         });
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Customer deleted from device & cloud'),
+            content: MyText(text: 'Customer deleted successfully'),
             backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
           ),
         );
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Delete failed: $e'),
+            content: MyText(text: 'Delete failed: $e'),
             backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
           ),
         );
       }
     }
   }
 
-  Future<void> _showAddCustomerDialog() async {
-    final nameController = TextEditingController();
-    final phoneController = TextEditingController();
-    final gstController = TextEditingController();
-    final addressController = TextEditingController();
-    await showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: appbar1.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(
-                Icons.person_add,
-                color: appbar1,
-                size: 24,
-              ),
-            ),
-            const SizedBox(width: 12),
-            const Text(
-              'Add Customer',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-              ),
-            ),
-          ],
-        ),
-        content: SingleChildScrollView(
-          child: SizedBox(
-            width: double.maxFinite,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.shade300),
-                  ),
-                  child: TextField(
-                    controller: nameController,
-                    decoration: InputDecoration(
-                      labelText: 'Customer Name *',
-                      prefixIcon: Icon(Icons.person, color: appbar1),
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.all(16),
-                      labelStyle: TextStyle(color: Colors.grey.shade600),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.shade300),
-                  ),
-                  child: TextField(
-                    controller: phoneController,
-                    decoration: InputDecoration(
-                      labelText: 'Phone Number *',
-                      prefixIcon: Icon(Icons.phone, color: appbar1),
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.all(16),
-                      labelStyle: TextStyle(color: Colors.grey.shade600),
-                    ),
-                    keyboardType: TextInputType.phone,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.shade300),
-                  ),
-                  child: TextField(
-                    controller: addressController,
-                    maxLines: 3,
-                    decoration: InputDecoration(
-                      labelText: 'Customer Address *',
-                      prefixIcon: Icon(Icons.home, color: appbar1),
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.all(16),
-                      labelStyle: TextStyle(color: Colors.grey.shade600),
-                    ),
-                    keyboardType: TextInputType.text,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.shade300),
-                  ),
-                  child: TextField(
-                    controller: gstController,
-                    decoration: InputDecoration(
-                      labelText: 'GST Number (Optional)',
-                      prefixIcon: Icon(Icons.receipt_long, color: appbar1),
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.all(16),
-                      labelStyle: TextStyle(color: Colors.grey.shade600),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            child: const Text(
-              'Cancel',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (nameController.text.trim().isEmpty || phoneController.text.trim().isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Row(
-                      children: [
-                        Icon(Icons.warning, color: Colors.white),
-                        SizedBox(width: 12),
-                        Text(
-                          'Please fill in required fields',
-                          style: TextStyle(fontSize: 16),
-                        ),
-                      ],
-                    ),
-                    backgroundColor: Colors.red,
-                    behavior: SnackBarBehavior.fixed,
-                  ),
-                );
-                return;
-              }
-
-              try {
-                final customer = CustomerModel(
-                  name: nameController.text.trim(),
-                  phone: phoneController.text.trim(),
-                  gstNo: gstController.text.trim().isEmpty ? null : gstController.text.trim(),
-                  address: addressController.text.trim().isEmpty ? null : addressController.text.trim(),
-                  createdAt: DateTime.now(),
-                  isUploaded: false,
-                );
-
-                await SQLiteHelper().saveCustomerData(customer.toMap());
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Row(
-                      children: [
-                        Icon(Icons.check_circle, color: Colors.white),
-                        SizedBox(width: 12),
-                        Text(
-                          'Customer added successfully',
-                          style: TextStyle(fontSize: 16),
-                        ),
-                      ],
-                    ),
-                    backgroundColor: Colors.green,
-                    behavior: SnackBarBehavior.fixed,
-                  ),
-                );
-                _loadCustomers();
-              } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Row(
-                      children: [
-                        const Icon(Icons.error, color: Colors.white),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            'Error adding customer: $e',
-                            style: const TextStyle(fontSize: 16),
-                          ),
-                        ),
-                      ],
-                    ),
-                    backgroundColor: Colors.red,
-                    behavior: SnackBarBehavior.fixed,
-                  ),
-                );
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: appbar1,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            child: const Text(
-              'Add Customer',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _showEditCustomerBottomSheet(CustomerModel customer) async {
-    final nameController = TextEditingController(text: customer.name);
-    final phoneController = TextEditingController(text: customer.phone);
-    final gstController = TextEditingController(text: customer.gstNo ?? '');
-    final addressController = TextEditingController(text: customer.address ?? '');
+  Future<void> _showCustomerBottomSheet({CustomerModel? customer}) async {
+    final bool isEdit = customer != null;
+    final nameController = TextEditingController(text: customer?.name ?? '');
+    final phoneController = TextEditingController(text: customer?.phoneNumber ?? ''); // Assuming backwards compatible
+    final gstController = TextEditingController(text: customer?.gstNo ?? '');
+    final addressController = TextEditingController(text: customer?.address ?? '');
 
     await showModalBottomSheet(
       context: context,
@@ -1364,12 +1017,12 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                const Text(
-                  'Edit Customer',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
+                // Change title dynamically
+                MyText(
+                  text: isEdit ? 'Edit Customer' : 'Add Customer',
+                  fontSize: 24,
+                  fontFamily: 'tabfont',
+                  fontWeight: FontWeight.bold,
                 ),
                 const SizedBox(height: 24),
                 _buildInputField(
@@ -1383,6 +1036,10 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                   controller: phoneController,
                   label: 'Phone Number *',
                   icon: Icons.phone,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(10),
+                  ],
                   hint: 'Enter phone number',
                   keyboardType: TextInputType.phone,
                 ),
@@ -1408,80 +1065,102 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                   child: ElevatedButton(
                     onPressed: () async {
                       if (nameController.text.trim().isEmpty || phoneController.text.trim().isEmpty) {
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Row(
-                                children: [
-                                  Icon(Icons.warning, color: Colors.white),
-                                  SizedBox(width: 12),
-                                  Text(
-                                    'Please fill in required fields',
-                                    style: TextStyle(fontSize: 16),
-                                  ),
-                                ],
-                              ),
-                              backgroundColor: Colors.red,
-                              behavior: SnackBarBehavior.floating,
-                            ),
-                          );
-                        }
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: MyText(text: 'Please fill in required fields'),
+                            backgroundColor: Colors.red,
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
                         return;
                       }
 
                       try {
-                        // Update customer in database
-                        final updatedCustomer = customer.copyWith(
-                          name: nameController.text.trim(),
-                          phone: phoneController.text.trim(),
-                          gstNo: gstController.text.trim().isEmpty ? null : gstController.text.trim(),
-                          address: addressController.text.trim().isEmpty ? null : addressController.text.trim(),
+                        showDialog(
+                          context: context,
+                          barrierDismissible: false,
+                          builder: (context) => const Center(child: CircularProgressIndicator()),
                         );
 
-                        // Update in local database
-                        // await SQLiteHelper().updateCustomer(updatedCustomer.toMap(), updatedCustomer.id!);
+                        if (isEdit) {
+                          // Edit existing customer
+                          CustomerModel? updatedFromApi;
+                          if (customer.id != null) {
+                            try {
+                              updatedFromApi = await CustomerService().updateCustomer(
+                                id: customer.id!,
+                                name: nameController.text.trim(),
+                                phoneNumber: phoneController.text.trim(),
+                                address: addressController.text.trim().isEmpty ? null : addressController.text.trim(),
+                                gstNo: gstController.text.trim().isEmpty ? null : gstController.text.trim(),
+                              );
+                            } catch (e) {
+                              debugPrint('API update failed: $e');
+                            }
+                          }
 
-                        Navigator.pop(context);
-                        if (mounted) {
+                          final updatedCustomer = (updatedFromApi ?? customer).copyWith(
+                            name: nameController.text.trim(),
+                            phoneNumber: phoneController.text.trim(),
+                            gstNo: gstController.text.trim().isEmpty ? null : gstController.text.trim(),
+                            address: addressController.text.trim().isEmpty ? null : addressController.text.trim(),
+                          );
+
+                          // Depending on your sync model, might need local sqlite updates
+                          // await SQLiteHelper().updateCustomerData(updatedCustomer.toMap(), updatedCustomer.phoneNumber);
+
+                          Navigator.pop(context); // Close loading dialog
+                          Navigator.pop(context); // Close bottom sheet
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Row(
-                                children: [
-                                  Icon(Icons.check_circle, color: Colors.white),
-                                  SizedBox(width: 12),
-                                  Text(
-                                    'Customer updated successfully',
-                                    style: TextStyle(fontSize: 16),
-                                  ),
-                                ],
-                              ),
-                              backgroundColor: Colors.green,
-                              behavior: SnackBarBehavior.floating,
-                            ),
+                                content: MyText(text: 'Customer updated successfully'),
+                                backgroundColor: Colors.green,
+                                behavior: SnackBarBehavior.floating),
                           );
-                          _loadCustomers();
-                        }
-                      } catch (e) {
-                        if (mounted) {
+                        } else {
+                          // Add new customer
+                          CustomerModel? newCustomer;
+                          try {
+                            newCustomer = await CustomerService().createCustomer(
+                              name: nameController.text.trim(),
+                              phoneNumber: phoneController.text.trim(),
+                              address: addressController.text.trim().isEmpty ? null : addressController.text.trim(),
+                              gstNo: gstController.text.trim().isEmpty ? null : gstController.text.trim(),
+                            );
+                          } catch (e) {
+                            debugPrint('API creation failed, saving locally: $e');
+                          }
+
+                          final customerToSave = newCustomer ??
+                              CustomerModel(
+                                name: nameController.text.trim(),
+                                phoneNumber: phoneController.text.trim(),
+                                address: addressController.text.trim().isEmpty ? null : addressController.text.trim(),
+                                gstNo: gstController.text.trim().isEmpty ? null : gstController.text.trim(),
+                                isUploaded: false,
+                              );
+
+                          await SQLiteHelper().saveCustomerData(customerToSave.toMap());
+                          Navigator.pop(context); // Close loading dialog
+                          Navigator.pop(context); // Close bottom sheet
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Row(
-                                children: [
-                                  const Icon(Icons.error, color: Colors.white),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Text(
-                                      'Error updating customer: $e',
-                                      style: const TextStyle(fontSize: 16),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              backgroundColor: Colors.red,
-                              behavior: SnackBarBehavior.floating,
-                            ),
+                            const SnackBar(
+                                content: MyText(text: 'Customer added successfully'),
+                                backgroundColor: Colors.green,
+                                behavior: SnackBarBehavior.floating),
                           );
                         }
+
+                        _loadCustomers();
+                      } catch (e) {
+                        Navigator.pop(context); // Close loading dialog
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: MyText(text: isEdit ? 'Error updating customer: $e' : 'Error adding customer: $e'),
+                            backgroundColor: Colors.red,
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
                       }
                     },
                     style: ElevatedButton.styleFrom(
@@ -1491,12 +1170,11 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    child: const Text(
-                      'Update Customer',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    child: MyText(
+                      text: isEdit ? 'Update Customer' : 'Add Customer',
+                      fontFamily: 'tabfont',
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
@@ -1512,12 +1190,11 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    child: const Text(
-                      'Cancel',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.grey,
-                      ),
+                    child: const MyText(
+                      text: 'Cancel',
+                      fontFamily: 'fontmain',
+                      fontSize: 16,
+                      color: Colors.grey,
                     ),
                   ),
                 ),
@@ -1535,6 +1212,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
     required IconData icon,
     required String hint,
     TextInputType keyboardType = TextInputType.text,
+    List<TextInputFormatter>? inputFormatters,
     int maxLines = 1,
   }) {
     return Container(
@@ -1554,6 +1232,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
         ),
         keyboardType: keyboardType,
         maxLines: maxLines,
+        inputFormatters: inputFormatters,
       ),
     );
   }
@@ -1567,571 +1246,362 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: Colors.grey[50], // Very clean background
       appBar: AppBar(
-        title: const Text(
-          'Customers',
-          style: TextStyle(
-            fontFamily: 'tabfont',
-            fontWeight: FontWeight.w600,
-            fontSize: 18,
-            color: Colors.black87,
-          ),
+        title: const MyText(
+          text: 'Customers',
+          fontFamily: 'tabfont',
+          fontWeight: FontWeight.w600,
+          fontSize: 20,
+          color: Colors.black87,
         ),
         centerTitle: true,
-        elevation: 1,
-        scrolledUnderElevation: 2,
+        elevation: 0,
+        scrolledUnderElevation: 1,
         backgroundColor: Colors.white,
-        surfaceTintColor: Colors.transparent,
-        shadowColor: Colors.grey.withOpacity(0.1),
+        iconTheme: const IconThemeData(color: Colors.black87),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black87),
+          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
           onPressed: () => Navigator.pop(context),
-          splashRadius: 20,
         ),
         actions: [
-          // IconButton(
-          //   icon: Icon(Icons.file_download, color: Colors.grey[700]),
-          //   onPressed: isImporting ? null : _importCustomersFromExcel,
-          //   tooltip: 'Import from Excel',
-          // ),
           IconButton(
-            icon: Icon(Icons.info_outline, color: Colors.grey[700]),
+            icon: const Icon(Icons.info_outline),
             onPressed: _showExcelFormatHelp,
             tooltip: 'Excel format help',
           ),
+          IconButton(
+            icon: isImporting
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.file_download_outlined),
+            onPressed: isImporting ? null : _importCustomersFromExcel,
+            tooltip: 'Import from Excel',
+          ),
           if (notUploadedCustomers.isNotEmpty)
             Container(
-              margin: const EdgeInsets.only(right: 16),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.orange,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.orange.withOpacity(0.3),
-                    spreadRadius: 1,
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.cloud_off,
-                    color: Colors.white,
-                    size: 16,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${notUploadedCustomers.length}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
+              margin: const EdgeInsets.only(right: 8, top: 8, bottom: 8),
+              child: ElevatedButton.icon(
+                onPressed: isUploading ? null : _uploadToFirebase,
+                icon: isUploading
+                    ? const SizedBox(
+                        width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Icon(Icons.cloud_upload, size: 18, color: Colors.white),
+                label: MyText(
+                  text: 'Sync (${notUploadedCustomers.length})',
+                  color: Colors.white,
+                  fontFamily: 'fontmain',
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
               ),
             ),
         ],
       ),
       body: isLoading
-          ? Container(
-              padding: const EdgeInsets.all(24),
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.grey.withOpacity(0.1),
-                            spreadRadius: 1,
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: const CircularProgressIndicator(
-                        valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
-                        strokeWidth: 3,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    Text(
-                      'Loading customers...',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontFamily: 'fontmain',
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            )
+          ? _buildLoadingState()
           : customers.isEmpty
-              ? Container(
-                  padding: const EdgeInsets.all(24),
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(24),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.grey.withOpacity(0.1),
-                                spreadRadius: 1,
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: const Icon(
-                            Icons.people_alt_outlined,
-                            size: 80,
-                            color: primaryColor,
-                          ),
-                        ),
-                        const SizedBox(height: 32),
-                        Text(
-                          'No Customers Yet',
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontFamily: 'tabfont',
-                            fontWeight: FontWeight.bold,
-                            color: Colors.grey[800],
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Add your first customer to get started',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontFamily: 'fontmain',
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
+              ? _buildEmptyState()
               : Column(
                   children: [
-                    // Enhanced Stats Card
-                    Container(
-                      margin: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.grey.withOpacity(0.1),
-                            spreadRadius: 1,
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: primaryColor.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Column(
-                                  children: [
-                                    const Icon(
-                                      Icons.people,
-                                      color: primaryColor,
-                                      size: 32,
-                                    ),
-                                    const SizedBox(height: 12),
-                                    Text(
-                                      '${customers.length}',
-                                      style: const TextStyle(
-                                        fontSize: 28,
-                                        fontFamily: 'tabfont',
-                                        fontWeight: FontWeight.bold,
-                                        color: primaryColor,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    const Text(
-                                      'Total Customers',
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        fontFamily: 'fontmain',
-                                        fontWeight: FontWeight.w500,
-                                        color: Colors.grey,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: Colors.orange.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Column(
-                                  children: [
-                                    const Icon(
-                                      Icons.cloud_off,
-                                      color: Colors.orange,
-                                      size: 32,
-                                    ),
-                                    const SizedBox(height: 12),
-                                    Text(
-                                      '${notUploadedCustomers.length}',
-                                      style: const TextStyle(
-                                        fontSize: 28,
-                                        fontFamily: 'tabfont',
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.orange,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    const Text(
-                                      'Pending Sync',
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        fontFamily: 'fontmain',
-                                        fontWeight: FontWeight.w500,
-                                        color: Colors.grey,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-
-                    // Search bar
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.grey.withOpacity(0.1),
-                              spreadRadius: 1,
-                              blurRadius: 5,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: TextField(
-                          controller: _searchController,
-                          decoration: const InputDecoration(
-                            hintText: 'Search customers...',
-                            prefixIcon: Icon(Icons.search, color: Colors.grey),
-                            border: OutlineInputBorder(
-                              borderSide: BorderSide(color: Colors.transparent),
-                              borderRadius: BorderRadius.all(Radius.circular(12)),
-                            ),
-                            filled: true,
-                            fillColor: Colors.transparent,
-                            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                          ),
-                        ),
-                      ),
-                    ),
-
-                    // Enhanced Customer List
+                    _buildStatsRow(),
+                    _buildSearchBar(),
                     Expanded(
                       child: ListView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        padding: const EdgeInsets.all(16),
+                        physics: const BouncingScrollPhysics(),
                         itemCount: filteredCustomers.length,
                         itemBuilder: (context, index) {
-                          final customer = filteredCustomers[index];
-                          final dateFormat = DateFormat('dd MMM yyyy, hh:mm a');
-
-                          return Card(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            elevation: 2,
-                            child: Container(
-                              padding: const EdgeInsets.all(16),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.center,
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(12),
-                                    decoration: BoxDecoration(
-                                      color: customer.isUploaded
-                                          ? primaryColor.withOpacity(0.1)
-                                          : Colors.orange.withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Icon(
-                                      customer.isUploaded ? Icons.cloud_done : Icons.cloud_upload,
-                                      color: customer.isUploaded ? primaryColor : Colors.orange,
-                                      size: 24,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          customer.name,
-                                          style: const TextStyle(
-                                            fontFamily: 'tabfont',
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 16,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 6),
-                                        Row(
-                                          children: [
-                                            Icon(
-                                              Icons.phone,
-                                              size: 14,
-                                              color: Colors.grey[600],
-                                            ),
-                                            const SizedBox(width: 6),
-                                            Expanded(
-                                              child: Text(
-                                                customer.phone,
-                                                style: const TextStyle(
-                                                  fontFamily: 'fontmain',
-                                                  fontSize: 13,
-                                                  fontWeight: FontWeight.w500,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                        if (customer.gstNo != null && customer.gstNo!.isNotEmpty) ...[
-                                          const SizedBox(height: 4),
-                                          Row(
-                                            children: [
-                                              Icon(
-                                                Icons.receipt_long,
-                                                size: 14,
-                                                color: Colors.grey[600],
-                                              ),
-                                              const SizedBox(width: 6),
-                                              Expanded(
-                                                child: Text(
-                                                  'GST: ${customer.gstNo == '' ? 'N/A' : customer.gstNo ?? 'N/A'}',
-                                                  style: const TextStyle(
-                                                    fontFamily: 'fontmain',
-                                                    fontSize: 12,
-                                                  ),
-                                                  overflow: TextOverflow.ellipsis,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                        const SizedBox(height: 4),
-                                        Row(
-                                          children: [
-                                            Icon(
-                                              Icons.location_on,
-                                              size: 14,
-                                              color: Colors.grey[600],
-                                            ),
-                                            const SizedBox(width: 6),
-                                            Expanded(
-                                              child: Text(
-                                                customer.address == '' ? 'N/A' : customer.address ?? 'N/A',
-                                                style: const TextStyle(
-                                                  fontFamily: 'fontmain',
-                                                  fontSize: 12,
-                                                ),
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 6),
-                                        Row(
-                                          children: [
-                                            Icon(
-                                              Icons.access_time,
-                                              size: 12,
-                                              color: Colors.grey[500],
-                                            ),
-                                            const SizedBox(width: 4),
-                                            Text(
-                                              dateFormat.format(customer.createdAt),
-                                              style: TextStyle(
-                                                fontFamily: 'fontmain',
-                                                fontSize: 11,
-                                                color: Colors.grey[500],
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  PopupMenuButton<String>(
-                                    shape: const RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.all(Radius.circular(8)),
-                                    ),
-                                    color: Colors.white,
-                                    padding: EdgeInsets.zero,
-                                    onSelected: (String value) {
-                                      if (value == 'edit') {
-                                        _showEditCustomerBottomSheet(customer);
-                                      } else if (value == 'delete') {
-                                        _deleteCustomer(customer);
-                                      }
-                                    },
-                                    itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                                      const PopupMenuItem<String>(
-                                        value: 'edit',
-                                        child: Row(
-                                          children: [
-                                            Icon(Icons.edit, color: Colors.blue),
-                                            SizedBox(width: 8),
-                                            Text('Edit'),
-                                          ],
-                                        ),
-                                      ),
-                                      const PopupMenuItem<String>(
-                                        value: 'delete',
-                                        child: Row(
-                                          children: [
-                                            Icon(Icons.delete, color: Colors.red),
-                                            SizedBox(width: 8),
-                                            Text('Delete'),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                    child: Container(
-                                      padding: const EdgeInsets.all(8),
-                                      decoration: BoxDecoration(
-                                        color: Colors.grey[100],
-                                        borderRadius: BorderRadius.circular(20),
-                                      ),
-                                      child: const Icon(
-                                        Icons.more_vert,
-                                        size: 18,
-                                        color: Colors.grey,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
+                          return _buildCustomerItem(filteredCustomers[index]);
                         },
                       ),
                     ),
                   ],
                 ),
-      floatingActionButton: Column(
-        mainAxisAlignment: MainAxisAlignment.end,
+      floatingActionButton: FloatingActionButton.extended(
+        heroTag: "addBtn",
+        onPressed: () => _showCustomerBottomSheet(),
+        backgroundColor: primaryColor,
+        elevation: 4,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        icon: const Icon(Icons.person_add_alt_1, color: Colors.white),
+        label: const MyText(
+          text: 'Add Customer',
+          color: Colors.white,
+          fontFamily: 'tabfont',
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoadingState() {
+    return const Center(
+      child: CircularProgressIndicator(
+        valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          FloatingActionButton(
-            heroTag: "importExcel",
-            onPressed: isImporting ? null : _importCustomersFromExcel,
-            backgroundColor: Colors.deepPurple,
-            elevation: 6,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: isImporting
-                ? const SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                      strokeWidth: 2,
-                    ),
-                  )
-                : const Icon(Icons.file_download, color: Colors.white, size: 28),
-          ),
+          Icon(Icons.people_alt_outlined, size: 64, color: Colors.grey[400]),
           const SizedBox(height: 16),
-          FloatingActionButton(
-            heroTag: "addCustomer",
-            onPressed: _showAddCustomerDialog,
-            backgroundColor: primaryColor,
-            elevation: 6,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: const Icon(Icons.person_add, color: Colors.white, size: 28),
+          MyText(
+            text: 'No Customers Found',
+            fontSize: 18,
+            fontFamily: 'tabfont',
+            color: Colors.grey[800],
+            fontWeight: FontWeight.w600,
           ),
-          if (notUploadedCustomers.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(28),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.grey.withOpacity(0.2),
-                    spreadRadius: 1,
-                    blurRadius: 6,
-                    offset: const Offset(0, 3),
+          const SizedBox(height: 8),
+          MyText(
+            text: 'Add your first customer to get started',
+            fontSize: 14,
+            fontFamily: 'fontmain',
+            color: Colors.grey[500],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatsRow() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      child: Row(
+        children: [
+          Expanded(child: _buildStatCard('Total Customers', customers.length.toString(), Icons.people, primaryColor)),
+          const SizedBox(width: 12),
+          Expanded(
+              child: _buildStatCard(
+                  'Pending Sync', notUploadedCustomers.length.toString(), Icons.cloud_off, Colors.orange)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatCard(String title, String count, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.withOpacity(0.2)),
+        boxShadow: [
+          BoxShadow(color: Colors.grey.withOpacity(0.05), spreadRadius: 1, blurRadius: 4, offset: const Offset(0, 2)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Icon(icon, color: color, size: 24),
+              MyText(
+                text: count,
+                fontSize: 20,
+                fontFamily: 'tabfont',
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          MyText(
+            text: title,
+            fontSize: 13,
+            fontFamily: 'fontmain',
+            color: Colors.grey[600],
+            fontWeight: FontWeight.w500,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.grey.withOpacity(0.3)),
+        ),
+        child: TextField(
+          controller: _searchController,
+          style: const TextStyle(fontFamily: 'fontmain', fontSize: 14),
+          decoration: InputDecoration(
+            hintText: 'Search customers...',
+            hintStyle: TextStyle(color: Colors.grey[400], fontFamily: 'fontmain'),
+            prefixIcon: Icon(Icons.search, color: Colors.grey[500]),
+            suffixIcon: _searchController.text.isNotEmpty
+                ? IconButton(
+                    icon: const Icon(Icons.clear, size: 20),
+                    onPressed: () {
+                      _searchController.clear();
+                      _filterCustomers();
+                    },
+                  )
+                : null,
+            border: InputBorder.none,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCustomerItem(CustomerModel customer) {
+    final dateFormat = DateFormat('dd MMM yyyy, hh:mm a');
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey.withOpacity(0.2)),
+      ),
+      color: Colors.white,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => _showCustomerBottomSheet(customer: customer),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              CircleAvatar(
+                radius: 24,
+                backgroundColor: primaryColor.withOpacity(0.1),
+                child: MyText(
+                  text: customer.name.isNotEmpty ? customer.name.substring(0, 1).toUpperCase() : '?',
+                  color: primaryColor,
+                  fontFamily: 'tabfont',
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: MyText(
+                            text: customer.name,
+                            fontFamily: 'tabfont',
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        if (customer.isUploaded)
+                          const Icon(Icons.cloud_done, color: primaryColor, size: 16)
+                        else
+                          const Icon(Icons.cloud_upload, color: Colors.orange, size: 16),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Icon(Icons.phone, size: 14, color: Colors.grey[600]),
+                        const SizedBox(width: 6),
+                        MyText(
+                          text: customer.phoneNumber,
+                          fontFamily: 'fontmain',
+                          fontSize: 13,
+                          color: Colors.grey[700],
+                        ),
+                      ],
+                    ),
+                    if (customer.gstNo != null && customer.gstNo!.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Icon(Icons.receipt_long, size: 14, color: Colors.grey[600]),
+                          const SizedBox(width: 6),
+                          MyText(
+                            text: 'GST: ${customer.gstNo}',
+                            fontFamily: 'fontmain',
+                            fontSize: 13,
+                            color: Colors.grey[700],
+                          ),
+                        ],
+                      ),
+                    ],
+                    if (customer.address != null && customer.address!.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Icon(Icons.location_on, size: 14, color: Colors.grey[600]),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: MyText(
+                              text: customer.address!,
+                              fontFamily: 'fontmain',
+                              fontSize: 13,
+                              color: Colors.grey[700],
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                    const SizedBox(height: 8),
+                    MyText(
+                      text: 'Added: ${dateFormat.format(customer.createdAt ?? DateTime.now())}',
+                      fontFamily: 'fontmain',
+                      fontSize: 11,
+                      color: Colors.grey[500],
+                    ),
+                  ],
+                ),
+              ),
+              PopupMenuButton<String>(
+                icon: Icon(Icons.more_vert, color: Colors.grey[600]),
+                padding: EdgeInsets.zero,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                onSelected: (value) {
+                  if (value == 'edit') _showCustomerBottomSheet(customer: customer);
+                  if (value == 'delete') _deleteCustomer(customer);
+                },
+                itemBuilder: (context) => [
+                  const PopupMenuItem(
+                    value: 'edit',
+                    child: Row(
+                      children: [
+                        Icon(Icons.edit, size: 20, color: Colors.blue),
+                        SizedBox(width: 8),
+                        MyText(text: 'Edit', fontFamily: 'fontmain'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'delete',
+                    child: Row(
+                      children: [
+                        Icon(Icons.delete, size: 20, color: Colors.red),
+                        SizedBox(width: 8),
+                        MyText(text: 'Delete', fontFamily: 'fontmain', color: Colors.red),
+                      ],
+                    ),
                   ),
                 ],
               ),
-              child: FloatingActionButton.extended(
-                heroTag: "syncCustomers",
-                onPressed: isUploading ? null : _uploadToFirebase,
-                backgroundColor: primaryColor,
-                elevation: 0,
-                icon: isUploading
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
-                        ),
-                      )
-                    : const Icon(Icons.cloud_upload, size: 24),
-                label: Text(
-                  isUploading
-                      ? 'Syncing...'
-                      : 'Sync ${notUploadedCustomers.length} Customer${notUploadedCustomers.length > 1 ? 's' : ''}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontFamily: 'tabfont',
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ],
+            ],
+          ),
+        ),
       ),
     );
   }

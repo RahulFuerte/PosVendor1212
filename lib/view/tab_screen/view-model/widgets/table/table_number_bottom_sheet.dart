@@ -1,5 +1,6 @@
 // Flutter imports:
 import 'package:flutter/material.dart';
+import 'package:pos/core/widgets/text.dart';
 
 // Package imports:
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -72,12 +73,10 @@ class TableNumberBottomSheet {
                     size: 28,
                   ),
                   const SizedBox(width: 12),
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  MyText(
+                    text: title,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
                   ),
                 ],
               ),
@@ -115,9 +114,9 @@ class TableNumberBottomSheet {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      child: Text(
-                        cancelButtonText,
-                        style: const TextStyle(fontSize: 16),
+                      child: MyText(
+                        text: cancelButtonText,
+                        fontSize: 16,
                       ),
                     ),
                   ),
@@ -128,7 +127,7 @@ class TableNumberBottomSheet {
                         if (controller.text.trim().isEmpty) {
                           ScaffoldMessenger.of(sheetContext).showSnackBar(
                             SnackBar(
-                              content: Text('Please enter $labelText'),
+                              content: MyText(text: 'Please enter $labelText'),
                               backgroundColor: Colors.orange,
                             ),
                           );
@@ -143,9 +142,10 @@ class TableNumberBottomSheet {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      child: Text(
-                        confirmButtonText,
-                        style: const TextStyle(fontSize: 16, color: Colors.white),
+                      child: MyText(
+                        text: confirmButtonText,
+                        fontSize: 16,
+                        color: Colors.white,
                       ),
                     ),
                   ),
@@ -220,12 +220,10 @@ class CustomInputBottomSheet {
                     const SizedBox(width: 12),
                   ],
                   Expanded(
-                    child: Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    child: MyText(
+                      text: title,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ],
@@ -271,9 +269,9 @@ class CustomInputBottomSheet {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      child: Text(
-                        cancelButtonText,
-                        style: const TextStyle(fontSize: 16),
+                      child: MyText(
+                        text: cancelButtonText,
+                        fontSize: 16,
                       ),
                     ),
                   ),
@@ -287,7 +285,7 @@ class CustomInputBottomSheet {
                           if (error != null) {
                             ScaffoldMessenger.of(sheetContext).showSnackBar(
                               SnackBar(
-                                content: Text(error),
+                                content: MyText(text: error),
                                 backgroundColor: Colors.orange,
                               ),
                             );
@@ -296,7 +294,7 @@ class CustomInputBottomSheet {
                         } else if (value.isEmpty) {
                           ScaffoldMessenger.of(sheetContext).showSnackBar(
                             SnackBar(
-                              content: Text('Please enter $labelText'),
+                              content: MyText(text: 'Please enter $labelText'),
                               backgroundColor: Colors.orange,
                             ),
                           );
@@ -311,9 +309,10 @@ class CustomInputBottomSheet {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      child: Text(
-                        confirmButtonText,
-                        style: const TextStyle(fontSize: 16, color: Colors.white),
+                      child: MyText(
+                        text: confirmButtonText,
+                        fontSize: 16,
+                        color: Colors.white,
                       ),
                     ),
                   ),

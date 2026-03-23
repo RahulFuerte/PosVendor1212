@@ -1,83 +1,26 @@
-/// Food Item domain entity
-/// Pure business object with no framework dependencies
+/// Domain entity for a Food Item (menu item / product).
 class FoodItem {
-  final String id;
+  final String? id;
   final String name;
-  final String? description;
   final double price;
-  final String? foodCode;
-  final String department;
+  final String? category;
   final String? imageUrl;
-  final int stocks;
-  final bool isHot;
-  final String adminUid;
-  final DateTime? createdAt;
-  final DateTime? updatedAt;
-  final SyncState syncState;
+  final String? description;
+  final bool isAvailable;
+  final int stock;
+  final String adminId;
+  final String? syncStatus;
 
-  const FoodItem({
-    required this.id,
+  FoodItem({
+    this.id,
     required this.name,
-    this.description,
-    required this.price,
-    this.foodCode,
-    required this.department,
+    this.price = 0.0,
+    this.category,
     this.imageUrl,
-    this.stocks = 0,
-    this.isHot = false,
-    required this.adminUid,
-    this.createdAt,
-    this.updatedAt,
-    this.syncState = SyncState.synced,
+    this.description,
+    this.isAvailable = true,
+    this.stock = 0,
+    this.adminId = '',
+    this.syncStatus,
   });
-
-  FoodItem copyWith({
-    String? id,
-    String? name,
-    String? description,
-    double? price,
-    String? foodCode,
-    String? department,
-    String? imageUrl,
-    int? stocks,
-    bool? isHot,
-    String? adminUid,
-    DateTime? createdAt,
-    DateTime? updatedAt,
-    SyncState? syncState,
-  }) {
-    return FoodItem(
-      id: id ?? this.id,
-      name: name ?? this.name,
-      description: description ?? this.description,
-      price: price ?? this.price,
-      foodCode: foodCode ?? this.foodCode,
-      department: department ?? this.department,
-      imageUrl: imageUrl ?? this.imageUrl,
-      stocks: stocks ?? this.stocks,
-      isHot: isHot ?? this.isHot,
-      adminUid: adminUid ?? this.adminUid,
-      createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? this.updatedAt,
-      syncState: syncState ?? this.syncState,
-    );
-  }
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is FoodItem &&
-          runtimeType == other.runtimeType &&
-          id == other.id &&
-          adminUid == other.adminUid;
-
-  @override
-  int get hashCode => id.hashCode ^ adminUid.hashCode;
-}
-
-/// Sync state for offline-first functionality
-enum SyncState {
-  synced,
-  pending,
-  conflict,
 }
