@@ -1,5 +1,6 @@
 // Dart imports:
 import 'dart:developer' as developer;
+import 'package:intl/intl.dart';
 
 /// Utility class for handling price conversions safely
 class PriceUtils {
@@ -7,7 +8,7 @@ class PriceUtils {
   /// Handles various input types: int, double, String
   static int safeParseInt(dynamic value, {int defaultValue = 0}) {
     if (value == null) return defaultValue;
-    
+
     try {
       if (value is int) {
         return value;
@@ -15,15 +16,15 @@ class PriceUtils {
         return value.round();
       } else if (value is String) {
         if (value.isEmpty) return defaultValue;
-        
+
         // Try parsing as int first
         final intValue = int.tryParse(value);
         if (intValue != null) return intValue;
-        
+
         // If that fails, try parsing as double and round
         final doubleValue = double.tryParse(value);
         if (doubleValue != null) return doubleValue.round();
-        
+
         return defaultValue;
       } else {
         // Try converting to string first, then parse
@@ -39,7 +40,7 @@ class PriceUtils {
   /// Handles various input types: int, double, String
   static double safeParseDouble(dynamic value, {double defaultValue = 0.0}) {
     if (value == null) return defaultValue;
-    
+
     try {
       if (value is double) {
         return value;
@@ -47,7 +48,7 @@ class PriceUtils {
         return value.toDouble();
       } else if (value is String) {
         if (value.isEmpty) return defaultValue;
-        
+
         final doubleValue = double.tryParse(value);
         return doubleValue ?? defaultValue;
       } else {
@@ -64,7 +65,7 @@ class PriceUtils {
   /// Ensures consistent string representation with max 2 decimal places
   static String safePriceToString(dynamic value, {String defaultValue = '0'}) {
     if (value == null) return defaultValue;
-    
+
     try {
       if (value is String) {
         if (value.isEmpty) return defaultValue;
@@ -90,12 +91,12 @@ class PriceUtils {
   static String _formatPrice(double value) {
     // Round to 2 decimal places
     final rounded = (value * 100).round() / 100;
-    
+
     // If it's a whole number, return without decimals
     if (rounded == rounded.roundToDouble()) {
       return rounded.round().toString();
     }
-    
+
     // Otherwise return with up to 2 decimal places
     return rounded.toStringAsFixed(2);
   }
@@ -103,9 +104,10 @@ class PriceUtils {
   /// Formats a price for display with currency symbol
   static String formatPrice(dynamic value, {String currency = '₹', int decimals = 2}) {
     final price = safeParseDouble(value);
-    
+    final NumberFormat numberFormat = NumberFormat("#,##,##0", "en_IN");
+
     if (decimals <= 0) {
-      return '$currency${price.round()}';
+      return '$currency${numberFormat.format(price.round())}';
     } else {
       // Format with specified decimals but remove trailing zeros after decimal point
       String formatted = price.toStringAsFixed(decimals);
@@ -113,14 +115,21 @@ class PriceUtils {
       while (formatted.contains('.') && (formatted.endsWith('0') || formatted.endsWith('.'))) {
         formatted = formatted.substring(0, formatted.length - 1);
       }
-      return '$currency$formatted';
+
+      if (formatted.contains('.')) {
+        final parts = formatted.split('.');
+        final intPart = int.parse(parts[0]);
+        return '$currency${numberFormat.format(intPart)}.${parts[1]}';
+      } else {
+        return '$currency${numberFormat.format(int.parse(formatted))}';
+      }
     }
   }
 
   /// Validates if a price value is valid (non-negative number)
   static bool isValidPrice(dynamic value) {
     if (value == null) return false;
-    
+
     try {
       // First check if it's a valid number format
       if (value is String && value.isEmpty) return false;
@@ -128,7 +137,7 @@ class PriceUtils {
         // Check if string contains only valid number characters
         if (!RegExp(r'^-?\d*\.?\d+$').hasMatch(value.trim())) return false;
       }
-      
+
       final price = safeParseDouble(value);
       return price >= 0;
     } catch (e) {
@@ -139,7 +148,7 @@ class PriceUtils {
   /// Calculates total from a list of items with price and quantity
   static double calculateTotal(List<Map<String, dynamic>> items) {
     double total = 0.0;
-    
+
     for (final item in items) {
       try {
         final price = safeParseDouble(item['price']);
@@ -149,7 +158,7 @@ class PriceUtils {
         developer.log('Error calculating total for item: $item, error: $e', name: 'PriceUtils');
       }
     }
-    
+
     return total;
   }
 
@@ -172,7 +181,7 @@ class PriceUtils {
   /// Handles null values and ensures non-empty strings
   static String safeStringConversion(dynamic value, {String defaultValue = ''}) {
     if (value == null) return defaultValue;
-    
+
     try {
       final stringValue = value.toString().trim();
       return stringValue.isEmpty ? defaultValue : stringValue;

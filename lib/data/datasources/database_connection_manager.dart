@@ -1,6 +1,5 @@
 // Dart imports:
 import 'dart:async';
-import 'dart:developer' as developer;
 
 // Project imports:
 import '../../core/error/comprehensive_error_handler.dart';
@@ -21,70 +20,53 @@ class DatabaseConnectionManager {
   SQLiteDAO? _sqliteDAO;
   NodeApiDAO? _NodeApiDAO;
   ComprehensiveErrorHandler? _errorHandler;
-  
+
   bool _isInitialized = false;
   bool _isDatabaseClosed = false;
   StreamSubscription<bool>? _connectivitySubscription;
-  
+
   /// Initialize the database connection manager
   Future<void> initialize() async {
     if (_isInitialized) return;
-    
+
     try {
-      developer.log('Initializing DatabaseConnectionManager', name: 'DatabaseConnectionManager');
-      
       // Initialize connection monitor FIRST to know online/offline status
       _connectionMonitor = ConnectionMonitor();
       await _connectionMonitor!.initialize();
-      
+
       final bool isCurrentlyOnline = _connectionMonitor!.isConnected;
-      developer.log('Connection status: ${isCurrentlyOnline ? "online" : "offline"}', name: 'DatabaseConnectionManager');
-      
+
       // Initialize SQLite DAO FIRST (always needed, fast initialization)
       _sqliteDAO = SQLiteDAO();
       await _sqliteDAO!.initialize();
-      developer.log('SQLite DAO initialized', name: 'DatabaseConnectionManager');
-      
+
       // Mark as initialized early so offline queries can proceed
       _isInitialized = true;
       _isDatabaseClosed = false;
-      
+
       // Initialize error handler (non-blocking for offline)
       _errorHandler = ComprehensiveErrorHandler();
-      unawaited(_errorHandler!.initialize().catchError((e) {
-        developer.log('Error handler init failed: $e', name: 'DatabaseConnectionManager');
-      }));
-      
+      unawaited(_errorHandler!.initialize().catchError((e) {}));
+
       // Only initialize Firebase and unified service if online
       if (isCurrentlyOnline) {
         _NodeApiDAO = NodeApiDAO();
         try {
           await _NodeApiDAO!.initialize().timeout(const Duration(seconds: 5));
-        } catch (e) {
-          developer.log('Firebase initialization failed: $e', name: 'DatabaseConnectionManager');
-        }
-        
+        } catch (e) {}
+
         _unifiedService = UnifiedDatabaseService();
         try {
           await _unifiedService!.initialize().timeout(const Duration(seconds: 5));
-        } catch (e) {
-          developer.log('Unified service initialization failed: $e', name: 'DatabaseConnectionManager');
-        }
-      } else {
-        developer.log('Offline mode - skipping Firebase/UnifiedService init', name: 'DatabaseConnectionManager');
-      }
-      
+        } catch (e) {}
+      } else {}
+
       // Listen for connectivity changes
       _connectivitySubscription = _connectionMonitor!.connectivityStream.listen(
         _onConnectivityChanged,
-        onError: (error) {
-          developer.log('Connectivity monitoring error: $error', name: 'DatabaseConnectionManager');
-        },
+        onError: (error) {},
       );
-      
-      developer.log('DatabaseConnectionManager initialized successfully', name: 'DatabaseConnectionManager');
     } catch (e) {
-      developer.log('Failed to initialize DatabaseConnectionManager: $e', name: 'DatabaseConnectionManager');
       rethrow;
     }
   }
@@ -93,60 +75,46 @@ class DatabaseConnectionManager {
   void _onConnectivityChanged(bool isConnected) async {
     try {
       if (isConnected) {
-        developer.log('Connection restored - initializing online services', name: 'DatabaseConnectionManager');
-        
         // Initialize Firebase and unified service if not already done
         if (_NodeApiDAO == null) {
           _NodeApiDAO = NodeApiDAO();
           try {
             await _NodeApiDAO!.initialize().timeout(const Duration(seconds: 5));
-          } catch (e) {
-            developer.log('Firebase initialization failed on reconnect: $e', name: 'DatabaseConnectionManager');
-          }
+          } catch (e) {}
         }
-        
+
         if (_unifiedService == null) {
           _unifiedService = UnifiedDatabaseService();
           try {
             await _unifiedService!.initialize().timeout(const Duration(seconds: 5));
-          } catch (e) {
-            developer.log('Unified service initialization failed on reconnect: $e', name: 'DatabaseConnectionManager');
-          }
+          } catch (e) {}
         }
-        
+
         await _syncFromFirebaseToLocal();
       } else {
-        developer.log('Connection lost - switching to offline mode', name: 'DatabaseConnectionManager');
         await _ensureOfflineMode();
       }
-    } catch (e) {
-      developer.log('Error handling connectivity change: $e', name: 'DatabaseConnectionManager');
-    }
+    } catch (e) {}
   }
 
   /// Sync data from Firebase to local SQLite when online
   Future<void> _syncFromFirebaseToLocal() async {
     if (!_isInitialized || _unifiedService == null) return;
-    
+
     try {
       // This will be handled by the unified service's sync manager
       await _unifiedService!.syncPendingData();
-      developer.log('Data synced from Firebase to local successfully', name: 'DatabaseConnectionManager');
-    } catch (e) {
-      developer.log('Failed to sync from Firebase to local: $e', name: 'DatabaseConnectionManager');
-    }
+    } catch (e) {}
   }
 
   /// Ensure offline mode is working properly
   Future<void> _ensureOfflineMode() async {
     if (!_isInitialized || _sqliteDAO == null) return;
-    
+
     try {
       // Verify SQLite is accessible
       await _sqliteDAO!.isOnline();
-      developer.log('Offline mode verified - SQLite is accessible', name: 'DatabaseConnectionManager');
     } catch (e) {
-      developer.log('Offline mode verification failed: $e', name: 'DatabaseConnectionManager');
       await _handleDatabaseClosedError();
     }
   }
@@ -154,27 +122,21 @@ class DatabaseConnectionManager {
   /// Handle the database_closed error by reinitializing connections
   Future<void> _handleDatabaseClosedError() async {
     try {
-      developer.log('Handling database_closed error - reinitializing connections', name: 'DatabaseConnectionManager');
-      
       _isDatabaseClosed = true;
-      
+
       // Close existing connections
       await _closeConnections();
-      
+
       // Reinitialize SQLite DAO
       _sqliteDAO = SQLiteDAO();
       await _sqliteDAO!.initialize();
-      
+
       // Reinitialize unified service
       _unifiedService = UnifiedDatabaseService();
       await _unifiedService!.initialize();
-      
+
       _isDatabaseClosed = false;
-      
-      developer.log('Database connections reinitialized successfully', name: 'DatabaseConnectionManager');
     } catch (e) {
-      developer.log('Failed to handle database_closed error: $e', name: 'DatabaseConnectionManager');
-      
       if (_errorHandler != null) {
         await _errorHandler!.handleCriticalError(
           component: 'DatabaseConnectionManager',
@@ -192,9 +154,7 @@ class DatabaseConnectionManager {
       await _unifiedService?.close();
       await _sqliteDAO?.close();
       await _NodeApiDAO?.close();
-    } catch (e) {
-      developer.log('Error closing connections: $e', name: 'DatabaseConnectionManager');
-    }
+    } catch (e) {}
   }
 
   /// Get data with automatic online/offline handling
@@ -208,29 +168,28 @@ class DatabaseConnectionManager {
     DateTime? endDate,
   }) async {
     await _ensureInitialized();
-    
+
     if (_isDatabaseClosed) {
       await _handleDatabaseClosedError();
     }
-    
+
     try {
       final bool isOnline = _connectionMonitor?.isConnected ?? false;
-      
+
       if (isOnline) {
         // Online mode: Get from Firebase and store in local database
         return await _getDataOnline(dataType, adminUid, department: department, startDate: startDate, endDate: endDate);
       } else {
         // Offline mode: Get from local database
-        return await _getDataOffline(dataType, adminUid, department: department, startDate: startDate, endDate: endDate);
+        return await _getDataOffline(dataType, adminUid,
+            department: department, startDate: startDate, endDate: endDate);
       }
     } catch (e) {
-      developer.log('Error getting data: $e', name: 'DatabaseConnectionManager');
-      
       // If there's an error, try to fallback to local data
       try {
-        return await _getDataOffline(dataType, adminUid, department: department, startDate: startDate, endDate: endDate);
+        return await _getDataOffline(dataType, adminUid,
+            department: department, startDate: startDate, endDate: endDate);
       } catch (fallbackError) {
-        developer.log('Fallback to local data also failed: $fallbackError', name: 'DatabaseConnectionManager');
         throw Exception('Failed to retrieve data from both online and offline sources: $e');
       }
     }
@@ -247,7 +206,7 @@ class DatabaseConnectionManager {
     if (_unifiedService == null) {
       throw Exception('Unified database service not initialized');
     }
-    
+
     try {
       switch (dataType) {
         case 'food_items':
@@ -260,7 +219,6 @@ class DatabaseConnectionManager {
           throw Exception('Unsupported data type: $dataType');
       }
     } catch (e) {
-      developer.log('Online data retrieval failed for $dataType: $e', name: 'DatabaseConnectionManager');
       rethrow;
     }
   }
@@ -276,10 +234,8 @@ class DatabaseConnectionManager {
     if (_sqliteDAO == null) {
       throw Exception('SQLite DAO not initialized');
     }
-    
+
     try {
-      developer.log('Getting $dataType from local database (offline mode)', name: 'DatabaseConnectionManager');
-      
       switch (dataType) {
         case 'food_items':
           return await _sqliteDAO!.getFoodItems(adminUid, department: department);
@@ -291,7 +247,6 @@ class DatabaseConnectionManager {
           throw Exception('Unsupported data type: $dataType');
       }
     } catch (e) {
-      developer.log('Offline data retrieval failed for $dataType: $e', name: 'DatabaseConnectionManager');
       rethrow;
     }
   }
@@ -303,14 +258,14 @@ class DatabaseConnectionManager {
     Map<String, dynamic> data,
   ) async {
     await _ensureInitialized();
-    
+
     if (_isDatabaseClosed) {
       await _handleDatabaseClosedError();
     }
-    
+
     try {
       final bool isOnline = _connectionMonitor?.isConnected ?? false;
-      
+
       // If online and unified service is available, use it
       if (isOnline && _unifiedService != null) {
         switch (dataType) {
@@ -331,9 +286,7 @@ class DatabaseConnectionManager {
         if (_sqliteDAO == null) {
           throw Exception('SQLite DAO not initialized');
         }
-        
-        developer.log('Saving $dataType offline to SQLite', name: 'DatabaseConnectionManager');
-        
+
         switch (dataType) {
           case 'food_items':
             await _sqliteDAO!.saveFoodItem(adminUid, data);
@@ -348,10 +301,7 @@ class DatabaseConnectionManager {
             throw Exception('Unsupported data type: $dataType');
         }
       }
-      
-      developer.log('Data saved successfully: $dataType (${isOnline ? "online" : "offline"})', name: 'DatabaseConnectionManager');
     } catch (e) {
-      developer.log('Error saving data: $e', name: 'DatabaseConnectionManager');
       rethrow;
     }
   }
@@ -365,11 +315,11 @@ class DatabaseConnectionManager {
     int limit = 20,
   }) async {
     await _ensureInitialized();
-    
+
     if (_isDatabaseClosed) {
       await _handleDatabaseClosedError();
     }
-    
+
     try {
       // Search is primarily handled by SQLite DAO which has FTS5 fallback
       switch (dataType) {
@@ -384,7 +334,6 @@ class DatabaseConnectionManager {
           throw Exception('Search not supported for data type: $dataType');
       }
     } catch (e) {
-      developer.log('Error searching data: $e', name: 'DatabaseConnectionManager');
       rethrow;
     }
   }
@@ -408,14 +357,11 @@ class DatabaseConnectionManager {
   /// Force sync all pending data when connection is restored
   Future<void> forceSyncPendingData() async {
     await _ensureInitialized();
-    
+
     if (_unifiedService != null && isOnline) {
       try {
         await _unifiedService!.syncPendingData();
-        developer.log('Forced sync of pending data completed', name: 'DatabaseConnectionManager');
-      } catch (e) {
-        developer.log('Failed to force sync pending data: $e', name: 'DatabaseConnectionManager');
-      }
+      } catch (e) {}
     }
   }
 

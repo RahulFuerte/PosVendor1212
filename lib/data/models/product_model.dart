@@ -22,6 +22,7 @@ class ProductModel {
   final List<dynamic>? variants;
   final String? imageUrl;
   final bool? inStock;
+  final bool? isVeg;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -47,6 +48,7 @@ class ProductModel {
     this.variants,
     this.imageUrl,
     this.inStock,
+    this.isVeg,
     this.createdAt,
     this.updatedAt,
   });
@@ -74,6 +76,7 @@ class ProductModel {
       variants: json['variants'] as List<dynamic>?,
       imageUrl: json['imageUrl'] as String?,
       inStock: json['inStock'] as bool? ?? json['isAvailable'] as bool?,
+      isVeg: json['isVeg'] as bool?,
       createdAt: json['createdAt'] != null ? DateTime.tryParse(json['createdAt'].toString()) : null,
       updatedAt: json['updatedAt'] != null ? DateTime.tryParse(json['updatedAt'].toString()) : null,
     );
@@ -115,6 +118,7 @@ class ProductModel {
       imageUrl: map['image_url'] as String? ?? map['imageUrl'] as String?,
       inStock:
           map['in_stock'] == 1 || map['in_stock'] == true || map['is_available'] == 1 || map['is_available'] == true,
+      isVeg: map['is_veg'] == 1 || map['is_veg'] == true || map['isVeg'] == true,
       createdAt: map['created_at'] != null
           ? (map['created_at'] is int
               ? DateTime.fromMillisecondsSinceEpoch(map['created_at'] as int)
@@ -152,6 +156,7 @@ class ProductModel {
       'variants': variants,
       'imageUrl': imageUrl,
       'inStock': inStock,
+      'isVeg': isVeg,
       'createdAt': createdAt?.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
     };
@@ -204,6 +209,7 @@ class ProductModel {
     List<dynamic>? variants,
     String? imageUrl,
     bool? inStock,
+    bool? isVeg,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -229,6 +235,7 @@ class ProductModel {
       variants: variants ?? this.variants,
       imageUrl: imageUrl ?? this.imageUrl,
       inStock: inStock ?? this.inStock,
+      isVeg: isVeg ?? this.isVeg,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

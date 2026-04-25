@@ -12,7 +12,14 @@ import 'package:pos/data/services/customer_service.dart';
 import 'package:pos/data/datasources/local/sqlite_helper.dart';
 import 'package:pos/data/models/customer_model.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
+import 'package:pos/core/utils/snackbar_utils.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+import 'package:pos/data/providers/subscription_provider.dart';
+import 'package:pos/core/widgets/access_denied_widget.dart';
+import 'package:provider/provider.dart';
+import 'package:pos/data/providers/subscription_provider.dart';
+import 'package:pos/core/widgets/access_denied_widget.dart';
 
 class CustomersListScreen extends StatefulWidget {
   final String adminUid;
@@ -85,16 +92,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
         isLoading = false;
       });
     } catch (e) {
-      if (mounted) {
-        setState(() => isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: MyText(text: 'Error loading customers: $e'),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
+        SnackBarUtils.showError(context, 'Error loading customers: $e');
     }
   }
 
@@ -393,14 +391,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
         Navigator.of(context).pop();
       }
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: MyText(text: 'Error importing customers: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+        SnackBarUtils.showError(context, 'Error importing customers: $e');
     } finally {
       setState(() {
         isImporting = false;
@@ -525,7 +516,8 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
               context: context,
               builder: (context) => AlertDialog(
                 title: const MyText(text: 'Permission Required'),
-                content: const MyText(text: 'Storage permission is required to save the file. Please enable it in settings.'),
+                content: const MyText(
+                    text: 'Storage permission is required to save the file. Please enable it in settings.'),
                 actions: [
                   TextButton(
                     onPressed: () => Navigator.pop(context),
@@ -546,15 +538,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
         }
 
         if (!status.isGranted) {
-          if (mounted) {
-            Navigator.pop(context); // Close progress dialog
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: const MyText(text: 'Storage permission denied'),
-                backgroundColor: Colors.red,
-              ),
-            );
-          }
+            SnackBarUtils.showError(context, 'Storage permission denied');
           return;
         }
       }
@@ -564,12 +548,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
       if (url.isEmpty) {
         if (Navigator.canPop(context)) Navigator.pop(context);
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: const MyText(text: 'Sample download not available. Please create your own Excel template.'),
-              backgroundColor: Colors.orange,
-            ),
-          );
+          SnackBarUtils.showWarning(context, 'Sample download not available. Please create your own Excel template.');
         }
         return;
       }
@@ -597,12 +576,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
 
         if (downloadsDir == null) {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: MyText(text: 'Could not access storage directory'),
-                backgroundColor: Colors.red,
-              ),
-            );
+            SnackBarUtils.showError(context, 'Could not access storage directory');
           }
           return;
         }
@@ -616,47 +590,11 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
         // Show success message with file name
         final fileName = fullPath.split('/').last;
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Row(
-                children: [
-                  const Icon(Icons.check_circle, color: Colors.white),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: MyText(
-                      text: 'Downloaded: $fileName\nYou can now select this file for import',
-                      fontSize: 16,
-                    ),
-                  ),
-                ],
-              ),
-              backgroundColor: Colors.green,
-              duration: const Duration(seconds: 5),
-              action: SnackBarAction(
-                label: 'OK',
-                textColor: Colors.white,
-                onPressed: () {},
-              ),
-            ),
-          );
+          SnackBarUtils.showSuccess(context, 'Downloaded: $fileName\nYou can now select this file for import');
         }
       } else {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Row(
-                children: [
-                  const Icon(Icons.error, color: Colors.white),
-                  const SizedBox(width: 12),
-                  MyText(
-                    text: 'Download failed: ${response.statusCode}',
-                    fontSize: 16,
-                  ),
-                ],
-              ),
-              backgroundColor: Colors.red,
-            ),
-          );
+          SnackBarUtils.showError(context, 'Download failed: ${response.statusCode}');
         }
       }
     } catch (e) {
@@ -665,25 +603,9 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
         Navigator.pop(context);
       }
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.error, color: Colors.white),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: MyText(
-                    text: 'Download error: $e',
-                    fontSize: 16,
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+        if (mounted) {
+          SnackBarUtils.showError(context, 'Download error: $e');
+        }
     }
   }
 
@@ -761,7 +683,8 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
               ),
               const SizedBox(height: 16),
               const MyText(
-                text: 'Note: If you have no data then download a sample data by clicking on the "Download Sample" button.',
+                text:
+                    'Note: If you have no data then download a sample data by clicking on the "Download Sample" button.',
                 color: Colors.grey,
               ),
             ],
@@ -805,13 +728,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
 
   Future<void> _uploadToFirebase() async {
     if (notUploadedCustomers.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: MyText(text: 'No customers to upload'),
-          backgroundColor: Colors.orange,
-          behavior: SnackBarBehavior.fixed,
-        ),
-      );
+      SnackBarUtils.showWarning(context, 'No customers to upload');
       return;
     }
 
@@ -837,27 +754,11 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
 
       setState(() => isUploading = false);
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: MyText(text: 'Successfully uploaded $successCount customers'),
-            backgroundColor: Colors.green,
-            behavior: SnackBarBehavior.fixed,
-          ),
-        );
+        SnackBarUtils.showSuccess(context, 'Successfully uploaded $successCount customers');
         _loadCustomers();
-      }
     } catch (e) {
       setState(() => isUploading = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: MyText(text: 'Error uploading: $e'),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.fixed,
-          ),
-        );
-      }
+        SnackBarUtils.showError(context, 'Error uploading: $e');
     }
   }
 
@@ -960,21 +861,9 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
           notUploadedCustomers.removeWhere((c) => c.phoneNumber == customer.phoneNumber);
         });
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: MyText(text: 'Customer deleted successfully'),
-            backgroundColor: Colors.green,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        SnackBarUtils.showSuccess(context, 'Customer deleted successfully');
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: MyText(text: 'Delete failed: $e'),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        SnackBarUtils.showError(context, 'Delete failed: $e');
       }
     }
   }
@@ -1021,7 +910,8 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                 MyText(
                   text: isEdit ? 'Edit Customer' : 'Add Customer',
                   fontSize: 24,
-                  fontFamily: 'tabfont',
+                  color: Colors.white,
+                 
                   fontWeight: FontWeight.bold,
                 ),
                 const SizedBox(height: 24),
@@ -1065,13 +955,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                   child: ElevatedButton(
                     onPressed: () async {
                       if (nameController.text.trim().isEmpty || phoneController.text.trim().isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: MyText(text: 'Please fill in required fields'),
-                            backgroundColor: Colors.red,
-                            behavior: SnackBarBehavior.floating,
-                          ),
-                        );
+                        SnackBarUtils.showWarning(context, 'Please fill in required fields');
                         return;
                       }
 
@@ -1111,12 +995,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
 
                           Navigator.pop(context); // Close loading dialog
                           Navigator.pop(context); // Close bottom sheet
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content: MyText(text: 'Customer updated successfully'),
-                                backgroundColor: Colors.green,
-                                behavior: SnackBarBehavior.floating),
-                          );
+                          SnackBarUtils.showSuccess(context, 'Customer updated successfully');
                         } else {
                           // Add new customer
                           CustomerModel? newCustomer;
@@ -1143,24 +1022,13 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                           await SQLiteHelper().saveCustomerData(customerToSave.toMap());
                           Navigator.pop(context); // Close loading dialog
                           Navigator.pop(context); // Close bottom sheet
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content: MyText(text: 'Customer added successfully'),
-                                backgroundColor: Colors.green,
-                                behavior: SnackBarBehavior.floating),
-                          );
+                          SnackBarUtils.showSuccess(context, 'Customer added successfully');
                         }
 
                         _loadCustomers();
                       } catch (e) {
                         Navigator.pop(context); // Close loading dialog
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: MyText(text: isEdit ? 'Error updating customer: $e' : 'Error adding customer: $e'),
-                            backgroundColor: Colors.red,
-                            behavior: SnackBarBehavior.floating,
-                          ),
-                        );
+                        SnackBarUtils.showError(context, isEdit ? 'Error updating customer: $e' : 'Error adding customer: $e');
                       }
                     },
                     style: ElevatedButton.styleFrom(
@@ -1172,8 +1040,9 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                     ),
                     child: MyText(
                       text: isEdit ? 'Update Customer' : 'Add Customer',
-                      fontFamily: 'tabfont',
+                     
                       fontSize: 16,
+                      color: Colors.white,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -1245,96 +1114,111 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey[50], // Very clean background
-      appBar: AppBar(
-        title: const MyText(
-          text: 'Customers',
-          fontFamily: 'tabfont',
-          fontWeight: FontWeight.w600,
-          fontSize: 20,
-          color: Colors.black87,
-        ),
-        centerTitle: true,
-        elevation: 0,
-        scrolledUnderElevation: 1,
-        backgroundColor: Colors.white,
-        iconTheme: const IconThemeData(color: Colors.black87),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
-          onPressed: () => Navigator.pop(context),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.info_outline),
-            onPressed: _showExcelFormatHelp,
-            tooltip: 'Excel format help',
-          ),
-          IconButton(
-            icon: isImporting
-                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Icon(Icons.file_download_outlined),
-            onPressed: isImporting ? null : _importCustomersFromExcel,
-            tooltip: 'Import from Excel',
-          ),
-          if (notUploadedCustomers.isNotEmpty)
-            Container(
-              margin: const EdgeInsets.only(right: 8, top: 8, bottom: 8),
-              child: ElevatedButton.icon(
-                onPressed: isUploading ? null : _uploadToFirebase,
-                icon: isUploading
-                    ? const SizedBox(
-                        width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Icon(Icons.cloud_upload, size: 18, color: Colors.white),
-                label: MyText(
-                  text: 'Sync (${notUploadedCustomers.length})',
-                  color: Colors.white,
-                  fontFamily: 'fontmain',
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange,
-                  elevation: 0,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-              ),
+    return Consumer<SubscriptionProvider>(
+      builder: (context, subProvider, _) {
+        if (!subProvider.hasPermission("MyCustomers", checkView: true)) {
+          return Scaffold(
+            appBar: AppBar(
+              title: const MyText(text: 'Customers'),
+              backgroundColor: primaryColor,
             ),
-        ],
-      ),
-      body: isLoading
-          ? _buildLoadingState()
-          : customers.isEmpty
-              ? _buildEmptyState()
-              : Column(
-                  children: [
-                    _buildStatsRow(),
-                    _buildSearchBar(),
-                    Expanded(
-                      child: ListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        physics: const BouncingScrollPhysics(),
-                        itemCount: filteredCustomers.length,
-                        itemBuilder: (context, index) {
-                          return _buildCustomerItem(filteredCustomers[index]);
-                        },
-                      ),
-                    ),
-                  ],
+            body: const AccessDeniedWidget(feature: "MyCustomers"),
+          );
+        }
+
+        return Scaffold(
+          backgroundColor: Colors.grey[50], // Very clean background
+          appBar: AppBar(
+            title: const MyText(
+              text: 'Customers',
+              fontWeight: FontWeight.w600,
+              fontSize: 20,
+              color: Colors.black87,
+            ),
+            centerTitle: true,
+            elevation: 0,
+            scrolledUnderElevation: 1,
+            backgroundColor: Colors.white,
+            iconTheme: const IconThemeData(color: Colors.black87),
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back_ios_new, size: 20),
+              onPressed: () => Navigator.pop(context),
+            ),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.info_outline),
+                onPressed: _showExcelFormatHelp,
+                tooltip: 'Excel format help',
+              ),
+              if (subProvider.hasPermission("MyCustomers", checkCreate: true))
+                IconButton(
+                  icon: isImporting
+                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.file_download_outlined),
+                  onPressed: isImporting ? null : _importCustomersFromExcel,
+                  tooltip: 'Import from Excel',
                 ),
-      floatingActionButton: FloatingActionButton.extended(
-        heroTag: "addBtn",
-        onPressed: () => _showCustomerBottomSheet(),
-        backgroundColor: primaryColor,
-        elevation: 4,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        icon: const Icon(Icons.person_add_alt_1, color: Colors.white),
-        label: const MyText(
-          text: 'Add Customer',
-          color: Colors.white,
-          fontFamily: 'tabfont',
-          fontWeight: FontWeight.bold,
-        ),
-      ),
+              if (notUploadedCustomers.isNotEmpty && subProvider.hasPermission("MyCustomers", checkCreate: true))
+                Container(
+                  margin: const EdgeInsets.only(right: 8, top: 8, bottom: 8),
+                  child: ElevatedButton.icon(
+                    onPressed: isUploading ? null : _uploadToFirebase,
+                    icon: isUploading
+                        ? const SizedBox(
+                            width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : const Icon(Icons.cloud_upload, size: 18, color: Colors.white),
+                    label: MyText(
+                      text: 'Sync (${notUploadedCustomers.length})',
+                      color: Colors.white,
+                      fontFamily: 'fontmain',
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          body: isLoading
+              ? _buildLoadingState()
+              : customers.isEmpty
+                  ? _buildEmptyState()
+                  : Column(
+                      children: [
+                        _buildStatsRow(),
+                        _buildSearchBar(),
+                        Expanded(
+                          child: ListView.builder(
+                            padding: const EdgeInsets.all(16),
+                            physics: const BouncingScrollPhysics(),
+                            itemCount: filteredCustomers.length,
+                            itemBuilder: (context, index) {
+                              return _buildCustomerItem(filteredCustomers[index], subProvider);
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+          floatingActionButton: subProvider.hasPermission("MyCustomers", checkCreate: true)
+              ? FloatingActionButton.extended(
+                  heroTag: "addBtn",
+                  onPressed: () => _showCustomerBottomSheet(),
+                  backgroundColor: primaryColor,
+                  elevation: 4,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  icon: const Icon(Icons.person_add_alt_1, color: Colors.white),
+                  label: const MyText(
+                    text: 'Add Customer',
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                )
+              : null,
+        );
+      },
     );
   }
 
@@ -1356,7 +1240,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
           MyText(
             text: 'No Customers Found',
             fontSize: 18,
-            fontFamily: 'tabfont',
+           
             color: Colors.grey[800],
             fontWeight: FontWeight.w600,
           ),
@@ -1408,7 +1292,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
               MyText(
                 text: count,
                 fontSize: 20,
-                fontFamily: 'tabfont',
+               
                 fontWeight: FontWeight.bold,
                 color: color,
               ),
@@ -1460,7 +1344,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
     );
   }
 
-  Widget _buildCustomerItem(CustomerModel customer) {
+  Widget _buildCustomerItem(CustomerModel customer, SubscriptionProvider subProvider) {
     final dateFormat = DateFormat('dd MMM yyyy, hh:mm a');
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -1472,7 +1356,13 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
       color: Colors.white,
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        onTap: () => _showCustomerBottomSheet(customer: customer),
+        onTap: () {
+          if (subProvider.hasPermission("MyCustomers", checkEdit: true)) {
+            _showCustomerBottomSheet(customer: customer);
+          } else {
+             SnackBarUtils.showWarning(context, "No Edit Permission under current plan");
+          }
+        },
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Row(
@@ -1484,7 +1374,6 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                 child: MyText(
                   text: customer.name.isNotEmpty ? customer.name.substring(0, 1).toUpperCase() : '?',
                   color: primaryColor,
-                  fontFamily: 'tabfont',
                   fontWeight: FontWeight.bold,
                   fontSize: 18,
                 ),
@@ -1499,7 +1388,6 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                         Expanded(
                           child: MyText(
                             text: customer.name,
-                            fontFamily: 'tabfont',
                             fontWeight: FontWeight.bold,
                             fontSize: 16,
                             color: Colors.black87,
@@ -1573,8 +1461,20 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                 padding: EdgeInsets.zero,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 onSelected: (value) {
-                  if (value == 'edit') _showCustomerBottomSheet(customer: customer);
-                  if (value == 'delete') _deleteCustomer(customer);
+                  if (value == 'edit') {
+                    if (subProvider.hasPermission("MyCustomers", checkEdit: true)) {
+                      _showCustomerBottomSheet(customer: customer);
+                    } else {
+                       SnackBarUtils.showWarning(context, "No Edit Permission under current plan");
+                    }
+                  }
+                  if (value == 'delete') {
+                    if (subProvider.hasPermission("MyCustomers", checkDelete: true)) {
+                      _deleteCustomer(customer);
+                    } else {
+                       SnackBarUtils.showWarning(context, "No Delete Permission under current plan");
+                    }
+                  }
                 },
                 itemBuilder: (context) => [
                   const PopupMenuItem(

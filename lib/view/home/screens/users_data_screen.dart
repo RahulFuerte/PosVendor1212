@@ -6,7 +6,10 @@ import 'package:pos/data/models/user_model.dart';
 import 'package:pos/data/providers/print_provider.dart';
 import 'package:pos/view/home/widgets/mydrawer.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
+import 'package:pos/core/utils/snackbar_utils.dart';
 import 'package:provider/provider.dart';
+import 'package:pos/data/providers/subscription_provider.dart';
+import 'package:pos/core/widgets/access_denied_widget.dart';
 
 class UsersScreen extends StatefulWidget {
   final String? uid;
@@ -28,163 +31,166 @@ class _UsersScreenState extends State<UsersScreen> {
       appBar: AppBar(
         title: const MyText(
           text: 'Users Data',
-          fontFamily: 'tabfont',
+          
         ),
       ),
       drawer: MyDrawer(
         phoneNo: widget.uid ?? "",
         adminPhoneNo: widget.adminId ?? '',
       ),
-      body: FutureBuilder(
-        future: _getUserData(),
-        builder: (context, AsyncSnapshot<List<UserModel>> snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          } else if (snapshot.hasError) {
-            return Center(child: MyText(text: 'Error: ${snapshot.error}'));
-          } else {
-            final usersData = snapshot.data;
+      body: Consumer<SubscriptionProvider>(
+        builder: (context, subProvider, _) {
+          if (!subProvider.hasPermission("StaffManagement", checkView: true)) {
+            return const AccessDeniedWidget(feature: "Staff Management");
+          }
 
-            if (usersData!.isEmpty) {
-              return const Center(child: MyText(text: 'No users data available.'));
-            }
+          return FutureBuilder(
+            future: _getUserData(),
+            builder: (context, AsyncSnapshot<List<UserModel>> snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              } else if (snapshot.hasError) {
+                return Center(child: MyText(text: 'Error: ${snapshot.error}'));
+              } else {
+                final usersData = snapshot.data;
 
-            return ListView.builder(
-              itemCount: usersData.length,
-              itemBuilder: (context, index) {
-                final user = usersData[index];
-                return Padding(
-                  padding: const EdgeInsets.only(left: 8, right: 8, top: 4, bottom: 4),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius: const BorderRadius.all(Radius.circular(20)),
-                      border: Border.all(
-                        color: primaryColor,
-                        width: 1,
-                      ),
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.start,
-                      children: [
-                        Container(
-                          decoration: BoxDecoration(
-                            color: green.shade100,
-                            borderRadius: const BorderRadius.only(
-                              topLeft: Radius.circular(20),
-                              topRight: Radius.circular(20),
-                              bottomLeft: Radius.circular(40),
-                            ),
+                if (usersData!.isEmpty) {
+                  return const Center(child: MyText(text: 'No users data available.'));
+                }
+
+                return ListView.builder(
+                  itemCount: usersData.length,
+                  itemBuilder: (context, index) {
+                    final user = usersData[index];
+                    return Padding(
+                      padding: const EdgeInsets.only(left: 8, right: 8, top: 4, bottom: 4),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          borderRadius: const BorderRadius.all(Radius.circular(20)),
+                          border: Border.all(
+                            color: primaryColor,
+                            width: 1,
                           ),
-                          height: MediaQuery.of(context).size.height / 9,
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceAround,
-                            children: [
-                              Container(
-                                height: 65,
-                                width: 65,
-                                decoration: BoxDecoration(
-                                  color: primaryColor,
-                                  borderRadius: BorderRadius.circular(75),
-                                  image: const DecorationImage(
-                                    fit: BoxFit.cover,
-                                    image: NetworkImage(
-                                        'https://img.freepik.com/premium-vector/businessman-avatar-cartoon-character-profile_18591-50585.jpg?w=360'),
-                                  ),
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          children: [
+                            Container(
+                              decoration: BoxDecoration(
+                                color: green.shade100,
+                                borderRadius: const BorderRadius.only(
+                                  topLeft: Radius.circular(20),
+                                  topRight: Radius.circular(20),
+                                  bottomLeft: Radius.circular(40),
                                 ),
                               ),
-                              Expanded(
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      MyText(
-                                        text: user.userName,
-                                        fontFamily: 'tabfont',
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
+                              height: MediaQuery.of(context).size.height / 9,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                                children: [
+                                  Container(
+                                    height: 65,
+                                    width: 65,
+                                    decoration: BoxDecoration(
+                                      color: primaryColor,
+                                      borderRadius: BorderRadius.circular(75),
+                                      image: const DecorationImage(
+                                        fit: BoxFit.cover,
+                                        image: NetworkImage(
+                                            'https://img.freepik.com/premium-vector/businessman-avatar-cartoon-character-profile_18591-50585.jpg?w=360'),
                                       ),
-                                      const SizedBox(height: 4),
-                                      Row(
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                                      child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
-                                          const Icon(Icons.phone, size: 14, color: Colors.black54),
-                                          const SizedBox(width: 4),
                                           MyText(
-                                            text: user.phoneNumber,
+                                            text: user.userName,
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w600,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Row(
+                                            children: [
+                                              const Icon(Icons.phone, size: 14, color: Colors.black54),
+                                              const SizedBox(width: 4),
+                                              MyText(
+                                                text: user.phoneNumber,
+                                                fontFamily: 'fontmain',
+                                                fontSize: 13,
+                                                color: Colors.black87,
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 4),
+                                          MyText(
+                                            text: 'Total: ₹${user.totalAmount}',
                                             fontFamily: 'fontmain',
-                                            fontSize: 13,
-                                            color: Colors.black87,
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.green.shade800,
                                           ),
                                         ],
                                       ),
-                                      const SizedBox(height: 4),
-                                      MyText(
-                                        text: 'Total: ₹${user.totalAmount}',
-                                        fontFamily: 'fontmain',
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.green.shade800,
-                                      ),
-                                    ],
+                                    ),
                                   ),
-                                ),
-                              ),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  IconButton(
-                                    onPressed: () {
-                                      printprovider.additem(user.details, user.totalAmount);
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(
-                                          backgroundColor: primaryColor,
-                                          content: const MyText(text: 'Cart Updated !'),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      IconButton(
+                                        onPressed: () {
+                                          printprovider.additem(user.details, user.totalAmount);
+                                          SnackBarUtils.showInfo(context, 'Cart Updated !');
+                                        },
+                                        icon: Icon(
+                                          MdiIcons.databaseImport,
+                                          color: blue,
                                         ),
-                                      );
-                                    },
-                                    icon: Icon(
-                                      MdiIcons.databaseImport,
-                                      color: blue,
-                                    ),
-                                  ),
-                                  IconButton(
-                                    icon: Icon(
-                                      Icons.delete,
-                                      color: Colors.red.shade300,
-                                    ),
-                                    onPressed: () => _deleteUserData(context, index),
+                                      ),
+                                      if (subProvider.hasPermission("StaffManagement", checkDelete: true))
+                                        IconButton(
+                                          icon: Icon(
+                                            Icons.delete,
+                                            color: Colors.red.shade300,
+                                          ),
+                                          onPressed: () => _deleteUserData(context, index),
+                                        ),
+                                    ],
                                   ),
                                 ],
                               ),
-                            ],
-                          ),
-                        ),
-                        DataTable(
-                          columns: const [
-                            DataColumn(label: MyText(text: 'Name')),
-                            DataColumn(label: MyText(text: 'Price')),
-                            DataColumn(label: MyText(text: 'Quantity')),
+                            ),
+                            DataTable(
+                              columns: const [
+                                DataColumn(label: MyText(text: 'Name')),
+                                DataColumn(label: MyText(text: 'Price')),
+                                DataColumn(label: MyText(text: 'Quantity')),
+                              ],
+                              rows: user.details
+                                  .map<DataRow>((detail) => DataRow(
+                                        cells: [
+                                          DataCell(MyText(text: detail['name'])),
+                                          DataCell(MyText(text: detail['price'].toString())),
+                                          DataCell(MyText(text: detail['quantity'].toString())),
+                                        ],
+                                      ))
+                                  .toList(),
+                            ),
                           ],
-                          rows: user.details
-                              .map<DataRow>((detail) => DataRow(
-                                    cells: [
-                                      DataCell(MyText(text: detail['name'])),
-                                      DataCell(MyText(text: detail['price'].toString())),
-                                      DataCell(MyText(text: detail['quantity'].toString())),
-                                    ],
-                                  ))
-                              .toList(),
                         ),
-                      ],
-                    ),
-                  ),
+                      ),
+                    );
+                  },
                 );
-              },
-            );
-          }
+              }
+            },
+          );
         },
       ),
     );
@@ -261,12 +267,7 @@ class _UsersScreenState extends State<UsersScreen> {
               onPressed: () async {
                 await box.deleteAt(index);
                 setState(() {});
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    backgroundColor: primaryColor,
-                    content: const MyText(text: 'User data deleted !'),
-                  ),
-                );
+                SnackBarUtils.showSuccess(context, 'User data deleted !');
                 Navigator.of(context).pop(); // Close the dialog
               },
               child: const MyText(text: 'Delete'),

@@ -10,6 +10,7 @@ import 'package:pos/view/home/widgets/mydrawer.dart';
 // Project imports:
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:pos/core/utils/price_utils.dart';
+import 'package:pos/core/utils/snackbar_utils.dart';
 import 'package:pos/view/home/reports/widgets/report_nav_bar.dart';
 
 class SalesReportScreen extends StatefulWidget {
@@ -88,10 +89,7 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
       setState(() {
         isLoading = false;
       });
-      // Fallback or show error
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: MyText(text: 'Error: ${e.toString()}')),
-      );
+      SnackBarUtils.showError(context, 'Error: ${e.toString()}');
     }
   }
 

@@ -117,51 +117,6 @@ class _SaveOrderBottomSheetState extends State<SaveOrderBottomSheet> {
                 _orderSummary(),
                 const SizedBox(height: 24),
                 _actionButtons(context),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      // Show only amount when compact view, otherwise show label + amount
-
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          MyText(
-                            text: 'Grand Total',
-                            fontSize: 12,
-                            color: Colors.grey[600],
-                            fontWeight: FontWeight.w500,
-                          ),
-                          MyText(
-                            text: PriceUtils.formatPrice(widget.totalAmount),
-                            fontSize: 20,
-                            color: Colors.black,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ],
-                      ),
-                      Row(
-                        children: [
-                          _buildIconButton(
-                            icon: Icons.receipt_long_outlined,
-                            onPressed: () {},
-                          ),
-                          const SizedBox(width: 10),
-                          _buildIconButton(
-                            icon: Icons.bookmark_outline,
-                            onPressed: () {},
-                          ),
-                          const SizedBox(width: 10),
-                          _buildIconButton(
-                            icon: Icons.print,
-                            onPressed: () {},
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
               ],
             ),
           ),
@@ -230,7 +185,8 @@ class _SaveOrderBottomSheetState extends State<SaveOrderBottomSheet> {
                 ),
                 const SizedBox(height: 2),
                 MyText(
-                  text: '${PriceUtils.formatPrice(selectedItemsDetails[index]['price'])} × ${selectedItemsDetails[index]['quantity']}',
+                  text:
+                      '${PriceUtils.formatPrice(selectedItemsDetails[index]['price'])} × ${selectedItemsDetails[index]['quantity']}',
                   fontSize: 12,
                   color: Colors.grey[600],
                   fontWeight: FontWeight.w500,
@@ -322,26 +278,6 @@ class _SaveOrderBottomSheetState extends State<SaveOrderBottomSheet> {
     );
   }
 
-  Widget _buildIconButton({required IconData icon, required VoidCallback onPressed}) {
-    return Container(
-      decoration: BoxDecoration(
-        color: appbar1,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.3),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          )
-        ],
-      ),
-      child: IconButton(
-        icon: Icon(icon, color: Colors.white, size: 24),
-        onPressed: onPressed,
-      ),
-    );
-  }
-
   Widget _customerAutoCompleteField() {
     return RawAutocomplete<CustomerModel>(
       optionsBuilder: (TextEditingValue textEditingValue) {
@@ -392,10 +328,7 @@ class _SaveOrderBottomSheetState extends State<SaveOrderBottomSheet> {
                 : null,
           ),
           validator: (value) {
-            if (value == null || value.isEmpty) {
-              return 'Please enter customer name';
-            }
-            return null;
+            return null; // Not mandatory
           },
         );
       },
@@ -459,13 +392,7 @@ class _SaveOrderBottomSheetState extends State<SaveOrderBottomSheet> {
         icon: Icons.person_outline,
       ),
       validator: (value) {
-        if (value == null || value.isEmpty) {
-          return 'Please enter customer name';
-        }
-        if (value.length < 2) {
-          return 'Name must be at least 2 characters';
-        }
-        return null;
+        return null; // Not mandatory
       },
     );
   }
@@ -481,10 +408,8 @@ class _SaveOrderBottomSheetState extends State<SaveOrderBottomSheet> {
         icon: Icons.phone_outlined,
       ),
       validator: (value) {
-        if (value == null || value.isEmpty) {
-          return 'Please enter mobile number';
-        }
-        if (value.length != 10) {
+        // Not mandatory, but if provided, check length for sanity (optional)
+        if (value != null && value.isNotEmpty && value.length != 10) {
           return 'Mobile number must be 10 digits';
         }
         return null;

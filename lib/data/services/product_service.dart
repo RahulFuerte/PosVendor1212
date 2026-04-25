@@ -84,12 +84,14 @@ class ProductService {
 
     final token = await _getToken();
 
-    String query = '';
-    if (categoryId != null) query += 'categoryId=$categoryId&';
-    if (foodCode != null) query += 'foodCode=$foodCode';
+    final List<String> queryParams = [];
+    if (categoryId != null) queryParams.add('categoryId=$categoryId');
+    if (foodCode != null) queryParams.add('foodCode=$foodCode');
+
+    final String queryString = queryParams.isNotEmpty ? '?${queryParams.join('&')}' : '';
 
     final response = await http.get(
-      Uri.parse('$baseUrl?$query'),
+      Uri.parse('$baseUrl$queryString'),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': token ?? "",
@@ -102,6 +104,24 @@ class ProductService {
     } else {
       final data = jsonDecode(response.body);
       throw Exception(data['message'] ?? 'Failed to get products');
+    }
+  }
+
+  Future<List<ProductModel>> getPublicProducts(String adminId, {String? categoryId}) async {
+    String query = 'adminId=$adminId';
+    if (categoryId != null) query += '&categoryId=$categoryId';
+
+    final response = await http.get(
+      Uri.parse('$baseUrl/public?$query'),
+      headers: {'Content-Type': 'application/json'},
+    );
+
+    if (response.statusCode == 200) {
+      final List data = jsonDecode(response.body);
+      return data.map((e) => ProductModel.fromJson(e)).toList();
+    } else {
+      final data = jsonDecode(response.body);
+      throw Exception(data['message'] ?? 'Failed to get public products');
     }
   }
 

@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 // Package imports:
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
 
 // Project imports:
@@ -17,6 +18,7 @@ import 'package:pos/data/providers/print_provider.dart';
 import 'package:pos/data/services/cloudinary_service.dart';
 import 'package:pos/data/services/user_service.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
+import 'package:pos/core/utils/snackbar_utils.dart';
 import 'package:pos/core/utils/price_utils.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -47,8 +49,12 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
 
   bool _isSaving = false;
   bool _isLoading = true;
+  bool _isLocating = false;
   File? _imageFile;
   String? _imageUrl;
+  String? _city;
+  double? _latitude;
+  double? _longitude;
 
   @override
   void initState() {
@@ -70,15 +76,21 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
         _fssaiNumberController.text = sqliteData['fssaiNo'] ?? '';
         _upiIdController.text = sqliteData['upiId'] ?? '';
         _imageUrl = sqliteData['shopLogoUrl'];
+        _city = sqliteData['city'];
+        _latitude = sqliteData['latitude'];
+        _longitude = sqliteData['longitude'];
       } else {
         // Fallback to SharedPreferences if SQLite is empty
         _shopNameController.text = prefs.getString('shopName') ?? '';
-        _contactController.text = prefs.getString('contact') ?? '';
+        _contactController.text = prefs.getString('contact') ?? prefs.getString('phoneNumber') ?? '';
         _addressController.text = prefs.getString('address') ?? '';
         _gstNumberController.text = prefs.getString('gstNumber') ?? '';
         _fssaiNumberController.text = prefs.getString('fssaiNo') ?? '';
         _upiIdController.text = prefs.getString('upiId') ?? '';
         _imageUrl = prefs.getString('logoUrl');
+        _city = prefs.getString('city');
+        _latitude = prefs.getDouble('latitude');
+        _longitude = prefs.getDouble('longitude');
       }
     } catch (e) {
       debugPrint('Error loading settings: $e');
@@ -112,6 +124,36 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
     }
   }
 
+  Future<void> _getCurrentLocation() async {
+    setState(() => _isLocating = true);
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) throw 'Location services are disabled.';
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) throw 'Location permissions are denied';
+      }
+
+      final position = await Geolocator.getCurrentPosition();
+      setState(() {
+        _latitude = position.latitude;
+        _longitude = position.longitude;
+      });
+
+      if (mounted) {
+        SnackBarUtils.showSuccess(context, 'Location updated successfully!');
+      }
+    } catch (e) {
+      if (mounted) {
+        SnackBarUtils.showError(context, 'Error: $e');
+      }
+    } finally {
+      if (mounted) setState(() => _isLocating = false);
+    }
+  }
+
   Future<void> _saveSettings() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -130,6 +172,8 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
       await prefs.setString('fssaiNo', _fssaiNumberController.text.trim());
       await prefs.setString('upiId', _upiIdController.text.trim());
       await prefs.setString('logoUrl', _imageUrl ?? "");
+      if (_latitude != null) await prefs.setDouble('latitude', _latitude!);
+      if (_longitude != null) await prefs.setDouble('longitude', _longitude!);
 
       // 2. Save to SQLite
       await SQLiteHelper().saveUserData({
@@ -141,34 +185,42 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
         'gst_number': _gstNumberController.text.trim(),
         'fssaiNo': _fssaiNumberController.text.trim(),
         'upiId': _upiIdController.text.trim(),
+        'city': _city ?? prefs.getString('city') ?? "",
         'shop_logo_url': _imageUrl ?? "",
+        'latitude': _latitude,
+        'longitude': _longitude,
       });
 
       // 3. Save to MongoDB (Sync Profile)
+      debugPrint('Syncing profile to MongoDB with Location: [$_longitude, $_latitude]');
       await UserService().updateProfile({
-        'name': prefs.getString('name') ?? "", // Maintain current user name
+        'name': prefs.getString('name') ?? "",
         'phoneNumber': widget.phoneNo,
         'shopName': _shopNameController.text.trim(),
         'address': _addressController.text.trim(),
+        'city': _city ?? prefs.getString('city') ?? "",
         'gstNo': _gstNumberController.text.trim(),
         'fssaiNo': _fssaiNumberController.text.trim(),
         'logoUrl': _imageUrl ?? "",
-        'logo_url': _imageUrl ?? "", // Backend fallback
-        'shopLogoUrl': _imageUrl ?? "", // Backend fallback
+        'logo_url': _imageUrl ?? "",
+        'shopLogoUrl': _imageUrl ?? "",
         'upiId': _upiIdController.text.trim(),
+        'latitude': _latitude,
+        'longitude': _longitude,
+        if (_latitude != null && _longitude != null)
+          'location': {
+            'type': 'Point',
+            'coordinates': [_longitude, _latitude],
+          },
       });
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: MyText(text: 'Settings saved successfully'), backgroundColor: Colors.green),
-        );
+        SnackBarUtils.showSuccess(context, 'Settings saved successfully');
         Navigator.pop(context);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: MyText(text: 'Error saving settings: $e'), backgroundColor: Colors.red),
-        );
+        SnackBarUtils.showError(context, 'Error saving settings: $e');
       }
     } finally {
       if (mounted) {
@@ -294,12 +346,7 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: MyText(text: 'Error picking image: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        SnackBarUtils.showError(context, 'Error picking image: $e');
       }
     }
   }
@@ -561,7 +608,82 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
                             ),
                             const SizedBox(height: 16),
 
-                            const SizedBox(height: 32),
+                            // Shop Location Section
+                            const MyText(
+                              text: 'Shop Location',
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
+                            const SizedBox(height: 8),
+                            MyText(
+                              text: 'Set your GPS coordinates for nearby searches',
+                              fontSize: 14,
+                              color: Colors.grey[600],
+                            ),
+                            const SizedBox(height: 16),
+                            Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.grey[300]!),
+                              ),
+                              child: Column(
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.my_location, color: primaryColor),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            const MyText(text: 'Current GPS Coordinates', fontWeight: FontWeight.bold),
+                                            const SizedBox(height: 4),
+                                            MyText(
+                                              text: (_latitude != null && _longitude != null)
+                                                  ? 'Lat: ${_latitude!.toStringAsFixed(6)}, Lng: ${_longitude!.toStringAsFixed(6)}'
+                                                  : 'Location not set',
+                                              fontSize: 12,
+                                              color: Colors.grey[600],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      ElevatedButton(
+                                        onPressed: _isLocating ? null : _getCurrentLocation,
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: primaryColor.withOpacity(0.1),
+                                          foregroundColor: primaryColor,
+                                          elevation: 0,
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                        ),
+                                        child: _isLocating
+                                            ? const SizedBox(
+                                                width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                                            : const Text('Update'),
+                                      ),
+                                    ],
+                                  ),
+                                  if (_latitude != null)
+                                    const Padding(
+                                      padding: EdgeInsets.only(top: 8),
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.check_circle, color: Colors.green, size: 14),
+                                          SizedBox(width: 4),
+                                          MyText(
+                                              text: 'Location verified for Customer Dashboard',
+                                              color: Colors.green,
+                                              fontSize: 11),
+                                        ],
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 24),
 
                             // Tax Settings Section
                             const MyText(

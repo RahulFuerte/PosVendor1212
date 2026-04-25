@@ -15,7 +15,7 @@ class ErrorHandlingService {
   final StreamController<LogEntry> _logController = StreamController<LogEntry>.broadcast();
   final List<LogEntry> _logBuffer = [];
   static const int _maxLogBufferSize = 1000;
-  
+
   bool _isInitialized = false;
   String? _logFilePath;
 
@@ -29,7 +29,7 @@ class ErrorHandlingService {
     try {
       await _initializeLogFile();
       _isInitialized = true;
-      
+
       // Log initialization
       await logInfo('ErrorHandlingService', 'Error handling service initialized successfully');
     } catch (e) {
@@ -42,14 +42,14 @@ class ErrorHandlingService {
     try {
       final dbPath = await getDatabasesPath();
       final logDir = Directory(join(dbPath, 'logs'));
-      
+
       if (!await logDir.exists()) {
         await logDir.create(recursive: true);
       }
-      
+
       final timestamp = DateTime.now().toIso8601String().split('T')[0];
       _logFilePath = join(logDir.path, 'sync_log_$timestamp.txt');
-      
+
       // Create log file if it doesn't exist
       final logFile = File(_logFilePath!);
       if (!await logFile.exists()) {
@@ -135,7 +135,7 @@ class ErrorHandlingService {
     // Only log debug messages in debug mode
     bool isDebugMode = false;
     assert(isDebugMode = true);
-    
+
     if (!isDebugMode) return;
 
     final logEntry = LogEntry(
@@ -153,7 +153,7 @@ class ErrorHandlingService {
   Future<void> _processLogEntry(LogEntry entry) async {
     // Add to buffer
     _logBuffer.add(entry);
-    
+
     // Maintain buffer size
     if (_logBuffer.length > _maxLogBufferSize) {
       _logBuffer.removeAt(0);
@@ -175,21 +175,18 @@ class ErrorHandlingService {
     final level = entry.level.name.toUpperCase();
     final component = entry.component;
     final message = entry.message;
-    
+
     String logLine = '[$timestamp] [$level] [$component] $message';
-    
+
     if (entry.context != null && entry.context!.isNotEmpty) {
       logLine += ' | Context: ${entry.context}';
     }
-    
+
     if (entry.error != null) {
       logLine += ' | Error: ${entry.error}';
     }
 
-    print(logLine);
-    
     if (entry.stackTrace != null) {
-      print('Stack trace: ${entry.stackTrace}');
     }
   }
 
@@ -201,23 +198,23 @@ class ErrorHandlingService {
       final logFile = File(_logFilePath!);
       final timestamp = entry.timestamp.toIso8601String();
       final level = entry.level.name.toUpperCase();
-      
+
       String logLine = '[$timestamp] [$level] [${entry.component}] ${entry.message}';
-      
+
       if (entry.context != null && entry.context!.isNotEmpty) {
         logLine += ' | Context: ${entry.context}';
       }
-      
+
       if (entry.error != null) {
         logLine += ' | Error: ${entry.error}';
       }
-      
+
       if (entry.stackTrace != null) {
         logLine += ' | Stack: ${entry.stackTrace.toString().replaceAll('\n', ' | ')}';
       }
-      
+
       logLine += '\n';
-      
+
       await logFile.writeAsString(logLine, mode: FileMode.append);
     } catch (e) {
       print('Failed to write to log file: $e');
@@ -227,35 +224,34 @@ class ErrorHandlingService {
   /// Get recent log entries
   List<LogEntry> getRecentLogs({int? limit, LogLevel? minLevel}) {
     var logs = List<LogEntry>.from(_logBuffer);
-    
+
     if (minLevel != null) {
       logs = logs.where((log) => log.level.index >= minLevel.index).toList();
     }
-    
+
     if (limit != null && logs.length > limit) {
       logs = logs.sublist(logs.length - limit);
     }
-    
+
     return logs.reversed.toList(); // Most recent first
   }
 
   /// Get error statistics
   Map<String, dynamic> getErrorStatistics({Duration? timeWindow}) {
-    final cutoffTime = timeWindow != null 
-        ? DateTime.now().subtract(timeWindow)
-        : DateTime.now().subtract(const Duration(hours: 24));
-    
+    final cutoffTime =
+        timeWindow != null ? DateTime.now().subtract(timeWindow) : DateTime.now().subtract(const Duration(hours: 24));
+
     final recentLogs = _logBuffer.where((log) => log.timestamp.isAfter(cutoffTime)).toList();
-    
+
     final errorCount = recentLogs.where((log) => log.level == LogLevel.error).length;
     final warningCount = recentLogs.where((log) => log.level == LogLevel.warning).length;
     final infoCount = recentLogs.where((log) => log.level == LogLevel.info).length;
-    
+
     final componentErrors = <String, int>{};
     for (final log in recentLogs.where((log) => log.level == LogLevel.error)) {
       componentErrors[log.component] = (componentErrors[log.component] ?? 0) + 1;
     }
-    
+
     return {
       'timeWindow': timeWindow?.inHours ?? 24,
       'totalLogs': recentLogs.length,
@@ -263,16 +259,15 @@ class ErrorHandlingService {
       'warningCount': warningCount,
       'infoCount': infoCount,
       'componentErrors': componentErrors,
-      'mostProblematicComponent': componentErrors.isNotEmpty 
-          ? componentErrors.entries.reduce((a, b) => a.value > b.value ? a : b).key
-          : null,
+      'mostProblematicComponent':
+          componentErrors.isNotEmpty ? componentErrors.entries.reduce((a, b) => a.value > b.value ? a : b).key : null,
     };
   }
 
   /// Clear log buffer and optionally log files
   Future<void> clearLogs({bool clearFiles = false}) async {
     _logBuffer.clear();
-    
+
     if (clearFiles && _logFilePath != null) {
       try {
         final logFile = File(_logFilePath!);
@@ -284,7 +279,7 @@ class ErrorHandlingService {
         await logError('ErrorHandlingService', 'Failed to clear log files', error: e);
       }
     }
-    
+
     await logInfo('ErrorHandlingService', 'Log buffer cleared');
   }
 
@@ -293,63 +288,63 @@ class ErrorHandlingService {
     try {
       final dbPath = await getDatabasesPath();
       final exportDir = Directory(join(dbPath, 'exports'));
-      
+
       if (!await exportDir.exists()) {
         await exportDir.create(recursive: true);
       }
-      
+
       final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-');
       final exportPath = join(exportDir.path, 'sync_logs_export_$timestamp.txt');
-      
+
       var logsToExport = List<LogEntry>.from(_logBuffer);
-      
+
       if (startDate != null) {
         logsToExport = logsToExport.where((log) => log.timestamp.isAfter(startDate)).toList();
       }
-      
+
       if (endDate != null) {
         logsToExport = logsToExport.where((log) => log.timestamp.isBefore(endDate)).toList();
       }
-      
+
       final exportFile = File(exportPath);
       final buffer = StringBuffer();
-      
+
       buffer.writeln('=== Sync Logs Export ===');
       buffer.writeln('Generated: ${DateTime.now().toIso8601String()}');
       buffer.writeln('Total entries: ${logsToExport.length}');
       buffer.writeln('');
-      
+
       for (final log in logsToExport) {
         buffer.writeln('${log.timestamp.toIso8601String()} | ${log.level.name.toUpperCase()} | ${log.component}');
         buffer.writeln('Message: ${log.message}');
-        
+
         if (log.context != null && log.context!.isNotEmpty) {
           buffer.writeln('Context: ${log.context}');
         }
-        
+
         if (log.error != null) {
           buffer.writeln('Error: ${log.error}');
         }
-        
+
         if (log.userMessage != null) {
           buffer.writeln('User Message: ${log.userMessage}');
         }
-        
+
         if (log.recoveryActions != null && log.recoveryActions!.isNotEmpty) {
           buffer.writeln('Recovery Actions:');
           for (final action in log.recoveryActions!) {
             buffer.writeln('  - ${action.description}');
           }
         }
-        
+
         buffer.writeln('---');
       }
-      
+
       await exportFile.writeAsString(buffer.toString());
-      
-      await logInfo('ErrorHandlingService', 'Logs exported successfully', 
+
+      await logInfo('ErrorHandlingService', 'Logs exported successfully',
           context: {'exportPath': exportPath, 'entryCount': logsToExport.length});
-      
+
       return exportPath;
     } catch (e) {
       await logError('ErrorHandlingService', 'Failed to export logs', error: e);
@@ -427,7 +422,7 @@ class LogEntry {
     if (userMessage != null) {
       return userMessage!;
     }
-    
+
     // Generate user-friendly message based on component and error type
     switch (component) {
       case 'SyncManager':
@@ -439,16 +434,16 @@ class LogEntry {
           return 'Some data conflicts were detected and resolved automatically.';
         }
         return 'There was a problem syncing your data. Please try again.';
-        
+
       case 'SQLiteDAO':
         if (message.contains('database')) {
           return 'There was a problem with the local database. Your data may need to be restored.';
         }
         return 'There was a problem saving your data locally.';
-        
+
       case 'ConnectionMonitor':
         return 'Network connection status has changed.';
-        
+
       case 'DataIntegrityService':
         if (message.contains('corruption')) {
           return 'Data corruption was detected. Attempting automatic recovery.';
@@ -456,7 +451,7 @@ class LogEntry {
           return 'There was a problem creating a backup of your data.';
         }
         return 'There was a problem with data integrity checks.';
-        
+
       default:
         return message;
     }

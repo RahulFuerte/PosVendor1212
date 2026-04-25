@@ -1,6 +1,5 @@
 // Dart imports:
 import 'dart:async';
-import 'dart:developer' as developer;
 import 'dart:io';
 
 /// Performance monitoring service for database and sync operations
@@ -18,11 +17,11 @@ class PerformanceMonitor {
   final List<PerformanceMetric> _performanceHistory = [];
   final List<PerformanceAlert> _performanceAlerts = [];
   final Map<String, PerformanceThreshold> _performanceThresholds = {};
-  
+
   Timer? _memoryMonitorTimer;
   Timer? _alertMonitorTimer;
   bool _isMonitoring = false;
-  
+
   // Performance thresholds (configurable)
   static const int defaultQueryThresholdMs = 1000;
   static const int defaultMemoryThresholdMB = 150;
@@ -32,18 +31,17 @@ class PerformanceMonitor {
   /// Start performance monitoring
   void startMonitoring() {
     if (_isMonitoring) return;
-    
+
     _isMonitoring = true;
-    developer.log('Performance monitoring started', name: 'PerformanceMonitor');
-    
+
     // Initialize default thresholds
     _initializeDefaultThresholds();
-    
+
     // Monitor memory usage every 5 seconds
     _memoryMonitorTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
       _captureMemorySnapshot();
     });
-    
+
     // Monitor performance alerts every 30 seconds
     _alertMonitorTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
       checkPerformanceThresholds();
@@ -57,17 +55,16 @@ class PerformanceMonitor {
     _memoryMonitorTimer = null;
     _alertMonitorTimer?.cancel();
     _alertMonitorTimer = null;
-    developer.log('Performance monitoring stopped', name: 'PerformanceMonitor');
   }
 
   /// Track database query performance
   Future<T> trackQuery<T>(String queryName, Future<T> Function() queryFunction) async {
     final stopwatch = Stopwatch()..start();
-    
+
     try {
       final result = await queryFunction();
       stopwatch.stop();
-      
+
       _recordQueryTime(queryName, stopwatch.elapsedMilliseconds);
       return result;
     } catch (e) {
@@ -81,14 +78,14 @@ class PerformanceMonitor {
   Future<T> trackSyncOperation<T>(String operationName, Future<T> Function() syncFunction) async {
     final stopwatch = Stopwatch()..start();
     final initialMemory = _getCurrentMemoryUsage();
-    
+
     try {
       final result = await syncFunction();
       stopwatch.stop();
-      
+
       final finalMemory = _getCurrentMemoryUsage();
       _recordSyncOperation(operationName, stopwatch.elapsedMilliseconds, initialMemory, finalMemory);
-      
+
       return result;
     } catch (e) {
       stopwatch.stop();
@@ -107,7 +104,7 @@ class PerformanceMonitor {
       criticalThreshold: defaultQueryThresholdMs.toDouble(),
       unit: 'ms',
     );
-    
+
     _performanceThresholds['memory_usage'] = PerformanceThreshold(
       name: 'Memory Usage',
       type: ThresholdType.memoryUsage,
@@ -115,7 +112,7 @@ class PerformanceMonitor {
       criticalThreshold: defaultMemoryThresholdMB.toDouble(),
       unit: 'MB',
     );
-    
+
     _performanceThresholds['sync_operation'] = PerformanceThreshold(
       name: 'Sync Operation Time',
       type: ThresholdType.syncTime,
@@ -123,7 +120,7 @@ class PerformanceMonitor {
       criticalThreshold: defaultSyncThresholdMs.toDouble(),
       unit: 'ms',
     );
-    
+
     _performanceThresholds['cache_hit_rate'] = PerformanceThreshold(
       name: 'Cache Hit Rate',
       type: ThresholdType.cacheHitRate,
@@ -138,30 +135,28 @@ class PerformanceMonitor {
   void _recordQueryTime(String queryName, int milliseconds) {
     _queryTimes.putIfAbsent(queryName, () => []).add(milliseconds);
     _queryCount[queryName] = (_queryCount[queryName] ?? 0) + 1;
-    
+
     // Keep only last 100 measurements per query
     if (_queryTimes[queryName]!.length > 100) {
       _queryTimes[queryName]!.removeAt(0);
     }
-    
+
     // Check against thresholds and create alerts
     _checkQueryThreshold(queryName, milliseconds);
-    
+
     // Log slow queries (> 1 second)
-    if (milliseconds > 1000) {
-      developer.log('Slow query detected: $queryName took ${milliseconds}ms', name: 'PerformanceMonitor');
-    }
+    if (milliseconds > 1000) {}
   }
 
   /// Record sync operation metrics
   void _recordSyncOperation(String operationName, int milliseconds, int initialMemory, int finalMemory) {
     _syncTimes.putIfAbsent(operationName, () => []).add(milliseconds);
-    
+
     // Keep only last 50 sync measurements
     if (_syncTimes[operationName]!.length > 50) {
       _syncTimes[operationName]!.removeAt(0);
     }
-    
+
     final memoryDelta = finalMemory - initialMemory;
     final metric = PerformanceMetric(
       operationName: operationName,
@@ -170,33 +165,30 @@ class PerformanceMonitor {
       memoryDelta: memoryDelta,
       timestamp: DateTime.now(),
     );
-    
+
     _performanceHistory.add(metric);
-    
+
     // Keep only last 200 performance metrics
     if (_performanceHistory.length > 200) {
       _performanceHistory.removeAt(0);
     }
-    
+
     // Log memory-intensive operations (> 10MB increase)
-    if (memoryDelta > 10 * 1024 * 1024) {
-      developer.log('Memory-intensive operation: $operationName used ${(memoryDelta / 1024 / 1024).toStringAsFixed(2)}MB', 
-                   name: 'PerformanceMonitor');
-    }
+    if (memoryDelta > 10 * 1024 * 1024) {}
   }
 
   /// Check query execution time against thresholds
   void _checkQueryThreshold(String queryName, int milliseconds) {
     final threshold = _performanceThresholds['query_execution'];
     if (threshold == null) return;
-    
+
     AlertLevel? alertLevel;
     if (milliseconds >= threshold.criticalThreshold) {
       alertLevel = AlertLevel.critical;
     } else if (milliseconds >= threshold.warningThreshold) {
       alertLevel = AlertLevel.warning;
     }
-    
+
     if (alertLevel != null) {
       _createAlert(
         type: AlertType.queryPerformance,
@@ -216,17 +208,15 @@ class PerformanceMonitor {
     try {
       // Check memory usage
       _checkMemoryThreshold();
-      
+
       // Check cache performance
       _checkCachePerformance();
-      
+
       // Clean up old alerts (keep only last 50)
       if (_performanceAlerts.length > 50) {
         _performanceAlerts.removeRange(0, _performanceAlerts.length - 50);
       }
-    } catch (e) {
-      developer.log('Error checking performance thresholds: $e', name: 'PerformanceMonitor');
-    }
+    } catch (e) {}
   }
 
   /// Check memory usage against thresholds
@@ -234,19 +224,20 @@ class PerformanceMonitor {
     final currentMemoryMB = _getCurrentMemoryUsage() / 1024 / 1024;
     final threshold = _performanceThresholds['memory_usage'];
     if (threshold == null) return;
-    
+
     AlertLevel? alertLevel;
     if (currentMemoryMB >= threshold.criticalThreshold) {
       alertLevel = AlertLevel.critical;
     } else if (currentMemoryMB >= threshold.warningThreshold) {
       alertLevel = AlertLevel.warning;
     }
-    
+
     if (alertLevel != null) {
       _createAlert(
         type: AlertType.memoryUsage,
         level: alertLevel,
-        message: 'High memory usage: ${currentMemoryMB.toStringAsFixed(1)}MB (threshold: ${threshold.criticalThreshold}MB)',
+        message:
+            'High memory usage: ${currentMemoryMB.toStringAsFixed(1)}MB (threshold: ${threshold.criticalThreshold}MB)',
         details: {
           'currentUsageMB': currentMemoryMB,
           'threshold': threshold.criticalThreshold,
@@ -261,7 +252,7 @@ class PerformanceMonitor {
     // For now, we'll create a placeholder that can be extended
     final threshold = _performanceThresholds['cache_hit_rate'];
     if (threshold == null) return;
-    
+
     // Placeholder for cache hit rate calculation
     // In a real implementation, this would get actual cache statistics
   }
@@ -281,12 +272,11 @@ class PerformanceMonitor {
       details: details ?? {},
       timestamp: DateTime.now(),
     );
-    
+
     _performanceAlerts.add(alert);
-    
+
     // Log the alert
     final logLevel = level == AlertLevel.critical ? 'CRITICAL' : 'WARNING';
-    developer.log('[$logLevel] Performance Alert: $message', name: 'PerformanceMonitor');
   }
 
   /// Capture memory usage snapshot
@@ -294,7 +284,7 @@ class PerformanceMonitor {
     final timestamp = DateTime.now().millisecondsSinceEpoch;
     final memoryUsage = _getCurrentMemoryUsage();
     _memorySnapshots[timestamp.toString()] = memoryUsage;
-    
+
     // Keep only last 100 snapshots (about 8 minutes of data)
     if (_memorySnapshots.length > 100) {
       final oldestKey = _memorySnapshots.keys.first;
@@ -309,7 +299,7 @@ class PerformanceMonitor {
       if (Platform.isAndroid || Platform.isIOS) {
         return ProcessInfo.currentRss;
       }
-      
+
       // Fallback for other platforms
       return 0;
     } catch (e) {
@@ -320,11 +310,11 @@ class PerformanceMonitor {
   /// Get query performance statistics
   Map<String, dynamic> getQueryStatistics() {
     final stats = <String, dynamic>{};
-    
+
     for (final queryName in _queryTimes.keys) {
       final times = _queryTimes[queryName]!;
       final count = _queryCount[queryName] ?? 0;
-      
+
       if (times.isNotEmpty) {
         times.sort();
         final avg = times.reduce((a, b) => a + b) / times.length;
@@ -332,7 +322,7 @@ class PerformanceMonitor {
         final p95 = times[(times.length * 0.95).floor()];
         final min = times.first;
         final max = times.last;
-        
+
         stats[queryName] = {
           'count': count,
           'averageMs': avg.round(),
@@ -343,17 +333,17 @@ class PerformanceMonitor {
         };
       }
     }
-    
+
     return stats;
   }
 
   /// Get sync operation performance statistics
   Map<String, dynamic> getSyncStatistics() {
     final stats = <String, dynamic>{};
-    
+
     for (final operationName in _syncTimes.keys) {
       final times = _syncTimes[operationName]!;
-      
+
       if (times.isNotEmpty) {
         times.sort();
         final avg = times.reduce((a, b) => a + b) / times.length;
@@ -361,7 +351,7 @@ class PerformanceMonitor {
         final p95 = times[(times.length * 0.95).floor()];
         final min = times.first;
         final max = times.last;
-        
+
         stats[operationName] = {
           'count': times.length,
           'averageMs': avg.round(),
@@ -372,7 +362,7 @@ class PerformanceMonitor {
         };
       }
     }
-    
+
     return stats;
   }
 
@@ -386,14 +376,14 @@ class PerformanceMonitor {
         'snapshotCount': 0,
       };
     }
-    
+
     final values = _memorySnapshots.values.toList();
     values.sort();
-    
+
     final current = values.last;
     final peak = values.last;
     final average = values.reduce((a, b) => a + b) / values.length;
-    
+
     return {
       'currentUsageMB': (current / 1024 / 1024).toStringAsFixed(2),
       'peakUsageMB': (peak / 1024 / 1024).toStringAsFixed(2),
@@ -436,7 +426,7 @@ class PerformanceMonitor {
     final queryStats = getQueryStatistics();
     final memoryStats = getMemoryStatistics();
     final syncStats = getSyncStatistics();
-    
+
     return {
       'totalQueries': _queryCount.values.fold(0, (sum, count) => sum + count),
       'uniqueQueryTypes': queryStats.length,
@@ -444,8 +434,8 @@ class PerformanceMonitor {
       'currentMemoryUsage': memoryStats['currentUsageMB'],
       'peakMemoryUsage': memoryStats['peakUsageMB'],
       'totalSyncOperations': syncStats.values.fold(0, (sum, stats) => sum + (stats['count'] as int)),
-      'activeAlerts': _performanceAlerts.where((alert) => 
-        DateTime.now().difference(alert.timestamp).inHours < 1).length,
+      'activeAlerts':
+          _performanceAlerts.where((alert) => DateTime.now().difference(alert.timestamp).inHours < 1).length,
       'healthScore': calculateHealthScore(),
     };
   }
@@ -455,7 +445,7 @@ class PerformanceMonitor {
     final queryStats = getQueryStatistics();
     final slowQueries = <String, dynamic>{};
     final fastQueries = <String, dynamic>{};
-    
+
     for (final entry in queryStats.entries) {
       final stats = entry.value as Map<String, dynamic>;
       if (stats['p95Ms'] > 500) {
@@ -464,7 +454,7 @@ class PerformanceMonitor {
         fastQueries[entry.key] = stats;
       }
     }
-    
+
     return {
       'totalQueryTypes': queryStats.length,
       'slowQueries': slowQueries,
@@ -478,7 +468,7 @@ class PerformanceMonitor {
   Map<String, dynamic> _getMemoryAnalytics() {
     final memoryStats = getMemoryStatistics();
     final memoryTrend = _getMemoryTrend();
-    
+
     return {
       'current': memoryStats,
       'trend': memoryTrend,
@@ -490,7 +480,7 @@ class PerformanceMonitor {
   /// Get sync analytics
   Map<String, dynamic> _getSyncAnalytics() {
     final syncStats = getSyncStatistics();
-    
+
     return {
       'operations': syncStats,
       'syncEfficiency': _calculateSyncEfficiency(),
@@ -500,12 +490,12 @@ class PerformanceMonitor {
 
   /// Get alert summary
   Map<String, dynamic> _getAlertSummary() {
-    final recentAlerts = _performanceAlerts.where((alert) => 
-      DateTime.now().difference(alert.timestamp).inHours < 24).toList();
-    
+    final recentAlerts =
+        _performanceAlerts.where((alert) => DateTime.now().difference(alert.timestamp).inHours < 24).toList();
+
     final criticalAlerts = recentAlerts.where((alert) => alert.level == AlertLevel.critical).length;
     final warningAlerts = recentAlerts.where((alert) => alert.level == AlertLevel.warning).length;
-    
+
     return {
       'total24h': recentAlerts.length,
       'critical24h': criticalAlerts,
@@ -527,7 +517,7 @@ class PerformanceMonitor {
   /// Get enhanced performance recommendations based on collected metrics
   List<PerformanceRecommendation> getEnhancedRecommendations() {
     final recommendations = <PerformanceRecommendation>[];
-    
+
     // Check for slow queries
     final queryStats = getQueryStatistics();
     for (final entry in queryStats.entries) {
@@ -549,7 +539,7 @@ class PerformanceMonitor {
         ));
       }
     }
-    
+
     // Check memory usage
     final memoryStats = getMemoryStatistics();
     final currentUsage = double.tryParse(memoryStats['currentUsageMB'].toString()) ?? 0;
@@ -569,7 +559,7 @@ class PerformanceMonitor {
         estimatedImpact: currentUsage > 150 ? 'High' : 'Medium',
       ));
     }
-    
+
     // Check sync performance
     final syncStats = getSyncStatistics();
     for (final entry in syncStats.entries) {
@@ -591,11 +581,11 @@ class PerformanceMonitor {
         ));
       }
     }
-    
+
     // Check for frequent alerts
-    final recentAlerts = _performanceAlerts.where((alert) => 
-      DateTime.now().difference(alert.timestamp).inHours < 24).toList();
-    
+    final recentAlerts =
+        _performanceAlerts.where((alert) => DateTime.now().difference(alert.timestamp).inHours < 24).toList();
+
     if (recentAlerts.length > 10) {
       recommendations.add(PerformanceRecommendation(
         type: RecommendationType.alertOptimization,
@@ -612,7 +602,7 @@ class PerformanceMonitor {
         estimatedImpact: 'Medium',
       ));
     }
-    
+
     if (recommendations.isEmpty) {
       recommendations.add(PerformanceRecommendation(
         type: RecommendationType.maintenance,
@@ -628,15 +618,13 @@ class PerformanceMonitor {
         estimatedImpact: 'Low',
       ));
     }
-    
+
     return recommendations;
   }
 
   /// Get legacy performance recommendations (for backward compatibility)
   List<String> getPerformanceRecommendations() {
-    return getEnhancedRecommendations()
-        .map((rec) => '${rec.title}: ${rec.description}')
-        .toList();
+    return getEnhancedRecommendations().map((rec) => '${rec.title}: ${rec.description}').toList();
   }
 
   /// Clear all performance data
@@ -646,7 +634,6 @@ class PerformanceMonitor {
     _syncTimes.clear();
     _memorySnapshots.clear();
     _performanceHistory.clear();
-    developer.log('Performance metrics cleared', name: 'PerformanceMonitor');
   }
 
   /// Set custom performance threshold
@@ -656,43 +643,35 @@ class PerformanceMonitor {
 
   /// Get performance thresholds
   Map<String, dynamic> getPerformanceThresholds() {
-    return _performanceThresholds.map((key, threshold) => 
-      MapEntry(key, threshold.toMap()));
+    return _performanceThresholds.map((key, threshold) => MapEntry(key, threshold.toMap()));
   }
 
   /// Get recent alerts
   List<Map<String, dynamic>> getRecentAlerts({int limit = 20}) {
-    return _performanceAlerts
-        .take(limit)
-        .map((alert) => alert.toMap())
-        .toList();
+    return _performanceAlerts.take(limit).map((alert) => alert.toMap()).toList();
   }
 
   /// Calculate overall health score (0-100)
   int calculateHealthScore() {
     int score = 100;
-    
+
     // Deduct points for recent critical alerts
     final recentCriticalAlerts = _performanceAlerts
-        .where((alert) => alert.level == AlertLevel.critical && 
-               DateTime.now().difference(alert.timestamp).inHours < 24)
+        .where((alert) => alert.level == AlertLevel.critical && DateTime.now().difference(alert.timestamp).inHours < 24)
         .length;
     score -= recentCriticalAlerts * 15;
-    
+
     // Deduct points for recent warning alerts
     final recentWarningAlerts = _performanceAlerts
-        .where((alert) => alert.level == AlertLevel.warning && 
-               DateTime.now().difference(alert.timestamp).inHours < 24)
+        .where((alert) => alert.level == AlertLevel.warning && DateTime.now().difference(alert.timestamp).inHours < 24)
         .length;
     score -= recentWarningAlerts * 5;
-    
+
     // Deduct points for slow queries
     final queryStats = getQueryStatistics();
-    final slowQueries = queryStats.values
-        .where((stats) => (stats as Map<String, dynamic>)['p95Ms'] > 1000)
-        .length;
+    final slowQueries = queryStats.values.where((stats) => (stats as Map<String, dynamic>)['p95Ms'] > 1000).length;
     score -= slowQueries * 10;
-    
+
     // Deduct points for high memory usage
     final memoryStats = getMemoryStatistics();
     final currentUsage = double.tryParse(memoryStats['currentUsageMB'].toString()) ?? 0;
@@ -701,25 +680,25 @@ class PerformanceMonitor {
     } else if (currentUsage > 100) {
       score -= 10;
     }
-    
+
     return score.clamp(0, 100);
   }
 
   // Helper methods for analytics
-  
+
   double _calculateOverallAverageQueryTime() {
     final queryStats = getQueryStatistics();
     if (queryStats.isEmpty) return 0.0;
-    
+
     double totalTime = 0;
     int totalQueries = 0;
-    
+
     for (final stats in queryStats.values) {
       final statsMap = stats as Map<String, dynamic>;
       totalTime += (statsMap['averageMs'] as int) * (statsMap['count'] as int);
       totalQueries += statsMap['count'] as int;
     }
-    
+
     return totalQueries > 0 ? totalTime / totalQueries : 0.0;
   }
 
@@ -742,20 +721,24 @@ class PerformanceMonitor {
 
   Map<String, dynamic> _getMemoryTrend() {
     if (_memorySnapshots.length < 2) return {'trend': 'insufficient_data'};
-    
+
     final values = _memorySnapshots.values.toList();
     final recent = values.length > 10 ? values.sublist(values.length - 10) : values;
     final older = values.take(values.length - 10).toList();
-    
+
     if (older.isEmpty) return {'trend': 'insufficient_data'};
-    
+
     final recentAvg = recent.reduce((a, b) => a + b) / recent.length;
     final olderAvg = older.reduce((a, b) => a + b) / older.length;
-    
+
     final changePercent = ((recentAvg - olderAvg) / olderAvg) * 100;
-    
+
     return {
-      'trend': changePercent > 10 ? 'increasing' : changePercent < -10 ? 'decreasing' : 'stable',
+      'trend': changePercent > 10
+          ? 'increasing'
+          : changePercent < -10
+              ? 'decreasing'
+              : 'stable',
       'changePercent': changePercent,
       'recentAverage': recentAvg / 1024 / 1024, // Convert to MB
       'olderAverage': olderAvg / 1024 / 1024,
@@ -765,11 +748,11 @@ class PerformanceMonitor {
   List<String> _detectMemoryLeaks() {
     final leaks = <String>[];
     final memoryTrend = _getMemoryTrend();
-    
+
     if (memoryTrend['trend'] == 'increasing' && memoryTrend['changePercent'] > 20) {
       leaks.add('Potential memory leak detected: ${memoryTrend['changePercent'].toStringAsFixed(1)}% increase');
     }
-    
+
     return leaks;
   }
 
@@ -777,7 +760,7 @@ class PerformanceMonitor {
     final memoryStats = getMemoryStatistics();
     final currentUsage = double.tryParse(memoryStats['currentUsageMB'].toString()) ?? 0;
     final peakUsage = double.tryParse(memoryStats['peakUsageMB'].toString()) ?? 0;
-    
+
     if (peakUsage == 0) return 1.0;
     return (currentUsage / peakUsage).clamp(0.0, 1.0);
   }
@@ -785,7 +768,7 @@ class PerformanceMonitor {
   double _calculateSyncEfficiency() {
     final syncStats = getSyncStatistics();
     if (syncStats.isEmpty) return 1.0;
-    
+
     double totalEfficiency = 0;
     for (final stats in syncStats.values) {
       final statsMap = stats as Map<String, dynamic>;
@@ -794,7 +777,7 @@ class PerformanceMonitor {
       final efficiency = 1.0 / (1.0 + (avgTime / 1000.0));
       totalEfficiency += efficiency;
     }
-    
+
     return totalEfficiency / syncStats.length;
   }
 
@@ -819,17 +802,19 @@ class PerformanceMonitor {
 
   Map<String, dynamic> _getAlertFrequencyTrend() {
     final now = DateTime.now();
-    final last24h = _performanceAlerts.where((alert) => 
-      now.difference(alert.timestamp).inHours < 24).length;
-    final previous24h = _performanceAlerts.where((alert) => 
-      now.difference(alert.timestamp).inHours >= 24 && 
-      now.difference(alert.timestamp).inHours < 48).length;
-    
+    final last24h = _performanceAlerts.where((alert) => now.difference(alert.timestamp).inHours < 24).length;
+    final previous24h = _performanceAlerts
+        .where((alert) => now.difference(alert.timestamp).inHours >= 24 && now.difference(alert.timestamp).inHours < 48)
+        .length;
+
     return {
       'current24h': last24h,
       'previous24h': previous24h,
-      'trend': last24h > previous24h ? 'increasing' : 
-               last24h < previous24h ? 'decreasing' : 'stable',
+      'trend': last24h > previous24h
+          ? 'increasing'
+          : last24h < previous24h
+              ? 'decreasing'
+              : 'stable',
     };
   }
 

@@ -1,6 +1,5 @@
 import 'dart:typed_data';
 import 'dart:io';
-import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:pos/core/widgets/text.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -82,8 +81,6 @@ class _CachedBlobImageState extends State<CachedBlobImage> {
       final blobData = await databaseService.getImageBlob(widget.tableName, widget.recordId);
 
       if (blobData != null && blobData.isNotEmpty) {
-        developer.log('Image loaded from BLOB cache for ${widget.tableName}:${widget.recordId}',
-            name: 'CachedBlobImage');
         if (mounted) {
           setState(() {
             _blobData = blobData;
@@ -97,7 +94,6 @@ class _CachedBlobImageState extends State<CachedBlobImage> {
       final isOnline = await databaseService.isOnline();
       if (isOnline && widget.imageUrl.isNotEmpty && widget.imageUrl != 'N/A') {
         try {
-          developer.log('Attempting to download and cache image: ${widget.imageUrl}', name: 'CachedBlobImage');
           final downloadedData = await databaseService.downloadAndCacheImage(
             widget.imageUrl,
             tableName: widget.tableName,
@@ -105,8 +101,6 @@ class _CachedBlobImageState extends State<CachedBlobImage> {
           );
 
           if (downloadedData != null && downloadedData.isNotEmpty) {
-            developer.log('Image downloaded and cached successfully for ${widget.tableName}:${widget.recordId}',
-                name: 'CachedBlobImage');
             if (mounted) {
               setState(() {
                 _blobData = downloadedData;
@@ -118,16 +112,13 @@ class _CachedBlobImageState extends State<CachedBlobImage> {
         } catch (e) {
           // Handle specific network errors gracefully
           if (e is SocketException) {
-            developer.log('Network error downloading image: ${e.message}. Falling back to network image widget.',
-                name: 'CachedBlobImage');
+         
           } else {
-            developer.log('Failed to download and cache image: $e', name: 'CachedBlobImage');
           }
           // Don't set error state here, let CachedNetworkImage handle it
         }
       } else {
-        developer.log('Offline mode or invalid URL, skipping download for ${widget.tableName}:${widget.recordId}',
-            name: 'CachedBlobImage');
+      
       }
 
       // Continue to network image fallback or show appropriate state
@@ -137,7 +128,6 @@ class _CachedBlobImageState extends State<CachedBlobImage> {
         });
       }
     } catch (e) {
-      developer.log('Error in _loadImage: $e', name: 'CachedBlobImage');
       if (mounted) {
         setState(() {
           _hasError = true;
@@ -233,10 +223,8 @@ class _CachedBlobImageState extends State<CachedBlobImage> {
         errorWidget: (context, url, error) {
           // Log network errors for debugging
           if (error is SocketException) {
-            developer.log('Network image failed to load due to connectivity: ${error.message}',
-                name: 'CachedBlobImage');
+          
           } else {
-            developer.log('Network image failed to load: $error', name: 'CachedBlobImage');
           }
 
           return widget.errorWidget ??

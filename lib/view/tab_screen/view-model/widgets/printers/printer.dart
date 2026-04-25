@@ -10,9 +10,12 @@ import 'package:path_provider/path_provider.dart';
 import 'package:pos/data/datasources/smart_database_service.dart';
 import 'package:image/image.dart' as img_lib;
 import 'package:http/http.dart' as http;
+import 'package:pos/core/utils/snackbar_utils.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:pos/data/services/order_service.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
+import '../../../../../core/utils/snackbar_utils.dart';
 
-import '../../../../../core/network/connection_monitor.dart';
 import '../../../../../data/datasources/offline_bill_manager.dart';
 
 class DirectPrintHelper {
@@ -28,42 +31,57 @@ class DirectPrintHelper {
     String logoUrl,
     Generator generator,
   ) async {
+    if (logoUrl.isEmpty) return [];
+
     try {
       final dir = await getApplicationDocumentsDirectory();
-
-      // 🔥 URL-based filename
       final fileName = 'printer_logo_${logoUrl.hashCode}.png';
       final file = File('${dir.path}/$fileName');
 
       img_lib.Image? image;
 
-      // ✅ Offline-first
+      // ✅ Offline-first: Try local cache
       if (await file.exists()) {
-        final bytes = await file.readAsBytes();
-        image = img_lib.decodeImage(bytes);
+        try {
+          final bytes = await file.readAsBytes();
+          image = img_lib.decodeImage(bytes);
+        } catch (e) {
+          debugPrint("Failed to decode cached logo: $e");
+          await file.delete(); // Delete corrupted file
+        }
       }
 
-      // 🌐 Download only if missing
-      if (image == null && logoUrl.isNotEmpty) {
-        final response = await http.get(Uri.parse(logoUrl));
-        if (response.statusCode == 200) {
-          await file.writeAsBytes(response.bodyBytes);
-          image = img_lib.decodeImage(response.bodyBytes);
+      // 🌐 Download only if missing or decode failed
+      if (image == null) {
+        try {
+          // Add timeout to prevent hanging the print process
+          final response = await http.get(Uri.parse(logoUrl)).timeout(
+                const Duration(seconds: 5),
+              );
+
+          if (response.statusCode == 200) {
+            await file.writeAsBytes(response.bodyBytes);
+            image = img_lib.decodeImage(response.bodyBytes);
+          }
+        } catch (e) {
+          debugPrint("Logo download/decode failed: $e");
         }
       }
 
       if (image == null) return [];
 
-      // Ensure width is a multiple of 8 for best thermal printer compatibility
+      // Ensure width is compatible with thermal printers (multiple of 8)
+      // We use a reasonable width for 58mm/80mm printers
       const targetWidth = 200;
       final int normalizedWidth = (targetWidth / 8).round() * 8;
 
+      // Processing image for thermal printing
       final resized = img_lib.copyResize(image, width: normalizedWidth);
       final mono = img_lib.grayscale(resized);
 
       return generator.imageRaster(mono, align: PosAlign.center);
     } catch (e) {
-      debugPrint("Logo load failed: $e");
+      debugPrint("Logo processing failed: $e");
       return [];
     }
   }
@@ -99,7 +117,30 @@ class DirectPrintHelper {
   }) async {
     try {
       // Use provided receipt number or generate a new one
-      final String finalReceiptNo = receiptNo ?? generateReceiptNumber();
+      String finalReceiptNo = receiptNo ?? generateReceiptNumber();
+
+      if (saveBill) {
+        finalReceiptNo = await saveBillData(
+          adminUid: adminUid,
+          receiptNo: finalReceiptNo,
+          items: items,
+          subTotal: subTotal,
+          tableNumber: tableNumber,
+          taxEnabled: taxEnabled,
+          cgstPercent: cgstPercent,
+          sgstPercent: sgstPercent,
+          customerName: customerName,
+          customerPhone: customerPhone,
+          customerGst: customerGst,
+          customerAddress: customerAddress,
+          customerNote: customerNote,
+          discountPercent: discountPercent,
+          discountAmount: discountAmount,
+          paymentType: paymentType,
+          orderType: orderType,
+          customerId: customerId,
+        );
+      }
 
       final profile = await CapabilityProfile.load(name: 'XP-N160I');
       final Generator generator = Generator(paperSize, profile);
@@ -135,18 +176,19 @@ class DirectPrintHelper {
       // Small font style
       const smallFontCenter = PosStyles(align: PosAlign.center);
       const smallFontLeft = PosStyles(align: PosAlign.left);
-      final qrSize = is58mm ? QRSize.size2 : QRSize.size4;
 
       // Header
 
+      // Header logo
       if (logoUrl.isNotEmpty) {
-        // final logoBytes = await _loadLogoForPrinter(logoUrl, generator);
         final logoBytes = await loadLogoOfflineSafe(logoUrl, generator);
-
-        bytes += logoBytes;
-        bytes += generator.feed(is58mm ? 2 : 0);
+        if (logoBytes.isNotEmpty) {
+          bytes += logoBytes;
+          bytes += generator.feed(is58mm ? 1 : 0);
+        }
       }
       bytes += generator.feed(1);
+
       bytes += generator.text(shopName, styles: const PosStyles(bold: true, align: PosAlign.center));
       bytes += generator.text(address, styles: smallFontCenter);
       bytes += generator.text("Mob.No : $contact", styles: smallFontCenter);
@@ -217,8 +259,8 @@ class DirectPrintHelper {
         bytes += generator.text(
           '${nameLines.first.padRight(desc)}'
           '${"x ${qtyValue.toString()}".padLeft(qty)}'
-          '${fmt(rateValue).padLeft(rate)}'
-          '${amtValue.toString().padLeft(amt)}',
+          '${rateValue.toStringAsFixed(1).padLeft(rate)}'
+          '${amtValue.toStringAsFixed(1).padLeft(amt)}',
           styles: smallFontLeft,
         );
 
@@ -314,7 +356,7 @@ class DirectPrintHelper {
       // Grand Total
       bytes += generator.text(separator, styles: smallFontLeft);
 
-      bytes += generator.text('GRAND TOTAL'.padRight(totalCols - 8) + fmt(grandTotal).padLeft(8),
+      bytes += generator.text('GRAND TOTAL'.padRight(totalCols - 8) + grandTotal.toStringAsFixed(1).padLeft(8),
           styles: const PosStyles(bold: true));
       bytes += generator.text(separator, styles: smallFontLeft);
 
@@ -360,66 +402,20 @@ class DirectPrintHelper {
         bytes: bytes,
       );
 
-      // Only save bill if saveBill flag is true (to avoid duplicate saves)
-      // When called from bill_cart_widget.dart, bill is already saved via SmartDatabaseService
-
-      if (saveBill) {
-        await saveBillData(
-          adminUid: adminUid,
-          receiptNo: finalReceiptNo,
-          items: items,
-          subTotal: subTotal,
-          tableNumber: tableNumber,
-          taxEnabled: taxEnabled,
-          cgstPercent: cgstPercent,
-          sgstPercent: sgstPercent,
-          customerName: customerName,
-          customerPhone: customerPhone,
-          customerGst: customerGst,
-          customerAddress: customerAddress,
-          customerNote: customerNote,
-          discountPercent: discountPercent,
-          discountAmount: discountAmount,
-          paymentType: paymentType,
-          orderType: orderType,
-          customerId: customerId,
-        );
-      }
+      // We already called saveBillData at the top of this function!
 
       if (context.mounted) {
-        final message = isConnected
-            ? 'Receipt printed & saved online! Receipt No: $receiptNo'
-            : 'Receipt printed & saved offline! Will sync when online. Receipt No: $receiptNo';
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: MyText(text: message),
-            backgroundColor: isConnected ? Colors.green : Colors.orange,
-            duration: const Duration(seconds: 4),
-          ),
-        );
-        // ScaffoldMessenger.of(context).showSnackBar(
-        //   SnackBar(
-        //     content: Text('Receipt printed! Receipt No: $finalReceiptNo'),
-        //     backgroundColor: Colors.green,
-        //     duration: const Duration(seconds: 2),
-        //   ),
-        // );
+        SnackBarUtils.showSuccess(context, "Printed Successfully");
       }
     } catch (e) {
       debugPrint("Printing error: $e");
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: MyText(text: 'Printing failed: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        SnackBarUtils.showError(context, 'Printing failed: $e');
       }
     }
   }
 
-  Future<void> saveBillData({
+  Future<String> saveBillData({
     required String adminUid,
     required String receiptNo,
     required List<Map<String, dynamic>> items,
@@ -465,18 +461,53 @@ class DirectPrintHelper {
       // Calculate final total with discount
       double finalTotal = totalWithTax - discountAmount;
 
+      String finalReceiptNo = receiptNo;
+      String? orderId;
+
+      // 🔥 Try to create the order via OrderService first to get the backend-generated Bill Number
+      try {
+        final isOnlineStatus = await isOnline();
+        if (isOnlineStatus) {
+          final order = await OrderService().createOrder(
+            adminId: adminUid,
+            billNumber: receiptNo,
+            customerId: (customerId == null || customerId.isEmpty) ? null : customerId,
+            customerName: customerName,
+            customerPhone: customerPhone,
+            items: itemsData,
+            discount: discountAmount,
+            tax: cgstAmount + sgstAmount,
+            paymentMethod: paymentType,
+            orderType: orderType,
+            tableNumber: tableNumber,
+            notes: customerNote,
+            paymentStatus: 'Paid',
+            createKot: (tableNumber == null || tableNumber == 'N/A' || tableNumber == ''),
+          );
+          if (order.billNumber.isNotEmpty) {
+            finalReceiptNo = order.billNumber;
+          }
+          if (order.id != null) {
+            orderId = order.id;
+          }
+          debugPrint('[SaveBillData] Order created successfully via OrderService. Bill No: $finalReceiptNo');
+        }
+      } catch (e) {
+        debugPrint('[SaveBillData] Failed to create order via OrderService: $e');
+        // We don't rethrow here because we want to gracefully fallback to offline local saving
+      }
+
       // Prepare bill data for SmartDatabaseService
-      // Note: items must be JSON encoded string for SQLite storage
-      // Schema: id, admin_uid, customer_phone, items, total_amount, bill_date, created_at, updated_at, sync_status, firebase_id
       final billData = {
-        'id': receiptNo,
+        'id': finalReceiptNo,
+        'firebase_id': orderId,
         'customer_id': (customerId == null || customerId.isEmpty) ? null : customerId,
-        'bill_date': now.millisecondsSinceEpoch, // Store as integer for proper sorting
-        'items': jsonEncode(itemsData), // Convert to JSON string for SQLite
+        'bill_date': now.millisecondsSinceEpoch,
+        'items': jsonEncode(itemsData),
         'total_amount': finalTotal,
         'sub_total': subTotal,
         'table_number': tableNumber ?? 'N/A',
-        'tax_enabled': taxEnabled ? 1 : 0, // SQLite doesn't support bool, use int
+        'tax_enabled': taxEnabled ? 1 : 0,
         'cgst_percent': cgstPercent,
         'sgst_percent': sgstPercent,
         'cgst_amount': cgstAmount,
@@ -494,35 +525,12 @@ class DirectPrintHelper {
       };
 
       // Save using SmartDatabaseService (handles online/offline automatically)
-      // This already saves to Firebase when online, no need for separate Firebase call
       await _databaseService.saveBill(adminUid, billData);
 
-      // 🔥 Also create an order via OrderService
-      try {
-        await OrderService().createOrder(
-          adminId: adminUid,
-          billNumber: receiptNo,
-          customerId: (customerId == null || customerId.isEmpty) ? null : customerId,
-          customerName: customerName,
-          customerPhone: customerPhone,
-          items: itemsData,
-          discount: discountAmount,
-          tax: cgstAmount + sgstAmount,
-          paymentMethod: paymentType,
-          orderType: orderType,
-          tableNumber: tableNumber,
-          notes: customerNote,
-          paymentStatus: 'Paid',
-        );
-        debugPrint('[ReceiptPreview] Order created successfully via OrderService');
-      } catch (e) {
-        debugPrint('[ReceiptPreview] Failed to create order via OrderService: $e');
-        // We don't rethrow here because the bill is already saved locally/to Firebase DAO
-        // The OrderService might be a separate API that is failing.
-      }
-
       debugPrint(
-          '[ReceiptPreview] Bill saved successfully - receiptNo: $receiptNo (${_databaseService.isOnline ? "online" : "offline"})');
+          '[SaveBillData] Bill saved successfully - receiptNo: $finalReceiptNo (${_databaseService.isOnline ? "online" : "offline"})');
+
+      return finalReceiptNo;
     } catch (e) {
       debugPrint('Error saving bill: $e');
       rethrow;
@@ -848,22 +856,12 @@ class DirectPrintHelper {
       );
 
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: MyText(text: 'Customer report printed successfully'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        SnackBarUtils.showSuccess(context, 'Customer report printed successfully');
       }
     } catch (e) {
       debugPrint('Customer print error: $e');
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: MyText(text: 'Print failed: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        SnackBarUtils.showError(context, 'Print failed: $e');
       }
     }
   }
@@ -871,13 +869,10 @@ class DirectPrintHelper {
   /// Check if device is currently online
   static Future<bool> isOnline() async {
     try {
-      final connectionMonitor = ConnectionMonitor();
-      await connectionMonitor.initialize();
-      final isConnected = connectionMonitor.isConnected;
-      connectionMonitor.dispose();
-      return isConnected;
+      final connectivityResult = await Connectivity().checkConnectivity();
+      return connectivityResult != ConnectivityResult.none;
     } catch (e) {
-      debugPrint('Error checking online status: $e');
+      debugPrint('Error checking connectivity status: $e');
       return false;
     }
   }

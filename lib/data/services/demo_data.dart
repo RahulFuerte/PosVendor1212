@@ -1,8 +1,11 @@
+import 'package:flutter/material.dart';
+
 import '../models/product_model.dart';
 import '../models/category_model.dart';
 import '../models/user_model.dart';
 import '../models/expense_model.dart';
 import '../models/expense_category_model.dart';
+import '../models/table_model.dart';
 
 class DemoData {
   static List<CategoryModel> get categories => [
@@ -74,20 +77,20 @@ class DemoData {
 
   static UserModel get profile => UserModel(
         id: 'demo_admin_123',
-        name: 'Demo User',
-        phoneNumber: '1234567890',
+        name: 'Demo Org',
+        phoneNumber: '9999999999',
         role: 'admin',
-        shopName: 'Demo Restaurant',
-        address: '123 Demo Street, Tech City',
-        gstNo: '22AAAAA0000A1Z5',
+        shopName: 'Billing Spher',
+        address: 'MG Road, Bangalore',
+        gstNo: '29AAAAA0000A1Z5',
         fssaiNo: '12345678901234',
-        upiId: 'demo@upi',
+        upiId: 'merchant@upi',
       );
 
   static Map<String, dynamic> get salesReport => {
-        "revenue": 1500.0,
-        "orders": 12,
-        "averageOrderValue": 125.0,
+        "revenue": 15000.0,
+        "orders": 45,
+        "averageOrderValue": 333.33,
         "topProducts": [
           {"name": "Paneer Burger", "quantity": 15, "revenue": 1800.0},
           {"name": "Veg Pizza", "quantity": 10, "revenue": 2500.0}
@@ -134,4 +137,37 @@ class DemoData {
           adminId: 'demo_admin_123',
         ),
       ];
+
+  static List<TableModel> get tables => [
+        TableModel(id: 't1', tableNumber: '1', isOccupied: false, items: [], subtotal: 0.0),
+        TableModel(
+            id: 't2',
+            tableNumber: '2',
+            isOccupied: true,
+            items: [
+              {'name': 'Paneer Burger', 'quantity': 2, 'price': 120.0}
+            ],
+            subtotal: 240.0,
+            customerName: 'John Doe',
+            customerPhone: '9876543210'),
+      ];
+}
+
+class TourKeys {
+  static final GlobalKey drawerProfileKey = GlobalKey();
+  static final GlobalKey drawerDashboardKey = GlobalKey();
+  static final GlobalKey drawerMenuKey = GlobalKey();
+  static final GlobalKey drawerStaffKey = GlobalKey();
+  static final GlobalKey drawerExpenseKey = GlobalKey();
+  static final GlobalKey drawerLogoKey = GlobalKey();
+  static final GlobalKey drawerIconKey = GlobalKey();
+
+  // Detailed POS Keys
+  static final GlobalKey categoryListKey = GlobalKey();
+  static final GlobalKey firstProductKey = GlobalKey();
+  static final GlobalKey tableSelectorKey = GlobalKey();
+  static final GlobalKey cartItemsKey = GlobalKey();
+  static final GlobalKey subtotalKey = GlobalKey();
+  static final GlobalKey cartSaveKey = GlobalKey();
+  static final GlobalKey cartPrintKey = GlobalKey();
 }

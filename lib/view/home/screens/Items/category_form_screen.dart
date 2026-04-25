@@ -11,7 +11,9 @@ import 'package:image_picker/image_picker.dart';
 // Project imports:
 import 'package:pos/data/models/category_model.dart';
 import 'package:pos/data/services/category_service.dart';
+import 'package:pos/data/services/category_service.dart';
 import 'package:pos/data/services/cloudinary_service.dart';
+import 'package:pos/core/utils/snackbar_utils.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 
 class CategoryFormScreen extends StatefulWidget {
@@ -174,24 +176,19 @@ class _CategoryFormScreenState extends State<CategoryFormScreen> {
 
       if (_isEditing) {
         await _service.updateCategory(widget.category!.id!, _nameController.text.trim(), imageUrl);
-        _showMessage('Category updated!', Colors.green);
+        SnackBarUtils.showSuccess(context, 'Category updated!');
       } else {
         await _service.createCategory(_nameController.text.trim(), imageUrl);
-        _showMessage('Category created!', Colors.green);
+        SnackBarUtils.showSuccess(context, 'Category created!');
       }
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
-      _showMessage('Error: $e', Colors.red);
+      SnackBarUtils.showError(context, '$e');
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
   }
 
-  void _showMessage(String msg, Color color) {
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: MyText(text: msg), backgroundColor: color));
-    }
-  }
 
   bool get _hasImage => _pickedImage != null || (_existingImageUrl != null && _existingImageUrl!.isNotEmpty);
 
@@ -270,8 +267,8 @@ class _CategoryFormScreenState extends State<CategoryFormScreen> {
                       fontWeight: FontWeight.bold,
                     ),
                     const SizedBox(height: 6),
-                    MyText(text: 'Provide a distinct name for your category',
-                        color: Colors.grey.shade600, fontSize: 14),
+                    MyText(
+                        text: 'Provide a distinct name for your category', color: Colors.grey.shade600, fontSize: 14),
                     const SizedBox(height: 24),
 
                     // Name field
@@ -333,6 +330,7 @@ class _CategoryFormScreenState extends State<CategoryFormScreen> {
                         label: MyText(
                           text: _isEditing ? 'Update Category' : 'Create Category',
                           fontSize: 16,
+                          color: Colors.white,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -377,8 +375,7 @@ class _CategoryFormScreenState extends State<CategoryFormScreen> {
             fontSize: 16,
           ),
           const SizedBox(height: 6),
-          MyText(text: 'Upload high quality image for better display',
-              color: Colors.grey.shade600, fontSize: 13),
+          MyText(text: 'Upload high quality image for better display', color: Colors.grey.shade600, fontSize: 13),
         ],
       ),
     );

@@ -14,6 +14,7 @@ import '../../../../data/datasources/offline_bill_manager.dart';
 import '../../../../data/datasources/unified_database_service.dart';
 import '../constants/constants.dart';
 import 'package:pos/core/widgets/text.dart';
+import '../../../../core/utils/snackbar_utils.dart';
 
 /// Widget that displays offline bill sync status and provides manual sync functionality
 class OfflineBillStatusWidget extends StatefulWidget {
@@ -176,12 +177,7 @@ class _OfflineBillStatusWidgetState extends State<OfflineBillStatusWidget> {
       await _databaseService.manualSyncOfflineBills(widget.adminUid);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: MyText(text: 'Manual sync failed: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        SnackBarUtils.showError(context, 'Manual sync failed: $e');
       }
     }
   }
@@ -216,26 +212,11 @@ class _OfflineBillStatusWidgetState extends State<OfflineBillStatusWidget> {
       icon = Icons.error;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Icon(icon, color: Colors.white, size: 20),
-            const SizedBox(width: 8),
-            Expanded(child: MyText(text: message)),
-          ],
-        ),
-        backgroundColor: backgroundColor,
-        duration: Duration(seconds: result.success ? 3 : 5),
-        action: result.success && result.billsSynced > 0
-            ? SnackBarAction(
-                label: 'Details',
-                textColor: Colors.white,
-                onPressed: () => _showSyncDetails(result),
-              )
-            : null,
-      ),
-    );
+    if (result.success) {
+      SnackBarUtils.showSuccess(context, message);
+    } else {
+      SnackBarUtils.showError(context, message);
+    }
   }
 
   void _showSyncDetails(OfflineBillSyncResult result) {

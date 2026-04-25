@@ -13,6 +13,8 @@ import 'package:pos/view/home/widgets/my_choiceChip.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:pos/view/tab_screen/view-model/widgets/printers/printer.dart';
 import 'package:pos/core/utils/price_utils.dart';
+import 'package:pos/core/utils/snackbar_utils.dart';
+import 'package:pos/data/providers/table_provider.dart';
 import 'package:provider/provider.dart';
 import 'dart:developer' as developer;
 
@@ -24,6 +26,7 @@ class ReceiptPreviewScreen extends StatefulWidget {
   final String phoneNo;
   final String upiId;
   final String logoUrl;
+  final String? tableNumber;
 
   const ReceiptPreviewScreen({
     Key? key,
@@ -34,6 +37,7 @@ class ReceiptPreviewScreen extends StatefulWidget {
     required this.adminUid,
     required this.upiId,
     required this.logoUrl,
+    this.tableNumber,
   }) : super(key: key);
 
   @override
@@ -113,6 +117,46 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
     fetchCustomers();
   }
 
+  Future<String?> _resolveLocalCustomerId() async {
+    final String name = nameCtrl.text.trim();
+    final String phone = phoneCtrl.text.trim();
+
+    if (name.isEmpty && phone.isEmpty) {
+      return customerId;
+    }
+
+    if (selectedCustomer != null &&
+        selectedCustomer!.name.toLowerCase() == name.toLowerCase() &&
+        selectedCustomer!.phone == phone) {
+      return customerId; // Existing matched customer
+    }
+
+    if (name.isNotEmpty && phone.isNotEmpty) {
+      try {
+        final newCustomer = await _customerService.createCustomer(
+          name: name,
+          phoneNumber: phone,
+          address: addressCtrl.text.trim().isEmpty ? null : addressCtrl.text.trim(),
+          gstNo: gstCtrl.text.trim().isEmpty ? null : gstCtrl.text.trim(),
+        );
+
+        if (mounted) {
+          setState(() {
+            selectedCustomer = newCustomer;
+            customerId = newCustomer.id;
+          });
+        }
+
+        fetchCustomers().catchError((_) {});
+        developer.log('Auto-created new customer: ${newCustomer.id}', name: 'ReceiptPreview');
+        return newCustomer.id;
+      } catch (e) {
+        developer.log('Failed to auto-create customer natively: $e', name: 'ReceiptPreview');
+      }
+    }
+    return customerId;
+  }
+
   /// Save bill with automatic online/offline handling
   /// Online: Saves to Firebase and local SQLite
   /// Offline: Saves to local SQLite, syncs when online
@@ -136,6 +180,7 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
           content: const MyText(
             text: 'Are you sure you want to save this bill without printing?',
             fontSize: 16,
+            maxLines: 2,
           ),
           actions: [
             TextButton(
@@ -178,11 +223,12 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
       final int amount = finalTotal.round();
       final String amountInWords = numberToWords(amount);
 
-      await DirectPrintHelper().saveBillData(
+      final String actualReceiptNo = await DirectPrintHelper().saveBillData(
         adminUid: widget.phoneNo,
         receiptNo: generatedReceiptNo,
         items: printProvider.posts,
         subTotal: printProvider.total,
+        tableNumber: widget.tableNumber,
         taxEnabled: taxEnabled,
         cgstPercent: cgstPercent,
         sgstPercent: sgstPercent,
@@ -195,7 +241,7 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
         discountAmount: discountAmount,
         paymentType: paymentType,
         orderType: orderType,
-        customerId: customerId ?? "",
+        customerId: await _resolveLocalCustomerId() ?? "",
       );
 
       await OfflineTTS.speak(
@@ -205,45 +251,21 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
       orderTypeProvider.reset();
 
       if (!mounted) return;
-      final isOnline = _databaseService.isOnline;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              Icon(
-                isOnline ? Icons.cloud_done : Icons.cloud_off,
-                color: Colors.white,
-                size: 20,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: MyText(
-                  text: isOnline
-                      ? 'Bill saved! Receipt No: $generatedReceiptNo'
-                      : 'Bill saved offline! Receipt No: $generatedReceiptNo (will sync when online)',
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: Colors.green,
-          duration: const Duration(seconds: 3),
-        ),
-      );
+      SnackBarUtils.showSuccess(context, 'Bill Saved Successfully');
 
-      // Clear cart after successful save
+      // Clear cart and table after successful save
       printProvider.clearCart();
+
+      final tableProvider = Provider.of<TableProvider>(context, listen: false);
+      if (tableProvider.selectedTableId != null) {
+        await tableProvider.clearTable(tableProvider.selectedTableId!);
+      }
 
       // Navigate back to previous screen
       Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to save bill: $e'),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 3),
-        ),
-      );
+      SnackBarUtils.showError(context, 'Failed to save bill: $e');
     }
   }
 
@@ -359,16 +381,6 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         _buildIconButton(
-                          imagePath: "assets/images/kot.png",
-                          onPressed: () {},
-                        ),
-                        const SizedBox(width: 10),
-                        _buildIconButton(
-                          imagePath: "assets/images/kot2.png",
-                          onPressed: () {},
-                        ),
-                        const SizedBox(width: 10),
-                        _buildIconButton(
                           imagePath: "assets/images/save.png",
                           onPressed: _handleSaveWithoutPrint,
                         ),
@@ -380,12 +392,7 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
 
                             // ✅ 1. Printer check FIRST
                             if (!printProvider.isConnected || printProvider.selectedPrinter == null) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Please connect a printer first'),
-                                  backgroundColor: Colors.orange,
-                                ),
-                              );
+                                SnackBarUtils.showWarning(context, 'Please connect a printer first');
                               return;
                             }
 
@@ -442,35 +449,40 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
                                 // Order info
                                 paymentType: paymentType,
                                 orderType: orderType,
-                                tableNumber: "",
+                                tableNumber: widget.tableNumber ?? "",
 
                                 // Tax
                                 taxEnabled: taxEnabled,
                                 cgstPercent: cgstPercent,
                                 sgstPercent: sgstPercent,
                                 receiptNo: generatedReceiptNo,
-                                customerId: customerId ?? "",
+                                customerId: await _resolveLocalCustomerId() ?? "",
                                 saveBill: true,
                               );
 
                               if (!mounted) return;
 
-                              Navigator.pop(context);
                               await OfflineTTS.speak(
                                 "$amountInWords rupees",
                               );
+
                               printProvider.clearCart();
+
+                              final tableProvider = Provider.of<TableProvider>(context, listen: false);
+                              if (tableProvider.selectedTableId != null) {
+                                await tableProvider.clearTable(tableProvider.selectedTableId!);
+                              }
+
                               orderTypeProvider.reset();
                             } catch (e) {
-                              if (!mounted) return;
-
-                              Navigator.pop(context); // close loader
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: MyText(text: 'Printing failed: $e'),
-                                  backgroundColor: Colors.red,
-                                ),
-                              );
+                              debugPrint('Printing failed: $e');
+                              if (mounted) {
+                                SnackBarUtils.showError(context, 'Printing failed: $e');
+                              }
+                            } finally {
+                              if (mounted) {
+                                Navigator.of(context, rootNavigator: true).pop(); // close loader
+                              }
                             }
                           },
                         ),
@@ -583,6 +595,7 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
                           focusNode: phoneFocus,
                           label: 'Phone Number',
                           keyboardType: TextInputType.phone,
+                          maxLength: 10,
                           filter: (text) {
                             if (text.text.isEmpty) return const Iterable<CustomerModel>.empty();
                             return allCustomers.where(
@@ -1022,6 +1035,7 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
     required FocusNode focusNode,
     required String label,
     TextInputType keyboardType = TextInputType.text,
+    int? maxLength,
     required Iterable<CustomerModel> Function(TextEditingValue text) filter,
     required String Function(CustomerModel c) displayText,
   }) {
@@ -1053,8 +1067,10 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
             controller: ctrl,
             focusNode: focusNode,
             keyboardType: keyboardType,
+            maxLength: maxLength,
             decoration: InputDecoration(
               labelText: label,
+              counterText: '',
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
               ),

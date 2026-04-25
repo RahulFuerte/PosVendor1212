@@ -18,6 +18,7 @@ import 'package:pos/core/utils/price_utils.dart';
 import 'package:pos/data/providers/print_provider.dart';
 import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
+import 'package:pos/core/utils/snackbar_utils.dart';
 import 'package:pos/view/home/reports/widgets/report_nav_bar.dart';
 
 class CustomerWiseReport extends StatefulWidget {
@@ -72,7 +73,7 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
   Future<void> fetchCustomerTransactions(CustomerModel customer) async {
     if (startDate == null || endDate == null) return;
     if (customer.id == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: MyText(text: 'Customer ID missing')));
+      SnackBarUtils.showError(context, 'Customer ID missing');
       return;
     }
 
@@ -112,7 +113,7 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
       });
     } catch (e) {
       print('ERROR: Fetching customer transactions from API: $e');
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: MyText(text: 'Error loading data: $e')));
+      SnackBarUtils.showError(context, 'Error loading data: $e');
     } finally {
       setState(() => isLoading = false);
     }
@@ -139,15 +140,7 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
   }
 
   Future<void> _downloadAndShareReport() async {
-    if (selectedCustomer == null || customerBills.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: MyText(text: 'No data available to generate report'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
+      SnackBarUtils.showWarning(context, 'No data available to generate report');
 
     showDialog(
       context: context,
@@ -348,26 +341,14 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
         },
       );
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: MyText(text: 'PDF generated successfully'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
+        SnackBarUtils.showSuccess(context, 'PDF generated successfully');
     } catch (e) {
       if (mounted && Navigator.canPop(context)) {
         Navigator.pop(context);
       }
 
       print('PDF generation failed: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: MyText(text: 'PDF generation failed: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      SnackBarUtils.showError(context, 'PDF generation failed: $e');
     }
   }
 
@@ -428,13 +409,7 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
         context: context,
         builder: (context) => const PrinterConnectionDialog(),
       );
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: MyText(text: 'Please connect a printer first'),
-          backgroundColor: Colors.orange,
-          duration: Duration(seconds: 2),
-        ),
-      );
+      SnackBarUtils.showWarning(context, 'Please connect a printer first');
       return;
     }
 

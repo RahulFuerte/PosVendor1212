@@ -12,6 +12,7 @@ import '../../data/datasources/complete_offline_data_manager.dart';
 import '../tab_screen/view-model/constants/constants.dart';
 import '../tab_screen/view-model/widgets/offline_bill_status_widget.dart';
 import '../tab_screen/view-model/widgets/offline_status_indicator.dart';
+import '../../core/utils/snackbar_utils.dart';
 
 /// Enhanced offline bill status screen with complete bill viewing capability
 class OfflineBillStatusScreen extends StatefulWidget {
@@ -20,7 +21,8 @@ class OfflineBillStatusScreen extends StatefulWidget {
 
   const OfflineBillStatusScreen({
     Key? key,
-    required this.adminUid, required this.uid,
+    required this.adminUid,
+    required this.uid,
   }) : super(key: key);
 
   @override
@@ -32,7 +34,7 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
   List<Map<String, dynamic>> _bills = [];
   bool _isLoading = true;
   String _errorMessage = '';
-  
+
   // Function to refresh the sync widget
   VoidCallback? _refreshSyncWidget;
 
@@ -57,7 +59,7 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
 
   Future<void> _loadAllBills() async {
     if (!mounted) return;
-    
+
     try {
       setState(() {
         _isLoading = true;
@@ -67,17 +69,17 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
 
       // Re-initialize to clear any cached data
       await _offlineDataManager.initialize();
-      
+
       // Load all bills ensuring offline availability (force refresh to get latest data)
       final bills = await _offlineDataManager.ensureBillsOfflineAvailability(widget.adminUid, forceRefresh: true);
-      
+
       if (!mounted) return;
-      
+
       setState(() {
         _bills = bills;
         _isLoading = false;
       });
-      
+
       // Also refresh the sync status widget
       _refreshSyncWidget?.call();
 
@@ -85,7 +87,7 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
     } catch (e) {
       developer.log('Error loading bills: $e', name: 'OfflineBillStatusScreen');
       if (!mounted) return;
-      
+
       setState(() {
         _errorMessage = 'Failed to load bills: $e';
         _isLoading = false;
@@ -100,11 +102,9 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
       appBar: AppBar(
         backgroundColor: white,
         elevation: 0,
-     
         title: const MyText(
           text: 'Offline Bills',
           color: Colors.black87,
-          fontFamily: 'tabfont',
           fontWeight: FontWeight.w600,
           fontSize: 18,
         ),
@@ -118,7 +118,7 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
           ),
         ],
       ),
-       drawer: MyDrawer(
+      drawer: MyDrawer(
         phoneNo: widget.uid,
         adminPhoneNo: widget.adminUid,
       ),
@@ -137,18 +137,13 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
                       _refreshSyncWidget = refreshCallback;
                     },
                     onSyncCompleted: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: MyText(text: 'Offline bills synced successfully'),
-                          backgroundColor: primaryColor,
-                        ),
-                      );
+                      SnackBarUtils.showSuccess(context, 'Offline bills synced successfully');
                       _loadAllBills();
                     },
                   ),
-                  
+
                   const SizedBox(height: 16),
-                  
+
                   // All Bills Section
                   Container(
                     decoration: BoxDecoration(
@@ -173,14 +168,12 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
                             const SizedBox(width: 8),
                             MyText(
                               text: 'All Bills (${_bills.length})',
-                              fontFamily: 'tabfont',
                               fontWeight: FontWeight.bold,
                               fontSize: 16,
                             ),
                           ],
                         ),
                         const SizedBox(height: 12),
-                        
                         if (_isLoading)
                           const Center(
                             child: Padding(
@@ -276,13 +269,13 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
     }
     final customerName = bill['customer_name']?.toString() ?? 'Walk-in Customer';
     final totalAmount = PriceUtils.safePriceToString(bill['total_amount'] ?? bill['total']);
-    
+
     // Handle sync_status as both int and String
     // 0 = synced, 1 = pending, 2 = conflict
     final syncStatusValue = bill['sync_status'];
     bool isPending = false;
     String syncStatusText = 'Unknown';
-    
+
     if (syncStatusValue is int) {
       isPending = syncStatusValue == 1;
       syncStatusText = syncStatusValue == 0 ? 'Synced' : (syncStatusValue == 1 ? 'Pending' : 'Conflict');
@@ -329,7 +322,6 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
         title: MyText(
           text: 'Bill #$billId',
           fontWeight: FontWeight.bold,
-          fontFamily: 'tabfont',
           fontSize: 15,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
@@ -365,7 +357,6 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
               fontWeight: FontWeight.bold,
               fontSize: 16,
               color: primaryColor,
-              fontFamily: 'tabfont',
             ),
             const SizedBox(height: 4),
             Container(
@@ -403,7 +394,6 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
             Expanded(
               child: MyText(
                 text: 'Bill #${bill['id']?.toString() ?? 'Unknown'}',
-                fontFamily: 'tabfont',
                 fontSize: 16,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -420,8 +410,7 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
               _buildDetailRow('Total', '₹${PriceUtils.safePriceToString(bill['total_amount'] ?? bill['total'])}'),
               _buildDetailRow('Payment', bill['payment_method']?.toString() ?? 'N/A'),
               _buildDetailRow('Status', _getSyncStatusText(bill['sync_status'])),
-              if (bill['bill_date'] != null)
-                _buildDetailRow('Date', _formatBillDate(bill['bill_date'])),
+              if (bill['bill_date'] != null) _buildDetailRow('Date', _formatBillDate(bill['bill_date'])),
             ],
           ),
         ),

@@ -66,7 +66,6 @@ class OfflineBillManager {
       );
 
       _isInitialized = true;
-      print('OfflineBillManager initialized');
     } catch (e) {
       print('Failed to initialize OfflineBillManager: $e');
       _sqliteDAO = null;

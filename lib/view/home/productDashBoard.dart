@@ -5,14 +5,17 @@ import 'dart:developer' as developer;
 
 // Flutter imports:
 import 'package:flutter/material.dart';
+import 'package:pos/core/utils/snackbar_utils.dart';
 import 'package:pos/core/widgets/text.dart';
 
 // Package imports:
 import 'package:audioplayers/audioplayers.dart';
 import 'package:hive/hive.dart';
+import 'package:pos/data/providers/table_provider.dart';
 import 'package:pos/view/home/screens/order_type_selector.dart';
 import 'package:pos/view/home/widgets/mydrawer.dart';
 import 'package:pos/view/tab_screen/view-model/frontend/menuItems.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 
 // Project imports:
@@ -24,6 +27,8 @@ import 'package:pos/data/services/product_service.dart';
 import 'package:pos/view/home/screens/users_data_screen.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:pos/view/tab_screen/view-model/widgets/offline_status_indicator.dart';
+import 'package:pos/data/services/order_service.dart';
+import 'package:pos/view/customer/customer_order_summary.dart';
 import 'widgets/bill_cart_widget.dart';
 import 'widgets/show_save_order_bottom_sheet.dart';
 
@@ -31,8 +36,10 @@ import 'package:pos/view/tab_screen/view-model/widgets/offline_status_banner.dar
 
 class ProductDashBoard extends StatefulWidget {
   final String phoneNo;
+  final String? role;
+  final String? adminId;
 
-  const ProductDashBoard({required this.phoneNo, Key? key}) : super(key: key);
+  const ProductDashBoard({required this.phoneNo, this.role, this.adminId, Key? key}) : super(key: key);
 
   @override
   State<ProductDashBoard> createState() => _ProductDashBoardState();
@@ -57,6 +64,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
   bool isTapped = false;
   bool isLoading = false;
   Map<String, dynamic> userData = {};
+  String? customerId;
   bool isSearching = false;
   TextEditingController searchController = TextEditingController();
 
@@ -64,11 +72,25 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
   void initState() {
     super.initState();
     foodItemsFuture = _fetchProducts();
+    if (widget.role == 'customer') {
+      _loadCustomerInfo();
+    }
+  }
+
+  Future<void> _loadCustomerInfo() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      nameController.text = prefs.getString('name') ?? '';
+      mobileController.text = prefs.getString('phoneNumber') ?? widget.phoneNo;
+      customerId = prefs.getString('_id');
+    });
   }
 
   Future<List<Map<String, dynamic>>> _fetchProducts() async {
     try {
-      final products = await ProductService().getProducts();
+      final products = widget.role == 'customer' && widget.adminId != null
+          ? await ProductService().getPublicProducts(widget.adminId!)
+          : await ProductService().getProducts();
       return products.map((p) => p.toJson()).toList();
     } catch (e) {
       developer.log('Error fetching products: $e', name: 'ProductDashBoard');
@@ -131,6 +153,12 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
         backgroundColor: Colors.white,
         elevation: 0,
         scrolledUnderElevation: 0,
+        leading: widget.role == 'customer'
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back_ios_new, color: primaryColor, size: 20),
+                onPressed: () => Navigator.of(context).pop(),
+              )
+            : null,
         title: isSearching
             ? Container(
                 height: 45,
@@ -192,13 +220,15 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
           ),
         ],
       ),
-      drawer: MyDrawer(
-        phoneNo: widget.phoneNo,
-        adminPhoneNo: adminUid,
-      ),
+      drawer: widget.role == 'customer'
+          ? null
+          : MyDrawer(
+              phoneNo: widget.phoneNo,
+              adminPhoneNo: adminUid,
+            ),
       body: Column(
         children: [
-          banner.OfflineStatusBanner(adminUid: adminUid),
+          if (widget.role != 'customer') banner.OfflineStatusBanner(adminUid: adminUid),
           Expanded(
             child: FutureBuilder(
               future: foodItemsFuture,
@@ -296,6 +326,12 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
 
                                     printprovider.additem(selectedItemsDetails, subtotal);
 
+                                    // Update backend table cart if a table is selected
+                                    final tableProvider = Provider.of<TableProvider>(context, listen: false);
+                                    if (tableProvider.selectedTableId != null) {
+                                      tableProvider.setTableCart(tableProvider.selectedTableId!, selectedItemsDetails);
+                                    }
+
                                     WidgetsBinding.instance.addPostFrameCallback((_) {
                                       if (_listScrollController.hasClients) {
                                         _listScrollController.jumpTo(
@@ -315,6 +351,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                           : BillCart(
                               adminUid: adminUid,
                               phoneNo: widget.phoneNo,
+                              role: widget.role,
                               onCartCleared: () {
                                 setState(() {
                                   selectedItemsDetails.clear();
@@ -327,6 +364,23 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                                   subtotal = updatedTotal;
                                 });
                               },
+                              onPlaceOrder: widget.role == 'customer'
+                                  ? () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => CustomerOrderSummary(
+                                            items: List.from(selectedItemsDetails),
+                                            totalAmount: subtotal,
+                                            adminId: widget.adminId ?? '',
+                                            customerId: customerId,
+                                            customerName: nameController.text,
+                                            customerPhone: mobileController.text,
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                  : null,
                               orderBottomSheet: () {
                                 showSaveOrderBottomSheet(
                                   context: context,
@@ -362,27 +416,91 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
   }
 
   void _saveDataAndNavigate(String? customerId) async {
+    final effectiveAdminId = widget.role == 'customer' ? widget.adminId : adminUid;
+
     final userMap = {
       'userName': nameController.text,
       'phoneNumber': mobileController.text,
       'details': _encodeDetails(selectedItemsDetails),
       'totalAmount': subtotal,
-      'customerId': customerId,
+      'customerId': widget.role == 'customer' ? widget.phoneNo : customerId,
+      'status': 'Pending',
       'timestamp': DateTime.now().toIso8601String(),
+      'adminId': effectiveAdminId,
     };
 
-    // Save data to Hive
+    // 1. Save data to Hive (Local backup)
     final box = await Hive.openBox('userBox');
     box.add(userMap);
+
+    // 2. Transmit to server if online/customer
+    if (effectiveAdminId != null && effectiveAdminId.isNotEmpty) {
+      if (mounted) {
+        SnackBarUtils.showInfo(context, 'Placing order...');
+      }
+
+      try {
+        final orderService = OrderService();
+
+        // Prepare items with 'total' field for backend
+        final formattedItems = selectedItemsDetails.map((item) {
+          return {
+            ...item,
+            'total': (item['price'] as num) * (item['quantity'] as num),
+          };
+        }).toList();
+
+        if (widget.role == 'customer') {
+          await orderService.createGuestOrder(
+            adminId: effectiveAdminId,
+            customerName: nameController.text,
+            customerPhone: mobileController.text,
+            items: formattedItems,
+            orderType: 'Pickup',
+            unknownCustomerId: customerId,
+          );
+        } else {
+          await orderService.createOrder(
+            adminId: effectiveAdminId,
+            billNumber: 'POS-${DateTime.now().millisecondsSinceEpoch}',
+            customerName: nameController.text,
+            customerPhone: mobileController.text,
+            customerId: customerId,
+            items: formattedItems,
+            orderType: 'Pickup',
+            paymentMethod: 'Cash',
+            paymentStatus: 'Due',
+          );
+        }
+
+        if (mounted) {
+          SnackBarUtils.showSuccess(context, 'Order placed successfully!');
+        }
+        developer.log('Order successfully synced to server', name: 'ProductDashBoard');
+      } catch (e) {
+        developer.log('Failed to sync order to server: $e', name: 'ProductDashBoard');
+        if (mounted) {
+          SnackBarUtils.showWarning(context, 'Failed to sync with server. Order saved locally.');
+        }
+      }
+    }
+
     nameController.clear();
     mobileController.clear();
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const UsersScreen(),
-      ),
-    );
+    if (mounted) {
+      if (widget.role == 'customer') {
+        // Customers stay on dashboard, cart is cleared.
+        SnackBarUtils.showInfo(context, 'Order placed! You can see status in My Orders.');
+      } else {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const UsersScreen(),
+          ),
+        );
+      }
+    }
   }
 
   List<Map<String, dynamic>> _encodeDetails(List<Map<String, dynamic>> details) {

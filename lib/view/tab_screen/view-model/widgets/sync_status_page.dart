@@ -11,6 +11,7 @@ import 'package:pos/view/home/widgets/mydrawer.dart';
 import '../../../../core/network/connection_monitor.dart';
 import '../../../../data/datasources/sync_manager.dart';
 import '../constants/constants.dart';
+import '../../../../core/utils/snackbar_utils.dart';
 import 'sync_progress_dialog.dart';
 
 /// Comprehensive sync status page for detailed sync management
@@ -150,12 +151,7 @@ class _SyncStatusPageState extends State<SyncStatusPage> {
       adminUid: widget.adminUid,
       onSyncCompleted: () {
         _loadSyncStatistics();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: MyText(text: 'Full sync completed successfully'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        SnackBarUtils.showSuccess(context, 'Full sync completed successfully');
       },
     );
   }
@@ -165,12 +161,7 @@ class _SyncStatusPageState extends State<SyncStatusPage> {
       await _syncManager.syncPendingData();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: MyText(text: 'Manual sync failed: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        SnackBarUtils.showError(context, 'Manual sync failed: $e');
       }
     }
   }

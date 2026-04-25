@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:pos/core/widgets/text.dart';
 import 'package:pos/view/home/navigation.dart';
-import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:pos/view/tab_screen/view-model/widgets/cached_blob_image.dart';
 import 'package:pos/core/utils/price_utils.dart';
 

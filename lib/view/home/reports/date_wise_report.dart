@@ -20,6 +20,7 @@ import 'package:pos/data/providers/print_provider.dart';
 import 'package:pos/view/home/printer_connectionDialog.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:pos/core/utils/price_utils.dart';
+import 'package:pos/core/utils/snackbar_utils.dart';
 import 'package:pos/view/home/reports/widgets/report_nav_bar.dart';
 
 class DatewiseReportScreen extends StatefulWidget {
@@ -51,7 +52,7 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
         title: const MyText(
           text: 'DATEWISE REPORT',
           color: Colors.white,
-          fontWeight: FontWeight.w900,
+          fontWeight: FontWeight.w600,
           fontSize: 16,
           letterSpacing: 1,
         ),
@@ -239,7 +240,7 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
                               text: fromDate == null || toDate == null ? 'CHOOSE A DATE RANGE' : 'NO DATA FOUND',
                               color: Colors.grey[400],
                               fontSize: 13,
-                              fontWeight: FontWeight.w900,
+                              fontWeight: FontWeight.w600,
                               letterSpacing: 1,
                             ),
                           ],
@@ -323,7 +324,7 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
                                             text: 'DAILY SALES',
                                             color: Colors.grey[400],
                                             fontSize: 9,
-                                            fontWeight: FontWeight.w900,
+                                            fontWeight: FontWeight.w600,
                                             letterSpacing: 1,
                                           ),
                                         ],
@@ -334,7 +335,7 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
                                           MyText(
                                             text: PriceUtils.formatPrice(date['amount']),
                                             color: const Color(0xFF10B981),
-                                            fontWeight: FontWeight.w900,
+                                            fontWeight: FontWeight.w600,
                                             fontSize: 24,
                                             letterSpacing: -1,
                                           ),
@@ -342,7 +343,7 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
                                             text: 'TOTAL COLLECTED',
                                             color: Colors.grey[400],
                                             fontSize: 9,
-                                            fontWeight: FontWeight.w900,
+                                            fontWeight: FontWeight.w600,
                                             letterSpacing: 1,
                                           ),
                                         ],
@@ -423,9 +424,7 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
 
   Future<void> _fetchDateData() async {
     if (fromDate == null || toDate == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: MyText(text: 'Please select both dates')),
-      );
+      SnackBarUtils.showWarning(context, 'Please select both dates');
       return;
     }
 
@@ -470,9 +469,7 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
     } catch (e) {
       if (mounted) {
         print('Error fetching date data from API: $e');
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: MyText(text: 'Error fetching data: $e')),
-        );
+        SnackBarUtils.showError(context, 'Error fetching data: $e');
       }
     } finally {
       setState(() {
@@ -617,34 +614,15 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
         bytes: bytes,
       );
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: MyText(text: 'Report printed successfully!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
+        SnackBarUtils.showSuccess(context, 'Report printed successfully!');
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: MyText(text: 'Print error: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+        SnackBarUtils.showError(context, 'Print error: $e');
     }
   }
 
   Future<void> _downloadAndShareReport() async {
     if (dateData.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: MyText(text: 'No data available. Please select dates and wait for data to load.'),
-          backgroundColor: Colors.orange,
-        ),
-      );
+      SnackBarUtils.showWarning(context, 'No data available. Please select dates and wait for data to load.');
       return;
     }
 
@@ -821,24 +799,12 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
         },
       );
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: MyText(text: 'PDF generated successfully!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
+        SnackBarUtils.showSuccess(context, 'PDF generated successfully!');
     } catch (e) {
       if (mounted && Navigator.canPop(context)) {
         Navigator.pop(context);
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: MyText(text: 'Error creating PDF: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      SnackBarUtils.showError(context, 'Error creating PDF: $e');
     }
   }
 
@@ -894,7 +860,7 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
             MyText(
               text: value,
               fontSize: 18,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w600,
               color: color.withOpacity(0.9),
               letterSpacing: -0.5,
               textAlign: TextAlign.center,
@@ -905,7 +871,7 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
               text: label,
               fontSize: 9,
               color: Colors.grey[400],
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w600,
               letterSpacing: 1,
             ),
           ],
@@ -947,7 +913,7 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
           text: label,
           fontSize: 9,
           color: Colors.grey[400],
-          fontWeight: FontWeight.w900,
+          fontWeight: FontWeight.w600,
           letterSpacing: 0.5,
         ),
         const SizedBox(height: 4),

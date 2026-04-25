@@ -12,7 +12,7 @@ import '../shared_preferences.dart';
 class SQLiteHelper {
   static final SQLiteHelper _instance = SQLiteHelper._internal();
   static Database? _database;
-  static const int _currentVersion = 8; // Testing phase - fresh database each install
+  static const int _currentVersion = 12; // Added is_shop_open to user_data
   static const String _migrationCompleteKey = 'initial_migration_complete';
 
   // Database maintenance service (lazy initialization to avoid circular dependency)
@@ -47,6 +47,8 @@ class SQLiteHelper {
       onCreate: _createTables,
       onUpgrade: _migrateTables,
     );
+
+    // The database is initialized with tables in _createTables
     return db;
   }
 
@@ -204,6 +206,10 @@ class SQLiteHelper {
         address TEXT,
         customer_code TEXT,
         gst_number TEXT,
+        city TEXT,
+        latitude REAL,
+        longitude REAL,
+        is_shop_open INTEGER DEFAULT 0,
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL
       )
@@ -406,9 +412,40 @@ class SQLiteHelper {
       case 8:
         await _migrateToVersion8(db);
         break;
+      case 9:
+        await _migrateToVersion9(db);
+        break;
+      case 11:
+        await _migrateToVersion11(db);
+        break;
+      case 12:
+        await _migrateToVersion12(db);
+        break;
       // Add future migration cases here
       default:
         print('No migration needed for version $version');
+    }
+  }
+
+  Future<void> _migrateToVersion11(Database db) async {
+    // Migration to version 11: Add bill_number column to bills table
+    try {
+      print('Migrating to version 11: Adding bill_number column to bills table...');
+      await db.execute('ALTER TABLE bills ADD COLUMN bill_number TEXT');
+      print('Successfully migrated to version 11');
+    } catch (e) {
+      print('Error migrating to version 11: $e');
+    }
+  }
+
+  Future<void> _migrateToVersion12(Database db) async {
+    // Migration to version 12: Add is_shop_open column to user_data table
+    try {
+      print('Migrating to version 12: Adding is_shop_open column to user_data table...');
+      await db.execute('ALTER TABLE user_data ADD COLUMN is_shop_open INTEGER DEFAULT 0');
+      print('Successfully migrated to version 12');
+    } catch (e) {
+      print('Error migrating to version 12: $e');
     }
   }
 
@@ -422,6 +459,14 @@ class SQLiteHelper {
     await db.execute('DROP TABLE IF EXISTS admin_data');
     await db.execute('DROP TABLE IF EXISTS customer_data');
     await db.execute('DROP TABLE IF EXISTS orders');
+    await db.execute('DROP TABLE IF EXISTS api_categories');
+    await db.execute('DROP TABLE IF EXISTS api_customers');
+    await db.execute('DROP TABLE IF EXISTS api_expense_categories');
+    await db.execute('DROP TABLE IF EXISTS api_expenses');
+    await db.execute('DROP TABLE IF EXISTS api_products');
+    await db.execute('DROP TABLE IF EXISTS api_subscriptions');
+    await db.execute('DROP TABLE IF EXISTS migration_log');
+    await db.execute('DROP TABLE IF EXISTS maintenance_log');
   }
 
   Future<void> _migrateToVersion2(Database db) async {
@@ -940,9 +985,103 @@ class SQLiteHelper {
     }
   }
 
+  Future<void> _migrateToVersion9(Database db) async {
+    // Migration to version 9: Add latitude and longitude columns to user_data table
+    try {
+      print('Migrating to version 9: Adding latitude and longitude common to user_data...');
+
+      // Add latitude column to user_data table
+      try {
+        await db.execute('ALTER TABLE user_data ADD COLUMN latitude REAL');
+        print('Added latitude column to user_data table');
+      } catch (e) {
+        if (e.toString().contains('duplicate column name')) {
+          print('latitude column already exists in user_data table');
+        } else {
+          print('Error adding latitude to user_data: $e');
+        }
+      }
+
+      // Add longitude column to user_data table
+      try {
+        await db.execute('ALTER TABLE user_data ADD COLUMN longitude REAL');
+        print('Added longitude column to user_data table');
+      } catch (e) {
+        if (e.toString().contains('duplicate column name')) {
+          print('longitude column already exists in user_data table');
+        } else {
+          print('Error adding longitude to user_data: $e');
+        }
+      }
+
+      // Log this migration
+      await db.insert('migration_log', {
+        'version': 9,
+        'migration_name': 'add_location_columns',
+        'executed_at': DateTime.now().millisecondsSinceEpoch,
+        'success': 1,
+      });
+
+      print('Successfully migrated to version 9');
+    } catch (e) {
+      print('Error migrating to version 9: $e');
+      // Log failed migration
+      try {
+        await db.insert('migration_log', {
+          'version': 9,
+          'migration_name': 'add_location_columns',
+          'executed_at': DateTime.now().millisecondsSinceEpoch,
+          'success': 0,
+        });
+      } catch (logError) {
+        print('Error logging failed migration: $logError');
+      }
+      rethrow;
+    }
+  }
+
+  Future<void> _ensureUserDataColumnsExist(Database db) async {
+    try {
+      final tableInfo = await db.rawQuery('PRAGMA table_info(user_data)');
+      final columnNames = tableInfo.map((col) => col['name'] as String).toSet();
+
+      if (!columnNames.contains('city')) {
+        print('Adding missing city column to user_data');
+        await db.execute('ALTER TABLE user_data ADD COLUMN city TEXT');
+      }
+      if (!columnNames.contains('latitude')) {
+        print('Adding missing latitude column to user_data');
+        await db.execute('ALTER TABLE user_data ADD COLUMN latitude REAL');
+      }
+      if (!columnNames.contains('longitude')) {
+        print('Adding missing longitude column to user_data');
+        await db.execute('ALTER TABLE user_data ADD COLUMN longitude REAL');
+      }
+    } catch (e) {
+      print('Error ensuring user_data columns: $e');
+    }
+  }
+
+  Future<void> _migrateToVersion10(Database db) async {
+    try {
+      print('Migrating to version 10: Adding city column to user_data...');
+      await db.execute('ALTER TABLE user_data ADD COLUMN city TEXT');
+      await db.insert('migration_log', {
+        'version': 10,
+        'migration_name': 'add_city_column',
+        'executed_at': DateTime.now().millisecondsSinceEpoch,
+        'success': 1,
+      });
+    } catch (e) {
+      print('Error migrating to version 10: $e');
+      rethrow;
+    }
+  }
+
   // Database initialization method
   Future<void> initializeDatabase() async {
-    await database;
+    final db = await database;
+    await _ensureUserDataColumnsExist(db);
     await _checkAndPerformInitialMigration();
 
     // Schedule automatic maintenance after initialization
@@ -1376,8 +1515,12 @@ class SQLiteHelper {
           'fssaiNo': userData['fssaiNo'],
           'upiId': userData['upiId'],
           'address': userData['address'],
+          'city': userData['city'],
           'customer_code': userData['customerCode'] ?? userData['customer_code'],
           'gst_number': userData['gstNumber'] ?? userData['gst_number'],
+          'latitude': userData['latitude'],
+          'longitude': userData['longitude'],
+          'is_shop_open': (userData['isShopOpen'] == true || userData['is_shop_open'] == true) ? 1 : 0,
           'created_at': userData['createdAt'] ?? userData['created_at'] ?? now,
           'updated_at': now,
         },
@@ -1437,10 +1580,14 @@ class SQLiteHelper {
           'shopLogoUrl': row['shop_logo_url'],
           'shopContact': row['shop_contact'],
           'address': row['address'],
+          'city': row['city'],
           'fssaiNo': row['fssaiNo'],
           'upiId': row['upiId'],
           'customerCode': row['customer_code'],
           'gstNumber': row['gst_number'],
+          'latitude': row['latitude'],
+          'longitude': row['longitude'],
+          'isShopOpen': row['is_shop_open'] == 1,
           'createdAt': row['created_at'],
           'updatedAt': row['updated_at'],
         };
@@ -1474,10 +1621,14 @@ class SQLiteHelper {
           'shopLogoUrl': row['shop_logo_url'],
           'shopContact': row['shop_contact'],
           'address': row['address'],
+          'city': row['city'],
           'fssaiNo': row['fssaiNo'],
           'upiId': row['upiId'],
           'customerCode': row['customer_code'],
           'gstNumber': row['gst_number'],
+          'latitude': row['latitude'],
+          'longitude': row['longitude'],
+          'isShopOpen': row['is_shop_open'] == 1,
           'createdAt': row['created_at'],
           'updatedAt': row['updated_at'],
         };
@@ -1512,6 +1663,32 @@ class SQLiteHelper {
       print('All user data cleared');
     } catch (e) {
       print('Error clearing user data: $e');
+    }
+  }
+
+  /// Clear all cached data across all tables (used during logout)
+  Future<void> clearAllData() async {
+    try {
+      final db = await database;
+      await db.transaction((txn) async {
+        await txn.delete('food_items');
+        await txn.delete('departments');
+        await txn.delete('bills');
+        await txn.delete('sync_log');
+        await txn.delete('image_cache');
+        await txn.delete('user_data');
+        await txn.delete('admin_data');
+        await txn.delete('customer_data');
+        await txn.delete('orders');
+        await txn.delete('api_categories');
+        await txn.delete('api_customers');
+        await txn.delete('api_expense_categories');
+        await txn.delete('api_expenses');
+        await txn.delete('api_products');
+        await txn.delete('api_subscriptions');
+      });
+    } catch (e) {
+      print('Error clearing all SQLite data: $e');
     }
   }
 
@@ -1574,7 +1751,6 @@ class SQLiteHelper {
           'createdAt': row['created_at'],
         };
       }
-      print('[SQLiteHelper] No cached admin data found for: $mobileNo');
       return null;
     } catch (e) {
       print('[SQLiteHelper] Error getting admin data: $e');

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:pos/data/providers/subscription_provider.dart';
 import 'package:pos/core/widgets/text.dart';
 import 'package:pos/data/models/product_model.dart';
 import 'package:pos/data/models/category_model.dart';
@@ -6,9 +8,11 @@ import 'package:pos/data/services/product_service.dart';
 import 'package:pos/data/services/category_service.dart';
 import 'package:pos/view/home/screens/Items/addItemScreen.dart';
 import 'package:pos/view/home/screens/Items/category_form_screen.dart';
-import 'package:pos/view/home/navigation.dart'; // For appbar1
-import 'package:pos/view/tab_screen/view-model/constants/constants.dart'; // For primaryColor
+import 'package:pos/view/home/navigation.dart';
+import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:pos/view/home/screens/Items/menu_image_upload_screen.dart';
+import 'package:pos/core/utils/snackbar_utils.dart';
+import 'package:pos/core/widgets/access_denied_widget.dart';
 
 class MenuScreen extends StatefulWidget {
   const MenuScreen({super.key});
@@ -47,10 +51,35 @@ class _MenuScreenState extends State<MenuScreen> {
   Future<void> _loadData() async {
     try {
       setState(() => isLoading = true);
-      final results = await Future.wait([
-        _productService.getProducts(),
-        _categoryService.getCategories(),
-      ]);
+
+      final subProvider = Provider.of<SubscriptionProvider>(context, listen: false);
+      final canViewProducts = subProvider.hasPermission("Product", checkView: true);
+      final canViewCategories = subProvider.hasPermission("Category", checkView: true);
+
+      if (!canViewProducts && !canViewCategories) {
+        setState(() {
+          products = [];
+          categories = [];
+          isLoading = false;
+        });
+        return;
+      }
+
+      final futures = <Future<dynamic>>[];
+      if (canViewProducts) {
+        futures.add(_productService.getProducts());
+      } else {
+        futures.add(Future.value(<ProductModel>[]));
+      }
+
+      if (canViewCategories) {
+        futures.add(_categoryService.getCategories());
+      } else {
+        futures.add(Future.value(<CategoryModel>[]));
+      }
+
+      final results = await Future.wait(futures);
+
       if (mounted) {
         setState(() {
           products = results[0] as List<ProductModel>;
@@ -60,7 +89,7 @@ class _MenuScreenState extends State<MenuScreen> {
       }
     } catch (e) {
       debugPrint('MenuScreen load error: $e');
-      _snack('Failed to load menu: $e', Colors.red);
+      SnackBarUtils.showError(context, 'Failed to load menu: $e');
     } finally {
       if (mounted) setState(() => isLoading = false);
     }
@@ -82,26 +111,15 @@ class _MenuScreenState extends State<MenuScreen> {
     });
   }
 
-  void _snack(String msg, Color color) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: MyText(text: msg, fontWeight: FontWeight.w600),
-      backgroundColor: color,
-      behavior: SnackBarBehavior.floating,
-      margin: const EdgeInsets.all(16),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-    ));
-  }
-
   Future<void> _deleteProduct(ProductModel p) async {
     final ok = await _showDeleteConfirm('Delete Product', 'Delete "${p.name}"?');
     if (ok != true) return;
     try {
       await _productService.deleteProduct(p.id!);
-      _snack('Product deleted', Colors.green);
+      SnackBarUtils.showSuccess(context, 'Product deleted');
       _loadData();
     } catch (e) {
-      _snack('Error: $e', Colors.red);
+      SnackBarUtils.showError(context, 'Error: $e');
     }
   }
 
@@ -111,10 +129,10 @@ class _MenuScreenState extends State<MenuScreen> {
     if (ok != true) return;
     try {
       await _categoryService.deleteCategory(c.id!);
-      _snack('Category deleted', Colors.green);
+      SnackBarUtils.showSuccess(context, 'Category deleted');
       _loadData();
     } catch (e) {
-      _snack('Error: $e', Colors.red);
+      SnackBarUtils.showError(context, 'Error: $e');
     }
   }
 
@@ -152,47 +170,75 @@ class _MenuScreenState extends State<MenuScreen> {
             icon: const Icon(Icons.refresh),
             onPressed: _loadData,
           ),
-          IconButton(
-            icon: const Icon(Icons.cloud_upload_outlined),
-            tooltip: 'Upload Menu Image',
-            onPressed: () async {
-              final res = await Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const MenuImageUploadScreen()),
+          Consumer<SubscriptionProvider>(
+            builder: (context, subProvider, _) {
+              if (!subProvider.hasPermission("Product", checkCreate: true)) {
+                return const SizedBox.shrink();
+              }
+              return IconButton(
+                icon: const Icon(Icons.cloud_upload_outlined),
+                tooltip: 'Upload Menu Image',
+                onPressed: () async {
+                  final res = await Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const MenuImageUploadScreen()),
+                  );
+                  if (res == true) _loadData();
+                },
               );
-              if (res == true) _loadData();
             },
           ),
         ],
       ),
       body: isLoading
           ? Center(child: CircularProgressIndicator(color: appbar1))
-          : Column(
-              children: [
-                _buildTabSwitcher(),
-                _buildSearchBar(),
-                _buildSummaryRow(),
-                Expanded(child: _buildList()),
-                const SizedBox(height: 80),
-              ],
+          : Consumer<SubscriptionProvider>(
+              builder: (context, subProvider, _) {
+                final featureKey = selectedTab == 0 ? "Product" : "Category";
+                final hasView = subProvider.hasPermission(featureKey, checkView: true);
+
+                if (!hasView) {
+                  return AccessDeniedWidget(feature: featureKey);
+                }
+
+                return Column(
+                  children: [
+                    _buildTabSwitcher(),
+                    _buildSearchBar(),
+                    _buildSummaryRow(),
+                    Expanded(child: _buildList()),
+                    const SizedBox(height: 80),
+                  ],
+                );
+              },
             ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () async {
-          if (selectedTab == 0) {
-            final res = await Navigator.push(context, MaterialPageRoute(builder: (_) => const AddItemScreen()));
-            if (res == true) _loadData();
-          } else {
-            final res = await Navigator.push(context, MaterialPageRoute(builder: (_) => const CategoryFormScreen()));
-            if (res == true) _loadData();
+      floatingActionButton: Consumer<SubscriptionProvider>(
+        builder: (context, subProvider, _) {
+          final featureKey = selectedTab == 0 ? "Product" : "Category";
+          if (!subProvider.hasPermission(featureKey, checkCreate: true)) {
+            return const SizedBox.shrink();
           }
+
+          return FloatingActionButton.extended(
+            onPressed: () async {
+              if (selectedTab == 0) {
+                final res = await Navigator.push(context, MaterialPageRoute(builder: (_) => const AddItemScreen()));
+                if (res == true) _loadData();
+              } else {
+                final res =
+                    await Navigator.push(context, MaterialPageRoute(builder: (_) => const CategoryFormScreen()));
+                if (res == true) _loadData();
+              }
+            },
+            backgroundColor: appbar1,
+            icon: const Icon(Icons.add, color: Colors.white),
+            label: MyText(
+              text: selectedTab == 0 ? "Add Product" : "Add Category",
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+          );
         },
-        backgroundColor: appbar1,
-        icon: const Icon(Icons.add, color: Colors.white),
-        label: MyText(
-          text: selectedTab == 0 ? "Add Product" : "Add Category",
-          color: Colors.white,
-          fontWeight: FontWeight.bold,
-        ),
       ),
     );
   }
@@ -331,16 +377,31 @@ class _MenuScreenState extends State<MenuScreen> {
               ],
             ),
           ),
-          IconButton(
-            icon: const Icon(Icons.edit, color: Colors.blue, size: 20),
-            onPressed: () async {
-              final res = await Navigator.push(context, MaterialPageRoute(builder: (_) => AddItemScreen(product: p)));
-              if (res == true) _loadData();
+          Consumer<SubscriptionProvider>(
+            builder: (context, subProvider, _) {
+              final canEdit = subProvider.hasPermission("Product", checkEdit: true);
+              final canDelete = subProvider.hasPermission("Product", checkDelete: true);
+
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (canEdit)
+                    IconButton(
+                      icon: const Icon(Icons.edit, color: Colors.blue, size: 20),
+                      onPressed: () async {
+                        final res =
+                            await Navigator.push(context, MaterialPageRoute(builder: (_) => AddItemScreen(product: p)));
+                        if (res == true) _loadData();
+                      },
+                    ),
+                  if (canDelete)
+                    IconButton(
+                      icon: const Icon(Icons.delete, color: Colors.red, size: 20),
+                      onPressed: () => _deleteProduct(p),
+                    ),
+                ],
+              );
             },
-          ),
-          IconButton(
-            icon: const Icon(Icons.delete, color: Colors.red, size: 20),
-            onPressed: () => _deleteProduct(p),
           ),
         ],
       ),
@@ -367,17 +428,31 @@ class _MenuScreenState extends State<MenuScreen> {
           ),
           const SizedBox(width: 12),
           Expanded(child: MyText(text: c.name, fontWeight: FontWeight.bold, fontSize: 15)),
-          IconButton(
-            icon: const Icon(Icons.edit, color: Colors.blue, size: 20),
-            onPressed: () async {
-              final res =
-                  await Navigator.push(context, MaterialPageRoute(builder: (_) => CategoryFormScreen(category: c)));
-              if (res == true) _loadData();
+          Consumer<SubscriptionProvider>(
+            builder: (context, subProvider, _) {
+              final canEdit = subProvider.hasPermission("Category", checkEdit: true);
+              final canDelete = subProvider.hasPermission("Category", checkDelete: true);
+
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (canEdit)
+                    IconButton(
+                      icon: const Icon(Icons.edit, color: Colors.blue, size: 20),
+                      onPressed: () async {
+                        final res = await Navigator.push(
+                            context, MaterialPageRoute(builder: (_) => CategoryFormScreen(category: c)));
+                        if (res == true) _loadData();
+                      },
+                    ),
+                  if (canDelete)
+                    IconButton(
+                      icon: const Icon(Icons.delete, color: Colors.red, size: 20),
+                      onPressed: () => _deleteCategory(c),
+                    ),
+                ],
+              );
             },
-          ),
-          IconButton(
-            icon: const Icon(Icons.delete, color: Colors.red, size: 20),
-            onPressed: () => _deleteCategory(c),
           ),
         ],
       ),

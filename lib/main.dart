@@ -8,14 +8,18 @@ import 'package:hive_flutter/adapters.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pos/data/providers/order_type_provider.dart';
 import 'package:pos/data/providers/subscription_provider.dart';
+import 'package:pos/data/providers/table_provider.dart';
 import 'package:provider/provider.dart';
 
 // Project imports:
 import 'package:pos/data/datasources/database_service.dart';
 import 'package:pos/data/datasources/unified_database_service.dart';
 import 'package:pos/data/providers/print_provider.dart';
+import 'package:pos/core/utils/snackbar_utils.dart';
 import 'package:pos/view/login/providers/login_provider.dart';
 import 'package:pos/view/login/screens/splash_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:showcaseview/showcaseview.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -26,11 +30,8 @@ void main() async {
   // Initialize Firebase for Image Uploads
   try {
     await Firebase.initializeApp();
-    debugPrint('Firebase initialized successfully');
   } catch (e) {
     debugPrint('Firebase initialization error: $e');
-    // We don't throw here to allow the app to run offline or without Firebase,
-    // but features requiring Firebase will fail gracefully.
   }
 
   // Firebase initialization restored for Image Uploads
@@ -40,6 +41,12 @@ void main() async {
     DeviceOrientation.landscapeLeft,
     DeviceOrientation.landscapeRight,
   ]);
+  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    statusBarIconBrightness: Brightness.light,
+    statusBarBrightness: Brightness.light,
+  ));
+
   runApp(const MyApp());
 }
 
@@ -71,11 +78,29 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => PrintProvider()),
         ChangeNotifierProvider(create: (_) => OrderTypeProvider()),
         ChangeNotifierProvider(create: (_) => SubscriptionProvider()),
+        ChangeNotifierProvider(
+          create: (context) => TableProvider(),
+        ),
       ],
-      child: const MaterialApp(
+      child: MaterialApp(
         title: 'POS',
-        home: SplashScreen(),
+        scaffoldMessengerKey: SnackBarUtils.messengerKey,
+        home: const SplashScreen(),
         debugShowCheckedModeBanner: false,
+        builder: (context, child) {
+          return ShowCaseWidget(
+            onFinish: () async {
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setBool('is_first_time_main_tutorial', false);
+              // Don't set detailed tutorial here, let BillCartWidget handle it
+              await prefs.setBool('is_first_time_drawer_tutorial', true); // Keep drawer separate
+            },
+            onComplete: (index, key) {
+              // Individual step completion logic if needed
+            },
+            builder: (context) => child!,
+          );
+        },
       ),
     );
   }

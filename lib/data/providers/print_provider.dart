@@ -172,4 +172,22 @@ class PrintProvider extends ChangeNotifier {
     _selectedPrinter = null;
     notifyListeners();
   }
+
+  void reset() {
+    _posts = [];
+    _total = 0;
+    _isValueTrue = false;
+    _receiptNumber = '';
+    isEditBill = false;
+    editingReceiptNo = null;
+    _customerId = null;
+    _customerName = null;
+    _customerPhone = null;
+    _customerGst = null;
+    _customerAddress = null;
+    _customerNote = null;
+    _isConnected = false;
+    _selectedPrinter = null;
+    notifyListeners();
+  }
 }

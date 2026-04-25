@@ -1,6 +1,5 @@
 // Dart imports:
 import 'dart:async';
-import 'dart:developer' as developer;
 import 'dart:typed_data';
 
 // Project imports:
@@ -38,9 +37,7 @@ class CompleteOfflineDataManager {
       await _offlineManager.initialize();
 
       _isInitialized = true;
-      developer.log('CompleteOfflineDataManager initialized successfully', name: 'OfflineDataManager');
     } catch (e) {
-      developer.log('Error initializing CompleteOfflineDataManager: $e', name: 'OfflineDataManager');
       rethrow;
     }
   }
@@ -53,7 +50,6 @@ class CompleteOfflineDataManager {
       // Get food items from local database
       final List<Map<String, dynamic>> foodItems = await _sqliteDAO.getFoodItems(adminUid, department: department);
       
-      developer.log('Retrieved ${foodItems.length} food items from local database', name: 'OfflineDataManager');
 
       // Ensure ALL food items have complete data available offline
       final List<Map<String, dynamic>> completeItems = [];
@@ -86,7 +82,6 @@ class CompleteOfflineDataManager {
       final cacheKey = 'food_items_${adminUid}_${department ?? 'all'}';
       _dataCache[cacheKey] = completeItems;
 
-      developer.log('Ensured complete offline availability for ${completeItems.length} food items', name: 'OfflineDataManager');
       return completeItems;
     } catch (e) {
       await _errorHandler.handleRecoverableError(
@@ -109,7 +104,6 @@ class CompleteOfflineDataManager {
       // Get departments from local database
       final List<Map<String, dynamic>> departments = await _sqliteDAO.getDepartments(adminUid);
       
-      developer.log('Retrieved ${departments.length} departments from local database', name: 'OfflineDataManager');
 
       // Ensure ALL departments have complete data available offline
       final List<Map<String, dynamic>> completeDepartments = [];
@@ -138,7 +132,6 @@ class CompleteOfflineDataManager {
       final cacheKey = 'departments_$adminUid';
       _dataCache[cacheKey] = completeDepartments;
 
-      developer.log('Ensured complete offline availability for ${completeDepartments.length} departments', name: 'OfflineDataManager');
       return completeDepartments;
     } catch (e) {
       await _errorHandler.handleRecoverableError(
@@ -169,7 +162,6 @@ class CompleteOfflineDataManager {
       // Get bills from local database (fresh data after cache clear)
       final List<Map<String, dynamic>> bills = await _sqliteDAO.getBills(adminUid, startDate: startDate, endDate: endDate);
       
-      developer.log('Retrieved ${bills.length} bills from local database', name: 'OfflineDataManager');
 
       // Ensure ALL bills have complete data available offline
       final List<Map<String, dynamic>> completeBills = [];
@@ -199,7 +191,6 @@ class CompleteOfflineDataManager {
       // Cache the data for quick access
       _dataCache[cacheKey] = completeBills;
 
-      developer.log('Ensured complete offline availability for ${completeBills.length} bills', name: 'OfflineDataManager');
       return completeBills;
     } catch (e) {
       await _errorHandler.handleRecoverableError(
@@ -240,7 +231,6 @@ class CompleteOfflineDataManager {
       }
 
       if (imageUrls.isNotEmpty) {
-        developer.log('Preloading ${imageUrls.length} images for $tableName', name: 'OfflineDataManager');
         
         // Download and cache images with controlled concurrency
         await _imageCacheService.downloadAndCacheMultipleImages(
@@ -255,10 +245,8 @@ class CompleteOfflineDataManager {
           _preloadingImages.remove('${tableName}_${recordIds[i]}');
         }
 
-        developer.log('Completed preloading images for $tableName', name: 'OfflineDataManager');
       }
     } catch (e) {
-      developer.log('Error ensuring images are cached: $e', name: 'OfflineDataManager');
       // Don't throw error for image caching failures - data should still be available
     }
   }
@@ -269,21 +257,17 @@ class CompleteOfflineDataManager {
       // First try to get from image cache
       final cachedImage = await _imageCacheService.getImageBlob(tableName, recordId);
       if (cachedImage != null) {
-        developer.log('Image retrieved from cache for $tableName:$recordId', name: 'OfflineDataManager');
         return cachedImage;
       }
 
       // If not in cache, try to get from main table BLOB field
       final blobImage = await _sqliteDAO.getImageBlob(tableName, recordId);
       if (blobImage != null) {
-        developer.log('Image retrieved from main table BLOB for $tableName:$recordId', name: 'OfflineDataManager');
         return blobImage;
       }
 
-      developer.log('No cached image found for $tableName:$recordId', name: 'OfflineDataManager');
       return null;
     } catch (e) {
-      developer.log('Error getting cached image: $e', name: 'OfflineDataManager');
       return null;
     }
   }
@@ -298,14 +282,12 @@ class CompleteOfflineDataManager {
       // Check if image is already cached
       final isCached = await _imageCacheService.isImageCached(tableName, recordId);
       if (isCached) {
-        developer.log('Image already cached for $tableName:$recordId', name: 'OfflineDataManager');
         return true;
       }
 
       // Check if we're online to download the image
       final isOnline = !_connectionMonitor.isConnected;
       if (isOnline) {
-        developer.log('Offline mode - cannot download image for $tableName:$recordId', name: 'OfflineDataManager');
         return false;
       }
 
@@ -317,13 +299,11 @@ class CompleteOfflineDataManager {
       );
 
       if (imageData != null) {
-        developer.log('Successfully downloaded and cached image for $tableName:$recordId', name: 'OfflineDataManager');
         return true;
       }
 
       return false;
     } catch (e) {
-      developer.log('Error ensuring offline image availability: $e', name: 'OfflineDataManager');
       return false;
     }
   }
@@ -333,7 +313,6 @@ class CompleteOfflineDataManager {
     try {
       await _ensureInitialized();
 
-      developer.log('Starting preload of all critical data for offline use', name: 'OfflineDataManager');
 
       // Preload departments first (needed for navigation)
       final departments = await ensureDepartmentsOfflineAvailability(adminUid);
@@ -345,8 +324,7 @@ class CompleteOfflineDataManager {
       final thirtyDaysAgo = DateTime.now().subtract(const Duration(days: 30));
       final recentBills = await ensureBillsOfflineAvailability(adminUid, startDate: thirtyDaysAgo);
 
-      developer.log('Preloaded critical data: ${departments.length} departments, ${allFoodItems.length} food items, ${recentBills.length} recent bills', 
-                   name: 'OfflineDataManager');
+
 
       await _errorHandler.handleInfo(
         component: 'CompleteOfflineDataManager',
@@ -366,7 +344,6 @@ class CompleteOfflineDataManager {
     try {
       await _ensureInitialized();
 
-      developer.log('Starting complete offline data availability check for admin: $adminUid', name: 'OfflineDataManager');
 
       final Map<String, dynamic> result = {
         'success': true,
@@ -380,7 +357,6 @@ class CompleteOfflineDataManager {
         final departments = await ensureDepartmentsOfflineAvailability(adminUid);
         result['data']['departments'] = departments;
         result['availability']['departments'] = departments.isNotEmpty;
-        developer.log('✓ Departments offline availability ensured: ${departments.length} items', name: 'OfflineDataManager');
       } catch (e) {
         result['errors'].add('Failed to ensure departments availability: $e');
         result['availability']['departments'] = false;
@@ -391,7 +367,6 @@ class CompleteOfflineDataManager {
         final foodItems = await ensureFoodItemsOfflineAvailability(adminUid);
         result['data']['food_items'] = foodItems;
         result['availability']['food_items'] = foodItems.isNotEmpty;
-        developer.log('✓ Food items offline availability ensured: ${foodItems.length} items', name: 'OfflineDataManager');
       } catch (e) {
         result['errors'].add('Failed to ensure food items availability: $e');
         result['availability']['food_items'] = false;
@@ -402,7 +377,6 @@ class CompleteOfflineDataManager {
         final bills = await ensureBillsOfflineAvailability(adminUid);
         result['data']['bills'] = bills;
         result['availability']['bills'] = bills.isNotEmpty;
-        developer.log('✓ Bills offline availability ensured: ${bills.length} items', name: 'OfflineDataManager');
       } catch (e) {
         result['errors'].add('Failed to ensure bills availability: $e');
         result['availability']['bills'] = false;
@@ -413,7 +387,6 @@ class CompleteOfflineDataManager {
         final cacheStats = await _imageCacheService.getCacheStatistics();
         result['availability']['images'] = (cacheStats['totalImages'] as int? ?? 0) > 0;
         result['data']['image_stats'] = cacheStats;
-        developer.log('✓ Image cache availability checked: ${cacheStats['totalImages']} cached images', name: 'OfflineDataManager');
       } catch (e) {
         result['errors'].add('Failed to check image cache: $e');
         result['availability']['images'] = false;
@@ -426,11 +399,9 @@ class CompleteOfflineDataManager {
       // 6. Set overall success status
       result['success'] = (result['errors'] as List).isEmpty;
 
-      developer.log('Complete offline data availability check completed. Success: ${result['success']}', name: 'OfflineDataManager');
       
       return result;
     } catch (e) {
-      developer.log('Error ensuring complete offline data availability: $e', name: 'OfflineDataManager');
       return {
         'success': false,
         'data': {},
@@ -538,7 +509,6 @@ class CompleteOfflineDataManager {
 
       return availability;
     } catch (e) {
-      developer.log('Error checking offline data availability: $e', name: 'OfflineDataManager');
       return {
         'food_items': false,
         'departments': false,
@@ -572,7 +542,6 @@ class CompleteOfflineDataManager {
         'last_sync_time': _offlineManager.currentStatus.lastSyncTime?.toIso8601String(),
       };
     } catch (e) {
-      developer.log('Error getting offline data statistics: $e', name: 'OfflineDataManager');
       return {
         'error': e.toString(),
         'is_offline': !_connectionMonitor.isConnected,
@@ -583,7 +552,6 @@ class CompleteOfflineDataManager {
   /// Clear cached data to free up memory
   void clearDataCache() {
     _dataCache.clear();
-    developer.log('Cleared data cache', name: 'OfflineDataManager');
   }
 
   /// Ensure the manager is initialized

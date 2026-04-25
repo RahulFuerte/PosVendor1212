@@ -24,7 +24,7 @@ class CategoryService {
       body: jsonEncode({
         'name': name,
         'imageUrl': imageUrl ?? "",
-        'image_url': imageUrl ?? "", // Backend fallback
+        'image_url': imageUrl ?? "", 
         'imagePath': imageUrl ?? "", // Backend fallback
       }),
     );
@@ -60,6 +60,21 @@ class CategoryService {
     } else {
       final data = jsonDecode(response.body);
       throw Exception(data['message'] ?? 'Failed to get categories');
+    }
+  }
+
+  Future<List<CategoryModel>> getPublicCategories(String adminId) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/public?adminId=$adminId'),
+      headers: {'Content-Type': 'application/json'},
+    );
+
+    if (response.statusCode == 200) {
+      final List data = jsonDecode(response.body);
+      return data.map((e) => CategoryModel.fromJson(e)).toList();
+    } else {
+      final data = jsonDecode(response.body);
+      throw Exception(data['message'] ?? 'Failed to get public categories');
     }
   }
 

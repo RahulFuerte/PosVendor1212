@@ -23,6 +23,7 @@ import 'package:pos/view/home/printer_connectionDialog.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:pos/view/tab_screen/view-model/widgets/printers/printer.dart';
 import 'package:pos/core/utils/price_utils.dart';
+import 'package:pos/core/utils/snackbar_utils.dart';
 import 'package:pos/view/home/reports/widgets/report_nav_bar.dart';
 
 class BillwiseReportScreen extends StatefulWidget {
@@ -164,9 +165,7 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
 
   Future<void> _fetchBillsData() async {
     if (fromDate == null || toDate == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: MyText(text: 'Please select both dates')),
-      );
+      SnackBarUtils.showWarning(context, 'Please select both dates');
       return;
     }
 
@@ -218,9 +217,7 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
     } catch (e) {
       if (mounted) {
         print('Error fetching bills data: $e');
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: MyText(text: 'Error fetching data: $e')),
-        );
+        SnackBarUtils.showError(context, 'Error fetching data: $e');
       }
     } finally {
       setState(() {
@@ -276,17 +273,13 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
 
     // 🔒 Safety checks
     if (billsData.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: MyText(text: "No data to print")),
-      );
+      SnackBarUtils.showWarning(context, "No data to print");
       return;
     }
 
     final printer = printProvider.selectedPrinter;
     if (printer == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: MyText(text: "Please select a printer first")),
-      );
+      SnackBarUtils.showWarning(context, "Please select a printer first");
       return;
     }
 
@@ -415,34 +408,15 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
         bytes: bytes,
       );
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: MyText(text: 'Report printed successfully!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
+        SnackBarUtils.showSuccess(context, 'Report printed successfully!');
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: MyText(text: 'Print error: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+        SnackBarUtils.showError(context, 'Print error: $e');
     }
   }
 
   Future<void> _downloadAndShareReport() async {
     if (billsData.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: MyText(text: 'No data available. Please select dates and wait for data to load.'),
-          backgroundColor: Colors.orange,
-        ),
-      );
+      SnackBarUtils.showWarning(context, 'No data available. Please select dates and wait for data to load.');
       return;
     }
 
@@ -630,12 +604,7 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
         Navigator.pop(context);
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: MyText(text: 'Error creating PDF: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      SnackBarUtils.showError(context, 'Error creating PDF: $e');
     }
   }
 
@@ -817,10 +786,11 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
                             ),
                             const SizedBox(height: 20),
                             MyText(
-                              text: fromDate == null || toDate == null ? 'CHOOSE A DATE RANGE' : 'NO TRANSACTIONS FOUND',
+                              text:
+                                  fromDate == null || toDate == null ? 'CHOOSE A DATE RANGE' : 'NO TRANSACTIONS FOUND',
                               color: Colors.grey[400],
                               fontSize: 13,
-                              fontWeight: FontWeight.w900,
+                              fontWeight: FontWeight.w600,
                               letterSpacing: 1,
                             ),
                           ],
@@ -896,7 +866,7 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
                                             children: [
                                               MyText(
                                                 text: bill['customerName']?.toString().toUpperCase() ?? 'WALK-IN',
-                                                fontWeight: FontWeight.w900,
+                                                fontWeight: FontWeight.w600,
                                                 fontSize: 16,
                                                 color: const Color(0xFF1F1F1F),
                                                 letterSpacing: -0.5,
@@ -919,7 +889,7 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
                                               MyText(
                                                 text: PriceUtils.formatPrice(bill['finalAmount']),
                                                 color: const Color(0xFF10B981),
-                                                fontWeight: FontWeight.w900,
+                                                fontWeight: FontWeight.w600,
                                                 fontSize: 24,
                                                 letterSpacing: -1,
                                               ),
@@ -927,7 +897,7 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
                                                 text: 'TOTAL PAID',
                                                 color: Colors.grey[400],
                                                 fontSize: 9,
-                                                fontWeight: FontWeight.w900,
+                                                fontWeight: FontWeight.w600,
                                                 letterSpacing: 1,
                                               ),
                                             ],
@@ -1019,7 +989,7 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
           text: label,
           color: Colors.grey[400],
           fontSize: 10,
-          fontWeight: FontWeight.w900,
+          fontWeight: FontWeight.w600,
           letterSpacing: 0.8,
         ),
         const SizedBox(height: 6),
@@ -1049,7 +1019,7 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
             text: text.toUpperCase(),
             color: color.withOpacity(0.9),
             fontSize: 10,
-            fontWeight: FontWeight.w900,
+            fontWeight: FontWeight.w600,
             letterSpacing: 0.5,
           ),
         ],

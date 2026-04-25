@@ -1,6 +1,5 @@
 // Dart imports:
 import 'dart:async';
-import 'dart:developer' as developer;
 
 // Project imports:
 import '../../core/network/connection_monitor.dart';
@@ -33,7 +32,6 @@ class SmartDatabaseService {
     if (_isInitialized) return;
 
     try {
-      developer.log('Initializing SmartDatabaseService', name: 'SmartDatabaseService');
 
       // Initialize connection monitor FIRST to know online/offline status
       _connectionMonitor = ConnectionMonitor();
@@ -49,17 +47,17 @@ class SmartDatabaseService {
 
       // Mark as initialized early so queries can proceed
       _isInitialized = true;
-      developer.log('SmartDatabaseService core initialized', name: 'SmartDatabaseService');
+      
 
       // Initialize index manager in background (non-blocking)
       _indexManager = DatabaseIndexManager();
       _initializeIndexesWithFallback().catchError((e) {
-        developer.log('Index initialization failed (non-critical): $e', name: 'SmartDatabaseService');
+        
       });
 
-      developer.log('SmartDatabaseService initialized successfully', name: 'SmartDatabaseService');
+      
     } catch (e) {
-      developer.log('Failed to initialize SmartDatabaseService: $e', name: 'SmartDatabaseService');
+      
       rethrow;
     }
   }
@@ -67,26 +65,26 @@ class SmartDatabaseService {
   /// Initialize database indexes with FTS5 fallback handling
   Future<void> _initializeIndexesWithFallback() async {
     try {
-      developer.log('Initializing database indexes (FTS5 disabled)', name: 'SmartDatabaseService');
+      
       
       // FTS5 is disabled to prevent app hangs
       _fts5Available = false;
       
-      developer.log('FTS5 availability: $_fts5Available', name: 'SmartDatabaseService');
+      
       
       // Create performance indexes (will use fallback only)
       await _indexManager!.createPerformanceIndexes();
       
-      developer.log('Database indexes initialized successfully', name: 'SmartDatabaseService');
+      
     } catch (e) {
-      developer.log('Error initializing indexes: $e', name: 'SmartDatabaseService');
+      
       
       // Ensure we have essential fallback indexes
       try {
         await _createEssentialFallbackIndexes();
-        developer.log('Essential fallback indexes created', name: 'SmartDatabaseService');
+        
       } catch (fallbackError) {
-        developer.log('Failed to create fallback indexes: $fallbackError', name: 'SmartDatabaseService');
+        
         // Continue without search indexes - basic functionality will still work
       }
     }
@@ -116,7 +114,7 @@ class SmartDatabaseService {
       try {
         await db.execute(indexSql);
       } catch (e) {
-        developer.log('Failed to create index: $indexSql - Error: $e', name: 'SmartDatabaseService');
+        
       }
     }
   }
@@ -138,7 +136,7 @@ class SmartDatabaseService {
         department: department,
       );
     } catch (e) {
-      developer.log('Error getting food items: $e', name: 'SmartDatabaseService');
+      
       
       // Show user-friendly message based on connection status
       if (_connectionMonitor?.isConnected == true) {
@@ -156,7 +154,7 @@ class SmartDatabaseService {
     try {
       return await _connectionManager!.getData('departments', adminUid);
     } catch (e) {
-      developer.log('Error getting departments: $e', name: 'SmartDatabaseService');
+      
       
       if (_connectionMonitor?.isConnected == true) {
         throw Exception('Unable to load departments. Please check your connection and try again.');
@@ -182,7 +180,7 @@ class SmartDatabaseService {
         endDate: endDate,
       );
     } catch (e) {
-      developer.log('Error getting bills: $e', name: 'SmartDatabaseService');
+      
       
       if (_connectionMonitor?.isConnected == true) {
         throw Exception('Unable to load bills. Please check your connection and try again.');
@@ -203,12 +201,12 @@ class SmartDatabaseService {
       await _connectionManager!.saveData('food_items', adminUid, foodItem);
       
       if (_connectionMonitor?.isConnected == true) {
-        developer.log('Food item saved online and cached locally', name: 'SmartDatabaseService');
+        
       } else {
-        developer.log('Food item saved offline, will sync when connection is restored', name: 'SmartDatabaseService');
+        
       }
     } catch (e) {
-      developer.log('Error saving food item: $e', name: 'SmartDatabaseService');
+      
       throw Exception('Failed to save food item. Please try again.');
     }
   }
@@ -221,12 +219,12 @@ class SmartDatabaseService {
       await _connectionManager!.saveData('departments', adminUid, department);
       
       if (_connectionMonitor?.isConnected == true) {
-        developer.log('Department saved online and cached locally', name: 'SmartDatabaseService');
+        
       } else {
-        developer.log('Department saved offline, will sync when connection is restored', name: 'SmartDatabaseService');
+        
       }
     } catch (e) {
-      developer.log('Error saving department: $e', name: 'SmartDatabaseService');
+      
       throw Exception('Failed to save department. Please try again.');
     }
   }
@@ -239,12 +237,12 @@ class SmartDatabaseService {
       await _connectionManager!.saveData('bills', adminUid, bill);
       
       if (_connectionMonitor?.isConnected == true) {
-        developer.log('Bill saved online and cached locally', name: 'SmartDatabaseService');
+        
       } else {
-        developer.log('Bill saved offline, will sync when connection is restored', name: 'SmartDatabaseService');
+        
       }
     } catch (e) {
-      developer.log('Error saving bill: $e', name: 'SmartDatabaseService');
+      
       throw Exception('Failed to save bill. This is critical for POS operations - please contact support if the issue persists.');
     }
   }
@@ -260,15 +258,15 @@ class SmartDatabaseService {
     await _ensureInitialized();
 
     if (!isOnline) {
-      developer.log('Cannot sync - device is offline', name: 'SmartDatabaseService');
+      
       return;
     }
 
     try {
       await _connectionManager!.forceSyncPendingData();
-      developer.log('Pending data synced successfully', name: 'SmartDatabaseService');
+      
     } catch (e) {
-      developer.log('Error syncing pending data: $e', name: 'SmartDatabaseService');
+      
       throw Exception('Failed to sync pending data. Please check your connection and try again.');
     }
   }
@@ -293,7 +291,7 @@ class SmartDatabaseService {
         limit: limit,
       );
     } catch (e) {
-      developer.log('Error searching food items: $e', name: 'SmartDatabaseService');
+      
       
       if (_connectionMonitor?.isConnected == true) {
         throw Exception('Unable to search food items. Please try again.');
@@ -310,7 +308,7 @@ class SmartDatabaseService {
     try {
       return await _indexManager!.getSearchCapabilities();
     } catch (e) {
-      developer.log('Error getting search capabilities: $e', name: 'SmartDatabaseService');
+      
       return {
         'fts5Available': false,
         'fts5TablesExist': false,
@@ -326,9 +324,9 @@ class SmartDatabaseService {
     
     try {
       await _indexManager!.performDatabaseMaintenance();
-      developer.log('Database maintenance completed successfully', name: 'SmartDatabaseService');
+      
     } catch (e) {
-      developer.log('Error during database maintenance: $e', name: 'SmartDatabaseService');
+      
     }
   }
 
@@ -374,7 +372,7 @@ extension SmartDatabaseServiceExtension on SmartDatabaseService {
         'bills': results[2],
       };
     } catch (e) {
-      developer.log('Error getting all user data: $e', name: 'SmartDatabaseService');
+      
       rethrow;
     }
   }

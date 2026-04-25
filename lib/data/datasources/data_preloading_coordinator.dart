@@ -1,6 +1,5 @@
 // Dart imports:
 import 'dart:async';
-import 'dart:developer' as developer;
 
 // Project imports:
 import '../../core/utils/memory_management_service.dart';
@@ -43,7 +42,7 @@ class DataPreloadingCoordinator {
         _smartPreloadingService = SmartPreloadingService();
         await _smartPreloadingService!.initialize();
       } catch (e) {
-        developer.log('Warning: Could not initialize SmartPreloadingService: $e', name: 'DataPreloadingCoordinator');
+        
         _smartPreloadingService = null;
       }
       
@@ -51,7 +50,7 @@ class DataPreloadingCoordinator {
         _memoryManagementService = MemoryManagementService();
         await _memoryManagementService!.initialize();
       } catch (e) {
-        developer.log('Warning: Could not initialize MemoryManagementService: $e', name: 'DataPreloadingCoordinator');
+        
         _memoryManagementService = null;
       }
       
@@ -60,9 +59,8 @@ class DataPreloadingCoordinator {
       _startCoordination();
       _isInitialized = true;
       
-      developer.log('Data preloading coordinator initialized', name: 'DataPreloadingCoordinator');
     } catch (e) {
-      developer.log('Error initializing data preloading coordinator: $e', name: 'DataPreloadingCoordinator');
+      
       rethrow;
     }
   }
@@ -85,8 +83,6 @@ class DataPreloadingCoordinator {
             : {'isLowMemoryMode': false};
         final isLowMemory = memoryStats['isLowMemoryMode'] as bool;
         
-        developer.log('Coordinating preloading strategies - Low memory: $isLowMemory', 
-                     name: 'DataPreloadingCoordinator');
         
         // Adjust strategies based on memory state
         if (isLowMemory) {
@@ -99,7 +95,7 @@ class DataPreloadingCoordinator {
         _cleanupOldPreloadAttempts();
       });
     } catch (e) {
-      developer.log('Error coordinating preloading strategies: $e', name: 'DataPreloadingCoordinator');
+      
     }
   }
 
@@ -108,7 +104,7 @@ class DataPreloadingCoordinator {
     try {
       // Limit concurrent preloads
       if (_activePreloads.isNotEmpty) {
-        developer.log('Limiting preloads due to low memory', name: 'DataPreloadingCoordinator');
+        
         return;
       }
       
@@ -123,7 +119,7 @@ class DataPreloadingCoordinator {
         }
       }
     } catch (e) {
-      developer.log('Error in conservative preloading strategy: $e', name: 'DataPreloadingCoordinator');
+      
     }
   }
 
@@ -163,7 +159,7 @@ class DataPreloadingCoordinator {
         await Future.wait(futures);
       }
     } catch (e) {
-      developer.log('Error in aggressive preloading strategy: $e', name: 'DataPreloadingCoordinator');
+      
     }
   }
 
@@ -176,7 +172,6 @@ class DataPreloadingCoordinator {
       _activePreloads.add(preloadKey);
       _lastPreloadAttempt[adminUid] = DateTime.now();
       
-      developer.log('Executing essential preloading for $adminUid', name: 'DataPreloadingCoordinator');
       
       // Preload only the most critical data
       await _offlineDataManager.preloadAllCriticalData(adminUid);
@@ -195,7 +190,6 @@ class DataPreloadingCoordinator {
       _activePreloads.add(preloadKey);
       _lastPreloadAttempt[adminUid] = DateTime.now();
       
-      developer.log('Executing predictive preloading for $adminUid', name: 'DataPreloadingCoordinator');
       
       // Use smart preloading for predictive caching
       if (_smartPreloadingService != null) {
@@ -216,7 +210,6 @@ class DataPreloadingCoordinator {
       _activePreloads.add(preloadKey);
       _lastPreloadAttempt[adminUid] = DateTime.now();
       
-      developer.log('Executing opportunistic preloading for $adminUid', name: 'DataPreloadingCoordinator');
       
       // Preload frequently accessed items
       if (_smartPreloadingService != null) {
@@ -231,8 +224,7 @@ class DataPreloadingCoordinator {
   /// Set preloading strategy for a user
   void setUserPreloadingStrategy(String adminUid, PreloadingStrategy strategy) {
     _userStrategies[adminUid] = strategy;
-    developer.log('Set preloading strategy for $adminUid: ${strategy.priority}', 
-                 name: 'DataPreloadingCoordinator');
+    
   }
 
   /// Track user interaction to adjust preloading strategy
@@ -269,7 +261,7 @@ class DataPreloadingCoordinator {
           break;
       }
     } catch (e) {
-      developer.log('Error tracking user interaction: $e', name: 'DataPreloadingCoordinator');
+      
     }
   }
 
@@ -278,7 +270,7 @@ class DataPreloadingCoordinator {
     await _ensureInitialized();
     
     try {
-      developer.log('Triggering immediate preloading for $adminUid', name: 'DataPreloadingCoordinator');
+      
       
       // Execute based on current memory state
       if (_memoryManagementService?.isLowMemoryMode == true) {
@@ -297,7 +289,7 @@ class DataPreloadingCoordinator {
         await Future.wait(futures);
       }
     } catch (e) {
-      developer.log('Error in immediate preloading: $e', name: 'DataPreloadingCoordinator');
+      
     }
   }
 
@@ -388,7 +380,6 @@ class DataPreloadingCoordinator {
     _smartPreloadingService?.dispose();
     _isInitialized = false;
     
-    developer.log('Data preloading coordinator disposed', name: 'DataPreloadingCoordinator');
   }
 }
 

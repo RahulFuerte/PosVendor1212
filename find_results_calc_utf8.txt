@@ -1,5 +1,0 @@
-﻿419:                  : const MyText(
-438:                              title: MyText(
-443:                              subtitle: MyText(text: PriceUtils.formatPrice(item['price'])),
-526:                                    child: MyText(
-611:  //                 child: const MyText(text: 'Submit'),

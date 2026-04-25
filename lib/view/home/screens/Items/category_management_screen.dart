@@ -3,6 +3,7 @@ import 'package:pos/core/widgets/text.dart';
 import 'package:pos/data/models/category_model.dart';
 import 'package:pos/data/services/category_service.dart';
 import 'package:pos/view/home/screens/Items/category_form_screen.dart';
+import 'package:pos/core/utils/snackbar_utils.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 
 // Avatar accent colours – one per category card
@@ -52,22 +53,12 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
       final cats = await _service.getCategories();
       if (mounted) setState(() => _categories = cats);
     } catch (e) {
-      _snack('Failed to load: $e', Colors.red);
+      SnackBarUtils.showError(context, 'Failed to load: $e');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  void _snack(String msg, Color color) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: MyText(text: msg, fontWeight: FontWeight.w600),
-      backgroundColor: color,
-      behavior: SnackBarBehavior.floating,
-      margin: const EdgeInsets.all(16),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-    ));
-  }
 
   Future<void> _openForm({CategoryModel? category}) async {
     final result = await Navigator.push<bool>(
@@ -117,10 +108,10 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
     if (ok != true) return;
     try {
       await _service.deleteCategory(cat.id!);
-      _snack('Category deleted', Colors.green.shade700);
+      SnackBarUtils.showSuccess(context, 'Category deleted');
       _loadCategories();
     } catch (e) {
-      _snack('Error: $e', Colors.red);
+      SnackBarUtils.showError(context, 'Error: $e');
     }
   }
 

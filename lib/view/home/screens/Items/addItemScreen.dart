@@ -14,6 +14,7 @@ import 'package:pos/data/models/product_model.dart';
 import 'package:pos/data/services/category_service.dart';
 import 'package:pos/data/services/product_service.dart';
 import 'package:pos/data/services/cloudinary_service.dart';
+import 'package:pos/core/utils/snackbar_utils.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 
 class AddItemScreen extends StatefulWidget {
@@ -219,7 +220,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
   Future<void> _handleSubmit() async {
     if (!_formKey.currentState!.validate()) return;
     if (selectedCategoryId == null) {
-      _snack('Please select a category', Colors.orange);
+      SnackBarUtils.showWarning(context, 'Please select a category');
       return;
     }
     setState(() => isUploading = true);
@@ -272,7 +273,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
           'image_url': imageUrl, // Backend fallback
           'imagePath': imageUrl, // Backend fallback
         });
-        _snack('Product updated!', Colors.green);
+        SnackBarUtils.showSuccess(context, 'Product updated!');
       } else {
         await _productService.createProduct(
           name: name,
@@ -291,12 +292,12 @@ class _AddItemScreenState extends State<AddItemScreen> {
           variants: formattedVariants,
           addons: addons,
         );
-        _snack('Product added!', Colors.green);
+        SnackBarUtils.showSuccess(context, 'Product added!');
         _clearForm();
       }
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
-      _snack('Error: $e', Colors.red);
+      SnackBarUtils.showError(context, 'Error: $e');
     } finally {
       if (mounted) setState(() => isUploading = false);
     }
@@ -322,14 +323,6 @@ class _AddItemScreenState extends State<AddItemScreen> {
     });
   }
 
-  void _snack(String msg, Color color) {
-    if (mounted)
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: MyText(text: msg),
-          backgroundColor: color,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))));
-  }
 
   // ── UI ────────────────────────────────────────────────────
   @override
@@ -422,8 +415,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
                 children: [
                   Icon(Icons.camera_alt_rounded, color: primaryColor, size: 18),
                   const SizedBox(width: 8),
-                  const MyText(text: 'Change Photo',
-                      color: primaryColor, fontWeight: FontWeight.w700, fontSize: 13),
+                  const MyText(text: 'Change Photo', color: primaryColor, fontWeight: FontWeight.w700, fontSize: 13),
                 ],
               ),
             ),
@@ -484,8 +476,11 @@ class _AddItemScreenState extends State<AddItemScreen> {
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           Icon(Icons.add_photo_alternate_rounded, size: 64, color: primaryColor.withOpacity(0.6)),
           const SizedBox(height: 12),
-          MyText(text: 'Tap to add product image',
-              color: primaryColor.withOpacity(0.8), fontWeight: FontWeight.w600, fontSize: 16),
+          MyText(
+              text: 'Tap to add product image',
+              color: primaryColor.withOpacity(0.8),
+              fontWeight: FontWeight.w600,
+              fontSize: 16),
           const SizedBox(height: 6),
           MyText(text: 'Gallery or Camera', color: Colors.grey.shade600, fontSize: 13),
         ]),
@@ -591,8 +586,11 @@ class _AddItemScreenState extends State<AddItemScreen> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     alignment: Alignment.center,
-                    child: MyText(text: type,
-                        color: isSel ? Colors.white : Colors.black87, fontWeight: FontWeight.w700, fontSize: 15),
+                    child: MyText(
+                        text: type,
+                        color: isSel ? Colors.white : Colors.black87,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15),
                   ),
                 ));
               }).toList(),
@@ -633,8 +631,8 @@ class _AddItemScreenState extends State<AddItemScreen> {
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: const MyText(text: 'Enable Variants', fontWeight: FontWeight.w700, fontSize: 16),
-            subtitle: MyText(text: 'Different sizes, weights, or quantities',
-                fontSize: 13, color: Colors.grey.shade600),
+            subtitle:
+                MyText(text: 'Different sizes, weights, or quantities', fontSize: 13, color: Colors.grey.shade600),
             value: enableVariants,
             activeColor: primaryColor,
             onChanged: (v) => setState(() {
@@ -727,11 +725,12 @@ class _AddItemScreenState extends State<AddItemScreen> {
                           radius: 18,
                           backgroundColor: primaryColor.withOpacity(0.1),
                           child: const Icon(Icons.tune_rounded, size: 18, color: primaryColor)),
-                      title: MyText(text: v['unitType'] == 'Size' ? '${v['size']}' : '${v['qty']} ${v['unitType']}',
-                          fontWeight: FontWeight.w700, fontSize: 15),
+                      title: MyText(
+                          text: v['unitType'] == 'Size' ? '${v['size']}' : '${v['qty']} ${v['unitType']}',
+                          fontWeight: FontWeight.w700,
+                          fontSize: 15),
                       trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                        MyText(text: '₹${v['price']}',
-                            fontWeight: FontWeight.bold, color: primaryColor, fontSize: 15),
+                        MyText(text: '₹${v['price']}', fontWeight: FontWeight.bold, color: primaryColor, fontSize: 15),
                         const SizedBox(width: 8),
                         IconButton(
                             icon: const Icon(Icons.close_rounded, size: 20, color: Colors.red),
@@ -810,11 +809,13 @@ class _AddItemScreenState extends State<AddItemScreen> {
                         radius: 18,
                         backgroundColor: Colors.orange.withOpacity(0.15),
                         child: const Icon(Icons.add_rounded, size: 18, color: Colors.orange)),
-                    title: MyText(text: addons[i]['name'] ?? '',
-                        fontWeight: FontWeight.w700, fontSize: 15),
+                    title: MyText(text: addons[i]['name'] ?? '', fontWeight: FontWeight.w700, fontSize: 15),
                     trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                      MyText(text: '₹${addons[i]['price']}',
-                          fontWeight: FontWeight.bold, color: Colors.orange, fontSize: 15),
+                      MyText(
+                          text: '₹${addons[i]['price']}',
+                          fontWeight: FontWeight.bold,
+                          color: Colors.orange,
+                          fontSize: 15),
                       const SizedBox(width: 8),
                       IconButton(
                           icon: const Icon(Icons.close_rounded, size: 20, color: Colors.red),
@@ -863,6 +864,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
           label: MyText(
             text: _isEditing ? 'Update Product' : 'Add Product',
             fontSize: 17,
+            color: Colors.white,
             fontWeight: FontWeight.bold,
           ),
         ),

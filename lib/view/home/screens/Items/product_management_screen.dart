@@ -5,6 +5,7 @@ import 'package:pos/data/models/category_model.dart';
 import 'package:pos/data/services/product_service.dart';
 import 'package:pos/data/services/category_service.dart';
 import 'package:pos/view/home/screens/Items/addItemScreen.dart';
+import 'package:pos/core/utils/snackbar_utils.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 
 // Accent colours for product card left bar
@@ -65,22 +66,12 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
         });
       }
     } catch (e) {
-      _snack('Failed to load: $e', Colors.red);
+      SnackBarUtils.showError(context, 'Failed to load: $e');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  void _snack(String msg, Color color) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: MyText(text: msg, fontWeight: FontWeight.w600),
-      backgroundColor: color,
-      behavior: SnackBarBehavior.floating,
-      margin: const EdgeInsets.all(16),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-    ));
-  }
 
   String _getCategoryName(String? id) {
     if (id == null || id.isEmpty) return 'Uncategorized';
@@ -139,10 +130,10 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
     if (ok != true) return;
     try {
       await _productService.deleteProduct(p.id!);
-      _snack('Product deleted', Colors.green.shade700);
+      SnackBarUtils.showSuccess(context, 'Product deleted');
       _loadData();
     } catch (e) {
-      _snack('Error: $e', Colors.red);
+      SnackBarUtils.showError(context, 'Error: $e');
     }
   }
 

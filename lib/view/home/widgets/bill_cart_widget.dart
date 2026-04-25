@@ -7,7 +7,10 @@ import 'package:pos/core/widgets/text.dart';
 // Package imports:
 import 'package:pos/core/utils/offline_tts.dart';
 import 'package:pos/data/providers/order_type_provider.dart';
+import 'package:pos/data/providers/table_provider.dart';
+import 'package:pos/data/services/demo_data.dart';
 import 'package:pos/view/home/widgets/my_choiceChip.dart';
+import 'package:pos/view/home/widgets/dynamic_table_selector.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -22,7 +25,9 @@ import '../navigation.dart';
 import '../../../data/providers/print_provider.dart';
 import '../../../core/utils/price_utils.dart';
 import '../printer_connectionDialog.dart';
+import '../../../core/utils/snackbar_utils.dart';
 import '../receipt_preview.dart';
+import 'package:showcaseview/showcaseview.dart';
 
 /// Reusable Bill Cart Widget
 /// Can be used across multiple pages for consistent cart functionality
@@ -32,8 +37,10 @@ class BillCart extends StatefulWidget {
   final VoidCallback? onCartCleared;
   final Function(List<Map<String, dynamic>>, double)? onCartUpdated;
   final Function() orderBottomSheet;
+  final VoidCallback? onPlaceOrder;
   final bool? isRestaurantScreen;
   final bool? isContainerVisible;
+  final String? role;
 
   const BillCart({
     Key? key,
@@ -42,6 +49,8 @@ class BillCart extends StatefulWidget {
     this.onCartCleared,
     this.onCartUpdated,
     this.isContainerVisible,
+    this.role,
+    this.onPlaceOrder,
     this.isRestaurantScreen = false,
     required this.orderBottomSheet,
   }) : super(key: key);
@@ -61,6 +70,7 @@ class _BillCartState extends State<BillCart> {
   void initState() {
     super.initState();
     _initializeDatabase();
+    _loadCartData();
     _loadCartData();
   }
 
@@ -85,16 +95,60 @@ class _BillCartState extends State<BillCart> {
       selectedItemsDetails = printProvider.posts;
       subtotal = printProvider.total;
     });
+
+    if (selectedItemsDetails.isNotEmpty) {
+      _checkCartTutorial();
+    }
+  }
+
+  Future<void> _checkCartTutorial() async {
+    final prefs = await SharedPreferences.getInstance();
+    final bool isDemoMode = prefs.getBool('isDemoMode') ?? false;
+    final bool isMainFirstTime = prefs.getBool('is_first_time_main_tutorial') ?? true;
+    final bool isDetailedFirstTime = prefs.getBool('is_first_time_detailed_tutorial') ?? true;
+
+    // Only start if:
+    // 1. In demo mode
+    // 2. Main tour is already finished (isMainFirstTime == false)
+    // 3. This detailed tour hasn't been shown yet
+    if (isDemoMode && !isMainFirstTime && isDetailedFirstTime) {
+      // Add a small delay to ensure the cart widget is fully rendered and stable
+      await Future.delayed(const Duration(milliseconds: 800));
+      if (!mounted) return;
+
+      final showcase = ShowCaseWidget.of(context);
+      if (showcase != null) {
+        showcase.startShowCase([
+          TourKeys.cartItemsKey,
+          TourKeys.subtotalKey,
+          TourKeys.cartSaveKey,
+          TourKeys.cartPrintKey,
+        ]);
+        await prefs.setBool('is_first_time_detailed_tutorial', false);
+      }
+    }
   }
 
   void _updateCart() {
     final printProvider = Provider.of<PrintProvider>(context, listen: false);
+
     printProvider.additem(selectedItemsDetails, subtotal);
+
     widget.onCartUpdated?.call(selectedItemsDetails, subtotal);
+
+    if (selectedItemsDetails.isNotEmpty) {
+      _checkCartTutorial();
+    }
   }
 
-  void _clearCart() {
+  void _clearCart({bool clearTableBackend = false}) {
     final printProvider = Provider.of<PrintProvider>(context, listen: false);
+    final tableProvider = Provider.of<TableProvider>(context, listen: false);
+
+    if (clearTableBackend && tableProvider.selectedTableId != null) {
+      tableProvider.clearTable(tableProvider.selectedTableId!);
+    }
+
     printProvider.clearCart();
     setState(() {
       selectedItemsDetails.clear();
@@ -103,107 +157,9 @@ class _BillCartState extends State<BillCart> {
     widget.onCartCleared?.call();
   }
 
-  Future<void> _showTableNumberBottomSheet(BuildContext parentContext) async {
-    final printProvider = Provider.of<PrintProvider>(parentContext, listen: false);
-
-    final tableNumber = await TableNumberBottomSheet.show(
-      context: parentContext,
-      primaryColor: appbar1,
-      confirmButtonText: 'Print Receipt',
-    );
-
-    if (tableNumber == null || !mounted) return; // User cancelled or widget unmounted
-
-    // Show loading dialog
-    showDialog(
-      context: parentContext,
-      barrierDismissible: false,
-      builder: (context) => const Center(child: CircularProgressIndicator()),
-    );
-
-    try {
-      // Generate sequential receipt number (returns 8-digit padded string like "00000001")
-      String generatedReceiptNo = await _sqliteHelper.getNextReceiptNumber(widget.phoneNo);
-
-      // Get tax parameters (already have default values in PrintProvider)
-
-      final orderTypeProvider = Provider.of<OrderTypeProvider>(context, listen: false);
-      String paymentType = orderTypeProvider.paymentType.toString().split('.').last;
-      String orderType = orderTypeProvider.orderType.toString().split('.').last;
-
-      // Fetch shop data (local-first)
-      final prefs = await SharedPreferences.getInstance();
-      String shopName = prefs.getString('shopName') ?? 'Shop Name';
-      String contact = prefs.getString('contact') ?? 'Contact';
-      String address = prefs.getString('address') ?? 'Address';
-      String logoUrl = prefs.getString('logoUrl') ?? '';
-      String upiId = prefs.getString('upiId') ?? "";
-
-      if (!mounted) return;
-      Navigator.pop(parentContext);
-
-      // Print dine-in receipt with table number
-      await DirectPrintHelper().printReceipt(
-        adminUid: widget.phoneNo,
-        context: parentContext,
-        printer: printProvider.selectedPrinter!,
-        paperSize: printProvider.selectedPaperSize,
-        items: selectedItemsDetails,
-        subTotal: subtotal,
-        shopName: shopName,
-        contact: contact,
-        address: address,
-        logoUrl: logoUrl,
-        upiId: upiId,
-        tableNumber: tableNumber,
-        receiptNo: generatedReceiptNo,
-        customerName: "",
-        customerPhone: "",
-        customerGst: "",
-        orderType: orderType,
-        paymentType: paymentType,
-        discountAmount: 0,
-        discountPercent: 0,
-        customerNote: "",
-        customerAddress: "",
-        taxEnabled: printProvider.taxEnabled,
-        cgstPercent: printProvider.cgstPercent,
-        sgstPercent: printProvider.sgstPercent,
-        saveBill: true,
-      );
-
-      _clearCart();
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(parentContext).showSnackBar(
-        SnackBar(
-          content: MyText(text: 'Dine-in receipt printed for Table $tableNumber'),
-          backgroundColor: Colors.green,
-          duration: const Duration(seconds: 2),
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      Navigator.pop(parentContext);
-      ScaffoldMessenger.of(parentContext).showSnackBar(
-        SnackBar(
-          content: MyText(text: 'Printing failed: $e'),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 3),
-        ),
-      );
-    }
-  }
-
   Future<void> _handlePreview() async {
     if (selectedItemsDetails.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: const MyText(text: 'No items in cart'),
-          backgroundColor: Colors.orange,
-          duration: Duration(seconds: 2),
-        ),
-      );
+      SnackBarUtils.showWarning(context, 'No items in cart');
       return;
     }
 
@@ -217,6 +173,7 @@ class _BillCartState extends State<BillCart> {
     String upiId = prefs.getString('upiId') ?? "";
     String logoUrl = prefs.getString('logoUrl') ?? "";
 
+    final tableProvider = Provider.of<TableProvider>(context, listen: false);
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
@@ -228,6 +185,7 @@ class _BillCartState extends State<BillCart> {
           upiId: upiId,
           phoneNo: widget.phoneNo,
           logoUrl: logoUrl,
+          tableNumber: tableProvider.selectedTable?.tableNumber,
         ),
       ),
     );
@@ -250,24 +208,12 @@ class _BillCartState extends State<BillCart> {
         context: context,
         builder: (context) => const PrinterConnectionDialog(),
       );
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: const MyText(text: 'Please connect a printer first'),
-          backgroundColor: Colors.orange,
-          duration: Duration(seconds: 2),
-        ),
-      );
+      SnackBarUtils.showWarning(context, 'Please connect a printer first');
       return;
     }
 
     if (selectedItemsDetails.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: const MyText(text: 'No items to print'),
-          backgroundColor: Colors.orange,
-          duration: Duration(seconds: 2),
-        ),
-      );
+      SnackBarUtils.showWarning(context, 'No items to print');
       return;
     }
 
@@ -280,6 +226,7 @@ class _BillCartState extends State<BillCart> {
     try {
       // Generate sequential receipt number (returns 8-digit padded string like "00000001")
       String generatedReceiptNo = await _sqliteHelper.getNextReceiptNumber(widget.phoneNo);
+      // ignore: use_build_context_synchronously
       final orderTypeProvider = Provider.of<OrderTypeProvider>(context, listen: false);
       String paymentType = orderTypeProvider.paymentType.toString().split('.').last;
       String orderType = orderTypeProvider.orderType.toString().split('.').last;
@@ -293,9 +240,7 @@ class _BillCartState extends State<BillCart> {
       String logoUrl = prefs.getString('logoUrl') ?? '';
       String upiId = prefs.getString('upiId') ?? "";
 
-      if (!mounted) return;
-      Navigator.pop(context);
-
+      // ignore: use_build_context_synchronously
       await DirectPrintHelper().printReceipt(
         adminUid: widget.phoneNo,
         context: context,
@@ -313,7 +258,7 @@ class _BillCartState extends State<BillCart> {
         customerGst: printProvider.customerGst ?? "",
         orderType: orderType,
         paymentType: paymentType,
-        tableNumber: "",
+        tableNumber: Provider.of<TableProvider>(context, listen: false).selectedTable?.tableNumber ?? "",
         discountAmount: 0,
         discountPercent: 0,
         customerNote: printProvider.customerNote ?? "",
@@ -330,46 +275,20 @@ class _BillCartState extends State<BillCart> {
         "$amountInWords rupees",
       );
 
-      _clearCart();
+      _clearCart(clearTableBackend: true);
 
       orderTypeProvider.reset();
 
       if (!mounted) return;
-      final isOnline = _databaseService.isOnline;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              Icon(
-                isOnline ? Icons.cloud_done : Icons.cloud_off,
-                color: Colors.white,
-                size: 20,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: MyText(
-                  text: isOnline
-                      ? 'Printed & saved! Receipt: $generatedReceiptNo'
-                      : 'Printed & saved offline! Receipt: $generatedReceiptNo',
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: Colors.green,
-          duration: const Duration(seconds: 2),
-        ),
-      );
     } catch (e) {
-      if (!mounted) return;
-      Navigator.pop(context);
       debugPrint('Error printing receipt: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: MyText(text: 'Printing failed: $e'),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 3),
-        ),
-      );
+      if (mounted) {
+        SnackBarUtils.showError(context, 'Printing failed: $e');
+      }
+    } finally {
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop(); // Close loader
+      }
     }
   }
 
@@ -406,8 +325,19 @@ class _BillCartState extends State<BillCart> {
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
-              _buildItemsList(printProvider),
-              _buildFooter(printProvider),
+              Showcase(
+                key: TourKeys.cartItemsKey,
+                title: 'Review Cart',
+                description:
+                    'See all items added to the current order. You can adjust quantities or remove items here.',
+                child: _buildItemsList(printProvider),
+              ),
+              Showcase(
+                key: TourKeys.subtotalKey,
+                title: 'Total Bill Amount',
+                description: 'This is the calculated total including all items and addons.',
+                child: _buildFooter(printProvider),
+              ),
             ],
           ),
         );
@@ -585,27 +515,62 @@ class _BillCartState extends State<BillCart> {
         children: [
           Row(
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: appbar1.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: appbar1.withOpacity(0.2)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.shopping_cart_outlined, size: 14, color: appbar1),
-                    const SizedBox(width: 6),
-                    MyText(
-                      text: '${selectedItemsDetails.length} Items',
-                      color: appbar1,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ],
+              Showcase(
+                key: TourKeys.cartItemsKey,
+                title: 'Cart Items',
+                description: 'Review the list of items you have added to this order.',
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: appbar1.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: appbar1.withOpacity(0.2)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.shopping_cart_outlined, size: 14, color: appbar1),
+                      const SizedBox(width: 6),
+                      MyText(
+                        text: '${selectedItemsDetails.length} Items',
+                        color: appbar1,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ],
+                  ),
                 ),
               ),
+              const SizedBox(width: 8),
+              if (widget.role != 'customer' && widget.isRestaurantScreen == true)
+                Consumer<TableProvider>(
+                  builder: (context, tableProvider, _) {
+                    if (tableProvider.selectedTableId != null) {
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: Colors.orange.withOpacity(0.2)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.table_bar_outlined, size: 14, color: Colors.orange),
+                            const SizedBox(width: 6),
+                            MyText(
+                              text: tableProvider.selectedTable?.tableNumber ?? '',
+                              color: Colors.orange.shade900,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
               const Spacer(),
               MyText(
                 text: 'Total: ',
@@ -614,82 +579,137 @@ class _BillCartState extends State<BillCart> {
                 fontWeight: FontWeight.w600,
               ),
               const SizedBox(width: 4),
-              MyText(
-                text: PriceUtils.formatPrice(subtotal),
-                fontSize: 22,
-                fontWeight: FontWeight.w800,
-                color: appbar1,
-                letterSpacing: -0.5,
+              Showcase(
+                key: TourKeys.subtotalKey,
+                title: 'Order Total',
+                description: 'The final amount calculated for all items in the cart.',
+                child: MyText(
+                  text: PriceUtils.formatPrice(subtotal),
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  color: appbar1,
+                  letterSpacing: -0.5,
+                ),
               ),
             ],
           ),
           const SizedBox(height: 16),
-          Consumer<OrderTypeProvider>(
-            builder: (context, provider, _) {
-              return MyChoiceChip(
-                options: const ['Cash', 'UPI', 'Debit', 'Complementory'],
-                selectedValue: provider.paymentType == PaymentType.cash
-                    ? 'Cash'
-                    : provider.paymentType == PaymentType.upi
-                        ? "UPI"
-                        : provider.paymentType == PaymentType.debit
-                            ? "Debit"
-                            : "Complementory",
-                onSelected: (value) {
-                  provider.setPaymentType(
-                    value == 'Cash'
-                        ? PaymentType.cash
-                        : value == 'UPI'
-                            ? PaymentType.upi
-                            : value == 'Debit'
-                                ? PaymentType.debit
-                                : PaymentType.complementory,
-                  );
-                },
-              );
-            },
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _buildIconButton(
-                icon: Icons.table_bar,
-                onPressed: () async {
-                  if (!printProvider.isConnected || printProvider.selectedPrinter == null) {
-                    showDialog(
-                      context: context,
-                      builder: (context) => const PrinterConnectionDialog(),
+          if (widget.role != 'customer')
+            Consumer<OrderTypeProvider>(
+              builder: (context, provider, _) {
+                return MyChoiceChip(
+                  options: const ['Cash', 'UPI', 'Debit', 'Complementory'],
+                  selectedValue: provider.paymentType == PaymentType.cash
+                      ? 'Cash'
+                      : provider.paymentType == PaymentType.upi
+                          ? "UPI"
+                          : provider.paymentType == PaymentType.debit
+                              ? "Debit"
+                              : "Complementory",
+                  onSelected: (value) {
+                    provider.setPaymentType(
+                      value == 'Cash'
+                          ? PaymentType.cash
+                          : value == 'UPI'
+                              ? PaymentType.upi
+                              : value == 'Debit'
+                                  ? PaymentType.debit
+                                  : PaymentType.complementory,
                     );
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: const MyText(text: 'Please connect a printer first'),
-                        backgroundColor: Colors.orange,
-                        duration: Duration(seconds: 2),
-                      ),
-                    );
-                    return;
+                  },
+                );
+              },
+            ),
+          if (widget.role == 'customer')
+            SizedBox(
+              width: double.infinity,
+              height: 55,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  if (widget.onPlaceOrder != null) {
+                    widget.onPlaceOrder!();
+                  } else {
+                    widget.orderBottomSheet.call();
                   }
-
-                  if (selectedItemsDetails.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: const MyText(text: 'No items in cart'),
-                        backgroundColor: Colors.orange,
-                        duration: Duration(seconds: 2),
-                      ),
-                    );
-                    return;
-                  }
-
-                  await _showTableNumberBottomSheet(context);
                 },
+                icon: const Icon(Icons.check_circle_outline, color: Colors.white),
+                label: const MyText(
+                  text: 'Place Order',
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: appbar1,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  elevation: 4,
+                  shadowColor: appbar1.withOpacity(0.4),
+                ),
               ),
-              _buildIconButton(icon: Icons.person, onPressed: () => widget.orderBottomSheet.call()),
-              _buildIconButton(imagePath: "assets/images/kot2.png", onPressed: () {}),
-              _buildIconButton(imagePath: "assets/images/save.png", onPressed: _handlePreview),
-              _buildIconButton(imagePath: "assets/images/save2.png", onPressed: _handlePrint),
-            ],
-          ),
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  if (widget.isRestaurantScreen == true)
+                    _buildIconButton(
+                      icon: Icons.table_bar,
+                      onPressed: () async {
+                        final tableProvider = Provider.of<TableProvider>(context, listen: false);
+                        final printProvider = Provider.of<PrintProvider>(context, listen: false);
+
+                        // Guard: a table must be selected
+                        if (tableProvider.selectedTableId == null) {
+                          SnackBarUtils.showWarning(context, 'Please select a table first');
+                          return;
+                        }
+
+                        // Guard: cart must not be empty
+                        if (printProvider.posts.isEmpty) {
+                          SnackBarUtils.showWarning(context, 'Cart is empty — nothing to save');
+                          return;
+                        }
+
+                        // Explicit save: commit current cart to the selected table
+                        final savedTableNumber = tableProvider.selectedTable?.tableNumber ?? '';
+                        await tableProvider.setTableCart(
+                          tableProvider.selectedTableId!,
+                          printProvider.posts,
+                        );
+
+                        printProvider.clearCart();
+                        tableProvider.selectTable(null);
+
+                        if (mounted) {
+                          SnackBarUtils.showSuccess(context, 'Cart saved to Table $savedTableNumber ✓');
+                          // Navigate to Table Management screen
+                          final navigationState = context.findAncestorStateOfType<State<Navigation>>() as dynamic;
+                          if (navigationState != null) {
+                            navigationState.setState(() {
+                              navigationState.currentIndex = 2;
+                            });
+                          }
+                        }
+                      },
+                      iconColor: Colors.white,
+                    ),
+                  Showcase(
+                    key: TourKeys.cartSaveKey,
+                    title: 'Save Order',
+                    description: 'Saves the bill to print or preview later.',
+                    child: _buildIconButton(imagePath: "assets/images/save.png", onPressed: _handlePreview),
+                  ),
+                  Showcase(
+                    key: TourKeys.cartPrintKey,
+                    title: 'Save + Print',
+                    description: 'Saves the bill and instantly prints it.',
+                    child: _buildIconButton(imagePath: "assets/images/save2.png", onPressed: _handlePrint),
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );
@@ -700,41 +720,40 @@ class _BillCartState extends State<BillCart> {
     String? imagePath,
     required VoidCallback onPressed,
     double size = 35,
+    Color? iconColor,
   }) {
     assert(icon != null || imagePath != null);
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(14),
-        child: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: appbar1,
-            borderRadius: BorderRadius.circular(14),
-            boxShadow: [
-              BoxShadow(
-                color: appbar1.withOpacity(0.3),
-                blurRadius: 8,
-                offset: const Offset(0, 3),
-              ),
-            ],
-          ),
-          child: Center(
-            child: icon != null
-                ? Icon(
-                    icon,
-                    size: size,
-                    color: Colors.white,
-                  )
-                : Image.asset(
-                    imagePath!,
-                    width: size,
-                    height: size,
-                    fit: BoxFit.contain,
-                  ),
-          ),
+    return InkWell(
+      onTap: onPressed,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        margin: const EdgeInsets.symmetric(horizontal: 5),
+        decoration: BoxDecoration(
+          color: appbar1,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [
+            BoxShadow(
+              color: appbar1.withOpacity(0.3),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Center(
+          child: icon != null
+              ? Icon(
+                  icon,
+                  size: size,
+                  color: iconColor ?? Colors.white,
+                )
+              : Image.asset(
+                  imagePath!,
+                  width: size,
+                  height: size,
+                  fit: BoxFit.contain,
+                ),
         ),
       ),
     );

@@ -1,6 +1,7 @@
 // Flutter imports:
 import 'package:flutter/material.dart';
 import 'package:pos/core/widgets/text.dart';
+import 'package:pos/core/utils/snackbar_utils.dart';
 
 // Package imports:
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -125,12 +126,7 @@ class TableNumberBottomSheet {
                     child: ElevatedButton(
                       onPressed: () {
                         if (controller.text.trim().isEmpty) {
-                          ScaffoldMessenger.of(sheetContext).showSnackBar(
-                            SnackBar(
-                              content: MyText(text: 'Please enter $labelText'),
-                              backgroundColor: Colors.orange,
-                            ),
-                          );
+                          SnackBarUtils.showWarning(sheetContext, 'Please enter $labelText');
                           return;
                         }
                         Navigator.pop(sheetContext, controller.text.trim());
@@ -283,21 +279,11 @@ class CustomInputBottomSheet {
                         if (validator != null) {
                           final error = validator(value);
                           if (error != null) {
-                            ScaffoldMessenger.of(sheetContext).showSnackBar(
-                              SnackBar(
-                                content: MyText(text: error),
-                                backgroundColor: Colors.orange,
-                              ),
-                            );
+                            SnackBarUtils.showWarning(sheetContext, error);
                             return;
                           }
                         } else if (value.isEmpty) {
-                          ScaffoldMessenger.of(sheetContext).showSnackBar(
-                            SnackBar(
-                              content: MyText(text: 'Please enter $labelText'),
-                              backgroundColor: Colors.orange,
-                            ),
-                          );
+                          SnackBarUtils.showWarning(sheetContext, 'Please enter $labelText');
                           return;
                         }
                         Navigator.pop(sheetContext, value);

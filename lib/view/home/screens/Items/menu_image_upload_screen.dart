@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:pos/core/widgets/text.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:pos/data/services/menu_image_service.dart';
+import 'package:pos/core/utils/snackbar_utils.dart';
 import 'package:pos/view/home/navigation.dart';
 
 class MenuImageUploadScreen extends StatefulWidget {
@@ -32,7 +33,7 @@ class _MenuImageUploadScreenState extends State<MenuImageUploadScreen> {
         });
       }
     } catch (e) {
-      _showSnack('Error picking image: $e', Colors.red);
+      SnackBarUtils.showError(context, 'Error picking image: $e');
     }
   }
 
@@ -44,7 +45,7 @@ class _MenuImageUploadScreenState extends State<MenuImageUploadScreen> {
     try {
       final success = await _menuImageService.uploadMenuImage(_selectedImage!);
       if (success) {
-        _showSnack('Menu updated successfully!', Colors.green);
+        SnackBarUtils.showSuccess(context, 'Menu updated successfully!');
         if (mounted) {
           Future.delayed(const Duration(seconds: 1), () {
             Navigator.pop(context, true);
@@ -53,21 +54,12 @@ class _MenuImageUploadScreenState extends State<MenuImageUploadScreen> {
       }
     } catch (e) {
       print(e);
-      _showSnack('Upload failed: $e', Colors.red);
+      SnackBarUtils.showError(context, 'Upload failed: $e');
     } finally {
       if (mounted) setState(() => _isUploading = false);
     }
   }
 
-  void _showSnack(String msg, Color color) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: MyText(text: msg),
-        backgroundColor: color,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
