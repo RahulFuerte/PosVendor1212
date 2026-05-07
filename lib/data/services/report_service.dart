@@ -159,4 +159,27 @@ class ReportService {
       throw Exception(data['message'] ?? 'Failed to get dashboard report');
     }
   }
+
+  Future<Map<String, dynamic>> getStaffWiseReport({String? staffId, DateTime? startDate, DateTime? endDate}) async {
+    final token = await _getToken();
+    String query = '';
+    if (staffId != null && staffId.isNotEmpty) query += 'staffId=$staffId&';
+    if (startDate != null) query += 'startDate=${startDate.toIso8601String().split('T')[0]}&';
+    if (endDate != null) query += 'endDate=${endDate.toIso8601String().split('T')[0]}';
+
+    final response = await http.get(
+      Uri.parse('$baseUrl/staff-wise?$query'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': token ?? "",
+      },
+    );
+
+    final data = jsonDecode(response.body);
+    if (response.statusCode == 200) {
+      return data;
+    } else {
+      throw Exception(data['message'] ?? 'Failed to get staff-wise report');
+    }
+  }
 }

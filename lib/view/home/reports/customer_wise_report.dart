@@ -140,7 +140,7 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
   }
 
   Future<void> _downloadAndShareReport() async {
-      SnackBarUtils.showWarning(context, 'No data available to generate report');
+    SnackBarUtils.showWarning(context, 'No data available to generate report');
 
     showDialog(
       context: context,
@@ -341,7 +341,7 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
         },
       );
 
-        SnackBarUtils.showSuccess(context, 'PDF generated successfully');
+      SnackBarUtils.showSuccess(context, 'PDF generated successfully');
     } catch (e) {
       if (mounted && Navigator.canPop(context)) {
         Navigator.pop(context);
@@ -462,10 +462,10 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
         scrolledUnderElevation: 0,
         backgroundColor: Colors.white,
         title: const MyText(
-          text: 'Customer Wise Report',
+          text: 'Customer wise Report',
           color: Colors.black87,
           fontWeight: FontWeight.bold,
-          fontSize: 18,
+          fontSize: 20,
         ),
         actions: [
           IconButton(
@@ -799,7 +799,7 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
                                                   const SizedBox(width: 12),
                                                   Expanded(
                                                     child: MyText(
-                                                      text: "₹${item['price']}",
+                                                      text: "\u20B9${item['price']}",
                                                       fontSize: 14,
                                                       fontWeight: FontWeight.bold,
                                                     ),
@@ -1871,7 +1871,7 @@ class ProcessedBillData {
 //                         crossAxisAlignment: CrossAxisAlignment.end,
 //                         children: [
 //                           MyText(
-//                             text: "₹${(totalPaid + totalDue).toStringAsFixed(0)}",
+//                             text: "\u20B9${(totalPaid + totalDue).toStringAsFixed(0)}",
 //                             style: const TextStyle(
 //                               color: Colors.white,
 //                               fontSize: 18,
@@ -2006,7 +2006,7 @@ class ProcessedBillData {
 //                               ),
 //                             ),
 //                             MyText(
-//                               text: "₹${bill['amount'].toStringAsFixed(0)}",
+//                               text: "\u20B9${bill['amount'].toStringAsFixed(0)}",
 //                               style: TextStyle(
 //                                 fontSize: 16,
 //                                 fontWeight: FontWeight.bold,
@@ -2102,7 +2102,7 @@ class ProcessedBillData {
 //                 ),
 //               ),
 //               MyText(
-//                 text: "₹${value.toStringAsFixed(0)}",
+//                 text: "\u20B9${value.toStringAsFixed(0)}",
 //                 style: const TextStyle(
 //                   color: Colors.white,
 //                   fontSize: 16,

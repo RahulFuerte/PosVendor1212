@@ -5,7 +5,9 @@ import 'package:pos/view/home/reports/customer_wise_report.dart';
 import 'package:pos/view/home/reports/date_wise_report.dart';
 import 'package:pos/view/home/reports/item_wise_report.dart';
 import 'package:pos/view/home/reports/sales_report_screen.dart';
+import 'package:pos/view/home/reports/staff_wise_report.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ReportNavBar extends StatelessWidget {
   final String currentReport;
@@ -33,6 +35,22 @@ class ReportNavBar extends StatelessWidget {
           _buildNavChip(context, 'Item-wise', ItemwiseReportScreen(uid: uid, adminUid: adminUid)),
           _buildNavChip(context, 'Date-wise', DatewiseReportScreen(uid: uid, adminUid: adminUid)),
           _buildNavChip(context, 'Customer-wise', CustomerWiseReport(uid: uid, adminUid: adminUid)),
+          FutureBuilder<SharedPreferences>(
+            future: SharedPreferences.getInstance(),
+            builder: (context, snapshot) {
+              if (snapshot.hasData) {
+                final role = snapshot.data!.getString('role');
+                if (role == 'admin') {
+                  return _buildNavChip(
+                    context,
+                    'Staff-wise',
+                    StaffWiseReportScreen(uid: uid, adminUid: adminUid),
+                  );
+                }
+              }
+              return const SizedBox.shrink();
+            },
+          ),
         ],
       ),
     );

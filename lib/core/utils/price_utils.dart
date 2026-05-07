@@ -102,7 +102,7 @@ class PriceUtils {
   }
 
   /// Formats a price for display with currency symbol
-  static String formatPrice(dynamic value, {String currency = '₹', int decimals = 2}) {
+  static String formatPrice(dynamic value, {String currency = '\u20B9', int decimals = 2}) {
     final price = safeParseDouble(value);
     final NumberFormat numberFormat = NumberFormat("#,##,##0", "en_IN");
 

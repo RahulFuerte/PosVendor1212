@@ -490,7 +490,6 @@ class DirectPrintHelper {
           if (order.id != null) {
             orderId = order.id;
           }
-          debugPrint('[SaveBillData] Order created successfully via OrderService. Bill No: $finalReceiptNo');
         }
       } catch (e) {
         debugPrint('[SaveBillData] Failed to create order via OrderService: $e');
@@ -526,9 +525,6 @@ class DirectPrintHelper {
 
       // Save using SmartDatabaseService (handles online/offline automatically)
       await _databaseService.saveBill(adminUid, billData);
-
-      debugPrint(
-          '[SaveBillData] Bill saved successfully - receiptNo: $finalReceiptNo (${_databaseService.isOnline ? "online" : "offline"})');
 
       return finalReceiptNo;
     } catch (e) {

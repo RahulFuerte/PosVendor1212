@@ -540,10 +540,10 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
                           _cell(bill['billNo'].toString()),
                           _cell(bill['customerName'].toString()),
                           _cell((bill['totalItems'] ?? 0).toString()),
-                          _cell("₹${bill['totalAmount']}"),
-                          _cell("₹${bill['discount']}"),
-                          _cell("₹${bill['tax']}"),
-                          _cell("₹${bill['finalAmount']}"),
+                          _cell("\u20B9${bill['totalAmount']}"),
+                          _cell("\u20B9${bill['discount']}"),
+                          _cell("\u20B9${bill['tax']}"),
+                          _cell("\u20B9${bill['finalAmount']}"),
                           _cell(bill['orderDate'].toString()),
                         ],
                       );
@@ -580,7 +580,7 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
                             style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 14),
                           ),
                           pw.Text(
-                            "₹${totalAmount.toStringAsFixed(2)}",
+                            "\u20B9${totalAmount.toStringAsFixed(2)}",
                             style: pw.TextStyle(
                               fontWeight: pw.FontWeight.bold,
                               fontSize: 16,
@@ -636,9 +636,16 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: primaryColor,
-        title: const MyText(text: 'Billwise report', color: Colors.white),
-        iconTheme: const IconThemeData(color: Colors.white),
+        elevation: 0,
+        scrolledUnderElevation: 0,
+
+        backgroundColor: Colors.white,
+        title: const MyText(
+          text: 'Billwise report',
+          color: Colors.black87,
+          fontWeight: FontWeight.bold,
+          fontSize: 20,
+        ),
       ),
       drawer: MyDrawer(
         phoneNo: widget.uid,

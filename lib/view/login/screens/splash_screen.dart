@@ -15,6 +15,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:pos/view/customer/customer_dashboard.dart';
 import 'package:pos/view/login/screens/auth_landing_screen.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
+import 'package:pos/view/login/screens/onboard_screen.dart';
 import '../../home/navigation.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -100,7 +101,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
       final next = role == 'customer' ? const CustomerDashboard() : Navigation(uId: phone);
       Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => next));
     } else {
-      Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const AuthLandingScreen()));
+      Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const OnboardingScreen()));
     }
   }
 
@@ -196,14 +197,14 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        _PartnerLogo(path: '$imagesPath/razorpay.png'),
+                        Expanded(child: _PartnerLogo(path: '$imagesPath/razorpay.png')),
                         Container(
                           height: 35,
                           width: 1.5,
                           margin: const EdgeInsets.symmetric(horizontal: 25),
                           color: Colors.grey.shade300,
                         ),
-                        _PartnerLogo(path: '$imagesPath/richpos.png'),
+                        Expanded(child: _PartnerLogo(path: '$imagesPath/richpos.png')),
                       ],
                     ),
                   ],

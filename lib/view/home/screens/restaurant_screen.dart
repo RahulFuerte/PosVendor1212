@@ -116,7 +116,8 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
 
     setState(() {
       _isDemoMode = isDemoMode;
-      _showTutorialActions = isDemoMode && (isDetailedFirstTime || isDrawerFirstTime || prefs.getBool('is_first_time_main_tutorial') != false);
+      _showTutorialActions = isDemoMode &&
+          (isDetailedFirstTime || isDrawerFirstTime || prefs.getBool('is_first_time_main_tutorial') != false);
     });
 
     // Main tutorial is now handled by Navigation when switching to restaurant tab
@@ -163,7 +164,6 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
           _syncPendingBills();
         }
       });
-
     } catch (e) {
       _isOnline = false; // Assume offline on error
     }
@@ -187,16 +187,14 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
         );
         _preloadingCoordinator.triggerImmediatePreloading(adminUid);
       }
-    } catch (e) {
-    }
+    } catch (e) {}
   }
 
   Future<void> _initializeOfflineBillManager() async {
     try {
       await _offlineBillManager.initialize();
       _updatePendingBillsCount();
-    } catch (e) {
-    }
+    } catch (e) {}
   }
 
   Future<void> showSaveOrderBottomSheet({

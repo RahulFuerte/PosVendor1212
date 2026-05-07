@@ -47,17 +47,16 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFFBFBFB),
       appBar: AppBar(
-        backgroundColor: primaryColor,
         elevation: 0,
+        scrolledUnderElevation: 0,
+
+        backgroundColor: Colors.white,
         title: const MyText(
-          text: 'DATEWISE REPORT',
-          color: Colors.white,
-          fontWeight: FontWeight.w600,
-          fontSize: 16,
-          letterSpacing: 1,
+          text: 'Date wise Report',
+          color: Colors.black87,
+          fontWeight: FontWeight.bold,
+          fontSize: 20,
         ),
-        iconTheme: const IconThemeData(color: Colors.white),
-        centerTitle: true,
       ),
       drawer: MyDrawer(
         phoneNo: widget.uid,
@@ -614,9 +613,9 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
         bytes: bytes,
       );
 
-        SnackBarUtils.showSuccess(context, 'Report printed successfully!');
+      SnackBarUtils.showSuccess(context, 'Report printed successfully!');
     } catch (e) {
-        SnackBarUtils.showError(context, 'Print error: $e');
+      SnackBarUtils.showError(context, 'Print error: $e');
     }
   }
 
@@ -739,7 +738,7 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
                         children: [
                           _pdfCell(displayDate),
                           _pdfCell(date['totalBills'].toString()),
-                          _pdfCell("₹${date['amount']}"),
+                          _pdfCell("\u20B9${date['amount']}"),
                         ],
                       );
                     }).toList(),
@@ -769,7 +768,7 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
                         children: [
                           pw.Text('Grand Total: ', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 14)),
                           pw.Text(
-                            "₹${totalAmount.toStringAsFixed(2)}",
+                            "\u20B9${totalAmount.toStringAsFixed(2)}",
                             style: pw.TextStyle(
                               fontWeight: pw.FontWeight.bold,
                               fontSize: 16,
@@ -799,7 +798,7 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
         },
       );
 
-        SnackBarUtils.showSuccess(context, 'PDF generated successfully!');
+      SnackBarUtils.showSuccess(context, 'PDF generated successfully!');
     } catch (e) {
       if (mounted && Navigator.canPop(context)) {
         Navigator.pop(context);

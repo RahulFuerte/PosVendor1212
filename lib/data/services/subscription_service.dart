@@ -48,7 +48,6 @@ class SubscriptionService {
       Uri.parse('$baseUrl/plans'),
       headers: {'Content-Type': 'application/json'},
     );
-    print("Call Normal");
     if (response.statusCode == 200) {
       final List data = jsonDecode(response.body);
       return data.map((e) => SubscriptionPlanModel.fromJson(e)).toList();

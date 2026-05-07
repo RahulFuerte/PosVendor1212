@@ -126,14 +126,18 @@ class SubscriptionProvider extends ChangeNotifier {
         endDate = DateTime.tryParse(endDateStr);
       }
 
-      // Fetch specific plan data if we have an ID
-      if (planId != null && _plans.isEmpty) {
-        try {
-          final plan = await _subscriptionService.getPlanById(planId);
-          _plans = [plan];
-        } catch (e) {
-          debugPrint('Error fetching plan by ID in loadSavedSubscription: $e');
-          // Fallback if needed
+      // Ensure plans are loaded
+      if (_plans.isEmpty) {
+        if (planId != null) {
+          try {
+            final plan = await _subscriptionService.getPlanById(planId);
+            _plans = [plan];
+          } catch (e) {
+            debugPrint('Error fetching plan by ID in loadSavedSubscription: $e');
+            await fetchPlans();
+          }
+        } else {
+          // If no specific planId, fetch all plans to ensure "free" plan is available
           await fetchPlans();
         }
       }

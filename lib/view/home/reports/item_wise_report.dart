@@ -46,17 +46,16 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFFBFBFB),
       appBar: AppBar(
-        backgroundColor: primaryColor,
         elevation: 0,
+        scrolledUnderElevation: 0,
+
+        backgroundColor: Colors.white,
         title: const MyText(
-          text: 'ITEMWISE REPORT',
-          color: Colors.white,
-          fontWeight: FontWeight.w600,
-          fontSize: 16,
-          letterSpacing: 1,
+          text: 'Item wise Report',
+          color: Colors.black87,
+          fontWeight: FontWeight.bold,
+          fontSize: 20,
         ),
-        iconTheme: const IconThemeData(color: Colors.white),
-        centerTitle: true,
       ),
       drawer: MyDrawer(
         phoneNo: widget.uid,
@@ -502,7 +501,7 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
       int totalCols = is58mm ? 32 : 48;
       String separator = '-' * totalCols;
 
-      // SAFE amount formatter (NO ₹)
+      // SAFE amount formatter (NO \u20B9)
       String formatAmount(dynamic value) {
         final amount = (value ?? 0) as num;
         return amount.toStringAsFixed(2);
@@ -615,9 +614,9 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
         bytes: bytes,
       );
 
-        SnackBarUtils.showSuccess(context, 'Report printed successfully!');
+      SnackBarUtils.showSuccess(context, 'Report printed successfully!');
     } catch (e) {
-        SnackBarUtils.showError(context, 'Print error: $e');
+      SnackBarUtils.showError(context, 'Print error: $e');
     }
   }
 
@@ -733,7 +732,7 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
                           _pdfCell((index + 1).toString()),
                           _pdfCell(item['name']?.toString() ?? ''),
                           _pdfCell(item['quantity'].toString()),
-                          _pdfCell("₹${item['amount']}"),
+                          _pdfCell("\u20B9${item['amount']}"),
                         ],
                       );
                     }),
@@ -763,7 +762,7 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
                         children: [
                           pw.Text('Grand Total: ', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 14)),
                           pw.Text(
-                            "₹${totalAmount.toStringAsFixed(2)}",
+                            "\u20B9${totalAmount.toStringAsFixed(2)}",
                             style: pw.TextStyle(
                               fontWeight: pw.FontWeight.bold,
                               fontSize: 16,
@@ -783,7 +782,7 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
         },
       );
 
-        SnackBarUtils.showSuccess(context, 'PDF generated successfully!');
+      SnackBarUtils.showSuccess(context, 'PDF generated successfully!');
     } catch (e) {
       if (mounted && Navigator.canPop(context)) {
         Navigator.pop(context);

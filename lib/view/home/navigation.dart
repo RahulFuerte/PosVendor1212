@@ -82,7 +82,6 @@ class _AdminDashboardState extends State<Navigation> {
       final bool isDemoMode = prefs.getBool('isDemoMode') ?? false;
       final bool isMainFirstTime = prefs.getBool('is_first_time_main_tutorial') ?? true;
 
-
       if (isDemoMode && isMainFirstTime) {
         // Mark main tutorial as completed immediately so detailed tutorial can start
         await prefs.setBool('is_first_time_main_tutorial', false);

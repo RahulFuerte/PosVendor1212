@@ -64,7 +64,6 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
     });
     try {
       final data = await _reportService.getSalesReport(date: selectedDate);
-
       setState(() {
         totalSales = (data['totalSales'] ?? 0.0).toDouble();
         totalOrders = (data['totalOrders'] ?? 0);
@@ -108,6 +107,7 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
         elevation: 0,
+        scrolledUnderElevation: 0,
         backgroundColor: Colors.white,
         title: const MyText(
           text: 'Sales Report',
@@ -149,38 +149,37 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
                   children: [
                     IconButton(
                       onPressed: () => changeDate(-1),
-                      icon: const Icon(Icons.chevron_left, size: 32),
-                      color: Colors.blue,
+                      icon: const Icon(Icons.chevron_left, size: 28),
+                      color: primaryColor,
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 12,
-                      ),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [Colors.blue[400]!, Colors.blue[600]!],
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 12,
                         ),
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.blue.withOpacity(0.3),
-                            blurRadius: 8,
-                            offset: const Offset(0, 4),
+                        decoration: BoxDecoration(
+                          color: primaryColor.withOpacity(0.05),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: primaryColor.withOpacity(0.1)),
+                        ),
+                        child: Center(
+                          child: MyText(
+                            text: DateFormat('MMM dd, yyyy').format(selectedDate),
+                            color: primaryColor,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
                           ),
-                        ],
-                      ),
-                      child: MyText(
-                        text: DateFormat('MMM dd, yyyy').format(selectedDate),
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                     IconButton(
-                      onPressed: selectedDate.isBefore(DateTime.now()) ? () => changeDate(1) : null,
-                      icon: const Icon(Icons.chevron_right, size: 32),
-                      color: selectedDate.isBefore(DateTime.now()) ? Colors.blue : Colors.grey,
+                      onPressed: selectedDate.isBefore(DateTime.now().subtract(const Duration(hours: 23)))
+                          ? () => changeDate(1)
+                          : null,
+                      icon: const Icon(Icons.chevron_right, size: 28),
+                      color: selectedDate.isBefore(DateTime.now().subtract(const Duration(hours: 23)))
+                          ? primaryColor
+                          : Colors.grey,
                     ),
                   ],
                 ),
@@ -229,12 +228,15 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
                 const SizedBox(height: 12),
                 isLoading
                     ? const CircularProgressIndicator(color: Colors.white)
-                    : MyText(
-                        text: PriceUtils.formatPrice(totalSales),
-                        color: Colors.white,
-                        fontSize: 36,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.2,
+                    : FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: MyText(
+                          text: PriceUtils.formatPrice(totalSales),
+                          color: Colors.white,
+                          fontSize: 36,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.2,
+                        ),
                       ),
               ],
             ),
@@ -251,14 +253,14 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
                   Icons.shopping_bag_outlined,
                   Colors.blue,
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 8),
                 _buildSummaryCard(
                   'Discount',
                   PriceUtils.formatPrice(totalDiscount),
                   Icons.local_offer_outlined,
                   Colors.orange,
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 8),
                 _buildSummaryCard(
                   'Tax',
                   PriceUtils.formatPrice(totalTax),
@@ -326,8 +328,13 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
                         itemCount: productSales.length,
                         itemBuilder: (context, index) {
                           final product = productSales[index];
-                          final maxQuantity = productSales.isNotEmpty ? productSales.first['quantity'] : 1;
-                          final percentage = maxQuantity > 0 ? (product['quantity'] / maxQuantity) * 100 : 0;
+                          final double maxQuantity = productSales.isNotEmpty
+                              ? productSales
+                                  .map((e) => (e['quantity'] as num).toDouble())
+                                  .reduce((a, b) => a > b ? a : b)
+                              : 1.0;
+                          final double quantity = (product['quantity'] as num).toDouble();
+                          final double percentage = (quantity / maxQuantity * 100).clamp(0, 100).toDouble();
 
                           return Container(
                             margin: const EdgeInsets.only(bottom: 12),
@@ -439,7 +446,7 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
                                           borderRadius: BorderRadius.circular(4),
                                           boxShadow: [
                                             BoxShadow(
-                                              color: Colors.blue.withOpacity(0.3),
+                                              color: Colors.green.withOpacity(0.2),
                                               blurRadius: 4,
                                               offset: const Offset(0, 2),
                                             ),
@@ -451,7 +458,7 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
                                 ),
                                 const SizedBox(height: 6),
                                 MyText(
-                                  text: '${PriceUtils.formatPrice(percentage, decimals: 1)}% of top seller',
+                                  text: '${percentage.toStringAsFixed(1)}% of top seller',
                                   fontSize: 12,
                                   color: Colors.grey[600],
                                   fontStyle: FontStyle.italic,
@@ -470,8 +477,8 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
   Widget _buildSummaryCard(String title, String value, IconData icon, Color color) {
     return Expanded(
       child: Container(
-        height: 120, // Fixed height for uniformity
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        height: 110, // Slightly reduced for better fit
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
@@ -493,18 +500,18 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
                 color: color.withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
-              child: Icon(icon, color: color, size: 22),
+              child: Icon(icon, color: color, size: 20),
             ),
             const SizedBox(height: 10),
             FittedBox(
               fit: BoxFit.scaleDown,
-                child: MyText(
-                  text: value,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
-                  color: Colors.black87,
-                  letterSpacing: -0.5,
-                ),
+              child: MyText(
+                text: value,
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+                color: Colors.black87,
+                letterSpacing: -0.5,
+              ),
             ),
             const SizedBox(height: 2),
             MyText(

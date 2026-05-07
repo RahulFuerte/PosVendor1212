@@ -15,6 +15,7 @@ import 'package:pos/view/home/reports/customer_wise_report.dart';
 import 'package:pos/view/home/reports/date_wise_report.dart';
 import 'package:pos/view/home/reports/item_wise_report.dart';
 import 'package:pos/view/home/reports/sales_report_screen.dart';
+import 'package:pos/view/home/reports/staff_wise_report.dart';
 import 'package:pos/view/home/screens/expense_main.dart';
 import 'package:pos/view/home/screens/customer_list_screen.dart';
 import 'package:pos/view/home/screens/dashboard.dart';
@@ -522,6 +523,18 @@ class _MyDrawerState extends State<MyDrawer> {
                       onTap: () {
                         _navigate(
                           DatewiseReportScreen(
+                            adminUid: adminUid,
+                            uid: widget.phoneNo,
+                          ),
+                        );
+                      },
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.badge_outlined, color: primaryColor),
+                      title: const MyText(fontWeight: FontWeight.w500, text: 'Staff-wise Report'),
+                      onTap: () {
+                        _navigate(
+                          StaffWiseReportScreen(
                             adminUid: adminUid,
                             uid: widget.phoneNo,
                           ),

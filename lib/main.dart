@@ -77,13 +77,13 @@ class MyApp extends StatelessWidget {
         ),
         ChangeNotifierProvider(create: (_) => PrintProvider()),
         ChangeNotifierProvider(create: (_) => OrderTypeProvider()),
-        ChangeNotifierProvider(create: (_) => SubscriptionProvider()),
+        ChangeNotifierProvider(create: (_) => SubscriptionProvider()..loadSavedSubscription()),
         ChangeNotifierProvider(
           create: (context) => TableProvider(),
         ),
       ],
       child: MaterialApp(
-        title: 'POS',
+        title: 'Billing Sphere',
         scaffoldMessengerKey: SnackBarUtils.messengerKey,
         home: const SplashScreen(),
         debugShowCheckedModeBanner: false,

@@ -84,7 +84,6 @@ class UserService {
   /// Exchanges a Firebase ID token for a backend JWT session.
   static Future<Map<String, dynamic>> firebaseLogin(String firebaseToken) async {
     try {
-      print('Firebase Token: $firebaseToken');
       final response = await http.post(
         Uri.parse('${ApiConstants.users}/firebase-login'),
         headers: {'Content-Type': 'application/json'},

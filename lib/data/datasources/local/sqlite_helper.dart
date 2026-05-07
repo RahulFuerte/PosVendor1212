@@ -1550,7 +1550,6 @@ class SQLiteHelper {
       }
 
       final receiptNo = nextNumber.toString();
-      print('[SQLiteHelper] Generated receiptNo: $receiptNo for admin: $adminUid');
       return receiptNo;
     } catch (e) {
       print('Error getting next receipt number: $e');

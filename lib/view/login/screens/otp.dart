@@ -11,6 +11,8 @@ import 'package:pos/view/home/navigation.dart';
 import 'package:pos/core/widgets/text.dart';
 import 'package:pos/core/utils/snackbar_utils.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
+import 'package:pos/data/providers/subscription_provider.dart';
+import 'package:provider/provider.dart';
 
 class Otp extends StatefulWidget {
   final String phoneNumber;
@@ -124,6 +126,10 @@ class _OtpState extends State<Otp> {
           );
 
           if (mounted) {
+            // Load subscription data if relevant for customers too
+            final subProvider = Provider.of<SubscriptionProvider>(context, listen: false);
+            await subProvider.loadSavedSubscription();
+
             Navigator.pushAndRemoveUntil(
               context,
               MaterialPageRoute(builder: (_) => const CustomerDashboard()),
@@ -148,11 +154,19 @@ class _OtpState extends State<Otp> {
             final role = response['user']['role'] ?? 'staff';
             final phone = widget.phoneNumber;
 
-            Navigator.pushAndRemoveUntil(
-              context,
-              MaterialPageRoute(builder: (_) => Navigation(uId: phone, role: role)),
-              (route) => false,
-            );
+            if (mounted) {
+              // Load and Sync subscription data immediately after login
+              final subProvider = Provider.of<SubscriptionProvider>(context, listen: false);
+              await subProvider.loadSavedSubscription();
+              // Also trigger a background sync to ensure we have the absolute latest from server
+              subProvider.syncSubscriptionWithApi();
+
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => Navigation(uId: phone, role: role)),
+                (route) => false,
+              );
+            }
           }
         } else {
           _showSnackBar(response['message'] ?? 'Login failed');
