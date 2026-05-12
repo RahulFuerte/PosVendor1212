@@ -25,6 +25,7 @@ class PrintProvider extends ChangeNotifier {
   String? _customerGst;
   String? _customerAddress;
   String? _customerNote;
+  bool _isCartExpanded = false;
 
   // Printer connection state
   bool _isConnected = false;
@@ -54,6 +55,7 @@ class PrintProvider extends ChangeNotifier {
   String? get customerGst => _customerGst;
   String? get customerAddress => _customerAddress;
   String? get customerNote => _customerNote;
+  bool get isCartExpanded => _isCartExpanded;
 
   PrintProvider() {
     _loadTaxSettings();
@@ -148,6 +150,11 @@ class PrintProvider extends ChangeNotifier {
     _customerGst = gst;
     _customerAddress = address;
     _customerNote = note;
+    notifyListeners();
+  }
+
+  void setCartExpanded(bool expanded) {
+    _isCartExpanded = expanded;
     notifyListeners();
   }
 

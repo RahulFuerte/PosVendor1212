@@ -11,7 +11,7 @@ import 'screens/calculator_screen.dart';
 import 'screens/restaurant_screen.dart';
 import 'screens/table_management_screen.dart';
 
-Color appbar1 = const Color.fromARGB(255, 12, 107, 15);
+const Color appbar1 = Color.fromARGB(255, 12, 107, 15);
 
 class Navigation extends StatefulWidget {
   final AnimationController? resizableController;

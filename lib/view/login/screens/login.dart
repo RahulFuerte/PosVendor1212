@@ -34,10 +34,54 @@ class _LoginState extends State<Login> {
     try {
       await FirebaseAuth.instance.verifyPhoneNumber(
         phoneNumber: '+91$phone',
-        verificationCompleted: (PhoneAuthCredential credential) async {},
+        timeout: const Duration(seconds: 60),
+        verificationCompleted: (PhoneAuthCredential credential) async {
+          // This callback will be called in two situations:
+          // 1. On Android devices that support self-verification (Instant verification)
+          // 2. On some devices where the SMS code is automatically retrieved
+          setState(() => _isLoading = false);
+          try {
+            // Sign in automatically
+            final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
+            final firebaseToken = await userCredential.user!.getIdToken();
+            
+            if (firebaseToken != null && mounted) {
+              // Navigate to OTP screen or handle login directly
+              // For simplicity and consistency with existing logic, we can still go to OTP 
+              // but we might want to auto-submit there.
+              // Alternatively, handle login here if we have everything.
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => Otp(
+                    phoneNumber: phone,
+                    verificationId: "", // Empty because it's already verified
+                    role: widget.role,
+                    credential: credential, // Pass the credential for auto-login
+                  ),
+                ),
+              );
+            }
+          } catch (e) {
+            SnackBarUtils.showError(context, "Auto-verification failed: ${e.toString()}");
+          }
+        },
         verificationFailed: (FirebaseAuthException e) {
           setState(() => _isLoading = false);
-          SnackBarUtils.showError(context, e.message ?? "Verification failed. Try again.");
+          debugPrint("Firebase Verification Failed: ${e.code} - ${e.message}");
+          
+          String errorMessage = "Verification failed. Try again.";
+          if (e.code == 'invalid-phone-number') {
+            errorMessage = "The provided phone number is not valid.";
+          } else if (e.code == 'quota-exceeded') {
+            errorMessage = "SMS quota exceeded. Please try again later.";
+          } else if (e.code == 'too-many-requests') {
+            errorMessage = "Too many attempts. Please try again later.";
+          } else if (e.code == 'app-not-authorized') {
+            errorMessage = "App not authorized. Check SHA-1/SHA-256 in Firebase console.";
+          }
+          
+          SnackBarUtils.showError(context, e.message ?? errorMessage);
         },
         codeSent: (String verificationId, int? resendToken) {
           setState(() => _isLoading = false);
@@ -47,15 +91,21 @@ class _LoginState extends State<Login> {
               builder: (context) => Otp(
                 phoneNumber: phone,
                 verificationId: verificationId,
+                resendToken: resendToken, // Pass resendToken
                 role: widget.role,
               ),
             ),
           );
         },
-        codeAutoRetrievalTimeout: (String verificationId) {},
+        codeAutoRetrievalTimeout: (String verificationId) {
+          if (mounted) {
+            setState(() => _isLoading = false);
+          }
+        },
       );
     } catch (e) {
       setState(() => _isLoading = false);
+      debugPrint("Error in verifyPhone: $e");
       SnackBarUtils.showError(context, "Error: ${e.toString()}");
     }
   }

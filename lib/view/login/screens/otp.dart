@@ -17,13 +17,17 @@ import 'package:provider/provider.dart';
 class Otp extends StatefulWidget {
   final String phoneNumber;
   final String verificationId;
+  final int? resendToken;
   final String role;
+  final PhoneAuthCredential? credential;
 
   const Otp({
     super.key,
     required this.phoneNumber,
     required this.verificationId,
+    this.resendToken,
     required this.role,
+    this.credential,
   });
 
   @override
@@ -46,6 +50,13 @@ class _OtpState extends State<Otp> {
     super.initState();
     _verificationId = widget.verificationId;
     _startTimer();
+    
+    // If we received a credential (auto-verification), sign in immediately
+    if (widget.credential != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _loginWithCredential(widget.credential!);
+      });
+    }
   }
 
   @override
@@ -74,25 +85,105 @@ class _OtpState extends State<Otp> {
 
     setState(() => _isResending = true);
 
-    await FirebaseAuth.instance.verifyPhoneNumber(
-      phoneNumber: '+91${widget.phoneNumber}',
-      verificationCompleted: (PhoneAuthCredential credential) {},
-      verificationFailed: (FirebaseAuthException e) {
-        setState(() => _isResending = false);
-        _showSnackBar(e.message ?? 'Failed to resend OTP');
-      },
-      codeSent: (String newVerificationId, int? resendToken) {
-        setState(() {
-          _verificationId = newVerificationId;
-          _isResending = false;
-        });
-        _showSnackBar('OTP resent successfully');
-        _startTimer();
-      },
-      codeAutoRetrievalTimeout: (String verificationId) {
-        _verificationId = verificationId;
-      },
-    );
+    try {
+      await FirebaseAuth.instance.verifyPhoneNumber(
+        phoneNumber: '+91${widget.phoneNumber}',
+        forceResendingToken: widget.resendToken, // Use the token to force resend
+        verificationCompleted: (PhoneAuthCredential credential) {
+          _loginWithCredential(credential);
+        },
+        verificationFailed: (FirebaseAuthException e) {
+          setState(() => _isResending = false);
+          _showSnackBar(e.message ?? 'Failed to resend OTP');
+        },
+        codeSent: (String newVerificationId, int? resendToken) {
+          setState(() {
+            _verificationId = newVerificationId;
+            _isResending = false;
+          });
+          _showSnackBar('OTP resent successfully');
+          _startTimer();
+        },
+        codeAutoRetrievalTimeout: (String verificationId) {
+          _verificationId = verificationId;
+        },
+      );
+    } catch (e) {
+      setState(() => _isResending = false);
+      _showSnackBar("Error: ${e.toString()}");
+    }
+  }
+
+  Future<void> _loginWithCredential(PhoneAuthCredential credential) async {
+    setState(() => _isLoading = true);
+    try {
+      final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
+      final firebaseToken = await userCredential.user!.getIdToken();
+      
+      if (firebaseToken == null) throw Exception("Failed to get Firebase token");
+      
+      await _handlePostLogin(firebaseToken);
+    } on FirebaseAuthException catch (e) {
+      setState(() => _isLoading = false);
+      _showSnackBar(e.message ?? 'Login failed');
+    } catch (e) {
+      setState(() => _isLoading = false);
+      _showSnackBar('Something went wrong. Please try again.');
+    }
+  }
+
+  Future<void> _handlePostLogin(String firebaseToken) async {
+    if (widget.role == 'customer') {
+      final response = await UnknownCustomerService().login(firebaseToken);
+      setState(() => _isLoading = false);
+
+      if (response['success'] == true) {
+        await UserService.saveUserData(
+          token: response['token'],
+          user: Map<String, dynamic>.from(response['customer']),
+        );
+
+        if (mounted) {
+          final subProvider = Provider.of<SubscriptionProvider>(context, listen: false);
+          await subProvider.loadSavedSubscription();
+
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (_) => const CustomerDashboard()),
+            (route) => false,
+          );
+        }
+      } else {
+        _showSnackBar(response['message'] ?? 'Login failed');
+      }
+    } else {
+      final response = await UserService.firebaseLogin(firebaseToken);
+      setState(() => _isLoading = false);
+
+      if (response['success'] == true) {
+        await UserService.saveUserData(
+          token: response['token'],
+          user: Map<String, dynamic>.from(response['user']),
+        );
+
+        if (mounted) {
+          final role = response['user']['role'] ?? 'staff';
+          final phone = widget.phoneNumber;
+
+          final subProvider = Provider.of<SubscriptionProvider>(context, listen: false);
+          await subProvider.loadSavedSubscription();
+          subProvider.syncSubscriptionWithApi();
+
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (_) => Navigation(uId: phone, role: role)),
+            (route) => false,
+          );
+        }
+      } else {
+        _showSnackBar(response['message'] ?? 'Login failed');
+      }
+    }
   }
 
   Future<void> _verifyOTP() async {
@@ -109,75 +200,10 @@ class _OtpState extends State<Otp> {
         smsCode: otpController.text.trim(),
       );
 
-      final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
-      final firebaseToken = await userCredential.user!.getIdToken();
-
-      if (firebaseToken == null) throw Exception("Failed to get Firebase token");
-
-      if (widget.role == 'customer') {
-        final response = await UnknownCustomerService().login(firebaseToken);
-
-        setState(() => _isLoading = false);
-
-        if (response['success'] == true) {
-          await UserService.saveUserData(
-            token: response['token'],
-            user: Map<String, dynamic>.from(response['customer']),
-          );
-
-          if (mounted) {
-            // Load subscription data if relevant for customers too
-            final subProvider = Provider.of<SubscriptionProvider>(context, listen: false);
-            await subProvider.loadSavedSubscription();
-
-            Navigator.pushAndRemoveUntil(
-              context,
-              MaterialPageRoute(builder: (_) => const CustomerDashboard()),
-              (route) => false,
-            );
-          }
-        } else {
-          _showSnackBar(response['message'] ?? 'Login failed');
-        }
-      } else {
-        final response = await UserService.firebaseLogin(firebaseToken);
-
-        setState(() => _isLoading = false);
-
-        if (response['success'] == true) {
-          await UserService.saveUserData(
-            token: response['token'],
-            user: Map<String, dynamic>.from(response['user']),
-          );
-
-          if (mounted) {
-            final role = response['user']['role'] ?? 'staff';
-            final phone = widget.phoneNumber;
-
-            if (mounted) {
-              // Load and Sync subscription data immediately after login
-              final subProvider = Provider.of<SubscriptionProvider>(context, listen: false);
-              await subProvider.loadSavedSubscription();
-              // Also trigger a background sync to ensure we have the absolute latest from server
-              subProvider.syncSubscriptionWithApi();
-
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (_) => Navigation(uId: phone, role: role)),
-                (route) => false,
-              );
-            }
-          }
-        } else {
-          _showSnackBar(response['message'] ?? 'Login failed');
-        }
-      }
-    } on FirebaseAuthException catch (e) {
-      setState(() => _isLoading = false);
-      _showSnackBar(e.message ?? 'Invalid OTP');
+      await _loginWithCredential(credential);
     } catch (e) {
       setState(() => _isLoading = false);
-      _showSnackBar('Something went wrong. Please try again.');
+      _showSnackBar('Invalid OTP or something went wrong.');
     }
   }
 

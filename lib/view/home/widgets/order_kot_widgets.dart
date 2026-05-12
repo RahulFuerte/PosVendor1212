@@ -15,6 +15,7 @@ class OrderTile extends StatelessWidget {
   final String paymentStatus;
   final String status;
   final VoidCallback onPrint;
+  final VoidCallback onWhatsapp;
   final VoidCallback onTap;
 
   const OrderTile({
@@ -29,6 +30,7 @@ class OrderTile extends StatelessWidget {
     required this.paymentStatus,
     required this.status,
     required this.onPrint,
+    required this.onWhatsapp,
     required this.onTap,
   });
 
@@ -105,6 +107,18 @@ class OrderTile extends StatelessWidget {
                 const SizedBox(height: 8),
                 Row(
                   children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.green.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: InkWell(
+                        onTap: onWhatsapp,
+                        child: Icon(Icons.send, color: Colors.green, size: 20),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(

@@ -67,6 +67,15 @@ class _BillCartState extends State<BillCart> {
   double subtotal = 0.0;
 
   @override
+  void didUpdateWidget(covariant BillCart oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isContainerVisible == false && oldWidget.isContainerVisible == true) {
+      // Auto-collapse when entering fullscreen mode to maximize product view
+      Provider.of<PrintProvider>(context, listen: false).setCartExpanded(false);
+    }
+  }
+
+  @override
   void initState() {
     super.initState();
     _initializeDatabase();
@@ -118,6 +127,7 @@ class _BillCartState extends State<BillCart> {
 
       final showcase = ShowCaseWidget.of(context);
       if (showcase != null) {
+        Provider.of<PrintProvider>(context, listen: false).setCartExpanded(true);
         showcase.startShowCase([
           TourKeys.cartItemsKey,
           TourKeys.subtotalKey,
@@ -300,7 +310,9 @@ class _BillCartState extends State<BillCart> {
         selectedItemsDetails = printProvider.posts;
         subtotal = printProvider.total;
 
-        return Container(
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.fastOutSlowIn,
           decoration: BoxDecoration(
             color: Colors.white,
             boxShadow: [
@@ -312,44 +324,128 @@ class _BillCartState extends State<BillCart> {
             ],
             borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Pull handle indicator
-              Container(
-                margin: const EdgeInsets.only(top: 12, bottom: 8),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(10),
+          child: RepaintBoundary(
+            child: AnimatedSize(
+              duration: const Duration(milliseconds: 400),
+              curve: Curves.fastOutSlowIn,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+              children: [
+                // Swipe/Tap to Toggle Cart
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onVerticalDragEnd: (details) {
+                    if (details.primaryVelocity! < 0) {
+                      // Swiped Up
+                      printProvider.setCartExpanded(true);
+                    } else if (details.primaryVelocity! > 0) {
+                      // Swiped Down
+                      printProvider.setCartExpanded(false);
+                    }
+                  },
+                  onTap: () {
+                    printProvider.setCartExpanded(!printProvider.isCartExpanded);
+                  },
+                  child: Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            // Pull handle
+                            Container(
+                              margin: const EdgeInsets.only(top: 12, bottom: 8),
+                              width: 60,
+                              height: 4,
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade300,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (!printProvider.isCartExpanded) _buildCollapsedSummary(printProvider),
+                    ],
+                  ),
                 ),
-              ),
-              Showcase(
-                key: TourKeys.cartItemsKey,
-                title: 'Review Cart',
-                description:
-                    'See all items added to the current order. You can adjust quantities or remove items here.',
-                child: _buildItemsList(printProvider),
-              ),
-              Showcase(
-                key: TourKeys.subtotalKey,
-                title: 'Total Bill Amount',
-                description: 'This is the calculated total including all items and addons.',
-                child: _buildFooter(printProvider),
-              ),
-            ],
+                if (printProvider.isCartExpanded) ...[
+                  Showcase(
+                    key: TourKeys.cartItemsKey,
+                    title: 'Review Cart',
+                    description:
+                        'See all items added to the current order. You can adjust quantities or remove items here.',
+                    child: _buildItemsList(printProvider),
+                  ),
+                  Showcase(
+                    key: TourKeys.subtotalKey,
+                    title: 'Total Bill Amount',
+                    description: 'This is the calculated total including all items and addons.',
+                    child: _buildFooter(printProvider),
+                  ),
+                ],
+              ],
+            ),
           ),
-        );
-      },
+        ),
+      );
+    },
+  );
+}
+
+  Widget _buildCollapsedSummary(PrintProvider printProvider) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: appbar1.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.shopping_cart_outlined, size: 16, color: appbar1),
+                const SizedBox(width: 6),
+                MyText(
+                  text: '${selectedItemsDetails.length} Items',
+                  color: appbar1,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ],
+            ),
+          ),
+          const Spacer(),
+          MyText(
+            text: 'Total: ',
+            fontSize: 14,
+            color: Colors.grey.shade600,
+            fontWeight: FontWeight.w600,
+          ),
+          MyText(
+            text: PriceUtils.formatPrice(subtotal),
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+            color: appbar1,
+          ),
+          const SizedBox(width: 10),
+        ],
+      ),
     );
   }
 
   Widget _buildItemsList(PrintProvider printProvider) {
-    return SizedBox(
-      height: 100, // Slightly taller for breathing room
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        maxHeight: 120,
+        minHeight: 100,
+      ),
       child: ListView.separated(
         controller: _listScrollController,
+        shrinkWrap: true,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         itemCount: selectedItemsDetails.length,
         separatorBuilder: (context, index) => const Divider(height: 16, color: Colors.black12),

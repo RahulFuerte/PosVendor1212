@@ -10,6 +10,7 @@ import 'package:pos/view/home/screens/receipt_data_screen.dart';
 import 'package:pos/view/home/widgets/order_kot_widgets.dart';
 import 'package:pos/view/tab_screen/view-model/widgets/printers/printer.dart';
 import 'package:pos/view/home/widgets/mydrawer.dart';
+import 'package:pos/core/utils/pdf_helper.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -132,6 +133,44 @@ class _OrderManagementScreenState extends State<OrderManagementScreen> {
     }
   }
 
+  Future<void> _handleWhatsapp({
+    required List<Map<String, dynamic>> items,
+    required double subTotal,
+    required double finalAmount,
+    required String customerName,
+    required String customerPhone,
+    required String receiptNo,
+    required String orderType,
+    required String paymentType,
+    required DateTime dateTime,
+  }) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final printProvider = Provider.of<PrintProvider>(context, listen: false);
+
+      await PdfHelper.generateAndShareBillPdf(
+        shopName: prefs.getString('shopName') ?? 'Shop Name',
+        address: prefs.getString('address') ?? 'Address',
+        contact: prefs.getString('contact') ?? 'Contact',
+        receiptNo: receiptNo,
+        dateTime: dateTime,
+        items: items,
+        subTotal: subTotal,
+        finalTotal: finalAmount,
+        paymentType: paymentType,
+        orderType: orderType,
+        customerName: customerName,
+        customerPhone: customerPhone,
+        taxEnabled: printProvider.taxEnabled,
+        cgstPercent: printProvider.cgstPercent,
+        sgstPercent: printProvider.sgstPercent,
+        discountAmount: subTotal - finalAmount, // Simplistic discount calc
+      );
+    } catch (e) {
+      debugPrint('Error sharing via WhatsApp: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -231,6 +270,19 @@ class _OrderManagementScreenState extends State<OrderManagementScreen> {
                                 receiptNo: order.billNumber,
                                 orderType: order.orderType ?? '',
                                 paymentType: order.paymentMethod,
+                              );
+                            },
+                            onWhatsapp: () {
+                              _handleWhatsapp(
+                                items: order.items.map((e) => e.toJson()).toList(),
+                                subTotal: order.totalAmount,
+                                finalAmount: order.finalAmount,
+                                customerName: order.customerName ?? '',
+                                customerPhone: order.customerPhone ?? '',
+                                receiptNo: order.billNumber,
+                                orderType: order.orderType ?? '',
+                                paymentType: order.paymentMethod ?? 'Cash',
+                                dateTime: order.orderDate ?? DateTime.now(),
                               );
                             },
                           );
