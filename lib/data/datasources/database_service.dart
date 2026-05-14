@@ -18,6 +18,7 @@ abstract class DatabaseService {
   Future<void> updateDepartment(String adminUid, String departmentId, Map<String, dynamic> updates);
   Future<void> deleteDepartment(String adminUid, String departmentId);
 
+
   // Orders operations
   Future<void> saveOrder(String adminUid, Map<String, dynamic> orderData);
   Future<List<Map<String, dynamic>>> getOrders(String adminUid);
@@ -42,6 +43,7 @@ abstract class DatabaseService {
   Future<Uint8List?> downloadAndCacheImage(String imageUrl, {String? tableName, String? recordId});
 
   // Utility operations
+  Future<Map<String, dynamic>?> getCurrentUser();
   Future<bool> isOnline();
   Future<void> initialize();
   Future<void> close();

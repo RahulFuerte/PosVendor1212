@@ -3,6 +3,7 @@ import 'dart:developer' as developer;
 
 // Flutter imports:
 import 'package:flutter/material.dart';
+import 'package:pos/core/widgets/text.dart';
 import 'package:pos/view/home/widgets/mydrawer.dart';
 
 // Project imports:
@@ -11,6 +12,7 @@ import '../../data/datasources/complete_offline_data_manager.dart';
 import '../tab_screen/view-model/constants/constants.dart';
 import '../tab_screen/view-model/widgets/offline_bill_status_widget.dart';
 import '../tab_screen/view-model/widgets/offline_status_indicator.dart';
+import '../../core/utils/snackbar_utils.dart';
 
 /// Enhanced offline bill status screen with complete bill viewing capability
 class OfflineBillStatusScreen extends StatefulWidget {
@@ -19,7 +21,8 @@ class OfflineBillStatusScreen extends StatefulWidget {
 
   const OfflineBillStatusScreen({
     Key? key,
-    required this.adminUid, required this.uid,
+    required this.adminUid,
+    required this.uid,
   }) : super(key: key);
 
   @override
@@ -31,7 +34,7 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
   List<Map<String, dynamic>> _bills = [];
   bool _isLoading = true;
   String _errorMessage = '';
-  
+
   // Function to refresh the sync widget
   VoidCallback? _refreshSyncWidget;
 
@@ -56,7 +59,7 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
 
   Future<void> _loadAllBills() async {
     if (!mounted) return;
-    
+
     try {
       setState(() {
         _isLoading = true;
@@ -66,17 +69,17 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
 
       // Re-initialize to clear any cached data
       await _offlineDataManager.initialize();
-      
+
       // Load all bills ensuring offline availability (force refresh to get latest data)
       final bills = await _offlineDataManager.ensureBillsOfflineAvailability(widget.adminUid, forceRefresh: true);
-      
+
       if (!mounted) return;
-      
+
       setState(() {
         _bills = bills;
         _isLoading = false;
       });
-      
+
       // Also refresh the sync status widget
       _refreshSyncWidget?.call();
 
@@ -84,7 +87,7 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
     } catch (e) {
       developer.log('Error loading bills: $e', name: 'OfflineBillStatusScreen');
       if (!mounted) return;
-      
+
       setState(() {
         _errorMessage = 'Failed to load bills: $e';
         _isLoading = false;
@@ -99,15 +102,11 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
       appBar: AppBar(
         backgroundColor: white,
         elevation: 0,
-     
-        title: const Text(
-          'Offline Bills',
-          style: TextStyle(
-            color: Colors.black87,
-            fontFamily: 'tabfont',
-            fontWeight: FontWeight.w600,
-            fontSize: 18,
-          ),
+        title: const MyText(
+          text: 'Offline Bills',
+          color: Colors.black87,
+          fontWeight: FontWeight.w600,
+          fontSize: 18,
         ),
         actions: [
           const OfflineStatusIndicator(showWhenOnline: true),
@@ -119,7 +118,7 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
           ),
         ],
       ),
-       drawer: MyDrawer(
+      drawer: MyDrawer(
         phoneNo: widget.uid,
         adminPhoneNo: widget.adminUid,
       ),
@@ -138,18 +137,13 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
                       _refreshSyncWidget = refreshCallback;
                     },
                     onSyncCompleted: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Offline bills synced successfully'),
-                          backgroundColor: primaryColor,
-                        ),
-                      );
+                      SnackBarUtils.showSuccess(context, 'Offline bills synced successfully');
                       _loadAllBills();
                     },
                   ),
-                  
+
                   const SizedBox(height: 16),
-                  
+
                   // All Bills Section
                   Container(
                     decoration: BoxDecoration(
@@ -172,18 +166,14 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
                           children: [
                             const Icon(Icons.receipt_long, color: primaryColor),
                             const SizedBox(width: 8),
-                            Text(
-                              'All Bills (${_bills.length})',
-                              style: const TextStyle(
-                                fontFamily: 'tabfont',
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
+                            MyText(
+                              text: 'All Bills (${_bills.length})',
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
                             ),
                           ],
                         ),
                         const SizedBox(height: 12),
-                        
                         if (_isLoading)
                           const Center(
                             child: Padding(
@@ -199,12 +189,10 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
                                 children: [
                                   const Icon(Icons.error_outline, size: 48, color: Colors.red),
                                   const SizedBox(height: 16),
-                                  Text(
-                                    _errorMessage,
-                                    style: const TextStyle(
-                                      color: Colors.red,
-                                      fontFamily: 'fontmain',
-                                    ),
+                                  MyText(
+                                    text: _errorMessage,
+                                    color: Colors.red,
+                                    fontFamily: 'fontmain',
                                     textAlign: TextAlign.center,
                                   ),
                                   const SizedBox(height: 16),
@@ -213,7 +201,7 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: primaryColor,
                                     ),
-                                    child: const Text('Retry', style: TextStyle(color: white)),
+                                    child: const MyText(text: 'Retry', color: white),
                                   ),
                                 ],
                               ),
@@ -227,13 +215,11 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
                                 children: [
                                   Icon(Icons.receipt_outlined, size: 48, color: Colors.grey[400]),
                                   const SizedBox(height: 16),
-                                  Text(
-                                    'No bills found',
-                                    style: TextStyle(
-                                      color: Colors.grey[500],
-                                      fontFamily: 'fontmain',
-                                      fontSize: 16,
-                                    ),
+                                  MyText(
+                                    text: 'No bills found',
+                                    color: Colors.grey[500],
+                                    fontFamily: 'fontmain',
+                                    fontSize: 16,
                                   ),
                                 ],
                               ),
@@ -283,13 +269,13 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
     }
     final customerName = bill['customer_name']?.toString() ?? 'Walk-in Customer';
     final totalAmount = PriceUtils.safePriceToString(bill['total_amount'] ?? bill['total']);
-    
+
     // Handle sync_status as both int and String
     // 0 = synced, 1 = pending, 2 = conflict
     final syncStatusValue = bill['sync_status'];
     bool isPending = false;
     String syncStatusText = 'Unknown';
-    
+
     if (syncStatusValue is int) {
       isPending = syncStatusValue == 1;
       syncStatusText = syncStatusValue == 0 ? 'Synced' : (syncStatusValue == 1 ? 'Pending' : 'Conflict');
@@ -333,13 +319,10 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
             size: 22,
           ),
         ),
-        title: Text(
-          'Bill #$billId',
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-            fontFamily: 'tabfont',
-            fontSize: 15,
-          ),
+        title: MyText(
+          text: 'Bill #$billId',
+          fontWeight: FontWeight.bold,
+          fontSize: 15,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
@@ -347,24 +330,20 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 4),
-            Text(
-              customerName,
-              style: TextStyle(
-                fontFamily: 'fontmain',
-                fontSize: 13,
-                color: Colors.grey.shade700,
-              ),
+            MyText(
+              text: customerName,
+              fontFamily: 'fontmain',
+              fontSize: 13,
+              color: Colors.grey.shade700,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
             if (billDate != null)
-              Text(
-                _formatDate(billDate),
-                style: TextStyle(
-                  fontFamily: 'fontmain',
-                  fontSize: 11,
-                  color: Colors.grey.shade500,
-                ),
+              MyText(
+                text: _formatDate(billDate),
+                fontFamily: 'fontmain',
+                fontSize: 11,
+                color: Colors.grey.shade500,
                 maxLines: 1,
               ),
           ],
@@ -373,14 +352,11 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            Text(
-              '₹$totalAmount',
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-                color: primaryColor,
-                fontFamily: 'tabfont',
-              ),
+            MyText(
+              text: '₹$totalAmount',
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+              color: primaryColor,
             ),
             const SizedBox(height: 4),
             Container(
@@ -389,14 +365,12 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
                 color: isPending ? Colors.orange.withOpacity(0.1) : primaryColor.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(6),
               ),
-              child: Text(
-                syncStatusText,
-                style: TextStyle(
-                  fontSize: 10,
-                  fontFamily: 'fontmain',
-                  fontWeight: FontWeight.w600,
-                  color: isPending ? Colors.orange : primaryColor,
-                ),
+              child: MyText(
+                text: syncStatusText,
+                fontSize: 10,
+                fontFamily: 'fontmain',
+                fontWeight: FontWeight.w600,
+                color: isPending ? Colors.orange : primaryColor,
               ),
             ),
           ],
@@ -418,12 +392,9 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
             const Icon(Icons.receipt, color: primaryColor, size: 24),
             const SizedBox(width: 8),
             Expanded(
-              child: Text(
-                'Bill #${bill['id']?.toString() ?? 'Unknown'}',
-                style: const TextStyle(
-                  fontFamily: 'tabfont',
-                  fontSize: 16,
-                ),
+              child: MyText(
+                text: 'Bill #${bill['id']?.toString() ?? 'Unknown'}',
+                fontSize: 16,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -439,8 +410,7 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
               _buildDetailRow('Total', '₹${PriceUtils.safePriceToString(bill['total_amount'] ?? bill['total'])}'),
               _buildDetailRow('Payment', bill['payment_method']?.toString() ?? 'N/A'),
               _buildDetailRow('Status', _getSyncStatusText(bill['sync_status'])),
-              if (bill['bill_date'] != null)
-                _buildDetailRow('Date', _formatBillDate(bill['bill_date'])),
+              if (bill['bill_date'] != null) _buildDetailRow('Date', _formatBillDate(bill['bill_date'])),
             ],
           ),
         ),
@@ -448,7 +418,7 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
           TextButton(
             onPressed: () => Navigator.pop(context),
             style: TextButton.styleFrom(foregroundColor: primaryColor),
-            child: const Text('Close'),
+            child: const MyText(text: 'Close'),
           ),
         ],
       ),
@@ -463,23 +433,19 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
         children: [
           SizedBox(
             width: 80,
-            child: Text(
-              label,
-              style: TextStyle(
-                fontFamily: 'fontmain',
-                color: Colors.grey.shade600,
-                fontSize: 13,
-              ),
+            child: MyText(
+              text: label,
+              fontFamily: 'fontmain',
+              color: Colors.grey.shade600,
+              fontSize: 13,
             ),
           ),
           Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(
-                fontFamily: 'fontmain',
-                fontWeight: FontWeight.w500,
-                fontSize: 13,
-              ),
+            child: MyText(
+              text: value,
+              fontFamily: 'fontmain',
+              fontWeight: FontWeight.w500,
+              fontSize: 13,
             ),
           ),
         ],

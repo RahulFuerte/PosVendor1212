@@ -41,31 +41,7 @@ const gold = Color.fromRGBO(255, 215, 0, 1);
 // const primaryColor = Colors.teal;
 const primaryColor = Color.fromARGB(255, 12, 107, 15);
 const secondaryColor = Colors.white;
-// const theme = MaterialColor(0xFF820274, {
-//   50: Color.fromRGBO(130, 2, 116, .1),
-//   100: Color.fromRGBO(130, 2, 116, .2),
-//   200: Color.fromRGBO(130, 2, 116, .3),
-//   300: Color.fromRGBO(130, 2, 116, .4),
-//   400: Color.fromRGBO(130, 2, 116, .5),
-//   500: Color.fromRGBO(130, 2, 116, .6),
-//   600: Color.fromRGBO(130, 2, 116, .7),
-//   700: Color.fromRGBO(130, 2, 116, .8),
-//   800: Color.fromRGBO(130, 2, 116, .9),
-//   900: Color.fromRGBO(130, 2, 116, 1),
-// });
 
-const theme = MaterialColor(0xFF820274, {
-  50: Color.fromRGBO(130, 2, 116, .1),
-  100: Color.fromRGBO(130, 2, 116, .2),
-  200: Color.fromRGBO(130, 2, 116, .3),
-  300: Color.fromRGBO(130, 2, 116, .4),
-  400: Color.fromRGBO(130, 2, 116, .5),
-  500: Color.fromRGBO(130, 2, 116, .6),
-  600: Color.fromRGBO(130, 2, 116, .7),
-  700: Color.fromRGBO(130, 2, 116, .8),
-  800: Color.fromRGBO(130, 2, 116, .9),
-  900: Color.fromRGBO(130, 2, 116, 1),
-});
 const iosDefault = Color.fromARGB(255, 242, 242, 242);
 const secondaryTheme = Color.fromRGBO(156, 72, 146, 1);
 const white = Colors.white;

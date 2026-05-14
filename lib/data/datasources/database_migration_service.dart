@@ -18,7 +18,7 @@ class DatabaseMigrationService {
   static const String _schemaVersionKey = 'schema_version';
   
   final SQLiteHelper _sqliteHelper = SQLiteHelper();
-  final FirebaseDAO _firebaseDao = FirebaseDAO();
+  final NodeApiDAO _NodeApiDAO = NodeApiDAO();
   final MySharedPreferences _prefs = MySharedPreferences();
 
   /// Check and perform any pending migrations
@@ -44,7 +44,7 @@ class DatabaseMigrationService {
       final adminUid = await _prefs.uID;
       if (adminUid.isEmpty) return;
 
-      final isOnline = await _firebaseDao.isOnline();
+      final isOnline = await _NodeApiDAO.isOnline();
       if (!isOnline) {
         print('Offline - skipping incremental sync');
         return;
@@ -248,7 +248,7 @@ class DatabaseMigrationService {
     try {
       // In a real implementation, Firebase would need to support timestamp queries
       // For now, we'll sync all items and check timestamps locally
-      final remoteItems = await _firebaseDao.getFoodItems(adminUid);
+      final remoteItems = await _NodeApiDAO.getFoodItems(adminUid);
       final db = await _sqliteHelper.database;
       
       for (final item in remoteItems) {
@@ -284,7 +284,7 @@ class DatabaseMigrationService {
 
   Future<void> _syncIncrementalDepartments(String adminUid, DateTime since) async {
     try {
-      final remoteDepts = await _firebaseDao.getDepartments(adminUid);
+      final remoteDepts = await _NodeApiDAO.getDepartments(adminUid);
       final db = await _sqliteHelper.database;
       
       for (final dept in remoteDepts) {
@@ -314,7 +314,7 @@ class DatabaseMigrationService {
 
   Future<void> _syncIncrementalBills(String adminUid, DateTime since) async {
     try {
-      final remoteBills = await _firebaseDao.getBills(adminUid, startDate: since);
+      final remoteBills = await _NodeApiDAO.getBills(adminUid, startDate: since);
       final db = await _sqliteHelper.database;
       
       for (final bill in remoteBills) {
@@ -353,13 +353,13 @@ class DatabaseMigrationService {
       int remoteCount = 0;
       try {
         if (tableName == 'food_items') {
-          final items = await _firebaseDao.getFoodItems(adminUid);
+          final items = await _NodeApiDAO.getFoodItems(adminUid);
           remoteCount = items.length;
         } else if (tableName == 'departments') {
-          final depts = await _firebaseDao.getDepartments(adminUid);
+          final depts = await _NodeApiDAO.getDepartments(adminUid);
           remoteCount = depts.length;
         } else if (tableName == 'bills') {
-          final bills = await _firebaseDao.getBills(adminUid);
+          final bills = await _NodeApiDAO.getBills(adminUid);
           remoteCount = bills.length;
         }
       } catch (e) {

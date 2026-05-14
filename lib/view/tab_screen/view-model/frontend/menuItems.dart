@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:pos/core/widgets/text.dart';
 import 'package:pos/view/home/navigation.dart';
-import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:pos/view/tab_screen/view-model/widgets/cached_blob_image.dart';
 import 'package:pos/core/utils/price_utils.dart';
 
@@ -38,6 +38,7 @@ class MenuItem extends StatelessWidget {
   final String? imagerecordId;
 
   final void Function(
+    String id,
     String name,
     String price,
     int quantity,
@@ -100,14 +101,11 @@ class MenuItem extends StatelessWidget {
                 /// NAME
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  child: Text(
-                    text,
+                  child: MyText(
+                    text: text,
                     maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                    ),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
 
@@ -118,16 +116,13 @@ class MenuItem extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       Expanded(
-                        child: Text(
-                          '${PriceUtils.formatPrice(double.tryParse(price) ?? 0)}',
+                        child: MyText(
+                          text: PriceUtils.formatPrice(double.tryParse(price) ?? 0),
                           maxLines: 1,
                           textAlign: TextAlign.end,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 17.5,
-                            color: appbar1,
-                            fontWeight: FontWeight.bold,
-                          ),
+                          fontSize: 17.5,
+                          color: appbar1,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ],
@@ -160,13 +155,11 @@ class MenuItem extends StatelessWidget {
         children: [
           const Icon(Icons.inventory_2, size: 12, color: Colors.white),
           const SizedBox(width: 4),
-          Text(
-            stocks,
-            style: const TextStyle(
-              fontSize: 11,
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
-            ),
+          MyText(
+            text: stocks,
+            fontSize: 11,
+            color: Colors.white,
+            fontWeight: FontWeight.w600,
           ),
         ],
       ),
@@ -176,7 +169,7 @@ class MenuItem extends StatelessWidget {
   /// ADD TO CART
   void _addToCart(
       String name, String price, int quantity, String unit, num unitQty, List<Map<String, dynamic>> addons) {
-    onAdd?.call(name, price, quantity, unit, unitQty, addons);
+    onAdd?.call(imagerecordId ?? code, name, price, quantity, unit, unitQty, addons);
   }
 
   void _showOpenPriceBottomSheet(BuildContext context) {
@@ -202,12 +195,10 @@ class MenuItem extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     /// TITLE
-                    Text(
-                      text,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    MyText(
+                      text: text,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
                     ),
 
                     const SizedBox(height: 15),
@@ -239,12 +230,10 @@ class MenuItem extends StatelessWidget {
                           },
                           icon: const Icon(Icons.remove_circle_outline),
                         ),
-                        Text(
-                          '$quantity',
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
+                        MyText(
+                          text: '$quantity',
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
                         ),
                         IconButton(
                           onPressed: () => setModalState(() => quantity++),
@@ -286,13 +275,11 @@ class MenuItem extends StatelessWidget {
 
                           Navigator.pop(ctx);
                         },
-                        child: const Text(
-                          "ADD TO CART",
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
+                        child: const MyText(
+                          text: "ADD TO CART",
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
                         ),
                       ),
                     ),
@@ -332,12 +319,10 @@ class MenuItem extends StatelessWidget {
                   children: [
                     /// TITLE
                     Center(
-                      child: Text(
-                        text,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      child: MyText(
+                        text: text,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
 
@@ -356,24 +341,20 @@ class MenuItem extends StatelessWidget {
                           showCheckmark: false,
                           label: Column(
                             children: [
-                              Text(
-                                isSize ? v['size'].toString() : "${v['qty']} ${v['unit']}",
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: isSelected ? Colors.white : Colors.black87,
-                                ),
+                              MyText(
+                                text: isSize ? (v['size']?.toString() ?? '') : "${v['qty'] ?? ''} ${v['unit'] ?? ''}",
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: isSelected ? Colors.white : Colors.black87,
                               ),
                               const SizedBox(
                                 height: 5,
                               ),
-                              Text(
-                                '₹${v['price']}',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  color: isSelected ? Colors.white : appbar1,
-                                ),
+                              MyText(
+                                text: '₹${v['price']}',
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: isSelected ? Colors.white : appbar1,
                               ),
                             ],
                           ),
@@ -395,9 +376,10 @@ class MenuItem extends StatelessWidget {
 
                     if (addons != null && addons!.isNotEmpty) ...[
                       const SizedBox(height: 20),
-                      const Text(
-                        "Add Ons",
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      const MyText(
+                        text: "Add Ons",
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
                       ),
                       const SizedBox(height: 10),
                       Wrap(
@@ -412,19 +394,15 @@ class MenuItem extends StatelessWidget {
                             showCheckmark: false,
                             label: Column(
                               children: [
-                                Text(
-                                  "${addon['name']}",
-                                  style: TextStyle(
-                                    color: selected ? Colors.white : Colors.black87,
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                                MyText(
+                                  text: "${addon['name']}",
+                                  color: selected ? Colors.white : Colors.black87,
+                                  fontWeight: FontWeight.w600,
                                 ),
-                                Text(
-                                  "₹${addon['price']}",
-                                  style: TextStyle(
-                                    color: selected ? Colors.white : Colors.black87,
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                                MyText(
+                                  text: "₹${addon['price']}",
+                                  color: selected ? Colors.white : Colors.black87,
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ],
                             ),
@@ -460,12 +438,10 @@ class MenuItem extends StatelessWidget {
                           },
                           icon: const Icon(Icons.remove_circle_outline),
                         ),
-                        Text(
-                          '$quantity',
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
+                        MyText(
+                          text: '$quantity',
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
                         ),
                         IconButton(
                           onPressed: () => setModalState(() => quantity++),
@@ -507,20 +483,20 @@ class MenuItem extends StatelessWidget {
                             text,
                             basePrice.toStringAsFixed(2),
                             quantity,
-                            isSize ? selectedVariant['size'].toString() : selectedVariant['unit'],
-                            (selectedVariant['qty'] as num).toInt(),
+                            isSize
+                                ? (selectedVariant['size']?.toString() ?? '')
+                                : (selectedVariant['unit']?.toString() ?? ''),
+                            (selectedVariant['qty'] as num?)?.toInt() ?? 1,
                             addonList,
                           );
 
                           Navigator.pop(ctx);
                         },
-                        child: const Text(
-                          'ADD TO CART',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
+                        child: const MyText(
+                          text: 'ADD TO CART',
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
                         ),
                       ),
                     ),

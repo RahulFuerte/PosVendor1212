@@ -1,6 +1,5 @@
 // Dart imports:
 import 'dart:async';
-import 'dart:developer' as developer;
 import 'dart:io';
 
 // Package imports:
@@ -50,10 +49,8 @@ class MemoryManagementService {
       _startRoutineCleanup();
       
       _isInitialized = true;
-      developer.log('Memory management service initialized with ${_totalDeviceMemoryMB}MB total memory', 
-                   name: 'MemoryManagementService');
+    
     } catch (e) {
-      developer.log('Error initializing memory management service: $e', name: 'MemoryManagementService');
       rethrow;
     }
   }
@@ -86,24 +83,20 @@ class MemoryManagementService {
       final availableMemoryMB = memoryInfo['availableMemoryMB'] as double;
       final usedMemoryMB = memoryInfo['usedMemoryMB'] as double;
       
-      developer.log('Memory check - Available: ${availableMemoryMB.toStringAsFixed(1)}MB, Used: ${usedMemoryMB.toStringAsFixed(1)}MB', 
-                   name: 'MemoryManagementService');
+   
       
       if (availableMemoryMB < _criticalMemoryThreshold) {
-        developer.log('Critical memory situation detected, performing aggressive cleanup', 
-                     name: 'MemoryManagementService');
+       
         await _performAggressiveCleanup();
         _isLowMemoryMode = true;
       } else if (availableMemoryMB < _lowMemoryThreshold) {
-        developer.log('Low memory detected, performing moderate cleanup', 
-                     name: 'MemoryManagementService');
+       
         await _performModerateCleanup();
         _isLowMemoryMode = true;
       } else {
         _isLowMemoryMode = false;
       }
     } catch (e) {
-      developer.log('Error checking memory usage: $e', name: 'MemoryManagementService');
     }
   }
 
@@ -118,10 +111,8 @@ class MemoryManagementService {
         }
         await _imageCacheService.performAutomaticCleanup();
         
-        developer.log('Completed routine cleanup', name: 'MemoryManagementService');
       });
     } catch (e) {
-      developer.log('Error in routine cleanup: $e', name: 'MemoryManagementService');
     }
   }
 
@@ -141,10 +132,8 @@ class MemoryManagementService {
         // Clear some lazy loading caches
         _clearOldestLazyLoadingCaches(0.2); // Clear 20% of oldest caches
         
-        developer.log('Completed moderate cleanup', name: 'MemoryManagementService');
       });
     } catch (e) {
-      developer.log('Error in moderate cleanup: $e', name: 'MemoryManagementService');
     }
   }
 
@@ -170,10 +159,8 @@ class MemoryManagementService {
         // Force garbage collection
         _forceGarbageCollection();
         
-        developer.log('Completed aggressive cleanup', name: 'MemoryManagementService');
       });
     } catch (e) {
-      developer.log('Error in aggressive cleanup: $e', name: 'MemoryManagementService');
     }
   }
 
@@ -204,9 +191,7 @@ class MemoryManagementService {
         _lazyLoadingService.clearCache(key);
       }
       
-      developer.log('Cleared $numToClear lazy loading caches', name: 'MemoryManagementService');
     } catch (e) {
-      developer.log('Error clearing lazy loading caches: $e', name: 'MemoryManagementService');
     }
   }
 
@@ -215,9 +200,7 @@ class MemoryManagementService {
     try {
       // This would clear predictive preloading data but keep essential data
       // Implementation depends on SmartPreloadingService internal structure
-      developer.log('Cleared non-essential preloaded data', name: 'MemoryManagementService');
     } catch (e) {
-      developer.log('Error clearing non-essential data: $e', name: 'MemoryManagementService');
     }
   }
 
@@ -229,9 +212,7 @@ class MemoryManagementService {
       final temp = List.generate(1000, (index) => 'temp_$index');
       temp.clear();
       
-      developer.log('Triggered garbage collection', name: 'MemoryManagementService');
     } catch (e) {
-      developer.log('Error forcing garbage collection: $e', name: 'MemoryManagementService');
     }
   }
 
@@ -255,7 +236,6 @@ class MemoryManagementService {
         _totalDeviceMemoryMB = 2048; // 2GB default
       }
     } catch (e) {
-      developer.log('Error getting device memory info: $e', name: 'MemoryManagementService');
       _totalDeviceMemoryMB = 2048; // 2GB default fallback
     }
   }
@@ -324,7 +304,6 @@ class MemoryManagementService {
         'isLowMemoryMode': _isLowMemoryMode,
       };
     } catch (e) {
-      developer.log('Error getting current memory usage: $e', name: 'MemoryManagementService');
       return {
         'totalMemoryMB': _totalDeviceMemoryMB.toDouble(),
         'usedMemoryMB': 100.0,
@@ -375,13 +354,11 @@ class MemoryManagementService {
     try {
       if (_isLowMemoryMode) {
         // Reduce preloading in low memory mode
-        developer.log('Optimizing preloading for low memory mode', name: 'MemoryManagementService');
         
         // This would communicate with SmartPreloadingService to reduce preloading
         // Implementation depends on SmartPreloadingService API
       }
     } catch (e) {
-      developer.log('Error optimizing preloading for memory: $e', name: 'MemoryManagementService');
     }
   }
 
@@ -391,6 +368,5 @@ class MemoryManagementService {
     _cleanupTimer?.cancel();
     _isInitialized = false;
     
-    developer.log('Memory management service disposed', name: 'MemoryManagementService');
   }
 }

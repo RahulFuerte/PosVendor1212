@@ -1,5 +1,5 @@
 // Dart imports:
-import 'dart:developer' as developer;
+import 'dart:async';
 import 'dart:typed_data';
 
 // Project imports:
@@ -44,8 +44,12 @@ class DatabaseServiceException implements Exception {
 /// Unified Database Service that combines SQLite and Firebase operations
 /// Provides offline-first functionality with automatic synchronization
 class UnifiedDatabaseService implements DatabaseService {
+  static final UnifiedDatabaseService _instance = UnifiedDatabaseService._internal();
+  factory UnifiedDatabaseService() => _instance;
+  UnifiedDatabaseService._internal();
+
   final SQLiteDAO _sqliteDAO = SQLiteDAO();
-  final FirebaseDAO _firebaseDAO = FirebaseDAO();
+  final NodeApiDAO _NodeApiDAO = NodeApiDAO();
   final ImageCacheService _imageCacheService = ImageCacheService();
   final SyncManager _syncManager = SyncManager();
   final ConnectionMonitor _connectionMonitor = ConnectionMonitor();
@@ -60,10 +64,19 @@ class UnifiedDatabaseService implements DatabaseService {
   bool _isInitialized = false;
   bool _initializationFailed = false;
   String? _lastInitializationError;
+  Completer<void>? _initializerCompleter;
 
   @override
   Future<void> initialize() async {
+    // If already initialized, return immediately
     if (_isInitialized) return;
+
+    // If currently initializing, wait for the existing process to complete
+    if (_initializerCompleter != null) {
+      return _initializerCompleter!.future;
+    }
+
+    _initializerCompleter = Completer<void>();
 
     if (_initializationFailed) {
       throw DatabaseServiceException(
@@ -94,7 +107,7 @@ class UnifiedDatabaseService implements DatabaseService {
 
       // Initialize Firebase (may fail if no internet, but that's okay)
       try {
-        await _firebaseDAO.initialize();
+        await _NodeApiDAO.initialize();
         await _errorHandler.handleInfo(
           component: 'UnifiedDatabaseService',
           message: 'Firebase DAO initialized successfully',
@@ -102,11 +115,9 @@ class UnifiedDatabaseService implements DatabaseService {
       } catch (e) {
         await _errorHandler.handleWarning(
           component: 'UnifiedDatabaseService',
-          message:
-              'Firebase DAO initialization failed, continuing with offline mode',
+          message: 'Firebase DAO initialization failed, continuing with offline mode',
           context: {'error': e.toString()},
-          userMessage:
-              'Running in offline mode. Your data will sync when connection is restored.',
+          userMessage: 'Running in offline mode. Your data will sync when connection is restored.',
         );
       }
 
@@ -135,6 +146,8 @@ class UnifiedDatabaseService implements DatabaseService {
       );
 
       _isInitialized = true;
+      _initializerCompleter?.complete();
+      _initializerCompleter = null;
       await _errorHandler.handleInfo(
         component: 'UnifiedDatabaseService',
         message: 'Database service initialized successfully',
@@ -142,13 +155,14 @@ class UnifiedDatabaseService implements DatabaseService {
     } catch (e) {
       _initializationFailed = true;
       _lastInitializationError = e.toString();
+      _initializerCompleter?.completeError(e);
+      _initializerCompleter = null;
 
       await _errorHandler.handleCriticalError(
         component: 'UnifiedDatabaseService',
         message: 'Database service initialization failed',
         error: e,
-        userMessage:
-            'Failed to initialize the database system. Please restart the app.',
+        userMessage: 'Failed to initialize the database system. Please restart the app.',
       );
 
       throw DatabaseServiceException(
@@ -163,22 +177,15 @@ class UnifiedDatabaseService implements DatabaseService {
   @override
   Future<void> close() async {
     try {
-      developer.log('Closing UnifiedDatabaseService', name: 'DatabaseService');
-
       await _sqliteDAO.close();
-      await _firebaseDAO.close();
+      await _NodeApiDAO.close();
       _syncManager.dispose();
       _offlineBillManager.dispose();
 
       _isInitialized = false;
       _initializationFailed = false;
       _lastInitializationError = null;
-
-      developer.log('UnifiedDatabaseService closed successfully',
-          name: 'DatabaseService');
     } catch (e) {
-      developer.log('Error closing UnifiedDatabaseService: $e',
-          name: 'DatabaseService');
       // Don't throw here as we're cleaning up
     }
   }
@@ -188,17 +195,26 @@ class UnifiedDatabaseService implements DatabaseService {
     try {
       return _connectionMonitor.isConnected;
     } catch (e) {
-      developer.log('Error checking online status: $e',
-          name: 'DatabaseService');
       // Fallback to offline mode if connectivity check fails
       return false;
     }
   }
 
+  @override
+  Future<Map<String, dynamic>?> getCurrentUser() async {
+    await _ensureInitialized();
+    if (await isOnline()) {
+      try {
+        final profile = await _NodeApiDAO.getCurrentUser();
+        if (profile != null) return profile;
+      } catch (e) {}
+    }
+    return await _sqliteDAO.getCurrentUser();
+  }
+
   // Food Items operations
   @override
-  Future<List<Map<String, dynamic>>> getFoodItems(String adminUid,
-      {String? department}) async {
+  Future<List<Map<String, dynamic>>> getFoodItems(String adminUid, {String? department}) async {
     await _ensureInitialized();
 
     try {
@@ -211,20 +227,14 @@ class UnifiedDatabaseService implements DatabaseService {
       if (!isConnected) {
         // Offline mode: Display offline indicator and return local data
         await _offlineManager.displayOfflineIndicator();
-        final localItems =
-            await _sqliteDAO.getFoodItems(adminUid, department: department);
-        developer.log(
-            'Offline mode: Returning ${localItems.length} food items from local database',
-            name: 'DatabaseService');
+        final localItems = await _sqliteDAO.getFoodItems(adminUid, department: department);
+
         return localItems;
       }
 
       // Online mode: Fetch from Firebase to ensure latest prices/data
       try {
-        developer.log('Online mode: Fetching food items from Firebase',
-            name: 'DatabaseService');
-        List<Map<String, dynamic>> firebaseItems =
-            await _firebaseDAO.getFoodItems(adminUid, department: department);
+        List<Map<String, dynamic>> firebaseItems = await _NodeApiDAO.getFoodItems(adminUid, department: department);
 
         // Cache Firebase data locally and mark as synced
         for (Map<String, dynamic> item in firebaseItems) {
@@ -232,27 +242,18 @@ class UnifiedDatabaseService implements DatabaseService {
             await _sqliteDAO.saveFoodItem(adminUid, item);
             await _sqliteDAO.markAsSynced('food_items', item['id']);
           } catch (e) {
-            developer.log('Failed to cache food item ${item['id']}: $e',
-                name: 'DatabaseService');
             // Continue with other items
           }
         }
 
         // Preload images for offline access (non-blocking)
-        _imageCacheService
-            .preloadImages('food_items', firebaseItems)
-            .catchError((e) {
-          developer.log('Failed to preload images: $e',
-              name: 'DatabaseService');
-        });
+        _imageCacheService.preloadImages('food_items', firebaseItems).catchError((e) {});
 
         // Update offline manager with fresh data
         await _offlineManager.refreshOfflineStatus();
 
         return firebaseItems;
       } catch (e) {
-        developer.log('Failed to fetch food items from Firebase: $e',
-            name: 'DatabaseService');
         // Fallback to local data (graceful degradation)
         await _errorHandler.handleWarning(
           component: 'UnifiedDatabaseService',
@@ -267,18 +268,14 @@ class UnifiedDatabaseService implements DatabaseService {
         component: 'UnifiedDatabaseService',
         message: 'Failed to retrieve food items',
         error: e,
-        userMessage:
-            'Unable to load food items. Using offline data if available.',
+        userMessage: 'Unable to load food items. Using offline data if available.',
         errorType: UserErrorType.databaseError,
       );
 
       // Try to return local data as fallback
       try {
-        final fallbackItems =
-            await _sqliteDAO.getFoodItems(adminUid, department: department);
-        developer.log(
-            'Returning ${fallbackItems.length} items from fallback local data',
-            name: 'DatabaseService');
+        final fallbackItems = await _sqliteDAO.getFoodItems(adminUid, department: department);
+
         return fallbackItems;
       } catch (fallbackError) {
         throw DatabaseServiceException(
@@ -291,14 +288,12 @@ class UnifiedDatabaseService implements DatabaseService {
   }
 
   @override
-  Future<Map<String, dynamic>?> getFoodItem(
-      String adminUid, String itemId) async {
+  Future<Map<String, dynamic>?> getFoodItem(String adminUid, String itemId) async {
     await _ensureInitialized();
 
     try {
       // Try local first (offline-first approach)
-      Map<String, dynamic>? localItem =
-          await _sqliteDAO.getFoodItem(adminUid, itemId);
+      Map<String, dynamic>? localItem = await _sqliteDAO.getFoodItem(adminUid, itemId);
 
       // If found locally, return immediately
       if (localItem != null) {
@@ -308,35 +303,25 @@ class UnifiedDatabaseService implements DatabaseService {
       // If not found locally and online, try Firebase
       if (await isOnline()) {
         try {
-          developer.log(
-              'Fetching food item $itemId from Firebase (not found locally)',
-              name: 'DatabaseService');
-          Map<String, dynamic>? firebaseItem =
-              await _firebaseDAO.getFoodItem(adminUid, itemId);
+          Map<String, dynamic>? firebaseItem = await _NodeApiDAO.getFoodItem(adminUid, itemId);
 
           // Cache locally for future offline access
           if (firebaseItem != null) {
             try {
               await _sqliteDAO.saveFoodItem(adminUid, firebaseItem);
-              await _sqliteDAO.markAsSynced(
-                  'food_items', firebaseItem['id']?.toString() ?? '');
+              await _sqliteDAO.markAsSynced('food_items', firebaseItem['id']?.toString() ?? '');
             } catch (e) {
-              developer.log('Failed to cache food item $itemId: $e',
-                  name: 'DatabaseService');
               // Still return the item even if caching fails
             }
           }
           return firebaseItem;
         } catch (e) {
-          developer.log('Failed to fetch food item $itemId from Firebase: $e',
-              name: 'DatabaseService');
           // Fallback to null (item not found)
         }
       }
 
       return null;
     } catch (e) {
-      developer.log('Error in getFoodItem: $e', name: 'DatabaseService');
       throw DatabaseServiceException(
         'Failed to retrieve food item. Please try again.',
         operation: 'getFoodItem',
@@ -346,37 +331,24 @@ class UnifiedDatabaseService implements DatabaseService {
   }
 
   @override
-  Future<void> saveFoodItem(
-      String adminUid, Map<String, dynamic> foodItem) async {
+  Future<void> saveFoodItem(String adminUid, Map<String, dynamic> foodItem) async {
     await _ensureInitialized();
 
     try {
       // Always save to SQLite first (offline-first approach)
       await _sqliteDAO.saveFoodItem(adminUid, foodItem);
-      developer.log('Food item ${foodItem['id']} saved to local database',
-          name: 'DatabaseService');
 
       // If online, try to sync to Firebase immediately
       if (await isOnline()) {
         try {
-          await _firebaseDAO.saveFoodItem(adminUid, foodItem);
+          await _NodeApiDAO.saveFoodItem(adminUid, foodItem);
           await _sqliteDAO.markAsSynced('food_items', foodItem['id']);
-          developer.log('Food item ${foodItem['id']} synced to Firebase',
-              name: 'DatabaseService');
         } catch (e) {
-          developer.log(
-              'Failed to sync food item ${foodItem['id']} to Firebase: $e',
-              name: 'DatabaseService');
           // Firebase sync failed, item remains marked as pending
           // Will be synced later by SyncManager - this is expected behavior
         }
-      } else {
-        developer.log(
-            'Offline mode: Food item ${foodItem['id']} will be synced when connection is restored',
-            name: 'DatabaseService');
-      }
+      } else {}
     } catch (e) {
-      developer.log('Error saving food item: $e', name: 'DatabaseService');
       throw DatabaseServiceException(
         'Failed to save food item. Please check your data and try again.',
         operation: 'saveFoodItem',
@@ -386,8 +358,7 @@ class UnifiedDatabaseService implements DatabaseService {
   }
 
   @override
-  Future<void> updateFoodItem(
-      String adminUid, String itemId, Map<String, dynamic> updates) async {
+  Future<void> updateFoodItem(String adminUid, String itemId, Map<String, dynamic> updates) async {
     await _ensureInitialized();
 
     try {
@@ -395,29 +366,18 @@ class UnifiedDatabaseService implements DatabaseService {
 
       // Always update SQLite first (offline-first approach)
       await _sqliteDAO.updateFoodItem(adminUid, itemId, updates);
-      developer.log('Food item $itemId updated in local database',
-          name: 'DatabaseService');
 
       // If online, try to sync to Firebase immediately
       if (await isOnline()) {
         try {
-          await _firebaseDAO.updateFoodItem(adminUid, itemId, updates);
+          await _NodeApiDAO.updateFoodItem(adminUid, itemId, updates);
           await _sqliteDAO.markAsSynced('food_items', itemId);
-          developer.log('Food item $itemId synced to Firebase',
-              name: 'DatabaseService');
         } catch (e) {
-          developer.log('Failed to sync food item update to Firebase: $e',
-              name: 'DatabaseService');
           // Firebase sync failed, item remains marked as pending
           // Will be synced later by SyncManager - this is expected behavior
         }
-      } else {
-        developer.log(
-            'Offline mode: Food item $itemId update will be synced when connection is restored',
-            name: 'DatabaseService');
-      }
+      } else {}
     } catch (e) {
-      developer.log('Error updating food item: $e', name: 'DatabaseService');
       throw DatabaseServiceException(
         'Failed to update food item. Please check your data and try again.',
         operation: 'updateFoodItem',
@@ -435,27 +395,16 @@ class UnifiedDatabaseService implements DatabaseService {
 
       // Always delete from SQLite first (offline-first approach)
       await _sqliteDAO.deleteFoodItem(adminUid, itemId);
-      developer.log('Food item $itemId deleted from local database',
-          name: 'DatabaseService');
 
       // If online, try to sync to Firebase immediately
       if (await isOnline()) {
         try {
-          await _firebaseDAO.deleteFoodItem(adminUid, itemId);
-          developer.log('Food item $itemId deletion synced to Firebase',
-              name: 'DatabaseService');
+          await _NodeApiDAO.deleteFoodItem(adminUid, itemId);
         } catch (e) {
-          developer.log('Failed to sync food item deletion to Firebase: $e',
-              name: 'DatabaseService');
           // Firebase sync failed, deletion will be synced later by SyncManager
         }
-      } else {
-        developer.log(
-            'Offline mode: Food item $itemId deletion will be synced when connection is restored',
-            name: 'DatabaseService');
-      }
+      } else {}
     } catch (e) {
-      developer.log('Error deleting food item: $e', name: 'DatabaseService');
       throw DatabaseServiceException(
         'Failed to delete food item. Please try again.',
         operation: 'deleteFoodItem',
@@ -472,10 +421,7 @@ class UnifiedDatabaseService implements DatabaseService {
     // Check connection first
     if (await isOnline()) {
       try {
-        developer.log('Fetching departments from Firebase',
-            name: 'DatabaseService');
-        List<Map<String, dynamic>> firebaseDepartments =
-            await _firebaseDAO.getDepartments(adminUid);
+        List<Map<String, dynamic>> firebaseDepartments = await _NodeApiDAO.getDepartments(adminUid);
 
         // Cache Firebase data locally
         for (Map<String, dynamic> department in firebaseDepartments) {
@@ -484,13 +430,10 @@ class UnifiedDatabaseService implements DatabaseService {
         }
 
         // Preload images for offline access
-        await _imageCacheService.preloadImages(
-            'departments', firebaseDepartments);
+        await _imageCacheService.preloadImages('departments', firebaseDepartments);
 
         return firebaseDepartments;
       } catch (e) {
-        developer.log('Firebase fetch failed for departments: $e',
-            name: 'DatabaseService');
         // Fallback to local
       }
     }
@@ -500,13 +443,11 @@ class UnifiedDatabaseService implements DatabaseService {
   }
 
   @override
-  Future<Map<String, dynamic>?> getDepartment(
-      String adminUid, String departmentId) async {
+  Future<Map<String, dynamic>?> getDepartment(String adminUid, String departmentId) async {
     await _ensureInitialized();
 
     // Try local first
-    Map<String, dynamic>? localDepartment =
-        await _sqliteDAO.getDepartment(adminUid, departmentId);
+    Map<String, dynamic>? localDepartment = await _sqliteDAO.getDepartment(adminUid, departmentId);
 
     // If found locally, return immediately
     if (localDepartment != null) {
@@ -516,26 +457,19 @@ class UnifiedDatabaseService implements DatabaseService {
     // If not found locally and online, try Firebase
     if (await isOnline()) {
       try {
-        Map<String, dynamic>? firebaseDepartment =
-            await _firebaseDAO.getDepartment(adminUid, departmentId);
+        Map<String, dynamic>? firebaseDepartment = await _NodeApiDAO.getDepartment(adminUid, departmentId);
 
         // Cache locally for future offline access
         if (firebaseDepartment != null) {
           try {
             await _sqliteDAO.saveDepartment(adminUid, firebaseDepartment);
-            await _sqliteDAO.markAsSynced(
-                'departments', firebaseDepartment['id']?.toString() ?? '');
+            await _sqliteDAO.markAsSynced('departments', firebaseDepartment['id']?.toString() ?? '');
           } catch (e) {
-            developer.log('Failed to cache department $departmentId: $e',
-                name: 'DatabaseService');
             // Still return the item even if caching fails
           }
         }
         return firebaseDepartment;
       } catch (e) {
-        developer.log(
-            'Failed to fetch department $departmentId from Firebase: $e',
-            name: 'DatabaseService');
         // Firebase error, return null
       }
     }
@@ -544,8 +478,7 @@ class UnifiedDatabaseService implements DatabaseService {
   }
 
   @override
-  Future<void> saveDepartment(
-      String adminUid, Map<String, dynamic> department) async {
+  Future<void> saveDepartment(String adminUid, Map<String, dynamic> department) async {
     await _ensureInitialized();
 
     // Always save to SQLite first
@@ -554,7 +487,7 @@ class UnifiedDatabaseService implements DatabaseService {
     // If online, try to sync to Firebase immediately
     if (await isOnline()) {
       try {
-        await _firebaseDAO.saveDepartment(adminUid, department);
+        await _NodeApiDAO.saveDepartment(adminUid, department);
         await _sqliteDAO.markAsSynced('departments', department['id']);
       } catch (e) {
         // Firebase sync failed, item remains marked as pending
@@ -563,8 +496,7 @@ class UnifiedDatabaseService implements DatabaseService {
   }
 
   @override
-  Future<void> updateDepartment(String adminUid, String departmentId,
-      Map<String, dynamic> updates) async {
+  Future<void> updateDepartment(String adminUid, String departmentId, Map<String, dynamic> updates) async {
     await _ensureInitialized();
 
     // Always update SQLite first
@@ -573,7 +505,7 @@ class UnifiedDatabaseService implements DatabaseService {
     // If online, try to sync to Firebase immediately
     if (await isOnline()) {
       try {
-        await _firebaseDAO.updateDepartment(adminUid, departmentId, updates);
+        await _NodeApiDAO.updateDepartment(adminUid, departmentId, updates);
         await _sqliteDAO.markAsSynced('departments', departmentId);
       } catch (e) {
         // Firebase sync failed, item remains marked as pending
@@ -591,7 +523,7 @@ class UnifiedDatabaseService implements DatabaseService {
     // If online, try to sync to Firebase immediately
     if (await isOnline()) {
       try {
-        await _firebaseDAO.deleteDepartment(adminUid, departmentId);
+        await _NodeApiDAO.deleteDepartment(adminUid, departmentId);
       } catch (e) {
         // Firebase sync failed, deletion will be synced later
       }
@@ -600,19 +532,17 @@ class UnifiedDatabaseService implements DatabaseService {
 
   // Bills operations
   @override
-  Future<List<Map<String, dynamic>>> getBills(String adminUid,
-      {DateTime? startDate, DateTime? endDate}) async {
+  Future<List<Map<String, dynamic>>> getBills(String adminUid, {DateTime? startDate, DateTime? endDate}) async {
     await _ensureInitialized();
 
     // Always return from SQLite for immediate response
-    List<Map<String, dynamic>> localBills = await _sqliteDAO.getBills(adminUid,
-        startDate: startDate, endDate: endDate);
+    List<Map<String, dynamic>> localBills = await _sqliteDAO.getBills(adminUid, startDate: startDate, endDate: endDate);
 
     // If online, try to fetch recent bills from Firebase and merge
     if (await isOnline()) {
       try {
-        List<Map<String, dynamic>> firebaseBills = await _firebaseDAO
-            .getBills(adminUid, startDate: startDate, endDate: endDate);
+        List<Map<String, dynamic>> firebaseBills =
+            await _NodeApiDAO.getBills(adminUid, startDate: startDate, endDate: endDate);
 
         // Cache new Firebase bills locally
         for (Map<String, dynamic> bill in firebaseBills) {
@@ -621,8 +551,7 @@ class UnifiedDatabaseService implements DatabaseService {
         }
 
         // Return updated local bills
-        return await _sqliteDAO.getBills(adminUid,
-            startDate: startDate, endDate: endDate);
+        return await _sqliteDAO.getBills(adminUid, startDate: startDate, endDate: endDate);
       } catch (e) {
         // If Firebase fails, return local data
         return localBills;
@@ -637,8 +566,7 @@ class UnifiedDatabaseService implements DatabaseService {
     await _ensureInitialized();
 
     // Try local first
-    Map<String, dynamic>? localBill =
-        await _sqliteDAO.getBill(adminUid, billId);
+    Map<String, dynamic>? localBill = await _sqliteDAO.getBill(adminUid, billId);
 
     // If found locally, return immediately
     if (localBill != null) {
@@ -648,25 +576,19 @@ class UnifiedDatabaseService implements DatabaseService {
     // If not found locally and online, try Firebase
     if (await isOnline()) {
       try {
-        Map<String, dynamic>? firebaseBill =
-            await _firebaseDAO.getBill(adminUid, billId);
+        Map<String, dynamic>? firebaseBill = await _NodeApiDAO.getBill(adminUid, billId);
 
         // Cache locally for future offline access
         if (firebaseBill != null) {
           try {
             await _sqliteDAO.saveBill(adminUid, firebaseBill);
-            await _sqliteDAO.markAsSynced(
-                'bills', firebaseBill['id']?.toString() ?? '');
+            await _sqliteDAO.markAsSynced('bills', firebaseBill['id']?.toString() ?? '');
           } catch (e) {
-            developer.log('Failed to cache bill $billId: $e',
-                name: 'DatabaseService');
             // Still return the item even if caching fails
           }
         }
         return firebaseBill;
       } catch (e) {
-        developer.log('Failed to fetch bill $billId from Firebase: $e',
-            name: 'DatabaseService');
         // Firebase error, return null
       }
     }
@@ -696,27 +618,18 @@ class UnifiedDatabaseService implements DatabaseService {
       if (isConnected) {
         // Online: Try to save to both SQLite and Firebase
         await _sqliteDAO.saveBill(adminUid, billData);
-        developer.log('Bill ${billData['id']} saved to local database',
-            name: 'DatabaseService');
 
         try {
-          await _firebaseDAO.saveBill(adminUid, billData);
+          await _NodeApiDAO.saveBill(adminUid, billData);
           // Mark as synced AFTER successful Firebase save
           await _sqliteDAO.markAsSynced('bills', billData['id'].toString());
-          developer.log(
-              'Bill ${billData['id']} synced to Firebase and marked as synced',
-              name: 'DatabaseService');
         } catch (e) {
-          developer.log('Failed to sync bill to Firebase: $e',
-              name: 'DatabaseService');
           // Firebase sync failed, bill remains marked as pending
           // Will be synced later by offline bill manager - this is critical for POS operations
         }
       } else {
         // Offline: Use enhanced offline bill manager for robust offline bill storage
-        developer.log(
-            'Offline mode: Storing bill ${billData['id']} for later sync',
-            name: 'DatabaseService');
+
         await _offlineBillManager.storeBillOffline(adminUid, billData);
       }
     } catch (e) {
@@ -729,8 +642,7 @@ class UnifiedDatabaseService implements DatabaseService {
         message: 'Critical error saving bill',
         error: e,
         context: {'billId': billData['id'], 'adminUid': adminUid},
-        userMessage:
-            'Failed to save bill. This is critical for POS operations - please contact support immediately.',
+        userMessage: 'Failed to save bill. This is critical for POS operations - please contact support immediately.',
       );
 
       throw DatabaseServiceException(
@@ -743,8 +655,7 @@ class UnifiedDatabaseService implements DatabaseService {
   }
 
   @override
-  Future<void> updateBill(
-      String adminUid, String billId, Map<String, dynamic> updates) async {
+  Future<void> updateBill(String adminUid, String billId, Map<String, dynamic> updates) async {
     await _ensureInitialized();
 
     // Always update SQLite first
@@ -753,7 +664,7 @@ class UnifiedDatabaseService implements DatabaseService {
     // If online, try to sync to Firebase immediately
     if (await isOnline()) {
       try {
-        await _firebaseDAO.updateBill(adminUid, billId, updates);
+        await _NodeApiDAO.updateBill(adminUid, billId, updates);
         await _sqliteDAO.markAsSynced('bills', billId);
       } catch (e) {
         // Firebase sync failed, item remains marked as pending
@@ -771,7 +682,7 @@ class UnifiedDatabaseService implements DatabaseService {
     // If online, try to sync to Firebase immediately
     if (await isOnline()) {
       try {
-        await _firebaseDAO.deleteBill(adminUid, billId);
+        await _NodeApiDAO.deleteBill(adminUid, billId);
       } catch (e) {
         // Firebase sync failed, deletion will be synced later
       }
@@ -780,40 +691,26 @@ class UnifiedDatabaseService implements DatabaseService {
 
   // Orders operations
   @override
-  Future<void> saveOrder(
-      String adminUid, Map<String, dynamic> orderData) async {
+  Future<void> saveOrder(String adminUid, Map<String, dynamic> orderData) async {
     await _ensureInitialized();
 
     try {
-      _validateInput(
-          {'adminUid': adminUid, 'id': orderData['id']}, 'saveOrder');
+      _validateInput({'adminUid': adminUid, 'id': orderData['id']}, 'saveOrder');
 
       // Always save to SQLite first (offline-first approach)
       await _sqliteDAO.saveOrder(adminUid, orderData);
-      developer.log('Order ${orderData['id']} saved to local database',
-          name: 'DatabaseService');
 
       // If online, try to sync to Firebase immediately
       if (await isOnline()) {
         try {
-          await _firebaseDAO.saveOrder(adminUid, orderData);
+          await _NodeApiDAO.saveOrder(adminUid, orderData);
           await _sqliteDAO.markAsSynced('orders', orderData['id']);
-          developer.log('Order ${orderData['id']} synced to Firebase',
-              name: 'DatabaseService');
         } catch (e) {
-          developer.log(
-              'Failed to sync order ${orderData['id']} to Firebase: $e',
-              name: 'DatabaseService');
           // Firebase sync failed, order remains marked as pending
           // Will be synced later by SyncManager - this is expected behavior
         }
-      } else {
-        developer.log(
-            'Offline mode: Order ${orderData['id']} will be synced when connection is restored',
-            name: 'DatabaseService');
-      }
+      } else {}
     } catch (e) {
-      developer.log('Error saving order: $e', name: 'DatabaseService');
       throw DatabaseServiceException(
         'Failed to save order. Please check your data and try again.',
         operation: 'saveOrder',
@@ -828,8 +725,7 @@ class UnifiedDatabaseService implements DatabaseService {
 
     try {
       // Always return from SQLite for immediate response (offline-first approach)
-      List<Map<String, dynamic>> localOrders =
-          await _sqliteDAO.getOrders(adminUid);
+      List<Map<String, dynamic>> localOrders = await _sqliteDAO.getOrders(adminUid);
 
       // Check if we're offline
       final bool isOfflineMode = !await isOnline();
@@ -837,19 +733,14 @@ class UnifiedDatabaseService implements DatabaseService {
       if (isOfflineMode) {
         // Offline mode: Display offline indicator and return local data
         await _offlineManager.displayOfflineIndicator();
-        developer.log(
-            'Offline mode: Returning ${localOrders.length} orders from local database',
-            name: 'DatabaseService');
+
         return localOrders;
       }
 
       // Online mode: If local data is empty, try to fetch from Firebase and cache locally
       if (localOrders.isEmpty) {
         try {
-          developer.log('Fetching orders from Firebase (local cache empty)',
-              name: 'DatabaseService');
-          List<Map<String, dynamic>> firebaseOrders =
-              await _firebaseDAO.getOrders(adminUid);
+          List<Map<String, dynamic>> firebaseOrders = await _NodeApiDAO.getOrders(adminUid);
 
           // Cache Firebase data locally for offline access
           for (Map<String, dynamic> order in firebaseOrders) {
@@ -857,8 +748,6 @@ class UnifiedDatabaseService implements DatabaseService {
               await _sqliteDAO.saveOrder(adminUid, order);
               await _sqliteDAO.markAsSynced('orders', order['id']);
             } catch (e) {
-              developer.log('Failed to cache order ${order['id']}: $e',
-                  name: 'DatabaseService');
               // Continue with other orders
             }
           }
@@ -868,15 +757,12 @@ class UnifiedDatabaseService implements DatabaseService {
 
           return firebaseOrders;
         } catch (e) {
-          developer.log('Failed to fetch orders from Firebase: $e',
-              name: 'DatabaseService');
           // Fallback to local data (graceful degradation)
           await _errorHandler.handleWarning(
             component: 'UnifiedDatabaseService',
             message: 'Firebase fetch failed, using local data',
             context: {'error': e.toString()},
-            userMessage:
-                'Using offline data. Some orders may not be up to date.',
+            userMessage: 'Using offline data. Some orders may not be up to date.',
           );
           return localOrders;
         }
@@ -896,9 +782,6 @@ class UnifiedDatabaseService implements DatabaseService {
       // Try to return local data as fallback
       try {
         final fallbackOrders = await _sqliteDAO.getOrders(adminUid);
-        developer.log(
-            'Returning ${fallbackOrders.length} orders from fallback local data',
-            name: 'DatabaseService');
         return fallbackOrders;
       } catch (fallbackError) {
         throw DatabaseServiceException(
@@ -927,15 +810,11 @@ class UnifiedDatabaseService implements DatabaseService {
         );
       }
 
-      developer.log(
-          'Sync completed successfully: ${result.itemsSynced} items synced',
-          name: 'DatabaseService');
     } catch (e) {
       if (e is DatabaseServiceException) {
         rethrow;
       }
 
-      developer.log('Error in syncPendingData: $e', name: 'DatabaseService');
       throw DatabaseServiceException(
         'Failed to synchronize pending data. Please check your connection and try again.',
         operation: 'syncPendingData',
@@ -951,8 +830,6 @@ class UnifiedDatabaseService implements DatabaseService {
     try {
       return await _sqliteDAO.getPendingSyncItems();
     } catch (e) {
-      developer.log('Error retrieving pending sync items: $e',
-          name: 'DatabaseService');
       throw DatabaseServiceException(
         'Failed to retrieve pending sync items',
         operation: 'getPendingSyncItems',
@@ -977,15 +854,11 @@ class UnifiedDatabaseService implements DatabaseService {
       }
 
       await _sqliteDAO.markAsSynced(tableName, recordId);
-      developer.log('Marked $tableName:$recordId as synced',
-          name: 'DatabaseService');
     } catch (e) {
       if (e is DatabaseServiceException) {
         rethrow;
       }
 
-      developer.log('Error marking item as synced: $e',
-          name: 'DatabaseService');
       throw DatabaseServiceException(
         'Failed to update sync status',
         operation: 'markAsSynced',
@@ -1010,15 +883,11 @@ class UnifiedDatabaseService implements DatabaseService {
       }
 
       await _sqliteDAO.markAsPending(tableName, recordId);
-      developer.log('Marked $tableName:$recordId as pending sync',
-          name: 'DatabaseService');
     } catch (e) {
       if (e is DatabaseServiceException) {
         rethrow;
       }
 
-      developer.log('Error marking item as pending: $e',
-          name: 'DatabaseService');
       throw DatabaseServiceException(
         'Failed to update sync status',
         operation: 'markAsPending',
@@ -1056,15 +925,13 @@ class UnifiedDatabaseService implements DatabaseService {
         rethrow;
       }
 
-      developer.log('Error retrieving image blob: $e', name: 'DatabaseService');
       // Return null for image errors to allow UI to show placeholder
       return null;
     }
   }
 
   @override
-  Future<void> saveImageBlob(String tableName, String recordId, String imageUrl,
-      Uint8List imageData) async {
+  Future<void> saveImageBlob(String tableName, String recordId, String imageUrl, Uint8List imageData) async {
     await _ensureInitialized();
 
     try {
@@ -1101,16 +968,12 @@ class UnifiedDatabaseService implements DatabaseService {
         );
       }
 
-      await _imageCacheService.storeImageBlob(
-          tableName, recordId, imageUrl, imageData);
-      developer.log('Image blob saved for $tableName:$recordId',
-          name: 'DatabaseService');
+      await _imageCacheService.storeImageBlob(tableName, recordId, imageUrl, imageData);
     } catch (e) {
       if (e is DatabaseServiceException) {
         rethrow;
       }
 
-      developer.log('Error saving image blob: $e', name: 'DatabaseService');
       throw DatabaseServiceException(
         'Failed to save image. Please try again.',
         operation: 'saveImageBlob',
@@ -1125,10 +988,7 @@ class UnifiedDatabaseService implements DatabaseService {
 
     try {
       await _imageCacheService.clearImageCache();
-      developer.log('Image cache cleared successfully',
-          name: 'DatabaseService');
     } catch (e) {
-      developer.log('Error clearing image cache: $e', name: 'DatabaseService');
       throw DatabaseServiceException(
         'Failed to clear image cache. Please try again.',
         operation: 'clearImageCache',
@@ -1139,11 +999,9 @@ class UnifiedDatabaseService implements DatabaseService {
 
   // Additional image cache methods
   @override
-  Future<Uint8List?> downloadAndCacheImage(String imageUrl,
-      {String? tableName, String? recordId}) async {
+  Future<Uint8List?> downloadAndCacheImage(String imageUrl, {String? tableName, String? recordId}) async {
     await _ensureInitialized();
-    return await _imageCacheService.downloadAndCacheImage(imageUrl,
-        tableName: tableName, recordId: recordId);
+    return await _imageCacheService.downloadAndCacheImage(imageUrl, tableName: tableName, recordId: recordId);
   }
 
   Future<bool> isImageCached(String tableName, String recordId) async {
@@ -1151,8 +1009,7 @@ class UnifiedDatabaseService implements DatabaseService {
     return await _imageCacheService.isImageCached(tableName, recordId);
   }
 
-  Future<void> preloadImages(
-      String tableName, List<Map<String, dynamic>> records) async {
+  Future<void> preloadImages(String tableName, List<Map<String, dynamic>> records) async {
     await _ensureInitialized();
     await _imageCacheService.preloadImages(tableName, records);
   }
@@ -1192,10 +1049,8 @@ class UnifiedDatabaseService implements DatabaseService {
   }
 
   /// Validates input parameters to provide meaningful error messages
-  void _validateInput(Map<String, dynamic> params, String operation,
-      {bool requireAdminUid = true}) {
-    if (requireAdminUid &&
-        (params['adminUid'] == null || params['adminUid'].toString().isEmpty)) {
+  void _validateInput(Map<String, dynamic> params, String operation, {bool requireAdminUid = true}) {
+    if (requireAdminUid && (params['adminUid'] == null || params['adminUid'].toString().isEmpty)) {
       throw DatabaseServiceException(
         'Admin UID is required for this operation',
         operation: operation,
@@ -1214,8 +1069,7 @@ class UnifiedDatabaseService implements DatabaseService {
 
   /// Legacy compatibility method for existing Firebase operations
   /// Ensures backward compatibility with existing codebase
-  Future<List<Map<String, dynamic>>> getFirebaseData(
-      String collection, String adminUid) async {
+  Future<List<Map<String, dynamic>>> getFirebaseData(String collection, String adminUid) async {
     await _ensureInitialized();
 
     try {
@@ -1251,13 +1105,11 @@ class UnifiedDatabaseService implements DatabaseService {
   }
 
   /// Legacy compatibility method for saving data
-  Future<void> saveFirebaseData(
-      String collection, String adminUid, Map<String, dynamic> data) async {
+  Future<void> saveFirebaseData(String collection, String adminUid, Map<String, dynamic> data) async {
     await _ensureInitialized();
 
     try {
-      _validateInput(
-          {'adminUid': adminUid, 'id': data['id']}, 'saveFirebaseData');
+      _validateInput({'adminUid': adminUid, 'id': data['id']}, 'saveFirebaseData');
 
       // Route through unified service for consistency
       switch (collection) {
@@ -1296,8 +1148,7 @@ class UnifiedDatabaseService implements DatabaseService {
     return await _sqliteDAO.getPendingItemsCount();
   }
 
-  Future<List<Map<String, dynamic>>> getPendingItemsByTable(
-      String tableName) async {
+  Future<List<Map<String, dynamic>>> getPendingItemsByTable(String tableName) async {
     await _ensureInitialized();
     return await _sqliteDAO.getPendingItemsByTable(tableName);
   }
@@ -1305,8 +1156,7 @@ class UnifiedDatabaseService implements DatabaseService {
   // Sync Manager integration methods
 
   /// Get sync status stream from SyncManager
-  Stream<SyncOperationStatus> get syncStatusStream =>
-      _syncManager.syncStatusStream;
+  Stream<SyncOperationStatus> get syncStatusStream => _syncManager.syncStatusStream;
 
   /// Get sync result stream from SyncManager
   Stream<SyncResult> get syncResultStream => _syncManager.syncResultStream;
@@ -1324,8 +1174,7 @@ class UnifiedDatabaseService implements DatabaseService {
   }
 
   /// Force sync of a specific item
-  Future<SyncResult> forceSyncItem(
-      String tableName, String adminUid, String itemId) async {
+  Future<SyncResult> forceSyncItem(String tableName, String adminUid, String itemId) async {
     await _ensureInitialized();
     return await _syncManager.forceSyncItem(tableName, adminUid, itemId);
   }
@@ -1374,8 +1223,7 @@ class UnifiedDatabaseService implements DatabaseService {
   }
 
   /// Get sync statistics for offline bills
-  Future<Map<String, dynamic>> getOfflineBillSyncStatistics(
-      String adminUid) async {
+  Future<Map<String, dynamic>> getOfflineBillSyncStatistics(String adminUid) async {
     await _ensureInitialized();
     return await _offlineBillManager.getOfflineBillSyncStatistics(adminUid);
   }
@@ -1387,12 +1235,10 @@ class UnifiedDatabaseService implements DatabaseService {
   }
 
   /// Get offline bill sync status stream
-  Stream<OfflineBillSyncStatus> get offlineBillSyncStatusStream =>
-      _offlineBillManager.syncStatusStream;
+  Stream<OfflineBillSyncStatus> get offlineBillSyncStatusStream => _offlineBillManager.syncStatusStream;
 
   /// Get offline bill sync result stream
-  Stream<OfflineBillSyncResult> get offlineBillSyncResultStream =>
-      _offlineBillManager.syncResultStream;
+  Stream<OfflineBillSyncResult> get offlineBillSyncResultStream => _offlineBillManager.syncResultStream;
 
   /// Create a robust offline bill with enhanced conflict resolution
   Future<Map<String, dynamic>> createRobustOfflineBill({
@@ -1419,8 +1265,7 @@ class UnifiedDatabaseService implements DatabaseService {
   }
 
   /// Get detailed offline bill statistics with enhanced metrics
-  Future<Map<String, dynamic>> getDetailedOfflineBillStatistics(
-      String adminUid) async {
+  Future<Map<String, dynamic>> getDetailedOfflineBillStatistics(String adminUid) async {
     await _ensureInitialized();
     return await _offlineBillManager.getDetailedOfflineBillStatistics(adminUid);
   }
@@ -1458,7 +1303,7 @@ class UnifiedDatabaseService implements DatabaseService {
       // Check Firebase status (only if online)
       if (healthStatus['isOnline'] == true) {
         try {
-          await _firebaseDAO.isOnline();
+          await _NodeApiDAO.isOnline();
           healthStatus['firebaseStatus'] = 'healthy';
         } catch (e) {
           healthStatus['firebaseStatus'] = 'error: $e';
@@ -1542,8 +1387,7 @@ class UnifiedDatabaseService implements DatabaseService {
 
       // Get image cache statistics
       try {
-        stats['imageCacheStatistics'] =
-            await _imageCacheService.getCacheStatistics();
+        stats['imageCacheStatistics'] = await _imageCacheService.getCacheStatistics();
       } catch (e) {
         stats['imageCacheStatisticsError'] = e.toString();
       }
@@ -1560,8 +1404,6 @@ class UnifiedDatabaseService implements DatabaseService {
   /// Reset the service to a clean state (for troubleshooting)
   Future<void> resetService() async {
     try {
-      developer.log('Resetting UnifiedDatabaseService',
-          name: 'DatabaseService');
 
       await close();
       _initializationFailed = false;
@@ -1569,11 +1411,7 @@ class UnifiedDatabaseService implements DatabaseService {
 
       await initialize();
 
-      developer.log('UnifiedDatabaseService reset completed',
-          name: 'DatabaseService');
     } catch (e) {
-      developer.log('Failed to reset UnifiedDatabaseService: $e',
-          name: 'DatabaseService');
       throw DatabaseServiceException(
         'Failed to reset database service. Please restart the application.',
         operation: 'resetService',
@@ -1591,11 +1429,7 @@ class UnifiedDatabaseService implements DatabaseService {
 
     try {
       await _migrationService.performIncrementalSync(since: since);
-      developer.log('Incremental sync completed successfully',
-          name: 'DatabaseService');
     } catch (e) {
-      developer.log('Error during incremental sync: $e',
-          name: 'DatabaseService');
       throw DatabaseServiceException(
         'Failed to perform incremental sync. Please check your connection and try again.',
         operation: 'performIncrementalSync',
@@ -1611,8 +1445,6 @@ class UnifiedDatabaseService implements DatabaseService {
     try {
       return await _migrationService.validateDataIntegrity();
     } catch (e) {
-      developer.log('Error validating data integrity: $e',
-          name: 'DatabaseService');
       throw DatabaseServiceException(
         'Failed to validate data integrity',
         operation: 'validateDataIntegrity',
@@ -1628,13 +1460,9 @@ class UnifiedDatabaseService implements DatabaseService {
     try {
       final backupKey = await _migrationService.createDatabaseBackup();
       if (backupKey != null) {
-        developer.log('Database backup created: $backupKey',
-            name: 'DatabaseService');
       }
       return backupKey;
     } catch (e) {
-      developer.log('Error creating database backup: $e',
-          name: 'DatabaseService');
       throw DatabaseServiceException(
         'Failed to create database backup',
         operation: 'createDatabaseBackup',
@@ -1650,15 +1478,10 @@ class UnifiedDatabaseService implements DatabaseService {
     try {
       final success = await _migrationService.restoreFromBackup(backupKey);
       if (success) {
-        developer.log('Database restored from backup: $backupKey',
-            name: 'DatabaseService');
       } else {
-        developer.log('Failed to restore database from backup: $backupKey',
-            name: 'DatabaseService');
       }
       return success;
     } catch (e) {
-      developer.log('Error restoring from backup: $e', name: 'DatabaseService');
       throw DatabaseServiceException(
         'Failed to restore database from backup',
         operation: 'restoreFromBackup',
@@ -1673,11 +1496,7 @@ class UnifiedDatabaseService implements DatabaseService {
 
     try {
       await _migrationService.cleanupOldBackups(keepCount: keepCount);
-      developer.log('Old backups cleaned up, keeping $keepCount most recent',
-          name: 'DatabaseService');
     } catch (e) {
-      developer.log('Error cleaning up old backups: $e',
-          name: 'DatabaseService');
       // Don't throw here as this is a maintenance operation
     }
   }
@@ -1693,11 +1512,7 @@ class UnifiedDatabaseService implements DatabaseService {
       // Force re-migration through SQLiteHelper
       await _sqliteHelper.forceReMigration();
 
-      developer.log('Force re-migration completed successfully',
-          name: 'DatabaseService');
     } catch (e) {
-      developer.log('Error during force re-migration: $e',
-          name: 'DatabaseService');
       throw DatabaseServiceException(
         'Failed to perform force re-migration. Your data backup has been preserved.',
         operation: 'forceReMigration',
@@ -1713,8 +1528,6 @@ class UnifiedDatabaseService implements DatabaseService {
     try {
       return await _sqliteHelper.isMigrationComplete();
     } catch (e) {
-      developer.log('Error checking migration status: $e',
-          name: 'DatabaseService');
       return false;
     }
   }
@@ -1726,8 +1539,6 @@ class UnifiedDatabaseService implements DatabaseService {
     try {
       return await _sqliteHelper.getMigrationHistory();
     } catch (e) {
-      developer.log('Error getting migration history: $e',
-          name: 'DatabaseService');
       return [];
     }
   }
@@ -1738,8 +1549,6 @@ class UnifiedDatabaseService implements DatabaseService {
     // DISABLED: Do not recreate database on every initialization
     // The database should persist and only be recreated if there's a real schema issue
     // This was causing the "database_closed" errors
-    developer.log('Database recreation check skipped - using existing database',
-        name: 'DatabaseService');
   }
 
   // Database Performance Optimization Methods
@@ -1751,8 +1560,6 @@ class UnifiedDatabaseService implements DatabaseService {
     try {
       return await _indexManager.getIndexStatistics();
     } catch (e) {
-      developer.log('Error analyzing query performance: $e',
-          name: 'DatabaseService');
       throw DatabaseServiceException(
         'Failed to analyze query performance',
         operation: 'analyzeQueryPerformance',
@@ -1767,11 +1574,7 @@ class UnifiedDatabaseService implements DatabaseService {
 
     try {
       await _indexManager.performDatabaseMaintenance();
-      developer.log('Database maintenance completed successfully',
-          name: 'DatabaseService');
     } catch (e) {
-      developer.log('Error during database maintenance: $e',
-          name: 'DatabaseService');
       throw DatabaseServiceException(
         'Failed to perform database maintenance',
         operation: 'performDatabaseMaintenance',
@@ -1786,11 +1589,7 @@ class UnifiedDatabaseService implements DatabaseService {
 
     try {
       await _indexManager.updateSearchIndexes();
-      developer.log('Search indexes updated successfully',
-          name: 'DatabaseService');
     } catch (e) {
-      developer.log('Error updating search indexes: $e',
-          name: 'DatabaseService');
       // Don't throw here as this is a maintenance operation
     }
   }
@@ -1802,8 +1601,6 @@ class UnifiedDatabaseService implements DatabaseService {
     try {
       return await _indexManager.getIndexStatistics();
     } catch (e) {
-      developer.log('Error getting index statistics: $e',
-          name: 'DatabaseService');
       return {'error': e.toString()};
     }
   }
@@ -1814,11 +1611,7 @@ class UnifiedDatabaseService implements DatabaseService {
 
     try {
       await _indexManager.optimizeQueryPaths();
-      developer.log('Database query optimization completed',
-          name: 'DatabaseService');
     } catch (e) {
-      developer.log('Error optimizing database queries: $e',
-          name: 'DatabaseService');
       throw DatabaseServiceException(
         'Failed to optimize database queries',
         operation: 'optimizeDatabaseQueries',
@@ -1830,8 +1623,7 @@ class UnifiedDatabaseService implements DatabaseService {
   // Enhanced Offline Management Methods
 
   /// Get offline status stream
-  Stream<OfflineStatus> get offlineStatusStream =>
-      _offlineManager.offlineStatusStream;
+  Stream<OfflineStatus> get offlineStatusStream => _offlineManager.offlineStatusStream;
 
   /// Get current offline status
   OfflineStatus get currentOfflineStatus => _offlineManager.currentStatus;
@@ -1867,15 +1659,12 @@ class UnifiedDatabaseService implements DatabaseService {
       await _sqliteDAO.getDepartments(adminUid);
       await _sqliteDAO.getBills(adminUid);
 
-      developer.log('Offline CRUD operations verified successfully',
-          name: 'DatabaseService');
     } catch (e) {
       await _errorHandler.handleCriticalError(
         component: 'UnifiedDatabaseService',
         message: 'Offline CRUD operations verification failed',
         error: e,
-        userMessage:
-            'There was a problem with offline functionality. Please restart the app.',
+        userMessage: 'There was a problem with offline functionality. Please restart the app.',
       );
       throw DatabaseServiceException(
         'Failed to ensure offline operations work properly',

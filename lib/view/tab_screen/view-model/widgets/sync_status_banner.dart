@@ -3,6 +3,7 @@ import 'dart:async';
 
 // Flutter imports:
 import 'package:flutter/material.dart';
+import 'package:pos/core/widgets/text.dart';
 
 import '../../../../core/network/connection_monitor.dart';
 import '../../../../data/datasources/sync_manager.dart';
@@ -297,13 +298,11 @@ class _SyncStatusBannerState extends State<SyncStatusBanner>
             ),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              _getBannerText(),
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
+            child: MyText(
+              text: _getBannerText(),
+              color: Colors.white,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
             ),
           ),
           if (_currentStatus == SyncOperationStatus.failed) ...[
@@ -316,7 +315,7 @@ class _SyncStatusBannerState extends State<SyncStatusBanner>
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               ),
-              child: const Text('Retry'),
+              child: const MyText(text: 'Retry'),
             ),
           ],
           if (widget.onTap != null) ...[

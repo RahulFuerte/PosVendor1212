@@ -19,7 +19,7 @@ class OfflineBillManager {
   OfflineBillManager._internal();
 
   SQLiteDAO? _sqliteDAO;
-  FirebaseDAO? _firebaseDAO;
+  NodeApiDAO? _NodeApiDAO;
   ConnectionMonitor? _connectionMonitor;
   
   StreamSubscription<bool>? _connectivitySubscription;
@@ -50,12 +50,12 @@ class OfflineBillManager {
 
     try {
       _sqliteDAO = SQLiteDAO();
-      _firebaseDAO = FirebaseDAO();
+      _NodeApiDAO = NodeApiDAO();
       _connectionMonitor = ConnectionMonitor();
       
       await _connectionMonitor!.initialize();
       await _sqliteDAO!.initialize();
-      await _firebaseDAO!.initialize();
+      await _NodeApiDAO!.initialize();
 
       // Listen for connectivity changes and trigger offline bill sync when online
       _connectivitySubscription = _connectionMonitor!.connectivityStream.listen(
@@ -66,11 +66,10 @@ class OfflineBillManager {
       );
 
       _isInitialized = true;
-      print('OfflineBillManager initialized');
     } catch (e) {
       print('Failed to initialize OfflineBillManager: $e');
       _sqliteDAO = null;
-      _firebaseDAO = null;
+      _NodeApiDAO = null;
       _connectionMonitor = null;
       rethrow;
     }
@@ -225,7 +224,7 @@ class OfflineBillManager {
       await initialize();
     }
 
-    if (_sqliteDAO == null || _firebaseDAO == null) {
+    if (_sqliteDAO == null || _NodeApiDAO == null) {
       return OfflineBillSyncResult(
         success: false,
         errorMessage: 'Manager not initialized',
@@ -418,7 +417,7 @@ class OfflineBillManager {
       }
 
       // Sync to Firebase
-      await _firebaseDAO!.saveBill(adminUid, firebaseBillData);
+      await _NodeApiDAO!.saveBill(adminUid, firebaseBillData);
       
       // Update bill status to synced in SQLite
       await _updateBillSyncStatus(adminUid, billId, SyncStatus.synced);
@@ -441,7 +440,7 @@ class OfflineBillManager {
       if (!billId.startsWith('LOCAL_')) {
         // Check if bill exists on Firebase
         try {
-          final firebaseBill = await _firebaseDAO!.getBill(adminUid, billId);
+          final firebaseBill = await _NodeApiDAO!.getBill(adminUid, billId);
           if (firebaseBill != null) {
             // Conflict detected - use timestamp-based resolution
             final localTimestamp = localBill['local_timestamp'] ?? localBill['updated_at'] ?? 0;

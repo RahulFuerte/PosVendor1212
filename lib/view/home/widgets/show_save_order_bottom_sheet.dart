@@ -1,5 +1,5 @@
-
 import 'package:flutter/material.dart';
+import 'package:pos/core/widgets/text.dart';
 import 'package:flutter/services.dart';
 import 'package:pos/data/datasources/local/sqlite_helper.dart';
 import 'package:pos/data/datasources/smart_database_service.dart';
@@ -7,6 +7,10 @@ import 'package:pos/view/home/navigation.dart';
 import 'package:pos/data/providers/print_provider.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:pos/core/utils/price_utils.dart';
+import 'package:pos/data/models/customer_model.dart';
+import 'package:pos/data/services/customer_service.dart';
+import 'package:provider/provider.dart';
+import 'dart:developer' as developer;
 
 class SaveOrderBottomSheet extends StatefulWidget {
   const SaveOrderBottomSheet({
@@ -35,7 +39,7 @@ class SaveOrderBottomSheet extends StatefulWidget {
   final int itemCount;
   final double totalAmount;
 
-  final VoidCallback onSave;
+  final void Function(String? customerId) onSave;
   final VoidCallback onCancel;
 
   final Color primaryColor;
@@ -51,7 +55,31 @@ class _SaveOrderBottomSheetState extends State<SaveOrderBottomSheet> {
   final ScrollController _listScrollController = ScrollController();
   final SmartDatabaseService _databaseService = SmartDatabaseService();
   final SQLiteHelper _sqliteHelper = SQLiteHelper();
+  final CustomerService _customerService = CustomerService();
   List<Map<String, dynamic>> selectedItemsDetails = [];
+  List<CustomerModel> _customers = [];
+  String? _selectedCustomerId;
+  bool _isFetchingCustomers = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchCustomers();
+  }
+
+  Future<void> _fetchCustomers() async {
+    setState(() => _isFetchingCustomers = true);
+    try {
+      final customers = await _customerService.getCustomers();
+      setState(() {
+        _customers = customers;
+      });
+    } catch (e) {
+      developer.log('Error fetching customers: $e', name: 'SaveOrderBottomSheet');
+    } finally {
+      setState(() => _isFetchingCustomers = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -74,11 +102,11 @@ class _SaveOrderBottomSheetState extends State<SaveOrderBottomSheet> {
               children: [
                 _dragHandle(),
                 const SizedBox(height: 20),
-                Text(widget.title, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                MyText(text: widget.title, fontSize: 24, fontWeight: FontWeight.bold),
                 const SizedBox(height: 8),
-                Text(widget.subtitle, style: TextStyle(fontSize: 14, color: Colors.grey[600])),
+                MyText(text: widget.subtitle, fontSize: 14, color: Colors.grey[600]),
                 const SizedBox(height: 24),
-                _nameField(),
+                _customerAutoCompleteField(),
                 const SizedBox(height: 16),
                 _mobileField(),
                 const SizedBox(height: 24),
@@ -89,55 +117,6 @@ class _SaveOrderBottomSheetState extends State<SaveOrderBottomSheet> {
                 _orderSummary(),
                 const SizedBox(height: 24),
                 _actionButtons(context),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      // Show only amount when compact view, otherwise show label + amount
-
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Grand Total',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey[600],
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          Text(
-                            PriceUtils.formatPrice(widget.totalAmount),
-                            style: const TextStyle(
-                              fontSize: 20,
-                              color: Colors.black,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                      Row(
-                        children: [
-                          _buildIconButton(
-                            icon: Icons.receipt_long_outlined,
-                            onPressed: () {},
-                          ),
-                          const SizedBox(width: 10),
-                          _buildIconButton(
-                            icon: Icons.bookmark_outline,
-                            onPressed: () {},
-                          ),
-                          const SizedBox(width: 10),
-                          _buildIconButton(
-                            icon: Icons.print,
-                            onPressed: () {},
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
               ],
             ),
           ),
@@ -196,23 +175,21 @@ class _SaveOrderBottomSheetState extends State<SaveOrderBottomSheet> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  selectedItemsDetails[index]['name'],
-                  style: const TextStyle(
-                    overflow: TextOverflow.ellipsis,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87,
-                  ),
+                MyText(
+                  text: selectedItemsDetails[index]['name'],
+                  overflow: TextOverflow.ellipsis,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                  maxLines: 1,
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  '${PriceUtils.formatPrice(selectedItemsDetails[index]['price'])} × ${selectedItemsDetails[index]['quantity']}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[600],
-                    fontWeight: FontWeight.w500,
-                  ),
+                MyText(
+                  text:
+                      '${PriceUtils.formatPrice(selectedItemsDetails[index]['price'])} × ${selectedItemsDetails[index]['quantity']}',
+                  fontSize: 12,
+                  color: Colors.grey[600],
+                  fontWeight: FontWeight.w500,
                 ),
               ],
             ),
@@ -255,13 +232,11 @@ class _SaveOrderBottomSheetState extends State<SaveOrderBottomSheet> {
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Text(
-              "${selectedItemsDetails[index]['quantity']}",
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.black,
-              ),
+            child: MyText(
+              text: "${selectedItemsDetails[index]['quantity']}",
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.black,
             ),
           ),
           InkWell(
@@ -303,23 +278,109 @@ class _SaveOrderBottomSheetState extends State<SaveOrderBottomSheet> {
     );
   }
 
-  Widget _buildIconButton({required IconData icon, required VoidCallback onPressed}) {
-    return Container(
-      decoration: BoxDecoration(
-        color: appbar1,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.3),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          )
-        ],
-      ),
-      child: IconButton(
-        icon: Icon(icon, color: Colors.white, size: 24),
-        onPressed: onPressed,
-      ),
+  Widget _customerAutoCompleteField() {
+    return RawAutocomplete<CustomerModel>(
+      optionsBuilder: (TextEditingValue textEditingValue) {
+        if (textEditingValue.text.isEmpty) {
+          return const Iterable<CustomerModel>.empty();
+        }
+        return _customers.where((CustomerModel option) {
+          return option.name.toLowerCase().contains(textEditingValue.text.toLowerCase()) ||
+              option.phoneNumber.contains(textEditingValue.text);
+        });
+      },
+      displayStringForOption: (CustomerModel option) => option.name,
+      fieldViewBuilder: (BuildContext context, TextEditingController textEditingController, FocusNode focusNode,
+          VoidCallback onFieldSubmitted) {
+        // Sync original controller with autocomplete controller
+        if (textEditingController.text.isEmpty && widget.nameController.text.isNotEmpty) {
+          textEditingController.text = widget.nameController.text;
+        }
+
+        textEditingController.addListener(() {
+          if (widget.nameController.text != textEditingController.text) {
+            widget.nameController.text = textEditingController.text;
+            // Clear ID if name changes manually
+            if (_selectedCustomerId != null) {
+              setState(() => _selectedCustomerId = null);
+              // Also clear from PrintProvider if name manually changed
+              Provider.of<PrintProvider>(context, listen: false).setCustomerDetails(id: null);
+            }
+          }
+        });
+
+        return TextFormField(
+          controller: textEditingController,
+          focusNode: focusNode,
+          decoration: _inputDecoration(
+            label: 'Customer Name',
+            icon: Icons.person_outline,
+          ).copyWith(
+            suffixIcon: _isFetchingCustomers
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: Padding(
+                      padding: EdgeInsets.all(12.0),
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  )
+                : null,
+          ),
+          validator: (value) {
+            return null; // Not mandatory
+          },
+        );
+      },
+      onSelected: (CustomerModel selection) {
+        // Update controllers
+        widget.nameController.text = selection.name;
+        widget.mobileController.text = selection.phoneNumber;
+        widget.addressController.text = selection.address ?? '';
+        widget.gstController.text = selection.gstNo ?? '';
+
+        // Sync with PrintProvider
+        final printProvider = Provider.of<PrintProvider>(context, listen: false);
+        printProvider.setCustomerDetails(
+          id: selection.id,
+          name: selection.name,
+          phone: selection.phoneNumber,
+          gst: selection.gstNo,
+          address: selection.address,
+        );
+
+        setState(() {
+          _selectedCustomerId = selection.id;
+        });
+      },
+      optionsViewBuilder:
+          (BuildContext context, AutocompleteOnSelected<CustomerModel> onSelected, Iterable<CustomerModel> options) {
+        return Align(
+          alignment: Alignment.topLeft,
+          child: Material(
+            elevation: 4.0,
+            borderRadius: BorderRadius.circular(12),
+            child: SizedBox(
+              height: 200,
+              width: MediaQuery.of(context).size.width - 48, // Padding on both sides
+              child: ListView.builder(
+                padding: const EdgeInsets.all(8.0),
+                itemCount: options.length,
+                itemBuilder: (BuildContext context, int index) {
+                  final CustomerModel option = options.elementAt(index);
+                  return ListTile(
+                    title: MyText(text: option.name),
+                    subtitle: MyText(text: option.phoneNumber),
+                    onTap: () {
+                      onSelected(option);
+                    },
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -331,13 +392,7 @@ class _SaveOrderBottomSheetState extends State<SaveOrderBottomSheet> {
         icon: Icons.person_outline,
       ),
       validator: (value) {
-        if (value == null || value.isEmpty) {
-          return 'Please enter customer name';
-        }
-        if (value.length < 2) {
-          return 'Name must be at least 2 characters';
-        }
-        return null;
+        return null; // Not mandatory
       },
     );
   }
@@ -353,10 +408,8 @@ class _SaveOrderBottomSheetState extends State<SaveOrderBottomSheet> {
         icon: Icons.phone_outlined,
       ),
       validator: (value) {
-        if (value == null || value.isEmpty) {
-          return 'Please enter mobile number';
-        }
-        if (value.length != 10) {
+        // Not mandatory, but if provided, check length for sanity (optional)
+        if (value != null && value.isNotEmpty && value.length != 10) {
           return 'Mobile number must be 10 digits';
         }
         return null;
@@ -398,15 +451,19 @@ class _SaveOrderBottomSheetState extends State<SaveOrderBottomSheet> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Order Summary', style: TextStyle(color: Colors.grey[600])),
+            MyText(text: 'Order Summary', color: Colors.grey[600]),
             const SizedBox(height: 4),
-            Text('${widget.itemCount} items', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+            MyText(text: '${widget.itemCount} items', fontSize: 16, fontWeight: FontWeight.w600),
           ]),
           Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-            Text('Total Amount', style: TextStyle(color: Colors.grey[600])),
+            MyText(text: 'Total Amount', color: Colors.grey[600]),
             const SizedBox(height: 4),
-            Text('₹${widget.totalAmount}',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: widget.primaryColor)),
+            MyText(
+              text: '₹${widget.totalAmount}',
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: widget.primaryColor,
+            ),
           ]),
         ],
       ),
@@ -419,20 +476,24 @@ class _SaveOrderBottomSheetState extends State<SaveOrderBottomSheet> {
         Expanded(
           child: OutlinedButton(
             onPressed: widget.onCancel,
-            child: const Text('Cancel'),
+            child: const MyText(text: 'Cancel'),
           ),
         ),
         const SizedBox(width: 16),
         Expanded(
           child: ElevatedButton(
-            onPressed: widget.onSave,
+            onPressed: () {
+              if (widget.formKey.currentState!.validate()) {
+                widget.onSave(_selectedCustomerId);
+              }
+            },
             style: ElevatedButton.styleFrom(
               backgroundColor: widget.primaryColor,
               // textStyle: const TextStyle(color: Colors.white)
             ),
-            child: Text(
-              widget.saveButtonText,
-              style: const TextStyle(color: Colors.white),
+            child: MyText(
+              text: widget.saveButtonText,
+              color: Colors.white,
             ),
           ),
         ),

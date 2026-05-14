@@ -12,7 +12,7 @@ import '../shared_preferences.dart';
 class SQLiteHelper {
   static final SQLiteHelper _instance = SQLiteHelper._internal();
   static Database? _database;
-  static const int _currentVersion = 1; // Testing phase - fresh database each install
+  static const int _currentVersion = 12; // Added is_shop_open to user_data
   static const String _migrationCompleteKey = 'initial_migration_complete';
 
   // Database maintenance service (lazy initialization to avoid circular dependency)
@@ -47,6 +47,8 @@ class SQLiteHelper {
       onCreate: _createTables,
       onUpgrade: _migrateTables,
     );
+
+    // The database is initialized with tables in _createTables
     return db;
   }
 
@@ -141,6 +143,7 @@ class SQLiteHelper {
         sgst_percent REAL DEFAULT 0.0,
         cgst_amount REAL DEFAULT 0.0,
         sgst_amount REAL DEFAULT 0.0,
+        customer_id TEXT,
         customer_name TEXT,
         customer_gst TEXT,
         customer_address TEXT,
@@ -203,6 +206,10 @@ class SQLiteHelper {
         address TEXT,
         customer_code TEXT,
         gst_number TEXT,
+        city TEXT,
+        latitude REAL,
+        longitude REAL,
+        is_shop_open INTEGER DEFAULT 0,
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL
       )
@@ -239,6 +246,7 @@ class SQLiteHelper {
         id TEXT PRIMARY KEY,
         admin_uid TEXT NOT NULL,
         order_type TEXT NOT NULL,
+        customer_id TEXT,
         customer_name TEXT,
         customer_phone TEXT,
         gst_number TEXT,
@@ -277,6 +285,95 @@ class SQLiteHelper {
       )
     ''');
 
+    // ─── Node.js API Cache Tables ─────────────────────────────────────────────
+
+    // api_categories: cache for /api/categories
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS api_categories (
+        id TEXT PRIMARY KEY,
+        admin_uid TEXT NOT NULL,
+        name TEXT NOT NULL,
+        imageUrl TEXT DEFAULT '',
+        synced_at INTEGER
+      )
+    ''');
+
+    // api_customers: cache for /api/customers
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS api_customers (
+        id TEXT PRIMARY KEY,
+        admin_uid TEXT NOT NULL,
+        name TEXT NOT NULL,
+        phoneNumber TEXT NOT NULL,
+        address TEXT DEFAULT '',
+        synced_at INTEGER
+      )
+    ''');
+
+    // api_expense_categories: cache for /api/expense-categories
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS api_expense_categories (
+        id TEXT PRIMARY KEY,
+        admin_uid TEXT NOT NULL,
+        name TEXT NOT NULL,
+        synced_at INTEGER
+      )
+    ''');
+
+    // api_expenses: cache for /api/expenses
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS api_expenses (
+        id TEXT PRIMARY KEY,
+        admin_uid TEXT NOT NULL,
+        expenseCategoryId TEXT NOT NULL,
+        amount REAL NOT NULL,
+        note TEXT DEFAULT '',
+        date INTEGER,
+        synced_at INTEGER
+      )
+    ''');
+
+    // api_products: cache for /api/products
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS api_products (
+        id TEXT PRIMARY KEY,
+        admin_uid TEXT NOT NULL,
+        categoryId TEXT NOT NULL,
+        name TEXT NOT NULL,
+        price REAL NOT NULL,
+        description TEXT DEFAULT '',
+        foodCode TEXT DEFAULT '',
+        department TEXT DEFAULT '',
+        imagePath TEXT DEFAULT '',
+        imageUrl TEXT DEFAULT '',
+        baseVariant TEXT DEFAULT '',
+        priceType TEXT DEFAULT 'Fixed',
+        price2 REAL DEFAULT 0,
+        price3 REAL DEFAULT 0,
+        stocks INTEGER DEFAULT 0,
+        tax TEXT DEFAULT '',
+        isHot INTEGER DEFAULT 0,
+        inStock INTEGER DEFAULT 1,
+        addons TEXT DEFAULT '[]',
+        variants TEXT DEFAULT '[]',
+        synced_at INTEGER
+      )
+    ''');
+
+    // api_subscriptions: cache for /api/subscriptions/my-subscription
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS api_subscriptions (
+        id TEXT PRIMARY KEY,
+        admin_uid TEXT NOT NULL UNIQUE,
+        planId TEXT,
+        status TEXT DEFAULT 'inactive',
+        startDate INTEGER,
+        endDate INTEGER,
+        autoRenew INTEGER DEFAULT 0,
+        synced_at INTEGER
+      )
+    ''');
+
     // Create comprehensive indexes for better performance
     await _createPerformanceIndexes(db);
   }
@@ -312,9 +409,43 @@ class SQLiteHelper {
       case 7:
         await _migrateToVersion7(db);
         break;
+      case 8:
+        await _migrateToVersion8(db);
+        break;
+      case 9:
+        await _migrateToVersion9(db);
+        break;
+      case 11:
+        await _migrateToVersion11(db);
+        break;
+      case 12:
+        await _migrateToVersion12(db);
+        break;
       // Add future migration cases here
       default:
         print('No migration needed for version $version');
+    }
+  }
+
+  Future<void> _migrateToVersion11(Database db) async {
+    // Migration to version 11: Add bill_number column to bills table
+    try {
+      print('Migrating to version 11: Adding bill_number column to bills table...');
+      await db.execute('ALTER TABLE bills ADD COLUMN bill_number TEXT');
+      print('Successfully migrated to version 11');
+    } catch (e) {
+      print('Error migrating to version 11: $e');
+    }
+  }
+
+  Future<void> _migrateToVersion12(Database db) async {
+    // Migration to version 12: Add is_shop_open column to user_data table
+    try {
+      print('Migrating to version 12: Adding is_shop_open column to user_data table...');
+      await db.execute('ALTER TABLE user_data ADD COLUMN is_shop_open INTEGER DEFAULT 0');
+      print('Successfully migrated to version 12');
+    } catch (e) {
+      print('Error migrating to version 12: $e');
     }
   }
 
@@ -328,6 +459,14 @@ class SQLiteHelper {
     await db.execute('DROP TABLE IF EXISTS admin_data');
     await db.execute('DROP TABLE IF EXISTS customer_data');
     await db.execute('DROP TABLE IF EXISTS orders');
+    await db.execute('DROP TABLE IF EXISTS api_categories');
+    await db.execute('DROP TABLE IF EXISTS api_customers');
+    await db.execute('DROP TABLE IF EXISTS api_expense_categories');
+    await db.execute('DROP TABLE IF EXISTS api_expenses');
+    await db.execute('DROP TABLE IF EXISTS api_products');
+    await db.execute('DROP TABLE IF EXISTS api_subscriptions');
+    await db.execute('DROP TABLE IF EXISTS migration_log');
+    await db.execute('DROP TABLE IF EXISTS maintenance_log');
   }
 
   Future<void> _migrateToVersion2(Database db) async {
@@ -791,9 +930,158 @@ class SQLiteHelper {
     }
   }
 
+  Future<void> _migrateToVersion8(Database db) async {
+    // Migration to version 8: Add customer_id column to bills and orders tables
+    try {
+      print('Migrating to version 8: Adding customer_id column to bills and orders...');
+
+      // Add customer_id column to bills table
+      try {
+        await db.execute('ALTER TABLE bills ADD COLUMN customer_id TEXT');
+        print('Added customer_id column to bills table');
+      } catch (e) {
+        if (e.toString().contains('duplicate column name')) {
+          print('customer_id column already exists in bills table');
+        } else {
+          print('Error adding customer_id to bills: $e');
+        }
+      }
+
+      // Add customer_id column to orders table
+      try {
+        await db.execute('ALTER TABLE orders ADD COLUMN customer_id TEXT');
+        print('Added customer_id column to orders table');
+      } catch (e) {
+        if (e.toString().contains('duplicate column name')) {
+          print('customer_id column already exists in orders table');
+        } else {
+          print('Error adding customer_id to orders: $e');
+        }
+      }
+
+      // Log this migration
+      await db.insert('migration_log', {
+        'version': 8,
+        'migration_name': 'add_customer_id_column',
+        'executed_at': DateTime.now().millisecondsSinceEpoch,
+        'success': 1,
+      });
+
+      print('Successfully migrated to version 8');
+    } catch (e) {
+      print('Error migrating to version 8: $e');
+      // Log failed migration
+      try {
+        await db.insert('migration_log', {
+          'version': 8,
+          'migration_name': 'add_customer_id_column',
+          'executed_at': DateTime.now().millisecondsSinceEpoch,
+          'success': 0,
+        });
+      } catch (logError) {
+        print('Error logging failed migration: $logError');
+      }
+      rethrow;
+    }
+  }
+
+  Future<void> _migrateToVersion9(Database db) async {
+    // Migration to version 9: Add latitude and longitude columns to user_data table
+    try {
+      print('Migrating to version 9: Adding latitude and longitude common to user_data...');
+
+      // Add latitude column to user_data table
+      try {
+        await db.execute('ALTER TABLE user_data ADD COLUMN latitude REAL');
+        print('Added latitude column to user_data table');
+      } catch (e) {
+        if (e.toString().contains('duplicate column name')) {
+          print('latitude column already exists in user_data table');
+        } else {
+          print('Error adding latitude to user_data: $e');
+        }
+      }
+
+      // Add longitude column to user_data table
+      try {
+        await db.execute('ALTER TABLE user_data ADD COLUMN longitude REAL');
+        print('Added longitude column to user_data table');
+      } catch (e) {
+        if (e.toString().contains('duplicate column name')) {
+          print('longitude column already exists in user_data table');
+        } else {
+          print('Error adding longitude to user_data: $e');
+        }
+      }
+
+      // Log this migration
+      await db.insert('migration_log', {
+        'version': 9,
+        'migration_name': 'add_location_columns',
+        'executed_at': DateTime.now().millisecondsSinceEpoch,
+        'success': 1,
+      });
+
+      print('Successfully migrated to version 9');
+    } catch (e) {
+      print('Error migrating to version 9: $e');
+      // Log failed migration
+      try {
+        await db.insert('migration_log', {
+          'version': 9,
+          'migration_name': 'add_location_columns',
+          'executed_at': DateTime.now().millisecondsSinceEpoch,
+          'success': 0,
+        });
+      } catch (logError) {
+        print('Error logging failed migration: $logError');
+      }
+      rethrow;
+    }
+  }
+
+  Future<void> _ensureUserDataColumnsExist(Database db) async {
+    try {
+      final tableInfo = await db.rawQuery('PRAGMA table_info(user_data)');
+      final columnNames = tableInfo.map((col) => col['name'] as String).toSet();
+
+      if (!columnNames.contains('city')) {
+        print('Adding missing city column to user_data');
+        await db.execute('ALTER TABLE user_data ADD COLUMN city TEXT');
+      }
+      if (!columnNames.contains('latitude')) {
+        print('Adding missing latitude column to user_data');
+        await db.execute('ALTER TABLE user_data ADD COLUMN latitude REAL');
+      }
+      if (!columnNames.contains('longitude')) {
+        print('Adding missing longitude column to user_data');
+        await db.execute('ALTER TABLE user_data ADD COLUMN longitude REAL');
+      }
+    } catch (e) {
+      print('Error ensuring user_data columns: $e');
+    }
+  }
+
+  Future<void> _migrateToVersion10(Database db) async {
+    try {
+      print('Migrating to version 10: Adding city column to user_data...');
+      await db.execute('ALTER TABLE user_data ADD COLUMN city TEXT');
+      await db.insert('migration_log', {
+        'version': 10,
+        'migration_name': 'add_city_column',
+        'executed_at': DateTime.now().millisecondsSinceEpoch,
+        'success': 1,
+      });
+    } catch (e) {
+      print('Error migrating to version 10: $e');
+      rethrow;
+    }
+  }
+
   // Database initialization method
   Future<void> initializeDatabase() async {
-    await database;
+    final db = await database;
+    await _ensureUserDataColumnsExist(db);
     await _checkAndPerformInitialMigration();
 
     // Schedule automatic maintenance after initialization
@@ -827,8 +1115,8 @@ class SQLiteHelper {
       final prefs = await SharedPreferences.getInstance();
       // If no UID found, try to get current user UID and save it
       if (adminUid.isEmpty) {
-        final firebaseDao = FirebaseDAO();
-        final currentUser = await firebaseDao.getCurrentUser();
+        final _apiDAO = NodeApiDAO();
+        final currentUser = await _apiDAO.getCurrentUser();
         if (currentUser != null) {
           adminUid = currentUser['uid'];
           await prefs.setString('uid', adminUid);
@@ -840,26 +1128,26 @@ class SQLiteHelper {
         return;
       }
 
-      final firebaseDao = FirebaseDAO();
+      final _apiDAO = NodeApiDAO();
       final db = await database;
 
-      // Check if Firebase is accessible
-      final isOnline = await firebaseDao.isOnline();
+      // Check if API is accessible
+      final isOnline = await _apiDAO.isOnline();
       if (!isOnline) {
-        print('Firebase not accessible, skipping initial migration');
+        print('API not accessible, skipping initial migration');
         return;
       }
 
       print('Starting migration for admin: $adminUid');
 
       // Migrate food items
-      await _migrateFoodItems(firebaseDao, db, adminUid);
+      await _migrateFoodItems(_apiDAO, db, adminUid);
 
       // Migrate departments
-      await _migrateDepartments(firebaseDao, db, adminUid);
+      await _migrateDepartments(_apiDAO, db, adminUid);
 
       // Migrate recent bills (last 30 days)
-      await _migrateRecentBills(firebaseDao, db, adminUid);
+      await _migrateRecentBills(_apiDAO, db, adminUid);
 
       print('Initial data migration completed successfully');
     } catch (e) {
@@ -869,10 +1157,10 @@ class SQLiteHelper {
     }
   }
 
-  Future<void> _migrateFoodItems(FirebaseDAO firebaseDao, Database db, String adminUid) async {
+  Future<void> _migrateFoodItems(NodeApiDAO NodeApiDAO, Database db, String adminUid) async {
     try {
       print('Migrating food items.................................');
-      final foodItems = await firebaseDao.getFoodItems(adminUid);
+      final foodItems = await NodeApiDAO.getFoodItems(adminUid);
 
       for (final item in foodItems) {
         print('Migrating food items................................. Inside The For Loop .................');
@@ -910,9 +1198,9 @@ class SQLiteHelper {
     }
   }
 
-  Future<void> _migrateDepartments(FirebaseDAO firebaseDao, Database db, String adminUid) async {
+  Future<void> _migrateDepartments(NodeApiDAO NodeApiDAO, Database db, String adminUid) async {
     try {
-      final departments = await firebaseDao.getDepartments(adminUid);
+      final departments = await NodeApiDAO.getDepartments(adminUid);
 
       for (final dept in departments) {
         await db.insert(
@@ -938,11 +1226,11 @@ class SQLiteHelper {
     }
   }
 
-  Future<void> _migrateRecentBills(FirebaseDAO firebaseDao, Database db, String adminUid) async {
+  Future<void> _migrateRecentBills(NodeApiDAO NodeApiDAO, Database db, String adminUid) async {
     try {
       print('Migrating recent bills...');
       final thirtyDaysAgo = DateTime.now().subtract(const Duration(days: 30));
-      final bills = await firebaseDao.getBills(adminUid, startDate: thirtyDaysAgo);
+      final bills = await NodeApiDAO.getBills(adminUid, startDate: thirtyDaysAgo);
 
       for (final bill in bills) {
         await db.insert(
@@ -1227,8 +1515,12 @@ class SQLiteHelper {
           'fssaiNo': userData['fssaiNo'],
           'upiId': userData['upiId'],
           'address': userData['address'],
+          'city': userData['city'],
           'customer_code': userData['customerCode'] ?? userData['customer_code'],
           'gst_number': userData['gstNumber'] ?? userData['gst_number'],
+          'latitude': userData['latitude'],
+          'longitude': userData['longitude'],
+          'is_shop_open': (userData['isShopOpen'] == true || userData['is_shop_open'] == true) ? 1 : 0,
           'created_at': userData['createdAt'] ?? userData['created_at'] ?? now,
           'updated_at': now,
         },
@@ -1258,7 +1550,6 @@ class SQLiteHelper {
       }
 
       final receiptNo = nextNumber.toString();
-      print('[SQLiteHelper] Generated receiptNo: $receiptNo for admin: $adminUid');
       return receiptNo;
     } catch (e) {
       print('Error getting next receipt number: $e');
@@ -1288,10 +1579,14 @@ class SQLiteHelper {
           'shopLogoUrl': row['shop_logo_url'],
           'shopContact': row['shop_contact'],
           'address': row['address'],
+          'city': row['city'],
           'fssaiNo': row['fssaiNo'],
           'upiId': row['upiId'],
           'customerCode': row['customer_code'],
           'gstNumber': row['gst_number'],
+          'latitude': row['latitude'],
+          'longitude': row['longitude'],
+          'isShopOpen': row['is_shop_open'] == 1,
           'createdAt': row['created_at'],
           'updatedAt': row['updated_at'],
         };
@@ -1325,10 +1620,14 @@ class SQLiteHelper {
           'shopLogoUrl': row['shop_logo_url'],
           'shopContact': row['shop_contact'],
           'address': row['address'],
+          'city': row['city'],
           'fssaiNo': row['fssaiNo'],
           'upiId': row['upiId'],
           'customerCode': row['customer_code'],
           'gstNumber': row['gst_number'],
+          'latitude': row['latitude'],
+          'longitude': row['longitude'],
+          'isShopOpen': row['is_shop_open'] == 1,
           'createdAt': row['created_at'],
           'updatedAt': row['updated_at'],
         };
@@ -1363,6 +1662,32 @@ class SQLiteHelper {
       print('All user data cleared');
     } catch (e) {
       print('Error clearing user data: $e');
+    }
+  }
+
+  /// Clear all cached data across all tables (used during logout)
+  Future<void> clearAllData() async {
+    try {
+      final db = await database;
+      await db.transaction((txn) async {
+        await txn.delete('food_items');
+        await txn.delete('departments');
+        await txn.delete('bills');
+        await txn.delete('sync_log');
+        await txn.delete('image_cache');
+        await txn.delete('user_data');
+        await txn.delete('admin_data');
+        await txn.delete('customer_data');
+        await txn.delete('orders');
+        await txn.delete('api_categories');
+        await txn.delete('api_customers');
+        await txn.delete('api_expense_categories');
+        await txn.delete('api_expenses');
+        await txn.delete('api_products');
+        await txn.delete('api_subscriptions');
+      });
+    } catch (e) {
+      print('Error clearing all SQLite data: $e');
     }
   }
 
@@ -1425,7 +1750,6 @@ class SQLiteHelper {
           'createdAt': row['created_at'],
         };
       }
-      print('[SQLiteHelper] No cached admin data found for: $mobileNo');
       return null;
     } catch (e) {
       print('[SQLiteHelper] Error getting admin data: $e');
@@ -1761,6 +2085,47 @@ class SQLiteHelper {
       print('All customer data cleared');
     } catch (e) {
       print('Error clearing customer data: $e');
+    }
+  }
+
+  /// Get bills within a date range for reporting purposes.
+  /// Returns a list of raw bill maps from the local SQLite `bills` table.
+  Future<List<Map<String, dynamic>>> getBillsInRange({
+    required String adminUid,
+    required DateTime startDate,
+    required DateTime endDate,
+  }) async {
+    try {
+      final db = await database;
+      final startMs = DateTime(startDate.year, startDate.month, startDate.day).millisecondsSinceEpoch;
+      final endMs =
+          DateTime(endDate.year, endDate.month, endDate.day).add(const Duration(days: 1)).millisecondsSinceEpoch;
+
+      // Try bills table first
+      final results = await db.query(
+        'bills',
+        where: 'admin_uid = ? AND bill_date BETWEEN ? AND ?',
+        whereArgs: [adminUid, startMs, endMs],
+        orderBy: 'bill_date DESC',
+      );
+
+      if (results.isNotEmpty) return results;
+
+      // Fall back to orders table if bills table is empty / not present
+      try {
+        final orderResults = await db.query(
+          'orders',
+          where: 'admin_uid = ? AND bill_date BETWEEN ? AND ?',
+          whereArgs: [adminUid, startMs, endMs],
+          orderBy: 'bill_date DESC',
+        );
+        return orderResults;
+      } catch (_) {
+        return [];
+      }
+    } catch (e) {
+      print('getBillsInRange error: $e');
+      return [];
     }
   }
 }

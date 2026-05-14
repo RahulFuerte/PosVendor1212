@@ -1,5 +1,4 @@
 // Dart imports:
-import 'dart:developer' as developer;
 import 'dart:typed_data';
 
 // Package imports:
@@ -9,6 +8,7 @@ import 'package:sqflite/sqflite.dart';
 import '../../../core/utils/performance_monitor.dart';
 import '../data_integrity_service.dart';
 import '../database_service.dart';
+import 'package:pos/data/datasources/shared_preferences.dart';
 import 'sqlite_helper.dart';
 
 /// SQLite Data Access Object for local database operations
@@ -48,9 +48,7 @@ class SQLiteDAO implements DatabaseService {
 
       // Warm up FTS if available
       await _warmUpFTS(db);
-    } catch (e) {
-      print('Error during database optimization: $e');
-    }
+    } catch (e) {}
   }
 
   /// Verify that critical indexes exist for performance
@@ -71,9 +69,7 @@ class SQLiteDAO implements DatabaseService {
       ];
 
       for (final indexName in criticalIndexes) {
-        if (!indexNames.contains(indexName)) {
-          print('Warning: Critical index $indexName is missing');
-        }
+        if (!indexNames.contains(indexName)) {}
       }
     } catch (e) {
       print('Error verifying indexes: $e');
@@ -97,7 +93,6 @@ class SQLiteDAO implements DatabaseService {
       }
     } catch (e) {
       // FTS warmup failure is not critical
-      print('FTS warmup failed (expected if no data): $e');
     }
   }
 
@@ -111,6 +106,16 @@ class SQLiteDAO implements DatabaseService {
   Future<bool> isOnline() async {
     // SQLite is always available locally
     return true;
+  }
+
+  @override
+  Future<Map<String, dynamic>?> getCurrentUser() async {
+    final myPrefs = MySharedPreferences();
+    final uid = await myPrefs.uID;
+    if (uid != null) {
+      return await _sqliteHelper.getUserData(uid);
+    }
+    return null;
   }
 
   /// Initialize optimized prepared statements for frequently used queries
@@ -479,7 +484,6 @@ class SQLiteDAO implements DatabaseService {
         // Use basic LIKE search (FTS5 removed - not used in UI)
         return await _performBasicSearch(adminUid, searchTerm, department, limit);
       } catch (e) {
-        developer.log('Search failed: $e', name: 'SQLiteDAO');
         return [];
       }
     });
@@ -860,8 +864,7 @@ class SQLiteDAO implements DatabaseService {
         parameters: [adminUid, startDate.millisecondsSinceEpoch, endDate.millisecondsSinceEpoch],
         useCache: false, // Disable cache to get fresh data
       );
-      developer.log('[SQLiteDAO] getBills with date range: found ${results.length} bills for $adminUid',
-          name: 'SQLiteDAO');
+
       return results;
     } else {
       final results = await _executeOptimizedQuery(
@@ -869,7 +872,7 @@ class SQLiteDAO implements DatabaseService {
         parameters: [adminUid],
         useCache: false, // Disable cache to get fresh data
       );
-      developer.log('[SQLiteDAO] getBills: found ${results.length} bills for $adminUid', name: 'SQLiteDAO');
+
       return results;
     }
   }
@@ -934,16 +937,31 @@ class SQLiteDAO implements DatabaseService {
     await _integrityService.executeInTransaction((txn) async {
       final now = DateTime.now().millisecondsSinceEpoch;
 
+      String? finalId = billData['id'];
+
+      // If we have a bill_number, check if it already exists in the database
+      if (billData['bill_number'] != null && billData['bill_number'].toString().isNotEmpty) {
+        final existing = await txn.query(
+          'bills',
+          columns: ['id'],
+          where: 'bill_number = ?',
+          whereArgs: [billData['bill_number']],
+          limit: 1,
+        );
+        if (existing.isNotEmpty) {
+          // If it exists, use that ID so the insert replaces it correctly
+          finalId = existing.first['id'] as String;
+        }
+      }
+
       final Map<String, dynamic> bill = {
         ...billData,
+        'id': finalId, // Ensure we use the correct ID for updates
         'admin_uid': adminUid,
         'created_at': now,
         'updated_at': now,
         'sync_status': SyncStatus.pending.value,
       };
-
-      developer.log('[SQLiteDAO] saveBill: id=${bill['id']}, admin_uid=$adminUid, bill_date=${bill['bill_date']}',
-          name: 'SQLiteDAO');
 
       await txn.insert(
         'bills',
@@ -956,8 +974,6 @@ class SQLiteDAO implements DatabaseService {
 
       // Clear relevant cache entries
       _clearCacheForQuery('getBills');
-
-      developer.log('[SQLiteDAO] saveBill: Bill ${bill['id']} saved successfully', name: 'SQLiteDAO');
     });
   }
 
@@ -1079,8 +1095,6 @@ class SQLiteDAO implements DatabaseService {
         where: 'id = ?',
         whereArgs: [recordId],
       );
-
-      developer.log('[SQLiteDAO] markAsSynced: $tableName:$recordId - rows updated: $rowsUpdated', name: 'SQLiteDAO');
 
       // Update sync log
       await txn.update(
@@ -1489,7 +1503,6 @@ class SQLiteDAO implements DatabaseService {
       ]);
     } catch (e) {
       // FTS update failure shouldn't break the main operation
-      print('Failed to update FTS index: $e');
     }
   }
 
@@ -1503,7 +1516,6 @@ class SQLiteDAO implements DatabaseService {
       await db.execute('DELETE FROM food_items_fts WHERE id = ?', [itemId]);
     } catch (e) {
       // FTS update failure shouldn't break the main operation
-      print('Failed to remove from FTS index: $e');
     }
   }
 
@@ -1635,7 +1647,6 @@ class SQLiteDAO implements DatabaseService {
         return ftsResult.first['count'] as int;
       } catch (e) {
         // Fallback to LIKE search count
-        print('FTS count failed, using fallback: $e');
       }
     }
 
@@ -1786,11 +1797,8 @@ class SQLiteDAO implements DatabaseService {
       if (ftsExists.isNotEmpty) {
         // Rebuild FTS index
         await db.execute('INSERT INTO food_items_fts(food_items_fts) VALUES("rebuild")');
-        print('FTS index rebuilt successfully');
       }
-    } catch (e) {
-      print('Error rebuilding FTS index: $e');
-    }
+    } catch (e) {}
   }
 
   /// Get database size and performance metrics

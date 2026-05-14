@@ -4,6 +4,7 @@ import 'dart:io';
 
 // Flutter imports:
 import 'package:flutter/material.dart';
+import 'package:pos/core/utils/snackbar_utils.dart';
 
 /// Utility class for handling network-related errors gracefully
 class NetworkErrorHandler {
@@ -34,26 +35,7 @@ class NetworkErrorHandler {
     if (!isNetworkError(error)) return;
 
     final message = getNetworkErrorMessage(error);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.wifi_off, color: Colors.white),
-            const SizedBox(width: 8),
-            Expanded(child: Text(message)),
-          ],
-        ),
-        backgroundColor: Colors.orange,
-        duration: const Duration(seconds: 4),
-        action: SnackBarAction(
-          label: 'Dismiss',
-          textColor: Colors.white,
-          onPressed: () {
-            ScaffoldMessenger.of(context).hideCurrentSnackBar();
-          },
-        ),
-      ),
-    );
+    SnackBarUtils.showWarning(context, message);
   }
 
   /// Logs network errors with appropriate detail level

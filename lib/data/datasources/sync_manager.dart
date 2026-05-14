@@ -43,7 +43,7 @@ class SyncManager {
   SyncManager._internal();
 
   SQLiteDAO? _sqliteDAO;
-  FirebaseDAO? _firebaseDAO;
+  NodeApiDAO? _NodeApiDAO;
   ConnectionMonitor? _connectionMonitor;
   final ErrorHandlingService _errorService = ErrorHandlingService();
   final PerformanceMonitor _performanceMonitor = PerformanceMonitor();
@@ -71,7 +71,7 @@ class SyncManager {
   SyncOperationStatus get currentStatus => _currentStatus;
 
   /// Check if sync manager is initialized
-  bool get isInitialized => _sqliteDAO != null && _firebaseDAO != null && _connectionMonitor != null;
+  bool get isInitialized => _sqliteDAO != null && _NodeApiDAO != null && _connectionMonitor != null;
 
   /// Initialize the sync manager
   Future<void> initialize() async {
@@ -80,12 +80,12 @@ class SyncManager {
         await _errorService.initialize();
         
         _sqliteDAO = SQLiteDAO();
-        _firebaseDAO = FirebaseDAO();
+        _NodeApiDAO = NodeApiDAO();
         _connectionMonitor = ConnectionMonitor();
         
         await _connectionMonitor!.initialize();
         await _sqliteDAO!.initialize();
-        await _firebaseDAO!.initialize();
+        await _NodeApiDAO!.initialize();
 
         // Listen for connectivity changes and trigger sync when online
         _connectivitySubscription = _connectionMonitor!.connectivityStream.listen(
@@ -112,7 +112,7 @@ class SyncManager {
         );
         // Reset to null on failure
         _sqliteDAO = null;
-        _firebaseDAO = null;
+        _NodeApiDAO = null;
         _connectionMonitor = null;
         rethrow;
       }
@@ -163,7 +163,7 @@ class SyncManager {
       return SyncResult(success: false, errorMessage: 'No internet connection');
     }
 
-    if (_sqliteDAO == null || _firebaseDAO == null) {
+    if (_sqliteDAO == null || _NodeApiDAO == null) {
       await _errorService.logError(
         'SyncManager',
         'Sync manager not properly initialized',
@@ -308,7 +308,7 @@ class SyncManager {
       return SyncResult(success: false, errorMessage: 'No internet connection');
     }
 
-    if (_sqliteDAO == null || _firebaseDAO == null) {
+    if (_sqliteDAO == null || _NodeApiDAO == null) {
       print('Sync manager not initialized');
       return SyncResult(success: false, errorMessage: 'Sync manager not initialized');
     }
@@ -372,7 +372,7 @@ class SyncManager {
 
   /// Sync a specific table to Firebase with batch operations
   Future<int> _syncTableToFirebaseBatch(String tableName) async {
-    if (_sqliteDAO == null || _firebaseDAO == null) {
+    if (_sqliteDAO == null || _NodeApiDAO == null) {
       throw Exception('Sync manager not initialized');
     }
     
@@ -413,13 +413,13 @@ class SyncManager {
           // Add batch operation based on table type
           switch (tableName) {
             case 'food_items':
-              batchOperations.add(_firebaseDAO!.saveFoodItem(adminUid, firebaseData));
+              batchOperations.add(_NodeApiDAO!.saveFoodItem(adminUid, firebaseData));
               break;
             case 'departments':
-              batchOperations.add(_firebaseDAO!.saveDepartment(adminUid, firebaseData));
+              batchOperations.add(_NodeApiDAO!.saveDepartment(adminUid, firebaseData));
               break;
             case 'bills':
-              batchOperations.add(_firebaseDAO!.saveBill(adminUid, firebaseData));
+              batchOperations.add(_NodeApiDAO!.saveBill(adminUid, firebaseData));
               break;
           }
         } catch (e) {
@@ -457,13 +457,13 @@ class SyncManager {
 
             switch (tableName) {
               case 'food_items':
-                await _firebaseDAO!.saveFoodItem(adminUid, firebaseData);
+                await _NodeApiDAO!.saveFoodItem(adminUid, firebaseData);
                 break;
               case 'departments':
-                await _firebaseDAO!.saveDepartment(adminUid, firebaseData);
+                await _NodeApiDAO!.saveDepartment(adminUid, firebaseData);
                 break;
               case 'bills':
-                await _firebaseDAO!.saveBill(adminUid, firebaseData);
+                await _NodeApiDAO!.saveBill(adminUid, firebaseData);
                 break;
             }
 
@@ -497,13 +497,13 @@ class SyncManager {
       // So we fetch all items and filter locally for now
       switch (tableName) {
         case 'food_items':
-          firebaseItems = await _firebaseDAO!.getFoodItems(adminUid);
+          firebaseItems = await _NodeApiDAO!.getFoodItems(adminUid);
           break;
         case 'departments':
-          firebaseItems = await _firebaseDAO!.getDepartments(adminUid);
+          firebaseItems = await _NodeApiDAO!.getDepartments(adminUid);
           break;
         case 'bills':
-          firebaseItems = await _firebaseDAO!.getBills(adminUid);
+          firebaseItems = await _NodeApiDAO!.getBills(adminUid);
           break;
         default:
           return 0;
@@ -713,7 +713,7 @@ class SyncManager {
       return SyncResult(success: false, errorMessage: 'No internet connection');
     }
 
-    if (_sqliteDAO == null || _firebaseDAO == null) {
+    if (_sqliteDAO == null || _NodeApiDAO == null) {
       return SyncResult(success: false, errorMessage: 'Sync manager not initialized');
     }
 
@@ -734,13 +734,13 @@ class SyncManager {
 
       switch (tableName) {
         case 'food_items':
-          await _firebaseDAO!.saveFoodItem(adminUid, firebaseData);
+          await _NodeApiDAO!.saveFoodItem(adminUid, firebaseData);
           break;
         case 'departments':
-          await _firebaseDAO!.saveDepartment(adminUid, firebaseData);
+          await _NodeApiDAO!.saveDepartment(adminUid, firebaseData);
           break;
         case 'bills':
-          await _firebaseDAO!.saveBill(adminUid, firebaseData);
+          await _NodeApiDAO!.saveBill(adminUid, firebaseData);
           break;
       }
 

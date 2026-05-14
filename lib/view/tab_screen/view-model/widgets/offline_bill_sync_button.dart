@@ -1,5 +1,7 @@
 // Flutter imports:
 import 'package:flutter/material.dart';
+import 'package:pos/core/widgets/text.dart';
+import '../../../../core/utils/snackbar_utils.dart';
 
 // Project imports:
 import 'package:pos/view/tab_screen/view-model/widgets/printers/printer.dart';
@@ -53,16 +55,11 @@ class _OfflineBillSyncButtonState extends State<OfflineBillSyncButton> {
       final result = await DirectPrintHelper.syncOfflineBills(widget.adminUid);
       
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              result.success
-                  ? 'Synced ${result.billsSynced} bills successfully!'
-                  : 'Sync failed: ${result.errorMessage}',
-            ),
-            backgroundColor: result.success ? Colors.green : Colors.red,
-          ),
-        );
+        if (result.success) {
+          SnackBarUtils.showSuccess(context, 'Synced ${result.billsSynced} bills successfully!');
+        } else {
+          SnackBarUtils.showError(context, 'Sync failed: ${result.errorMessage}');
+        }
 
         if (result.success) {
           widget.onSyncComplete?.call();
@@ -71,12 +68,7 @@ class _OfflineBillSyncButtonState extends State<OfflineBillSyncButton> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Sync error: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        SnackBarUtils.showError(context, 'Sync error: $e');
       }
     } finally {
       if (mounted) {
@@ -109,21 +101,17 @@ class _OfflineBillSyncButtonState extends State<OfflineBillSyncButton> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    '$_offlineBillsCount bill${_offlineBillsCount > 1 ? 's' : ''} pending sync',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                    ),
+                  MyText(
+                    text: '$_offlineBillsCount bill${_offlineBillsCount > 1 ? 's' : ''} pending sync',
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
                   ),
-                  Text(
-                    _isOnline
+                  MyText(
+                    text: _isOnline
                         ? 'Tap to sync now'
                         : 'Will sync when online',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey.shade600,
-                    ),
+                    fontSize: 12,
+                    color: Colors.grey.shade600,
                   ),
                 ],
               ),

@@ -3,6 +3,7 @@ import 'dart:async';
 
 // Flutter imports:
 import 'package:flutter/material.dart';
+import 'package:pos/core/widgets/text.dart';
 
 // Package imports:
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -106,13 +107,11 @@ class _OfflineStatusBannerState extends State<OfflineStatusBanner> {
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Text(
-                      widget.customMessage ?? 'You\'re offline - Data available locally',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
-                      ),
+                    child: MyText(
+                      text: widget.customMessage ?? 'You\'re offline - Data available locally',
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
                     ),
                   ),
                   if (_pendingItemsCount > 0) ...[
@@ -122,13 +121,11 @@ class _OfflineStatusBannerState extends State<OfflineStatusBanner> {
                         color: Colors.white.withOpacity(0.2),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Text(
-                        '$_pendingItemsCount pending sync',
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.9),
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
-                        ),
+                      child: MyText(
+                        text: '$_pendingItemsCount pending sync',
+                        color: Colors.white.withOpacity(0.9),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],
@@ -165,13 +162,11 @@ class _OfflineStatusBannerState extends State<OfflineStatusBanner> {
           size: 14,
         ),
         const SizedBox(width: 4),
-        Text(
-          label,
-          style: TextStyle(
-            color: isAvailable ? Colors.white.withOpacity(0.9) : Colors.white.withOpacity(0.5),
-            fontSize: 11,
-            fontWeight: FontWeight.w500,
-          ),
+        MyText(
+          text: label,
+          color: isAvailable ? Colors.white.withOpacity(0.9) : Colors.white.withOpacity(0.5),
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
         ),
       ],
     );

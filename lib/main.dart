@@ -1,44 +1,52 @@
 // Flutter imports:
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:firebase_core/firebase_core.dart';
 
 // Package imports:
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:hive_flutter/adapters.dart';
-import 'package:pos/view/home/navigation.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:pos/data/providers/admin_uid_provider.dart';
 import 'package:pos/data/providers/order_type_provider.dart';
 import 'package:pos/data/providers/subscription_provider.dart';
-import 'package:pos/view/Super%20Admin/super_admin_dashboard.dart';
-
-
+import 'package:pos/data/providers/table_provider.dart';
 import 'package:provider/provider.dart';
 
 // Project imports:
 import 'package:pos/data/datasources/database_service.dart';
 import 'package:pos/data/datasources/unified_database_service.dart';
 import 'package:pos/data/providers/print_provider.dart';
+import 'package:pos/core/utils/snackbar_utils.dart';
 import 'package:pos/view/login/providers/login_provider.dart';
 import 'package:pos/view/login/screens/splash_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:showcaseview/showcaseview.dart';
 
-import 'view/login/screens/new_admin_screen.dart';
-
-//3.16.9
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final appDocumentDir = await getApplicationDocumentsDirectory();
   Hive.init(appDocumentDir.path);
   await Hive.openBox('userBox');
 
-  await Firebase.initializeApp();
+  // Initialize Firebase for Image Uploads
+  try {
+    await Firebase.initializeApp();
+  } catch (e) {
+    debugPrint('Firebase initialization error: $e');
+  }
+
+  // Firebase initialization restored for Image Uploads
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
     DeviceOrientation.landscapeLeft,
     DeviceOrientation.landscapeRight,
   ]);
+  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    statusBarIconBrightness: Brightness.light,
+    statusBarBrightness: Brightness.light,
+  ));
+
   runApp(const MyApp());
 }
 
@@ -49,13 +57,10 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        // DatabaseService - Core data access layer with SQLite and Firebase sync
-        // Must be initialized first as other services may depend on it
-        // Provides offline-first data operations with automatic synchronization
+        // DatabaseService - Core data access layer with SQLite
         Provider<DatabaseService>(
           create: (_) {
             final service = UnifiedDatabaseService();
-            // Initialize asynchronously - the service handles initialization gracefully
             service.initialize();
             return service;
           },
@@ -63,32 +68,39 @@ class MyApp extends StatelessWidget {
         ),
 
         // Application state providers
-        // These providers manage UI state and user session data
         ChangeNotifierProvider(
           create: (context) {
             LoginProvider lp = LoginProvider();
-            lp.init(); // Initialize user session state
+            lp.init();
             return lp;
           },
         ),
-        ChangeNotifierProvider(create: (_) => AdminUidProvider()),
         ChangeNotifierProvider(create: (_) => PrintProvider()),
         ChangeNotifierProvider(create: (_) => OrderTypeProvider()),
-        ChangeNotifierProvider(create: (_) => SubscriptionProvider()),
+        ChangeNotifierProvider(create: (_) => SubscriptionProvider()..loadSavedSubscription()),
+        ChangeNotifierProvider(
+          create: (context) => TableProvider(),
+        ),
       ],
       child: MaterialApp(
-        title: 'POS',
+        title: 'Billing Sphere',
+        scaffoldMessengerKey: SnackBarUtils.messengerKey,
         home: const SplashScreen(),
         debugShowCheckedModeBanner: false,
-        // initialRoute: '/',
-        // routes: {
-        //   '/': (context) => const SplashScreen(),
-        //   '/super_admin_home': (context) => const SuperAdminDashboard(),
-        //   '/admin_home': (context) => const NewAdminScreen(),
-        //   '/user_home': (context) => Navigation(
-        //         uId: FirebaseAuth.instance.currentUser?.phoneNumber ?? "",
-        //       ),
-        // },
+        builder: (context, child) {
+          return ShowCaseWidget(
+            onFinish: () async {
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setBool('is_first_time_main_tutorial', false);
+              // Don't set detailed tutorial here, let BillCartWidget handle it
+              await prefs.setBool('is_first_time_drawer_tutorial', true); // Keep drawer separate
+            },
+            onComplete: (index, key) {
+              // Individual step completion logic if needed
+            },
+            builder: (context) => child!,
+          );
+        },
       ),
     );
   }

@@ -2,23 +2,19 @@
 import 'package:flutter/material.dart';
 
 // Package imports:
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-class LoginProvider extends ChangeNotifier {
-  final FirebaseFirestore _firebaseFirestore = FirebaseFirestore.instance;
-  // final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
+// Project imports:
+import 'package:pos/data/services/user_service.dart';
 
-  List<TextEditingController> controllers = List.generate(
-    6,
-    (index) => TextEditingController(),
-  );
+class LoginProvider extends ChangeNotifier {
+  // Removed: FirebaseFirestore dependency
+
   final bool _isLoading = false;
   bool get isLoading => _isLoading;
   bool get _isAdmin => isAdmin;
-  bool _isProcessing = false, _isVerified = false, _isVerifying = false, isAdmin = false;
-  FocusNode lastFocusNode = FocusNode(), firstFocusNode = FocusNode();
-  String? _verificationID, _phone, _smsCode = "", _employerName;
+  bool _isProcessing = false, isAdmin = false;
+  String? _phone, _smsCode = "", _employerName;
 
   init() async {
     SharedPreferences sp = await SharedPreferences.getInstance();
@@ -30,16 +26,11 @@ class LoginProvider extends ChangeNotifier {
   }
 
   reset() {
-    controllers = List.generate(6, (index) => TextEditingController());
-    _verificationID = "";
     _phone = "";
     _smsCode = "";
     _employerName = "";
-    _phone = "";
     isAdmin = false;
     _isProcessing = false;
-    _isVerified = false;
-    _isVerifying = false;
     notifyListeners();
   }
 
@@ -53,34 +44,13 @@ class LoginProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  toggleVerifying() {
-    _isVerifying = !_isVerifying;
-  }
-
-  String get verificationID => _verificationID ?? '';
   String get smsCode => _smsCode ?? '';
   String get phone => _phone ?? '';
   String get employerName => _employerName ?? '';
   bool get isProcessing => _isProcessing;
-  bool get isVerified => _isVerified;
-  bool get isVerifying => _isVerifying;
-
-  set setSmsCode(String value) {
-    _smsCode = value;
-    for (int i = 0; i < value.length; i++) {
-      controllers[i].text = value[i];
-    }
-    lastFocusNode.requestFocus();
-    notifyListeners();
-  }
 
   set setSmsCodeManually(String value) {
     _smsCode = value;
-    notifyListeners();
-  }
-
-  set setVerificationID(String value) {
-    _verificationID = value;
     notifyListeners();
   }
 
@@ -89,27 +59,25 @@ class LoginProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  set setVerificationStatus(bool value) {
-    _isVerified = value;
-    notifyListeners();
-  }
-
   set setEmployerName(String value) {
     _employerName = value;
     notifyListeners();
   }
 
-  Future getDataFromFirestore(String phoneNumber) async {
-    print("testing uid........................................................   $phoneNumber ");
-    print(phoneNumber); // Use the phoneNumber parameter
-    await _firebaseFirestore.collection("AllUsers").doc(phoneNumber).get().then((DocumentSnapshot snapshot) {
-      _employerName = snapshot['name'];
-      _phone = snapshot['phone'];
-
-      notifyListeners();
-    });
-
-    print(_employerName);
-    print(_phone);
+  /// Fetch user data from Node.js API instead of Firestore
+  Future<void> getDataFromApi(String phoneNumber) async {
+    try {
+      final data = await UserService().getUserByPhone(phoneNumber);
+      if (data != null) {
+        _employerName = data['name'] as String?;
+        _phone = data['phoneNumber'] as String? ?? data['phone'] as String? ?? phoneNumber;
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('getDataFromApi error: $e');
+    }
   }
+
+  // Keep old name as alias for backward compatibility
+  Future<void> getDataFromFirestore(String phoneNumber) => getDataFromApi(phoneNumber);
 }

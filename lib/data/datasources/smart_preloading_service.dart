@@ -1,6 +1,5 @@
 // Dart imports:
 import 'dart:async';
-import 'dart:developer' as developer;
 import 'dart:math';
 
 // Package imports:
@@ -58,9 +57,7 @@ class SmartPreloadingService {
       
       _isInitialized = true;
       
-      developer.log('Smart preloading service initialized', name: 'SmartPreloadingService');
     } catch (e) {
-      developer.log('Error initializing smart preloading service: $e', name: 'SmartPreloadingService');
       rethrow;
     }
   }
@@ -87,7 +84,6 @@ class SmartPreloadingService {
     // Trigger predictive preloading
     _triggerPredictivePreloading(adminUid, department);
     
-    developer.log('Tracked department access: $department for $adminUid', name: 'SmartPreloadingService');
   }
 
   /// Track user access to food items for pattern analysis
@@ -104,8 +100,6 @@ class SmartPreloadingService {
     // Save patterns
     await _saveUserPatterns();
     
-    developer.log('Tracked item access: $itemId in $department for $adminUid (count: ${_itemAccessCount[key]})', 
-                 name: 'SmartPreloadingService');
   }
 
   /// Preload frequently accessed food items based on user patterns
@@ -114,7 +108,7 @@ class SmartPreloadingService {
     
     final preloadKey = '${adminUid}_frequent_items';
     if (_preloadingInProgress.contains(preloadKey)) {
-      developer.log('Frequent items preloading already in progress for $adminUid', name: 'SmartPreloadingService');
+      
       return;
     }
     
@@ -124,7 +118,7 @@ class SmartPreloadingService {
       await _performanceMonitor.trackQuery('preload_frequent_items', () async {
         // Check memory constraints before preloading
         if (_memoryManagementService.isLowMemoryMode) {
-          developer.log('Skipping frequent items preloading due to low memory mode', name: 'SmartPreloadingService');
+          
           return;
         }
         
@@ -137,8 +131,6 @@ class SmartPreloadingService {
           final maxItemsToPreload = min(frequentItems.length, recommendedCacheSize);
           final itemsToPreload = frequentItems.take(maxItemsToPreload).toList();
           
-          developer.log('Preloading ${itemsToPreload.length} frequently accessed items for $adminUid (memory-optimized)', 
-                       name: 'SmartPreloadingService');
           
           // Preload items in batches to avoid overwhelming the system
           final batchSize = _memoryManagementService.isLowMemoryMode ? 5 : 10;
@@ -152,7 +144,7 @@ class SmartPreloadingService {
           }
           
           _preloadedAt[preloadKey] = DateTime.now();
-          developer.log('Completed preloading frequent items for $adminUid', name: 'SmartPreloadingService');
+          
         }
       });
     } finally {
@@ -166,7 +158,7 @@ class SmartPreloadingService {
     
     final preloadKey = '${adminUid}_dept_$department';
     if (_preloadingInProgress.contains(preloadKey)) {
-      developer.log('Department items preloading already in progress for $department', name: 'SmartPreloadingService');
+      
       return;
     }
     
@@ -178,7 +170,7 @@ class SmartPreloadingService {
         final items = await _offlineDataManager.ensureFoodItemsOfflineAvailability(adminUid, department: department);
         
         if (items.isNotEmpty) {
-          developer.log('Preloading ${items.length} items for department $department', name: 'SmartPreloadingService');
+          
           
           // Create lazy loader for this department
           final loader = _lazyLoadingService.createLoader<Map<String, dynamic>>(
@@ -197,7 +189,7 @@ class SmartPreloadingService {
           await loader.preloadPages(pageIndices);
           
           _preloadedAt[preloadKey] = DateTime.now();
-          developer.log('Completed preloading department items for $department', name: 'SmartPreloadingService');
+          
         }
       });
     } finally {
@@ -213,7 +205,7 @@ class SmartPreloadingService {
       await _performanceMonitor.trackQuery('predictive_caching', () async {
         final pattern = _userPatterns[adminUid];
         if (pattern == null) {
-          developer.log('No user pattern found for predictive caching: $adminUid', name: 'SmartPreloadingService');
+          
           return;
         }
         
@@ -231,10 +223,8 @@ class SmartPreloadingService {
         // Preload frequently accessed items
         await preloadFrequentlyAccessedItems(adminUid);
         
-        developer.log('Completed predictive caching for $adminUid', name: 'SmartPreloadingService');
       });
     } catch (e) {
-      developer.log('Error in predictive caching: $e', name: 'SmartPreloadingService');
     }
   }
 
@@ -280,10 +270,10 @@ class SmartPreloadingService {
       }
       
       if (expiredKeys.isNotEmpty) {
-        developer.log('Cleaned up ${expiredKeys.length} expired cache entries', name: 'SmartPreloadingService');
+        
       }
     } catch (e) {
-      developer.log('Error managing cache memory: $e', name: 'SmartPreloadingService');
+      
     }
   }
 
@@ -407,7 +397,7 @@ class SmartPreloadingService {
       // For now, we'll use the existing offline data manager
       await _offlineDataManager.ensureFoodItemsOfflineAvailability(adminUid);
     } catch (e) {
-      developer.log('Error preloading item batch: $e', name: 'SmartPreloadingService');
+      
     }
   }
 
@@ -426,7 +416,7 @@ class SmartPreloadingService {
           }
         }
       } catch (e) {
-        developer.log('Error in predictive preloading: $e', name: 'SmartPreloadingService');
+        
       }
     });
   }
@@ -484,9 +474,8 @@ class SmartPreloadingService {
         }
       }
       
-      developer.log('Loaded user patterns from storage', name: 'SmartPreloadingService');
     } catch (e) {
-      developer.log('Error loading user patterns: $e', name: 'SmartPreloadingService');
+      
     }
   }
 
@@ -512,7 +501,7 @@ class SmartPreloadingService {
         await prefs.setString(key, entry.value.toIso8601String());
       }
     } catch (e) {
-      developer.log('Error saving user patterns: $e', name: 'SmartPreloadingService');
+      
     }
   }
 

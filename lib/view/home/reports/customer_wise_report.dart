@@ -1,11 +1,12 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:pos/core/widgets/text.dart';
 import 'package:intl/intl.dart';
-import 'package:pos/data/datasources/local/sqlite_helper.dart';
-import 'package:pos/data/providers/print_provider.dart';
+import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:pos/data/services/report_service.dart';
 import 'package:pos/view/home/navigation.dart';
 import 'package:pos/data/models/customer_model.dart';
+import 'package:pos/data/services/customer_service.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:pos/view/home/printer_connectionDialog.dart';
@@ -14,8 +15,11 @@ import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:pos/core/network/connection_monitor.dart';
 import 'package:pos/view/tab_screen/view-model/widgets/printers/printer.dart';
 import 'package:pos/core/utils/price_utils.dart';
+import 'package:pos/data/providers/print_provider.dart';
 import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
+import 'package:pos/core/utils/snackbar_utils.dart';
+import 'package:pos/view/home/reports/widgets/report_nav_bar.dart';
 
 class CustomerWiseReport extends StatefulWidget {
   final String adminUid;
@@ -32,8 +36,6 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
   bool hasSearched = false;
   DateTime? startDate = DateTime.now();
   DateTime? endDate = DateTime.now();
-  final SQLiteHelper _sqliteHelper = SQLiteHelper();
-
   List<CustomerModel> allCustomers = [];
   CustomerModel? selectedCustomer;
 
@@ -56,44 +58,25 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
     await _connectionMonitor.initialize();
   }
 
-  /// Fetch all customers directly from Firebase
+  /// Fetch all customers from Node.js API
   Future<void> fetchCustomers() async {
     try {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('AllAdmins')
-          .doc(widget.adminUid)
-          .collection('customer')
-          .doc(widget.uid)
-          .collection('myCustomers')
-          .get();
-
-      final customers = snapshot.docs.map((doc) {
-        final data = doc.data();
-        return CustomerModel(
-          name: data['name'] ?? '',
-          phone: data['phone'] ?? doc.id,
-          gstNo: (data['gstNo'] == null || data['gstNo'].toString().isEmpty)
-              ? null
-              : data['gstNo'],
-          address: data['address'],
-          createdAt: (data['createdAt'] is Timestamp)
-              ? (data['createdAt'] as Timestamp).toDate()
-              : DateTime.now(),
-          isUploaded: true,
-        );
-      }).toList();
-
+      final customers = await CustomerService().getCustomers();
       setState(() {
         allCustomers = customers;
       });
     } catch (e) {
-      print('Error fetching customers from Firebase: $e');
+      debugPrint('Error fetching customers from API: $e');
     }
   }
 
-  /// Fetch customer bills from Firebase only
+  /// Fetch customer bills from API
   Future<void> fetchCustomerTransactions(CustomerModel customer) async {
     if (startDate == null || endDate == null) return;
+    if (customer.id == null) {
+      SnackBarUtils.showError(context, 'Customer ID missing');
+      return;
+    }
 
     setState(() => isLoading = true);
 
@@ -103,192 +86,40 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
       final endDt =
           DateTime(endDate!.year, endDate!.month, endDate!.day, 23, 59, 59);
 
-      final firebaseBills =
-          await _getCustomerBillsFromFirebase(customer.phone, startDt, endDt);
+      final reportData = await ReportService().getCustomerWiseReport(
+        customerId: customer.id!,
+        startDate: startDt,
+        endDate: endDt,
+      );
 
-      final processedData = _processBillsForPaymentTypes(firebaseBills);
+      final List<dynamic> bills = reportData['allBills'] ?? [];
+
+      final processedBills = bills.map((bill) {
+        final billDate = DateTime.parse(bill['createdAt'] ?? bill['orderDate'] ?? DateTime.now().toIso8601String());
+        return {
+          'billNo': bill['billNumber'] ?? bill['receiptNo'] ?? bill['_id'] ?? 'N/A',
+          'time': DateFormat('hh:mm a').format(billDate),
+          'items': (bill['items'] as List<dynamic>?)?.length ?? 0,
+          'allItems': bill['items'],
+          'amount': (bill['finalAmount'] ?? bill['totalAmount'] ?? 0).toDouble(),
+          'paymentType': (bill['paymentMethod'] ?? bill['paymentType'] ?? 'cash').toString().toLowerCase(),
+          'date': DateFormat('dd/MM/yy').format(billDate),
+          'bill_timestamp': billDate.millisecondsSinceEpoch,
+        };
+      }).toList();
 
       setState(() {
-        customerBills = processedData.bills;
-        totalPaid = processedData.totalPaid;
-        totalDue = processedData.totalDue;
-        totalOrders = processedData.totalOrders;
+        customerBills = processedBills;
+        totalPaid = (reportData['paidAmount'] ?? reportData['totalPaid'] ?? 0.0).toDouble();
+        totalDue = (reportData['dueAmount'] ?? reportData['totalDue'] ?? 0.0).toDouble();
+        totalOrders = processedBills.length;
       });
     } catch (e) {
-      print('ERROR: Fetching customer transactions: $e');
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Error loading data: $e')));
+      print('ERROR: Fetching customer transactions from API: $e');
+      SnackBarUtils.showError(context, 'Error loading data: $e');
     } finally {
       setState(() => isLoading = false);
     }
-  }
-
-  /// Firebase bills fetching logic
-  Future<List<Map<String, dynamic>>> _getCustomerBillsFromFirebase(
-    String customerPhone,
-    DateTime startDate,
-    DateTime endDate,
-  ) async {
-    final List<Map<String, dynamic>> allBills = [];
-    try {
-      final billsRef = FirebaseFirestore.instance
-          .collection('AllBills')
-          .doc(widget.uid)
-          .collection('myBills');
-
-      final yearMonths = _generateYearMonthsInRange(startDate, endDate);
-
-      for (final yearMonth in yearMonths) {
-        final yearMonthDocRef = billsRef.doc(yearMonth);
-        final datesInMonth =
-            _generateDatesInMonthRange(startDate, endDate, yearMonth);
-
-        for (final dateStr in datesInMonth) {
-          final dateCollectionRef = yearMonthDocRef.collection(dateStr);
-          final snapshot = await dateCollectionRef.get();
-
-          for (final billDoc in snapshot.docs) {
-            final data = billDoc.data();
-            final billCustomerPhone = data['customerPhone']?.toString();
-
-            if (billCustomerPhone == customerPhone) {
-              allBills.add(_mapFirebaseBillData(billDoc, data));
-            }
-          }
-        }
-      }
-
-      // Deduplicate by id/receiptNo
-      final Map<String, Map<String, dynamic>> uniqueBills = {};
-      for (var bill in allBills) {
-        final id =
-            '${bill['receiptNo'] ?? bill['id']}_${bill['bill_timestamp']}';
-        uniqueBills[id] = bill;
-      }
-
-      return uniqueBills.values.toList();
-    } catch (e) {
-      print('ERROR: Fetching bills from Firebase failed: $e');
-      return [];
-    }
-  }
-
-  // Generate year-month strings
-  List<String> _generateYearMonthsInRange(DateTime start, DateTime end) {
-    final List<String> yearMonths = [];
-    DateTime current = DateTime(start.year, start.month);
-
-    while (!current.isAfter(end)) {
-      yearMonths
-          .add('${current.year}${current.month.toString().padLeft(2, '0')}');
-      current = DateTime(current.year, current.month + 1);
-    }
-    return yearMonths;
-  }
-
-  // Generate all dates in a month that fall in range
-  List<String> _generateDatesInMonthRange(
-      DateTime start, DateTime end, String yearMonth) {
-    final List<String> dates = [];
-    final year = int.parse(yearMonth.substring(0, 4));
-    final month = int.parse(yearMonth.substring(4, 6));
-
-    DateTime d = DateTime(year, month, 1);
-    final lastDay = DateTime(year, month + 1, 0);
-
-    while (!d.isAfter(lastDay)) {
-      if (!d.isBefore(start) && !d.isAfter(end)) {
-        dates.add(
-            '${d.year.toString().padLeft(4, '0')}${d.month.toString().padLeft(2, '0')}${d.day.toString().padLeft(2, '0')}');
-      }
-      d = d.add(const Duration(days: 1));
-    }
-
-    return dates;
-  }
-
-  /// Map Firebase bill data to our format
-  Map<String, dynamic> _mapFirebaseBillData(
-      DocumentSnapshot doc, Map<String, dynamic> data) {
-    final customerPhone = data['customerPhone']?.toString() ??
-        data['customer_phone']?.toString() ??
-        data['phone']?.toString() ??
-        '';
-
-    // Use correct timestamp from Firebase
-    final Timestamp? billTimestamp = data['bill_date'] as Timestamp? ??
-        data['createdAt'] as Timestamp? ??
-        data['updatedAt'] as Timestamp?;
-
-    final billDate = billTimestamp?.toDate() ?? DateTime.now();
-
-    return {
-      'id': doc.id,
-      'customer_phone': customerPhone,
-      'customer_name': data['customerName']?.toString() ??
-          data['customer_name']?.toString() ??
-          data['name']?.toString() ??
-          'Unknown',
-      'total_amount': data['totalAmount'] ?? 0.0,
-      'final_total': data['finalTotal'] ?? data['totalAmount'] ?? 0.0,
-      'payment_type': data['paymentType']?.toString() ?? 'cash',
-      'date': DateFormat('dd/MM/yy').format(billDate),
-      'time': DateFormat('hh:mm a').format(billDate),
-      'bill_timestamp': billDate.millisecondsSinceEpoch,
-      'items': data['items'] ?? [],
-    };
-  }
-
-  /// Process bills to calculate totals and map for UI
-  ProcessedBillData _processBillsForPaymentTypes(
-      List<Map<String, dynamic>> bills) {
-    double paid = 0.0;
-    double due = 0.0;
-    int orders = bills.length;
-
-    final processedBills = bills.map((bill) {
-      final paymentType =
-          (bill['payment_type'] ?? 'cash').toString().toLowerCase();
-      final amount = (bill['final_total'] as num?)?.toDouble() ?? 0.0;
-
-      if (paymentType == 'debit') {
-        due += amount;
-      } else {
-        paid += amount;
-      }
-
-      final billDate = DateTime.fromMillisecondsSinceEpoch(
-        (bill['bill_timestamp'] as int?) ??
-            DateTime.now().millisecondsSinceEpoch,
-      );
-
-      final itemCount = (bill['items'] as List<dynamic>?)?.length ?? 1;
-
-      return {
-        'billNo': bill['id']?.toString() ?? 'N/A',
-        'time': DateFormat('hh:mm a').format(billDate),
-        'items': itemCount,
-        'allItems': bill['items'],
-        'amount': amount,
-        'paymentType': paymentType,
-        'date': DateFormat('dd/MM/yy').format(billDate),
-        'bill_timestamp': billDate.millisecondsSinceEpoch,
-      };
-    }).toList();
-
-    // Sort **once** by bill_timestamp descending
-    processedBills.sort((a, b) {
-      final aDate = a['bill_timestamp'] as int? ?? 0;
-      final bDate = b['bill_timestamp'] as int? ?? 0;
-      return bDate.compareTo(aDate); // latest first
-    });
-
-    return ProcessedBillData(
-      bills: processedBills,
-      totalPaid: paid,
-      totalDue: due,
-      totalOrders: orders,
-    );
   }
 
   /// Pick date
@@ -313,15 +144,7 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
   }
 
   Future<void> _downloadAndShareReport() async {
-    if (selectedCustomer == null || customerBills.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No data available to generate report'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
+    SnackBarUtils.showWarning(context, 'No data available to generate report');
 
     showDialog(
       context: context,
@@ -330,12 +153,15 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
     );
 
     try {
-      // ================== SHOP DATA (LOCAL FIRST) ==================
-      final localData = await _sqliteHelper.getUserData(widget.adminUid);
+      // ================== SHOP DATA (SHARED PREFERENCES) ==================
+      final prefs = await SharedPreferences.getInstance();
+      final shopName = prefs.getString('shopName') ?? '';
+      final contact = prefs.getString('contact') ?? '';
+      final address = prefs.getString('address') ?? '';
 
-      final shopName = localData?['shopName'] ?? '';
-      final contact = localData?['phoneNumber'] ?? '';
-      final address = localData?['address'] ?? '';
+      // Load fonts for premium look and multilingual support
+      final regularFont = pw.Font.ttf(await rootBundle.load('fonts/NotoSans-Regular.ttf'));
+      final boldFont = pw.Font.ttf(await rootBundle.load('fonts/NotoSans-Bold.ttf'));
 
       if (!mounted) return;
       Navigator.pop(context);
@@ -360,13 +186,17 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
             pw.MultiPage(
               pageFormat: format,
               margin: const pw.EdgeInsets.all(20),
+              theme: pw.ThemeData.withFont(
+                base: regularFont,
+                bold: boldFont,
+              ),
               build: (_) => [
                 // ================= HEADER =================
                 pw.Center(
                   child: pw.Text(
                     shopName,
                     style: pw.TextStyle(
-                      fontSize: 20,
+                      fontSize: 22,
                       fontWeight: pw.FontWeight.bold,
                     ),
                   ),
@@ -383,94 +213,140 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
                   ),
 
                 pw.SizedBox(height: 10),
-                pw.Divider(),
+                pw.Divider(thickness: 1, color: PdfColors.grey400),
+                pw.SizedBox(height: 5),
 
-                // ================= CUSTOMER INFO =================
-                pw.Text(
-                  'Customer: ${selectedCustomer!.name}',
-                  style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                pw.Center(
+                  child: pw.Text(
+                    'Customer Wise Sales Report',
+                    style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold, color: PdfColors.blueGrey700),
+                  ),
                 ),
-                pw.Text('Phone: ${selectedCustomer!.phone}'),
-                if (selectedCustomer!.gstNo != null)
-                  pw.Text('GST: ${selectedCustomer!.gstNo}'),
-
-                pw.SizedBox(height: 6),
-                pw.Text(
-                  'Period: ${DateFormat('dd/MM/yyyy').format(startDate!)} '
-                  'to ${DateFormat('dd/MM/yyyy').format(endDate!)}',
-                  style: const pw.TextStyle(fontSize: 10),
+                pw.Center(
+                  child: pw.Text(
+                    'Generated on: ${DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.now())}',
+                    style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey700),
+                  ),
                 ),
 
-                pw.SizedBox(height: 12),
+                pw.SizedBox(height: 15),
 
-                // ================= TABLE =================
-                pw.Table.fromTextArray(
-                  headerDecoration:
-                      const pw.BoxDecoration(color: PdfColors.grey300),
-                  headerStyle: pw.TextStyle(
-                      fontWeight: pw.FontWeight.bold, fontSize: 11),
-                  cellStyle: const pw.TextStyle(fontSize: 10),
-                  cellAlignments: {
-                    0: pw.Alignment.centerLeft,
-                    1: pw.Alignment.centerRight,
-                    2: pw.Alignment.centerRight,
-                    3: pw.Alignment.centerRight,
-                    4: pw.Alignment.centerRight,
-                  },
-                  headers: ['Bill No', 'Date', 'Items', 'Mode', 'Amount'],
-                  data: customerBills.map((bill) {
-                    return [
-                      bill['billNo'],
-                      bill['date'],
-                      bill['items'].toString(),
-                      bill['paymentType'].toString().toUpperCase(),
-                      '${PriceUtils.formatPrice(bill['amount'])}'
-                    ];
-                  }).toList(),
-                ),
-
-                pw.SizedBox(height: 12),
-                pw.Divider(),
-
-                // ================= SUMMARY =================
+                // ================= CUSTOMER INFO BOX =================
                 pw.Container(
                   padding: const pw.EdgeInsets.all(10),
-                  decoration: const pw.BoxDecoration(
-                    color: PdfColors.grey200,
-                    borderRadius: pw.BorderRadius.all(pw.Radius.circular(4)),
+                  decoration: pw.BoxDecoration(
+                    color: PdfColors.grey100,
+                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
+                    border: pw.Border.all(color: PdfColors.grey300),
                   ),
-                  child: pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.end,
+                  child: pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                     children: [
-                      pw.Text(
-                        'Total Paid: ${PriceUtils.formatPrice(totalPaid)}',
-                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                      pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          pw.Text(
+                            'CUSTOMER DETAILS',
+                            style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: PdfColors.grey600),
+                          ),
+                          pw.SizedBox(height: 4),
+                          pw.Text(
+                            selectedCustomer!.name,
+                            style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
+                          ),
+                          pw.Text('Phone: ${selectedCustomer!.phone}', style: const pw.TextStyle(fontSize: 10)),
+                          if (selectedCustomer!.gstNo != null && selectedCustomer!.gstNo!.isNotEmpty)
+                            pw.Text('GST: ${selectedCustomer!.gstNo}', style: const pw.TextStyle(fontSize: 10)),
+                        ],
                       ),
-                      pw.Text(
-                        'Total Due: ${PriceUtils.formatPrice(totalDue)}',
-                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-                      ),
-                      pw.SizedBox(height: 4),
-                      pw.Text(
-                        'Grand Total: ${PriceUtils.formatPrice(totalPaid + totalDue)}',
-                        style: pw.TextStyle(
-                          fontWeight: pw.FontWeight.bold,
-                          fontSize: 14,
-                          color: PdfColors.green900,
-                        ),
+                      pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.end,
+                        children: [
+                          pw.Text(
+                            'REPORT PERIOD',
+                            style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: PdfColors.grey600),
+                          ),
+                          pw.SizedBox(height: 4),
+                          pw.Text(
+                            '${DateFormat('dd/MM/yyyy').format(startDate!)} - ${DateFormat('dd/MM/yyyy').format(endDate!)}',
+                            style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold),
+                          ),
+                          pw.Text('Orders: $totalOrders', style: const pw.TextStyle(fontSize: 10)),
+                        ],
                       ),
                     ],
                   ),
                 ),
 
                 pw.SizedBox(height: 20),
+
+                // ================= TABLE =================
+                pw.Table(
+                  columnWidths: {
+                    0: const pw.FlexColumnWidth(1.5),
+                    1: const pw.FlexColumnWidth(1.2),
+                    2: const pw.FlexColumnWidth(0.8),
+                    3: const pw.FlexColumnWidth(1.2),
+                    4: const pw.FlexColumnWidth(1.3),
+                  },
+                  children: [
+                    // TABLE HEADER
+                    pw.TableRow(
+                      decoration: const pw.BoxDecoration(color: PdfColors.grey300),
+                      children: [
+                        _pdfHeaderCell('Bill No'),
+                        _pdfHeaderCell('Date'),
+                        _pdfHeaderCell('Items'),
+                        _pdfHeaderCell('Mode'),
+                        _pdfHeaderCell('Amount', align: pw.Alignment.centerRight),
+                      ],
+                    ),
+                    // TABLE DATA
+                    ...customerBills.map((bill) {
+                      return pw.TableRow(
+                        children: [
+                          _pdfCell(bill['billNo']),
+                          _pdfCell(bill['date']),
+                          _pdfCell(bill['items'].toString(), align: pw.Alignment.center),
+                          _pdfCell(bill['paymentType'].toString().toUpperCase()),
+                          _pdfCell(
+                            '${PriceUtils.formatPrice(bill['amount'])}',
+                            align: pw.Alignment.centerRight,
+                            isBold: true,
+                          ),
+                        ],
+                      );
+                    }).toList(),
+                  ],
+                ),
+
+                pw.SizedBox(height: 20),
+
+                // ================= SUMMARY =================
+                pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.end,
+                  children: [
+                    pw.Container(
+                      width: 200,
+                      child: pw.Column(
+                        children: [
+                          _pdfSummaryRow('Total Paid', totalPaid, PdfColors.green900),
+                          pw.SizedBox(height: 4),
+                          _pdfSummaryRow('Total Due', totalDue, PdfColors.red900),
+                          pw.Divider(thickness: 1),
+                          _pdfSummaryRow('Grand Total', totalPaid + totalDue, PdfColors.blueGrey900, isFinal: true),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+
+                pw.SizedBox(height: 40),
+                pw.Divider(color: PdfColors.grey300),
                 pw.Center(
                   child: pw.Text(
-                    'Generated by POS System',
-                    style: const pw.TextStyle(
-                      fontSize: 8,
-                      color: PdfColors.grey600,
-                    ),
+                    'This is a computer generated report.',
+                    style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600),
                   ),
                 ),
               ],
@@ -481,26 +357,64 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
         },
       );
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('PDF generated successfully'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
+      SnackBarUtils.showSuccess(context, 'PDF generated successfully');
     } catch (e) {
       if (mounted && Navigator.canPop(context)) {
         Navigator.pop(context);
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('PDF generation failed: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      print('PDF generation failed: $e');
+      SnackBarUtils.showError(context, 'PDF generation failed: $e');
     }
+  }
+
+  pw.Widget _pdfHeaderCell(String text, {pw.Alignment align = pw.Alignment.centerLeft}) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.all(6),
+      child: pw.Align(
+        alignment: align,
+        child: pw.Text(
+          text,
+          style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
+        ),
+      ),
+    );
+  }
+
+  pw.Widget _pdfCell(String text, {pw.Alignment align = pw.Alignment.centerLeft, bool isBold = false}) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.all(6),
+      child: pw.Align(
+        alignment: align,
+        child: pw.Text(
+          text,
+          style: pw.TextStyle(fontSize: 9, fontWeight: isBold ? pw.FontWeight.bold : pw.FontWeight.normal),
+        ),
+      ),
+    );
+  }
+
+  pw.Widget _pdfSummaryRow(String label, double value, PdfColor color, {bool isFinal = false}) {
+    return pw.Row(
+      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+      children: [
+        pw.Text(
+          label,
+          style: pw.TextStyle(
+            fontSize: isFinal ? 12 : 10,
+            fontWeight: isFinal ? pw.FontWeight.bold : pw.FontWeight.normal,
+          ),
+        ),
+        pw.Text(
+          PriceUtils.formatPrice(value),
+          style: pw.TextStyle(
+            fontSize: isFinal ? 12 : 10,
+            fontWeight: pw.FontWeight.bold,
+            color: color,
+          ),
+        ),
+      ],
+    );
   }
 
   Future<void> _handlePrint() async {
@@ -511,13 +425,7 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
         context: context,
         builder: (context) => const PrinterConnectionDialog(),
       );
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please connect a printer first'),
-          backgroundColor: Colors.orange,
-          duration: Duration(seconds: 2),
-        ),
-      );
+      SnackBarUtils.showWarning(context, 'Please connect a printer first');
       return;
     }
 
@@ -530,15 +438,11 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
     String shopName = '';
     String contact = '';
     String address = '';
-    final localData = await _sqliteHelper.getUserData(widget.adminUid);
 
-    print("These Is The Local Data ...........$localData");
-
-    // Fetch shop data (local-first)
-
-    shopName = localData!['shopName'] ?? "";
-    contact = localData['phoneNumber'] ?? "";
-    address = localData['address'] ?? "";
+    final prefs = await SharedPreferences.getInstance();
+    shopName = prefs.getString('shopName') ?? "";
+    contact = prefs.getString('contact') ?? "";
+    address = prefs.getString('address') ?? "";
 
     if (!mounted) return;
     Navigator.pop(context);
@@ -573,13 +477,11 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
         elevation: 0,
         scrolledUnderElevation: 0,
         backgroundColor: Colors.white,
-        title: const Text(
-          'Customer Wise Report',
-          style: TextStyle(
-            color: Colors.black87,
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
-          ),
+        title: const MyText(
+          text: 'Customer wise Report',
+          color: Colors.black87,
+          fontWeight: FontWeight.bold,
+          fontSize: 20,
         ),
         actions: [
           IconButton(
@@ -597,6 +499,12 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
       ),
       body: Column(
         children: [
+          ReportNavBar(
+            currentReport: 'Customer-wise',
+            uid: widget.uid,
+            adminUid: widget.adminUid,
+          ),
+
           /// Select Customer Dropdown
           Container(
             margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
@@ -606,7 +514,7 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
               child: DropdownButton<CustomerModel>(
                 value: selectedCustomer,
                 isExpanded: true,
-                hint: const Text("Select Customer"),
+                hint: const MyText(text: "Select Customer"),
                 icon: const Icon(Icons.keyboard_arrow_down),
                 style: const TextStyle(
                   fontSize: 16,
@@ -616,7 +524,7 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
                 items: allCustomers.map((customer) {
                   return DropdownMenuItem<CustomerModel>(
                     value: customer,
-                    child: Text("${customer.name} (${customer.phone})"),
+                    child: MyText(text: "${customer.name} (${customer.phone})"),
                   );
                 }).toList(),
                 onChanged: (value) {
@@ -673,10 +581,11 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
                 color: selectedCustomer != null ? appbar1 : Colors.grey[400],
               ),
               child: const Center(
-                child: Text(
-                  "Find Bills",
-                  style: TextStyle(
-                      color: white, fontSize: 18, fontWeight: FontWeight.w600),
+                child: MyText(
+                  text: "Find Bills",
+                  color: white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
@@ -694,10 +603,10 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
                       )
                     : customerBills.isEmpty
                         ? const Center(
-                            child: Text(
-                              'No transactions found for selected customer',
-                              style:
-                                  TextStyle(color: Colors.grey, fontSize: 16),
+                            child: MyText(
+                              text: 'No transactions found for selected customer',
+                              color: Colors.grey,
+                              fontSize: 16,
                             ),
                           )
                         : Column(
@@ -719,16 +628,13 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
                                           CircleAvatar(
                                             radius: 26,
                                             backgroundColor: Colors.white,
-                                            child: Text(
-                                              selectedCustomer!.name.isNotEmpty
-                                                  ? selectedCustomer!.name[0]
-                                                      .toUpperCase()
+                                            child: MyText(
+                                              text: selectedCustomer!.name.isNotEmpty
+                                                  ? selectedCustomer!.name[0].toUpperCase()
                                                   : "?",
-                                              style: const TextStyle(
-                                                fontSize: 22,
-                                                fontWeight: FontWeight.bold,
-                                                color: Colors.green,
-                                              ),
+                                              fontSize: 22,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.green,
                                             ),
                                           ),
                                           const SizedBox(width: 12),
@@ -737,20 +643,16 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
                                               crossAxisAlignment:
                                                   CrossAxisAlignment.start,
                                               children: [
-                                                Text(
-                                                  selectedCustomer!.name,
-                                                  style: const TextStyle(
-                                                    color: Colors.white,
-                                                    fontSize: 18,
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
+                                                MyText(
+                                                  text: selectedCustomer!.name,
+                                                  color: Colors.white,
+                                                  fontSize: 18,
+                                                  fontWeight: FontWeight.bold,
                                                 ),
-                                                Text(
-                                                  selectedCustomer!.phone,
-                                                  style: const TextStyle(
-                                                    color: Colors.white70,
-                                                    fontSize: 14,
-                                                  ),
+                                                MyText(
+                                                  text: selectedCustomer!.phone,
+                                                  color: Colors.white70,
+                                                  fontSize: 14,
                                                 ),
                                               ],
                                             ),
@@ -759,21 +661,16 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
                                             crossAxisAlignment:
                                                 CrossAxisAlignment.end,
                                             children: [
-                                              Text(
-                                                PriceUtils.formatPrice(
-                                                    totalPaid + totalDue),
-                                                style: const TextStyle(
-                                                  color: Colors.white,
-                                                  fontSize: 18,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
+                                              MyText(
+                                                text: PriceUtils.formatPrice(totalPaid + totalDue),
+                                                color: Colors.white,
+                                                fontSize: 18,
+                                                fontWeight: FontWeight.bold,
                                               ),
-                                              Text(
-                                                "$totalOrders orders",
-                                                style: const TextStyle(
-                                                  color: Colors.white70,
-                                                  fontSize: 13,
-                                                ),
+                                              MyText(
+                                                text: "$totalOrders orders",
+                                                color: Colors.white70,
+                                                fontSize: 13,
                                               ),
                                             ],
                                           )
@@ -820,12 +717,10 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
                                     Icon(Icons.receipt_long,
                                         color: Colors.blue),
                                     SizedBox(width: 8),
-                                    Text(
-                                      "Bills",
-                                      style: TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                      ),
+                                    MyText(
+                                      text: "Bills",
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
                                     ),
                                   ],
                                 ),
@@ -878,48 +773,36 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
                                             ),
                                           ),
 
-                                          title: Text(
-                                            "Bill No: ${bill['billNo']}",
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 15,
-                                            ),
+                                          title: MyText(
+                                            text: "Bill No: ${bill['billNo']}",
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 15,
                                           ),
 
                                           subtitle: Column(
                                             crossAxisAlignment:
                                                 CrossAxisAlignment.start,
                                             children: [
-                                              Text(
-                                                "${bill['items']} items • ${bill['date']} ${bill['time']}",
-                                                style: TextStyle(
-                                                  fontSize: 13,
-                                                  color: Colors.grey[600],
-                                                ),
+                                              MyText(
+                                                text: "${bill['items']} items • ${bill['date']} ${bill['time']}",
+                                                fontSize: 13,
+                                                color: Colors.grey[600],
                                               ),
                                               const SizedBox(height: 2),
-                                              Text(
-                                                "Payment: ${_formatPaymentType(bill['paymentType'])}",
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w500,
-                                                  color: _getPaymentColor(
-                                                      bill['paymentType']),
-                                                ),
+                                              MyText(
+                                                text: "Payment: ${_formatPaymentType(bill['paymentType'])}",
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w500,
+                                                color: _getPaymentColor(bill['paymentType']),
                                               ),
                                             ],
                                           ),
 
-                                          trailing: Text(
-                                            "${PriceUtils.formatPrice(bill['amount'])}",
-                                            style: TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.bold,
-                                              color:
-                                                  bill['paymentType'] == 'debit'
-                                                      ? Colors.orange
-                                                      : Colors.green,
-                                            ),
+                                          trailing: MyText(
+                                            text: "${PriceUtils.formatPrice(bill['amount'])}",
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                            color: bill['paymentType'] == 'debit' ? Colors.orange : Colors.green,
                                           ),
 
                                           // 👇 Expanded item list
@@ -932,33 +815,25 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
                                                 children: [
                                                   Expanded(
                                                     flex: 4,
-                                                    child: Text(
-                                                      item['name'],
-                                                      style: const TextStyle(
-                                                        fontSize: 14,
-                                                        fontWeight:
-                                                            FontWeight.w500,
-                                                      ),
+                                                    child: MyText(
+                                                      text: item['name'],
+                                                      fontSize: 14,
+                                                      fontWeight: FontWeight.w500,
                                                     ),
                                                   ),
                                                   Expanded(
-                                                    child: Text(
-                                                      "x${item['quantity']}",
-                                                      style: const TextStyle(
-                                                          fontSize: 13,
-                                                          fontWeight:
-                                                              FontWeight.w500),
+                                                    child: MyText(
+                                                      text: "x${item['quantity']}",
+                                                      fontSize: 13,
+                                                      fontWeight: FontWeight.w500,
                                                     ),
                                                   ),
                                                   const SizedBox(width: 12),
                                                   Expanded(
-                                                    child: Text(
-                                                      "₹${item['price']}",
-                                                      style: const TextStyle(
-                                                        fontSize: 14,
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                      ),
+                                                    child: MyText(
+                                                      text: "\u20B9${item['price']}",
+                                                      fontSize: 14,
+                                                      fontWeight: FontWeight.bold,
                                                     ),
                                                   ),
                                                 ],
@@ -1006,23 +881,17 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey[600],
-                fontWeight: FontWeight.w500,
-              ),
+            MyText(
+              text: label,
+              fontSize: 12,
+              color: Colors.grey[600],
+              fontWeight: FontWeight.w500,
             ),
             const SizedBox(height: 6),
-            Text(
-              date == null
-                  ? "Select Date"
-                  : DateFormat('dd MMM yyyy').format(date),
-              style: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.bold,
-              ),
+            MyText(
+              text: date == null ? "Select Date" : DateFormat('dd MMM yyyy').format(date),
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
             ),
           ],
         ),
@@ -1049,20 +918,16 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontSize: 12,
-                ),
+              MyText(
+                text: title,
+                color: Colors.white70,
+                fontSize: 12,
               ),
-              Text(
-                "${PriceUtils.formatPrice(value)}",
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
+              MyText(
+                text: "${PriceUtils.formatPrice(value)}",
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
               ),
             ],
           ),
@@ -1124,8 +989,7 @@ class ProcessedBillData {
 
 
 
-// import 'package:cloud_firestore/cloud_firestore.dart';
-// import 'package:flutter/material.dart';
+// // import 'package:flutter/material.dart';
 // import 'package:intl/intl.dart';
 // import 'package:pos/view/home/navigation.dart';
 // import 'package:pos/data/models/customer_model.dart';
@@ -1342,7 +1206,7 @@ class ProcessedBillData {
 //       print('ERROR: Fetching customer transactions: $e');
 //       print('ERROR DETAILS: Stack trace: ${StackTrace.current}');
 //       ScaffoldMessenger.of(context).showSnackBar(
-//         SnackBar(content: Text('Error loading customer data: $e')),
+//         SnackBar(content: MyText(text: 'Error loading customer data: $e')),
 //       );
 //     } finally {
 //       setState(() => isLoading = false);
@@ -1881,8 +1745,8 @@ class ProcessedBillData {
 //         elevation: 0,
 //         scrolledUnderElevation: 0,
 //         backgroundColor: Colors.white,
-//         title: const Text(
-//           'Customer Wise Report',
+//         title: const MyText(
+//           text: 'Customer Wise Report',
 //           style: TextStyle(
 //             color: Colors.black87,
 //             fontWeight: FontWeight.bold,
@@ -1918,7 +1782,7 @@ class ProcessedBillData {
 //               child: DropdownButton<CustomerModel>(
 //                 value: selectedCustomer,
 //                 isExpanded: true,
-//                 hint: const Text("Select Customer"),
+//                 hint: const MyText(text: "Select Customer"),
 //                 icon: const Icon(Icons.keyboard_arrow_down),
 //                 style: const TextStyle(
 //                   fontSize: 16,
@@ -1928,7 +1792,7 @@ class ProcessedBillData {
 //                 items: allCustomers.map((customer) {
 //                   return DropdownMenuItem<CustomerModel>(
 //                     value: customer,
-//                     child: Text("${customer.name} (${customer.phone})"),
+//                     child: MyText(text: "${customer.name} (${customer.phone})"),
 //                   );
 //                 }).toList(),
 //                 onChanged: (value) {
@@ -1978,8 +1842,8 @@ class ProcessedBillData {
 //               child: Center(
 //                 child: isLoading
 //                     ? const CircularProgressIndicator(color: white)
-//                     : const Text(
-//                         "Find Bills",
+//                     : const MyText(
+//                         text: "Find Bills",
 //                         style: TextStyle(color: white, fontSize: 18, fontWeight: FontWeight.w600),
 //                       ),
 //               ),
@@ -2004,8 +1868,8 @@ class ProcessedBillData {
 //                       CircleAvatar(
 //                         radius: 26,
 //                         backgroundColor: Colors.white,
-//                         child: Text(
-//                           selectedCustomer!.name.isNotEmpty ? selectedCustomer!.name[0].toUpperCase() : "?",
+//                         child: MyText(
+//                           text: selectedCustomer!.name.isNotEmpty ? selectedCustomer!.name[0].toUpperCase() : "?",
 //                           style: const TextStyle(
 //                             fontSize: 22,
 //                             fontWeight: FontWeight.bold,
@@ -2018,16 +1882,16 @@ class ProcessedBillData {
 //                         child: Column(
 //                           crossAxisAlignment: CrossAxisAlignment.start,
 //                           children: [
-//                             Text(
-//                               selectedCustomer!.name,
+//                             MyText(
+//                               text: selectedCustomer!.name,
 //                               style: const TextStyle(
 //                                 color: Colors.white,
 //                                 fontSize: 18,
 //                                 fontWeight: FontWeight.bold,
 //                               ),
 //                             ),
-//                             Text(
-//                               selectedCustomer!.phone,
+//                             MyText(
+//                               text: selectedCustomer!.phone,
 //                               style: const TextStyle(
 //                                 color: Colors.white70,
 //                                 fontSize: 14,
@@ -2039,16 +1903,16 @@ class ProcessedBillData {
 //                       Column(
 //                         crossAxisAlignment: CrossAxisAlignment.end,
 //                         children: [
-//                           Text(
-//                             "₹${(totalPaid + totalDue).toStringAsFixed(0)}",
+//                           MyText(
+//                             text: "\u20B9${(totalPaid + totalDue).toStringAsFixed(0)}",
 //                             style: const TextStyle(
 //                               color: Colors.white,
 //                               fontSize: 18,
 //                               fontWeight: FontWeight.bold,
-//                             ),
+//                               ),
 //                           ),
-//                           Text(
-//                             "$totalOrders orders",
+//                           MyText(
+//                             text: "$totalOrders orders",
 //                             style: const TextStyle(
 //                               color: Colors.white70,
 //                               fontSize: 13,
@@ -2098,8 +1962,8 @@ class ProcessedBillData {
 //               children: [
 //                 Icon(Icons.receipt_long, color: Colors.blue),
 //                 SizedBox(width: 8),
-//                 Text(
-//                   "Bills",
+//                 MyText(
+//                   text: "Bills",
 //                   style: TextStyle(
 //                     fontSize: 18,
 //                     fontWeight: FontWeight.bold,
@@ -2115,8 +1979,8 @@ class ProcessedBillData {
 //           Expanded(
 //             child: customerBills.isEmpty && !isLoading
 //                 ? const Center(
-//                     child: Text(
-//                       'No transactions found for selected customer',
+//                     child: MyText(
+//                       text: 'No transactions found for selected customer',
 //                       style: TextStyle(color: Colors.grey, fontSize: 16),
 //                     ),
 //                   )
@@ -2149,22 +2013,22 @@ class ProcessedBillData {
 //                               child: Column(
 //                                 crossAxisAlignment: CrossAxisAlignment.start,
 //                                 children: [
-//                                   Text(
-//                                     bill['billNo'],
+//                                   MyText(
+//                                     text: bill['billNo'],
 //                                     style: const TextStyle(
 //                                       fontWeight: FontWeight.bold,
 //                                       fontSize: 15,
 //                                     ),
 //                                   ),
-//                                   Text(
-//                                     "${bill['items']} items • ${bill['time']}",
+//                                   MyText(
+//                                     text: "${bill['items']} items • ${bill['time']}",
 //                                     style: TextStyle(
 //                                       fontSize: 13,
 //                                       color: Colors.grey[600],
 //                                     ),
 //                                   ),
-//                                   Text(
-//                                     "Payment: ${_formatPaymentType(bill['paymentType'])}",
+//                                   MyText(
+//                                     text: "Payment: ${_formatPaymentType(bill['paymentType'])}",
 //                                     style: TextStyle(
 //                                       fontSize: 12,
 //                                       color: _getPaymentColor(bill['paymentType']),
@@ -2174,8 +2038,8 @@ class ProcessedBillData {
 //                                 ],
 //                               ),
 //                             ),
-//                             Text(
-//                               "₹${bill['amount'].toStringAsFixed(0)}",
+//                             MyText(
+//                               text: "\u20B9${bill['amount'].toStringAsFixed(0)}",
 //                               style: TextStyle(
 //                                 fontSize: 16,
 //                                 fontWeight: FontWeight.bold,
@@ -2222,8 +2086,8 @@ class ProcessedBillData {
 //         child: Column(
 //           crossAxisAlignment: CrossAxisAlignment.start,
 //           children: [
-//             Text(
-//               label,
+//             MyText(
+//               text: label,
 //               style: TextStyle(
 //                 fontSize: 12,
 //                 color: Colors.grey[600],
@@ -2231,8 +2095,8 @@ class ProcessedBillData {
 //               ),
 //             ),
 //             const SizedBox(height: 6),
-//             Text(
-//               date == null ? "Select Date" : DateFormat('dd MMM yyyy').format(date),
+//             MyText(
+//               text: date == null ? "Select Date" : DateFormat('dd MMM yyyy').format(date),
 //               style: const TextStyle(
 //                 fontSize: 15,
 //                 fontWeight: FontWeight.bold,
@@ -2263,15 +2127,15 @@ class ProcessedBillData {
 //           Column(
 //             crossAxisAlignment: CrossAxisAlignment.start,
 //             children: [
-//               Text(
-//                 title,
+//               MyText(
+//                 text: title,
 //                 style: const TextStyle(
 //                   color: Colors.white70,
 //                   fontSize: 12,
 //                 ),
 //               ),
-//               Text(
-//                 "₹${value.toStringAsFixed(0)}",
+//               MyText(
+//                 text: "\u20B9${value.toStringAsFixed(0)}",
 //                 style: const TextStyle(
 //                   color: Colors.white,
 //                   fontSize: 16,

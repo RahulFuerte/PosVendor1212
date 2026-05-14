@@ -1,5 +1,7 @@
 // Flutter imports:
 import 'package:flutter/material.dart';
+import 'package:pos/core/widgets/text.dart';
+import 'package:pos/core/utils/snackbar_utils.dart';
 
 // Package imports:
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -72,12 +74,10 @@ class TableNumberBottomSheet {
                     size: 28,
                   ),
                   const SizedBox(width: 12),
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  MyText(
+                    text: title,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
                   ),
                 ],
               ),
@@ -115,9 +115,9 @@ class TableNumberBottomSheet {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      child: Text(
-                        cancelButtonText,
-                        style: const TextStyle(fontSize: 16),
+                      child: MyText(
+                        text: cancelButtonText,
+                        fontSize: 16,
                       ),
                     ),
                   ),
@@ -126,12 +126,7 @@ class TableNumberBottomSheet {
                     child: ElevatedButton(
                       onPressed: () {
                         if (controller.text.trim().isEmpty) {
-                          ScaffoldMessenger.of(sheetContext).showSnackBar(
-                            SnackBar(
-                              content: Text('Please enter $labelText'),
-                              backgroundColor: Colors.orange,
-                            ),
-                          );
+                          SnackBarUtils.showWarning(sheetContext, 'Please enter $labelText');
                           return;
                         }
                         Navigator.pop(sheetContext, controller.text.trim());
@@ -143,9 +138,10 @@ class TableNumberBottomSheet {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      child: Text(
-                        confirmButtonText,
-                        style: const TextStyle(fontSize: 16, color: Colors.white),
+                      child: MyText(
+                        text: confirmButtonText,
+                        fontSize: 16,
+                        color: Colors.white,
                       ),
                     ),
                   ),
@@ -220,12 +216,10 @@ class CustomInputBottomSheet {
                     const SizedBox(width: 12),
                   ],
                   Expanded(
-                    child: Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    child: MyText(
+                      text: title,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ],
@@ -271,9 +265,9 @@ class CustomInputBottomSheet {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      child: Text(
-                        cancelButtonText,
-                        style: const TextStyle(fontSize: 16),
+                      child: MyText(
+                        text: cancelButtonText,
+                        fontSize: 16,
                       ),
                     ),
                   ),
@@ -285,21 +279,11 @@ class CustomInputBottomSheet {
                         if (validator != null) {
                           final error = validator(value);
                           if (error != null) {
-                            ScaffoldMessenger.of(sheetContext).showSnackBar(
-                              SnackBar(
-                                content: Text(error),
-                                backgroundColor: Colors.orange,
-                              ),
-                            );
+                            SnackBarUtils.showWarning(sheetContext, error);
                             return;
                           }
                         } else if (value.isEmpty) {
-                          ScaffoldMessenger.of(sheetContext).showSnackBar(
-                            SnackBar(
-                              content: Text('Please enter $labelText'),
-                              backgroundColor: Colors.orange,
-                            ),
-                          );
+                          SnackBarUtils.showWarning(sheetContext, 'Please enter $labelText');
                           return;
                         }
                         Navigator.pop(sheetContext, value);
@@ -311,9 +295,10 @@ class CustomInputBottomSheet {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      child: Text(
-                        confirmButtonText,
-                        style: const TextStyle(fontSize: 16, color: Colors.white),
+                      child: MyText(
+                        text: confirmButtonText,
+                        fontSize: 16,
+                        color: Colors.white,
                       ),
                     ),
                   ),

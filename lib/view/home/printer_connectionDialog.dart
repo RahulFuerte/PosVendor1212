@@ -4,6 +4,7 @@ import 'dart:io';
 
 // Flutter imports:
 import 'package:flutter/material.dart';
+import 'package:pos/core/widgets/text.dart';
 
 // Package imports:
 import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
@@ -12,14 +13,14 @@ import 'package:provider/provider.dart';
 
 // Project imports:
 import 'package:pos/data/providers/print_provider.dart';
+import 'package:pos/core/utils/snackbar_utils.dart';
 import 'package:pos/view/tab_screen/view-model/widgets/printers/printer.dart';
 
 class PrinterConnectionDialog extends StatefulWidget {
   const PrinterConnectionDialog({Key? key}) : super(key: key);
 
   @override
-  State<PrinterConnectionDialog> createState() =>
-      _PrinterConnectionDialogState();
+  State<PrinterConnectionDialog> createState() => _PrinterConnectionDialogState();
 }
 
 class _PrinterConnectionDialogState extends State<PrinterConnectionDialog> {
@@ -53,16 +54,14 @@ class _PrinterConnectionDialogState extends State<PrinterConnectionDialog> {
         setState(() {
           _isConnecting = false;
         });
-        final printProvider =
-            Provider.of<PrintProvider>(context, listen: false);
+        final printProvider = Provider.of<PrintProvider>(context, listen: false);
         printProvider.setConnected(true);
       }
       if (status == BTStatus.none && mounted) {
         setState(() {
           _isConnecting = false;
         });
-        final printProvider =
-            Provider.of<PrintProvider>(context, listen: false);
+        final printProvider = Provider.of<PrintProvider>(context, listen: false);
         printProvider.setConnected(false);
       }
     });
@@ -79,9 +78,7 @@ class _PrinterConnectionDialogState extends State<PrinterConnectionDialog> {
 
   void _scan() {
     devices.clear();
-    _subscription = printerManager
-        .discovery(type: defaultPrinterType, isBle: _isBle)
-        .listen((device) {
+    _subscription = printerManager.discovery(type: defaultPrinterType, isBle: _isBle).listen((device) {
       devices.add(BluetoothPrinter(
         deviceName: device.name,
         address: device.address,
@@ -133,8 +130,7 @@ class _PrinterConnectionDialogState extends State<PrinterConnectionDialog> {
           break;
         case PrinterType.network:
           await printerManager.connect(
-              type: selectedPrinter!.typePrinter,
-              model: TcpPrinterInput(ipAddress: selectedPrinter!.address!));
+              type: selectedPrinter!.typePrinter, model: TcpPrinterInput(ipAddress: selectedPrinter!.address!));
           printProvider.setConnected(true);
           break;
         default:
@@ -144,12 +140,7 @@ class _PrinterConnectionDialogState extends State<PrinterConnectionDialog> {
       printProvider.setPaperSize(selectedPaperSize);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Printer connected successfully!'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        SnackBarUtils.showSuccess(context, 'Printer connected successfully!');
         Navigator.pop(context);
       }
     } catch (e) {
@@ -157,12 +148,7 @@ class _PrinterConnectionDialogState extends State<PrinterConnectionDialog> {
         setState(() {
           _isConnecting = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Connection failed: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        SnackBarUtils.showError(context, 'Connection failed: $e');
       }
     }
   }
@@ -179,9 +165,10 @@ class _PrinterConnectionDialogState extends State<PrinterConnectionDialog> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  'Connect Printer',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                const MyText(
+                  text: 'Connect Printer',
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
                 ),
                 IconButton(
                   icon: const Icon(Icons.close),
@@ -198,8 +185,8 @@ class _PrinterConnectionDialogState extends State<PrinterConnectionDialog> {
                 border: OutlineInputBorder(),
               ),
               items: const [
-                DropdownMenuItem(value: PaperSize.mm58, child: Text("58mm")),
-                DropdownMenuItem(value: PaperSize.mm80, child: Text("80mm")),
+                DropdownMenuItem(value: PaperSize.mm58, child: MyText(text: "58mm")),
+                DropdownMenuItem(value: PaperSize.mm80, child: MyText(text: "80mm")),
               ],
               onChanged: (value) {
                 if (value != null) {
@@ -221,16 +208,16 @@ class _PrinterConnectionDialogState extends State<PrinterConnectionDialog> {
                 if (Platform.isAndroid || Platform.isIOS)
                   const DropdownMenuItem(
                     value: PrinterType.bluetooth,
-                    child: Text("Bluetooth"),
+                    child: MyText(text: "Bluetooth"),
                   ),
                 if (Platform.isAndroid || Platform.isWindows)
                   const DropdownMenuItem(
                     value: PrinterType.usb,
-                    child: Text("USB"),
+                    child: MyText(text: "USB"),
                   ),
                 const DropdownMenuItem(
                   value: PrinterType.network,
-                  child: Text("WiFi"),
+                  child: MyText(text: "WiFi"),
                 ),
               ],
               onChanged: (value) {
@@ -244,8 +231,7 @@ class _PrinterConnectionDialogState extends State<PrinterConnectionDialog> {
                 }
               },
             ),
-            if (defaultPrinterType == PrinterType.bluetooth &&
-                Platform.isAndroid)
+            if (defaultPrinterType == PrinterType.bluetooth && Platform.isAndroid)
               // SwitchListTile(
               //   title: const Text("Auto Reconnect"),
               //   value: _reconnect,
@@ -256,9 +242,9 @@ class _PrinterConnectionDialogState extends State<PrinterConnectionDialog> {
               //   },
               // ),
               const SizedBox(height: 16),
-            const Text(
-              'Available Devices:',
-              style: TextStyle(fontWeight: FontWeight.bold),
+            const MyText(
+              text: 'Available Devices:',
+              fontWeight: FontWeight.bold,
             ),
             const Divider(),
             Expanded(
@@ -269,21 +255,15 @@ class _PrinterConnectionDialogState extends State<PrinterConnectionDialog> {
                       itemCount: devices.length,
                       itemBuilder: (context, index) {
                         final device = devices[index];
-                        final isSelected =
-                            selectedPrinter?.deviceName == device.deviceName;
+                        final isSelected = selectedPrinter?.deviceName == device.deviceName;
                         return ListTile(
                           leading: Icon(
                             Icons.print,
                             color: isSelected ? Colors.green : null,
                           ),
-                          title: Text(device.deviceName ?? 'Unknown'),
-                          subtitle: device.address != null
-                              ? Text(device.address!)
-                              : null,
-                          trailing: isSelected
-                              ? const Icon(Icons.check_circle,
-                                  color: Colors.green)
-                              : null,
+                          title: MyText(text: device.deviceName ?? 'Unknown'),
+                          subtitle: device.address != null ? MyText(text: device.address!) : null,
+                          trailing: isSelected ? const Icon(Icons.check_circle, color: Colors.green) : null,
                           selected: isSelected,
                           onTap: () => selectDevice(device),
                         );
@@ -304,16 +284,16 @@ class _PrinterConnectionDialogState extends State<PrinterConnectionDialog> {
                         ),
                       )
                     : const Icon(Icons.link),
-                label:
-                    Text(_isConnecting ? 'Connecting...' : 'Connect Printer'),
+                label: MyText(
+                  text: _isConnecting ? 'Connecting...' : 'Connect Printer',
+                  color: Colors.white,
+                ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.green,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.all(16),
                 ),
-                onPressed: selectedPrinter == null || _isConnecting
-                    ? null
-                    : _connectDevice,
+                onPressed: selectedPrinter == null || _isConnecting ? null : _connectDevice,
               ),
             ),
           ],

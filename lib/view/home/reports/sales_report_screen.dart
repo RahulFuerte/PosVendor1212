@@ -1,14 +1,17 @@
 // Flutter imports:
 import 'package:flutter/material.dart';
+import 'package:pos/core/widgets/text.dart';
 
 // Package imports:
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import 'package:pos/data/services/report_service.dart';
 import 'package:pos/view/home/widgets/mydrawer.dart';
 
 // Project imports:
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:pos/core/utils/price_utils.dart';
+import 'package:pos/core/utils/snackbar_utils.dart';
+import 'package:pos/view/home/reports/widgets/report_nav_bar.dart';
 
 class SalesReportScreen extends StatefulWidget {
   final String adminUid;
@@ -16,7 +19,8 @@ class SalesReportScreen extends StatefulWidget {
 
   const SalesReportScreen({
     Key? key,
-    required this.adminUid, required this.uid,
+    required this.adminUid,
+    required this.uid,
   }) : super(key: key);
 
   @override
@@ -28,7 +32,11 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
   String selectedMonth = DateFormat('yyyyMM').format(DateTime.now());
   bool isLoading = true;
   double totalSales = 0.0;
+  int totalOrders = 0;
+  double totalDiscount = 0.0;
+  double totalTax = 0.0;
   List<Map<String, dynamic>> productSales = [];
+  final ReportService _reportService = ReportService();
 
   // Generate last 12 months for dropdown
   List<Map<String, String>> get monthsList {
@@ -54,62 +62,33 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
     setState(() {
       isLoading = true;
     });
-
     try {
-      String dateDoc = DateFormat('yyyyMMdd').format(selectedDate);
-
-      // Fetch all bills for the selected date
-      final billsSnapshot = await FirebaseFirestore.instance
-          .collection('AllBills')
-          .doc(widget.uid)
-          .collection('myBills')
-          .doc(selectedMonth)
-          .collection(dateDoc)
-          .get();
-
-      double total = 0.0;
-      Map<String, Map<String, dynamic>> productsMap = {};
-
-      // Process each bill
-      for (var doc in billsSnapshot.docs) {
-        final data = doc.data();
-        total += (data['subTotal'] ?? 0.0) as double;
-
-        // Process items
-        List<dynamic> items = data['items'] ?? [];
-        for (var item in items) {
-          String productName = item['name'] ?? 'Unknown';
-          int quantity = item['quantity'] ?? 0;
-          double price = (item['price'] ?? 0.0) as double;
-
-          if (productsMap.containsKey(productName)) {
-            productsMap[productName]!['quantity'] += quantity;
-            productsMap[productName]!['totalAmount'] += (price * quantity);
-          } else {
-            productsMap[productName] = {
-              'name': productName,
-              'quantity': quantity,
-              'price': price,
-              'totalAmount': price * quantity,
-            };
-          }
-        }
-      }
-
-      // Convert to list and sort by quantity (descending)
-      List<Map<String, dynamic>> products = productsMap.values.toList();
-      products.sort((a, b) => b['quantity'].compareTo(a['quantity']));
-
+      final data = await _reportService.getSalesReport(date: selectedDate);
       setState(() {
-        totalSales = total;
-        productSales = products;
+        totalSales = (data['totalSales'] ?? 0.0).toDouble();
+        totalOrders = (data['totalOrders'] ?? 0);
+        totalDiscount = (data['totalDiscount'] ?? 0.0).toDouble();
+        totalTax = (data['totalTax'] ?? 0.0).toDouble();
+
+        // Support both topSellingItems and productSales from API
+        final sales = (data['topSellingItems'] ?? data['productSales']) as List<dynamic>? ?? [];
+        productSales = sales.map((item) {
+          final map = Map<String, dynamic>.from(item as Map);
+          // Calculate price if missing
+          if (map['price'] == null && map['quantity'] != null && (map['quantity'] as num) > 0) {
+            map['price'] = (map['totalAmount'] ?? 0.0) / (map['quantity'] as num);
+          }
+          return map;
+        }).toList();
+
         isLoading = false;
       });
     } catch (e) {
-      debugPrint('Error fetching sales data: $e');
+      debugPrint('Error fetching sales data from API: $e');
       setState(() {
         isLoading = false;
       });
+      SnackBarUtils.showError(context, 'Error: ${e.toString()}');
     }
   }
 
@@ -126,17 +105,15 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[100],
-      
       appBar: AppBar(
         elevation: 0,
+        scrolledUnderElevation: 0,
         backgroundColor: Colors.white,
-        title: const Text(
-          'Sales Report',
-          style: TextStyle(
-            color: Colors.black87,
-            fontWeight: FontWeight.bold,
-            fontSize: 20,
-          ),
+        title: const MyText(
+          text: 'Sales Report',
+          color: Colors.black87,
+          fontWeight: FontWeight.bold,
+          fontSize: 20,
         ),
       ),
       drawer: MyDrawer(
@@ -145,6 +122,11 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
       ),
       body: Column(
         children: [
+          ReportNavBar(
+            currentReport: 'Sales',
+            uid: widget.uid,
+            adminUid: widget.adminUid,
+          ),
           // Date and Month Selector Card
           Container(
             margin: const EdgeInsets.all(16),
@@ -162,97 +144,42 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
             ),
             child: Column(
               children: [
-                // Month Dropdown
-                // Container(
-                //   padding: const EdgeInsets.symmetric(horizontal: 16),
-                //   decoration: BoxDecoration(
-                //     color: Colors.grey[100],
-                //     borderRadius: BorderRadius.circular(12),
-                //     border: Border.all(color: Colors.grey[300]!),
-                //   ),
-                //   child: DropdownButtonHideUnderline(
-                //     child: DropdownButton<String>(
-                //       value: selectedMonth,
-                //       isExpanded: true,
-                //       icon:
-                //           const Icon(Icons.calendar_month, color: Colors.blue),
-                //       style: const TextStyle(
-                //         fontSize: 16,
-                //         fontWeight: FontWeight.w600,
-                //         color: Colors.black87,
-                //       ),
-                //       items: monthsList.map((month) {
-                //         return DropdownMenuItem<String>(
-                //           value: month['value'],
-                //           child: Text(month['label']!),
-                //         );
-                //       }).toList(),
-                //       onChanged: (value) {
-                //         if (value != null) {
-                //           setState(() {
-                //             selectedMonth = value;
-                //             // Update selected date to first day of selected month
-                //             DateTime newDate =
-                //                 DateFormat('yyyyMM').parse(value);
-                //             selectedDate = DateTime(
-                //               newDate.year,
-                //               newDate.month,
-                //               selectedDate.day >
-                //                       DateTime(newDate.year, newDate.month + 1,
-                //                               0)
-                //                           .day
-                //                   ? DateTime(newDate.year, newDate.month + 1, 0)
-                //                       .day
-                //                   : selectedDate.day,
-                //             );
-                //           });
-                //           fetchSalesData();
-                //         }
-                //       },
-                //     ),
-                //   ),
-                // ),
-                // const SizedBox(height: 16),
-                // Date Selector
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     IconButton(
                       onPressed: () => changeDate(-1),
-                      icon: const Icon(Icons.chevron_left, size: 32),
-                      color: Colors.blue,
+                      icon: const Icon(Icons.chevron_left, size: 28),
+                      color: primaryColor,
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 12,
-                      ),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [Colors.blue[400]!, Colors.blue[600]!],
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 12,
                         ),
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.blue.withOpacity(0.3),
-                            blurRadius: 8,
-                            offset: const Offset(0, 4),
+                        decoration: BoxDecoration(
+                          color: primaryColor.withOpacity(0.05),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: primaryColor.withOpacity(0.1)),
+                        ),
+                        child: Center(
+                          child: MyText(
+                            text: DateFormat('MMM dd, yyyy').format(selectedDate),
+                            color: primaryColor,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
                           ),
-                        ],
-                      ),
-                      child: Text(
-                        DateFormat('MMM dd, yyyy').format(selectedDate),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
                     IconButton(
-                      onPressed: selectedDate.isBefore(DateTime.now()) ? () => changeDate(1) : null,
-                      icon: const Icon(Icons.chevron_right, size: 32),
-                      color: selectedDate.isBefore(DateTime.now()) ? Colors.blue : Colors.grey,
+                      onPressed: selectedDate.isBefore(DateTime.now().subtract(const Duration(hours: 23)))
+                          ? () => changeDate(1)
+                          : null,
+                      icon: const Icon(Icons.chevron_right, size: 28),
+                      color: selectedDate.isBefore(DateTime.now().subtract(const Duration(hours: 23)))
+                          ? primaryColor
+                          : Colors.grey,
                     ),
                   ],
                 ),
@@ -290,28 +217,56 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
                       size: 28,
                     ),
                     SizedBox(width: 8),
-                    Text(
-                      'Total Sales',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    MyText(
+                      text: 'Total Sales',
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
                     ),
                   ],
                 ),
                 const SizedBox(height: 12),
                 isLoading
                     ? const CircularProgressIndicator(color: Colors.white)
-                    : Text(
-                        '${PriceUtils.formatPrice(totalSales)}',
-                        style: const TextStyle(
+                    : FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: MyText(
+                          text: PriceUtils.formatPrice(totalSales),
                           color: Colors.white,
                           fontSize: 36,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 1.2,
                         ),
                       ),
+              ],
+            ),
+          ),
+
+          // Summary Stats Row
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              children: [
+                _buildSummaryCard(
+                  'Orders',
+                  totalOrders.toString(),
+                  Icons.shopping_bag_outlined,
+                  Colors.blue,
+                ),
+                const SizedBox(width: 8),
+                _buildSummaryCard(
+                  'Discount',
+                  PriceUtils.formatPrice(totalDiscount),
+                  Icons.local_offer_outlined,
+                  Colors.orange,
+                ),
+                const SizedBox(width: 8),
+                _buildSummaryCard(
+                  'Tax',
+                  PriceUtils.formatPrice(totalTax),
+                  Icons.receipt_long_outlined,
+                  Colors.purple,
+                ),
               ],
             ),
           ),
@@ -325,22 +280,18 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
               children: [
                 const Icon(Icons.trending_up, color: Colors.blue, size: 24),
                 const SizedBox(width: 8),
-                const Text(
-                  'Product Sales',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
+                const MyText(
+                  text: 'Product Sales',
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
                 ),
                 const Spacer(),
-                Text(
-                  '${productSales.length} items',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[600],
-                    fontWeight: FontWeight.w500,
-                  ),
+                MyText(
+                  text: '${productSales.length} items',
+                  fontSize: 14,
+                  color: Colors.grey[600],
+                  fontWeight: FontWeight.w500,
                 ),
               ],
             ),
@@ -363,13 +314,11 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
                               color: Colors.grey[400],
                             ),
                             const SizedBox(height: 16),
-                            Text(
-                              'No sales data available',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Colors.grey[600],
-                                fontWeight: FontWeight.w500,
-                              ),
+                            MyText(
+                              text: 'No sales data available',
+                              fontSize: 16,
+                              color: Colors.grey[600],
+                              fontWeight: FontWeight.w500,
                             ),
                           ],
                         ),
@@ -379,8 +328,13 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
                         itemCount: productSales.length,
                         itemBuilder: (context, index) {
                           final product = productSales[index];
-                          final maxQuantity = productSales.first['quantity'];
-                          final percentage = (product['quantity'] / maxQuantity) * 100;
+                          final double maxQuantity = productSales.isNotEmpty
+                              ? productSales
+                                  .map((e) => (e['quantity'] as num).toDouble())
+                                  .reduce((a, b) => a > b ? a : b)
+                              : 1.0;
+                          final double quantity = (product['quantity'] as num).toDouble();
+                          final double percentage = (quantity / maxQuantity * 100).clamp(0, 100).toDouble();
 
                           return Container(
                             margin: const EdgeInsets.only(bottom: 12),
@@ -411,13 +365,11 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
                                         borderRadius: BorderRadius.circular(10),
                                       ),
                                       child: Center(
-                                        child: Text(
-                                          '#${index + 1}',
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 16,
-                                          ),
+                                        child: MyText(
+                                          text: '#${index + 1}',
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16,
                                         ),
                                       ),
                                     ),
@@ -426,23 +378,18 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
                                       child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
-                                          Text(
-                                            product['name'],
-                                            style: const TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.bold,
-                                              color: Colors.black87,
-                                            ),
+                                          MyText(
+                                            text: product['name'],
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.black87,
                                             maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
                                           ),
                                           const SizedBox(height: 4),
-                                          Text(
-                                            '${PriceUtils.formatPrice(product['price'])} per unit',
-                                            style: TextStyle(
-                                              fontSize: 13,
-                                              color: Colors.grey[600],
-                                            ),
+                                          MyText(
+                                            text: '${PriceUtils.formatPrice(product['price'])} per unit',
+                                            fontSize: 13,
+                                            color: Colors.grey[600],
                                           ),
                                         ],
                                       ),
@@ -450,13 +397,11 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
                                     Column(
                                       crossAxisAlignment: CrossAxisAlignment.end,
                                       children: [
-                                        Text(
-                                          PriceUtils.formatPrice(product['totalAmount']),
-                                          style: const TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.green,
-                                          ),
+                                        MyText(
+                                          text: PriceUtils.formatPrice(product['totalAmount']),
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.green,
                                         ),
                                         const SizedBox(height: 4),
                                         Container(
@@ -468,13 +413,11 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
                                             color: Colors.blue[50],
                                             borderRadius: BorderRadius.circular(8),
                                           ),
-                                          child: Text(
-                                            '${product['quantity']} sold',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w600,
-                                              color: Colors.blue[700],
-                                            ),
+                                          child: MyText(
+                                            text: '${product['quantity']} sold',
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.blue[700],
                                           ),
                                         ),
                                       ],
@@ -503,7 +446,7 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
                                           borderRadius: BorderRadius.circular(4),
                                           boxShadow: [
                                             BoxShadow(
-                                              color: Colors.blue.withOpacity(0.3),
+                                              color: Colors.green.withOpacity(0.2),
                                               blurRadius: 4,
                                               offset: const Offset(0, 2),
                                             ),
@@ -514,13 +457,11 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
                                   ],
                                 ),
                                 const SizedBox(height: 6),
-                                Text(
-                                  '${PriceUtils.formatPrice(percentage, decimals: 1)}% of top seller',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey[600],
-                                    fontStyle: FontStyle.italic,
-                                  ),
+                                MyText(
+                                  text: '${percentage.toStringAsFixed(1)}% of top seller',
+                                  fontSize: 12,
+                                  color: Colors.grey[600],
+                                  fontStyle: FontStyle.italic,
                                 ),
                               ],
                             ),
@@ -529,6 +470,59 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
                       ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSummaryCard(String title, String value, IconData icon, Color color) {
+    return Expanded(
+      child: Container(
+        height: 110, // Slightly reduced for better fit
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: color.withOpacity(0.08),
+              blurRadius: 15,
+              offset: const Offset(0, 4),
+            ),
+          ],
+          border: Border.all(color: color.withOpacity(0.1), width: 1),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: color, size: 20),
+            ),
+            const SizedBox(height: 10),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: MyText(
+                text: value,
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+                color: Colors.black87,
+                letterSpacing: -0.5,
+              ),
+            ),
+            const SizedBox(height: 2),
+            MyText(
+              text: title.toUpperCase(),
+              color: Colors.grey[500],
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.0,
+            ),
+          ],
+        ),
       ),
     );
   }

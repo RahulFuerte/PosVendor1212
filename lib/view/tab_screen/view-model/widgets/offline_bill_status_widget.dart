@@ -13,6 +13,8 @@ import '../../../../data/datasources/database_service.dart';
 import '../../../../data/datasources/offline_bill_manager.dart';
 import '../../../../data/datasources/unified_database_service.dart';
 import '../constants/constants.dart';
+import 'package:pos/core/widgets/text.dart';
+import '../../../../core/utils/snackbar_utils.dart';
 
 /// Widget that displays offline bill sync status and provides manual sync functionality
 class OfflineBillStatusWidget extends StatefulWidget {
@@ -175,12 +177,7 @@ class _OfflineBillStatusWidgetState extends State<OfflineBillStatusWidget> {
       await _databaseService.manualSyncOfflineBills(widget.adminUid);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Manual sync failed: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        SnackBarUtils.showError(context, 'Manual sync failed: $e');
       }
     }
   }
@@ -215,33 +212,18 @@ class _OfflineBillStatusWidgetState extends State<OfflineBillStatusWidget> {
       icon = Icons.error;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Icon(icon, color: Colors.white, size: 20),
-            const SizedBox(width: 8),
-            Expanded(child: Text(message)),
-          ],
-        ),
-        backgroundColor: backgroundColor,
-        duration: Duration(seconds: result.success ? 3 : 5),
-        action: result.success && result.billsSynced > 0
-            ? SnackBarAction(
-                label: 'Details',
-                textColor: Colors.white,
-                onPressed: () => _showSyncDetails(result),
-              )
-            : null,
-      ),
-    );
+    if (result.success) {
+      SnackBarUtils.showSuccess(context, message);
+    } else {
+      SnackBarUtils.showError(context, message);
+    }
   }
 
   void _showSyncDetails(OfflineBillSyncResult result) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Sync Details'),
+        title: const MyText(text: 'Sync Details'),
         content: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -252,17 +234,17 @@ class _OfflineBillStatusWidgetState extends State<OfflineBillStatusWidget> {
               _buildDetailRow('Conflicts Resolved', result.conflictsResolved.toString()),
               if (result.syncedBillIds.isNotEmpty) ...[
                 const SizedBox(height: 8),
-                const Text('Synced Bills:', style: TextStyle(fontWeight: FontWeight.bold)),
-                ...result.syncedBillIds.take(5).map((id) => Text('• ${id.length > 20 ? '${id.substring(0, 20)}...' : id}')),
+                const MyText(text: 'Synced Bills:', fontWeight: FontWeight.bold),
+                ...result.syncedBillIds.take(5).map((id) => MyText(text: '• ${id.length > 20 ? '${id.substring(0, 20)}...' : id}')),
                 if (result.syncedBillIds.length > 5)
-                  Text('• ... and ${result.syncedBillIds.length - 5} more'),
+                  MyText(text: '• ... and ${result.syncedBillIds.length - 5} more'),
               ],
               if (result.failedBillIds.isNotEmpty) ...[
                 const SizedBox(height: 8),
-                const Text('Failed Bills:', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red)),
-                ...result.failedBillIds.take(3).map((id) => Text('• ${id.length > 20 ? '${id.substring(0, 20)}...' : id}', style: const TextStyle(color: Colors.red))),
+                const MyText(text: 'Failed Bills:', fontWeight: FontWeight.bold, color: Colors.red),
+                ...result.failedBillIds.take(3).map((id) => MyText(text: '• ${id.length > 20 ? '${id.substring(0, 20)}...' : id}', color: Colors.red)),
                 if (result.failedBillIds.length > 3)
-                  Text('• ... and ${result.failedBillIds.length - 3} more', style: const TextStyle(color: Colors.red)),
+                  MyText(text: '• ... and ${result.failedBillIds.length - 3} more', color: Colors.red),
               ],
             ],
           ),
@@ -270,7 +252,7 @@ class _OfflineBillStatusWidgetState extends State<OfflineBillStatusWidget> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
+            child: const MyText(text: 'Close'),
           ),
         ],
       ),
@@ -283,8 +265,8 @@ class _OfflineBillStatusWidgetState extends State<OfflineBillStatusWidget> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
+          MyText(text: label),
+          MyText(text: value, fontWeight: FontWeight.bold),
         ],
       ),
     );
@@ -310,13 +292,11 @@ class _OfflineBillStatusWidgetState extends State<OfflineBillStatusWidget> {
               ),
             ),
             const SizedBox(width: 6),
-            Text(
-              _getSyncingStatusText(),
-              style: const TextStyle(
-                color: primaryColor,
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-              ),
+            MyText(
+              text: _getSyncingStatusText(),
+              color: primaryColor,
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
             ),
           ],
         ),
@@ -335,13 +315,11 @@ class _OfflineBillStatusWidgetState extends State<OfflineBillStatusWidget> {
           children: [
             Icon(Icons.cloud_off, size: 14, color: Colors.orange),
             SizedBox(width: 4),
-            Text(
-              'Offline',
-              style: TextStyle(
-                color: Colors.orange,
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-              ),
+            MyText(
+              text: 'Offline',
+              color: Colors.orange,
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
             ),
           ],
         ),
@@ -360,13 +338,11 @@ class _OfflineBillStatusWidgetState extends State<OfflineBillStatusWidget> {
           children: [
             const Icon(Icons.sync_problem, size: 14, color: Colors.orange),
             const SizedBox(width: 4),
-            Text(
-              '$_offlineBillsCount pending',
-              style: const TextStyle(
-                color: Colors.orange,
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-              ),
+            MyText(
+              text: '$_offlineBillsCount pending',
+              color: Colors.orange,
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
             ),
           ],
         ),
@@ -384,13 +360,11 @@ class _OfflineBillStatusWidgetState extends State<OfflineBillStatusWidget> {
         children: [
           Icon(Icons.cloud_done, size: 14, color: primaryColor),
           SizedBox(width: 4),
-          Text(
-            'Synced',
-            style: TextStyle(
-              color: primaryColor,
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-            ),
+          MyText(
+            text: 'Synced',
+            color: primaryColor,
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
           ),
         ],
       ),
@@ -427,13 +401,10 @@ class _OfflineBillStatusWidgetState extends State<OfflineBillStatusWidget> {
               const Icon(Icons.sync, color: primaryColor, size: 20),
               const SizedBox(width: 8),
               const Expanded(
-                child: Text(
-                  'Sync Status',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
-                    fontFamily: 'tabfont',
-                  ),
+                child: MyText(
+                  text: 'Sync Status',
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
                 ),
               ),
               _buildSyncStatusIndicator(),
@@ -442,13 +413,10 @@ class _OfflineBillStatusWidgetState extends State<OfflineBillStatusWidget> {
           
           if (_offlineBillsCount > 0) ...[
             const SizedBox(height: 8),
-            Text(
-              '$_offlineBillsCount bills pending sync',
-              style: TextStyle(
-                color: Colors.grey[600],
-                fontSize: 13,
-                fontFamily: 'fontmain',
-              ),
+            MyText(
+              text: '$_offlineBillsCount bills pending sync',
+              color: Colors.grey[600],
+              fontSize: 13,
             ),
           ],
           
@@ -466,13 +434,10 @@ class _OfflineBillStatusWidgetState extends State<OfflineBillStatusWidget> {
                   const Icon(Icons.error_outline, color: Colors.red, size: 16),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Text(
-                      'Error: $_lastSyncError',
-                      style: TextStyle(
-                        color: Colors.red[700],
-                        fontSize: 11,
-                        fontFamily: 'fontmain',
-                      ),
+                    child: MyText(
+                      text: 'Error: $_lastSyncError',
+                      color: Colors.red[700],
+                      fontSize: 11,
                     ),
                   ),
                 ],
@@ -482,13 +447,10 @@ class _OfflineBillStatusWidgetState extends State<OfflineBillStatusWidget> {
           
           if (_lastSyncTime != null) ...[
             const SizedBox(height: 8),
-            Text(
-              'Last sync: ${_formatDateTime(_lastSyncTime!)}',
-              style: TextStyle(
-                color: Colors.grey[500],
-                fontSize: 11,
-                fontFamily: 'fontmain',
-              ),
+            MyText(
+              text: 'Last sync: ${_formatDateTime(_lastSyncTime!)}',
+              color: Colors.grey[500],
+              fontSize: 11,
             ),
           ],
           
@@ -499,7 +461,7 @@ class _OfflineBillStatusWidgetState extends State<OfflineBillStatusWidget> {
               child: ElevatedButton.icon(
                 onPressed: _manualSync,
                 icon: const Icon(Icons.sync, size: 16),
-                label: const Text('Sync Now', style: TextStyle(fontSize: 13)),
+                label: const MyText(text: 'Sync Now', fontSize: 13),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: primaryColor,
                   foregroundColor: Colors.white,

@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:developer' as developer;
 import 'package:sqflite/sqflite.dart';
 
 import '../../core/utils/performance_monitor.dart';
@@ -46,37 +45,37 @@ class DatabaseMaintenanceService {
       final startTime = DateTime.now();
       
       try {
-        developer.log('Starting database maintenance', name: 'DatabaseMaintenance');
+        
         
         // 1. Check database integrity
         if (forceIntegrityCheck || await _shouldPerformIntegrityCheck()) {
           result.integrityCheckResult = await performIntegrityCheck();
           if (!result.integrityCheckResult!.isHealthy) {
-            developer.log('Database integrity issues detected', name: 'DatabaseMaintenance');
+            
             result.warnings.add('Database integrity issues detected');
           }
         }
         
         // 2. Monitor and report database size
         result.sizeInfo = await getDatabaseSizeInfo();
-        developer.log('Database size: ${result.sizeInfo!.totalSizeMB}MB', name: 'DatabaseMaintenance');
+        
         
         // 3. Cleanup old data if requested
         if (cleanupOldData) {
           result.cleanupResult = await performDataCleanup();
-          developer.log('Cleaned up ${result.cleanupResult!.itemsRemoved} items', name: 'DatabaseMaintenance');
+          
         }
         
         // 4. Perform vacuum if needed
         if (forceVacuum || await _shouldPerformVacuum()) {
           result.vacuumResult = await performVacuum();
-          developer.log('Vacuum completed, reclaimed ${result.vacuumResult!.spaceReclaimedMB}MB', name: 'DatabaseMaintenance');
+          
         }
         
         // 5. Optimize indexes if requested
         if (optimizeIndexes) {
           result.indexOptimizationResult = await this.optimizeIndexes();
-          developer.log('Index optimization completed', name: 'DatabaseMaintenance');
+          
         }
         
         // 6. Update maintenance timestamp
@@ -85,14 +84,12 @@ class DatabaseMaintenanceService {
         result.success = true;
         result.duration = DateTime.now().difference(startTime);
         
-        developer.log('Database maintenance completed in ${result.duration?.inSeconds ?? 0}s', name: 'DatabaseMaintenance');
         
       } catch (e) {
         result.success = false;
         result.error = e.toString();
         result.duration = DateTime.now().difference(startTime);
         
-        developer.log('Database maintenance failed: $e', name: 'DatabaseMaintenance');
       }
       
       return result;
@@ -113,7 +110,6 @@ class DatabaseMaintenanceService {
         final sizeBeforeInfo = await getDatabaseSizeInfo();
         result.sizeBefore = sizeBeforeInfo.totalSizeMB;
         
-        developer.log('Starting vacuum operation, current size: ${result.sizeBefore}MB', name: 'DatabaseMaintenance');
         
         // Perform vacuum operation
         await db.execute('VACUUM');
@@ -126,14 +122,12 @@ class DatabaseMaintenanceService {
         result.success = true;
         result.duration = DateTime.now().difference(startTime);
         
-        developer.log('Vacuum completed: ${result.spaceReclaimedMB}MB reclaimed in ${result.duration?.inSeconds ?? 0}s', name: 'DatabaseMaintenance');
         
       } catch (e) {
         result.success = false;
         result.error = e.toString();
         result.duration = DateTime.now().difference(startTime);
         
-        developer.log('Vacuum operation failed: $e', name: 'DatabaseMaintenance');
       }
       
       return result;
@@ -150,7 +144,6 @@ class DatabaseMaintenanceService {
       try {
         final db = await _getSqliteDatabase();
         
-        developer.log('Starting database integrity check', name: 'DatabaseMaintenance');
         
         // 1. SQLite integrity check
         final integrityResults = await db.rawQuery('PRAGMA integrity_check');
@@ -190,14 +183,12 @@ class DatabaseMaintenanceService {
         result.success = true;
         result.duration = DateTime.now().difference(startTime);
         
-        developer.log('Integrity check completed: ${result.isHealthy ? "HEALTHY" : "ISSUES FOUND"} in ${result.duration?.inSeconds ?? 0}s', name: 'DatabaseMaintenance');
         
       } catch (e) {
         result.success = false;
         result.error = e.toString();
         result.duration = DateTime.now().difference(startTime);
         
-        developer.log('Integrity check failed: $e', name: 'DatabaseMaintenance');
       }
       
       return result;
@@ -241,7 +232,6 @@ class DatabaseMaintenanceService {
         sizeInfo.success = false;
         sizeInfo.error = e.toString();
         
-        developer.log('Failed to get database size info: $e', name: 'DatabaseMaintenance');
       }
       
       return sizeInfo;
@@ -258,7 +248,6 @@ class DatabaseMaintenanceService {
       try {
         final db = await _getSqliteDatabase();
         
-        developer.log('Starting data cleanup', name: 'DatabaseMaintenance');
         
         // 1. Clean up old sync log entries
         final oldSyncLogs = await _cleanupOldSyncLogs(db);
@@ -284,14 +273,12 @@ class DatabaseMaintenanceService {
         result.success = true;
         result.duration = DateTime.now().difference(startTime);
         
-        developer.log('Data cleanup completed: ${result.itemsRemoved} items removed in ${result.duration?.inSeconds ?? 0}s', name: 'DatabaseMaintenance');
         
       } catch (e) {
         result.success = false;
         result.error = e.toString();
         result.duration = DateTime.now().difference(startTime);
         
-        developer.log('Data cleanup failed: $e', name: 'DatabaseMaintenance');
       }
       
       return result;
@@ -308,7 +295,6 @@ class DatabaseMaintenanceService {
       try {
         final db = await _getSqliteDatabase();
         
-        developer.log('Starting index optimization', name: 'DatabaseMaintenance');
         
         // 1. Update table statistics for query optimizer
         await db.execute('ANALYZE');
@@ -336,14 +322,12 @@ class DatabaseMaintenanceService {
         result.success = true;
         result.duration = DateTime.now().difference(startTime);
         
-        developer.log('Index optimization completed: ${result.indexesAnalyzed} indexes analyzed in ${result.duration?.inSeconds ?? 0}s', name: 'DatabaseMaintenance');
         
       } catch (e) {
         result.success = false;
         result.error = e.toString();
         result.duration = DateTime.now().difference(startTime);
         
-        developer.log('Index optimization failed: $e', name: 'DatabaseMaintenance');
       }
       
       return result;
@@ -368,7 +352,7 @@ class DatabaseMaintenanceService {
       
       return exceedsSize || hasSignificantFreeSpace || vacuumOverdue;
     } catch (e) {
-      developer.log('Error checking vacuum conditions: $e', name: 'DatabaseMaintenance');
+      
       return false;
     }
   }
@@ -380,7 +364,7 @@ class DatabaseMaintenanceService {
       return lastCheck == null || 
              DateTime.now().difference(lastCheck) > _integrityCheckInterval;
     } catch (e) {
-      developer.log('Error checking integrity check conditions: $e', name: 'DatabaseMaintenance');
+      
       return true; // Default to performing check if unsure
     }
   }
@@ -509,7 +493,7 @@ class DatabaseMaintenanceService {
       }
       
     } catch (e) {
-      developer.log('Error calculating table sizes: $e', name: 'DatabaseMaintenance');
+      
     }
   }
   
@@ -545,7 +529,7 @@ class DatabaseMaintenanceService {
       
       return result;
     } catch (e) {
-      developer.log('Error cleaning up sync logs: $e', name: 'DatabaseMaintenance');
+      
       return 0;
     }
   }
@@ -561,7 +545,7 @@ class DatabaseMaintenanceService {
         whereArgs: [expiryTime],
       );
     } catch (e) {
-      developer.log('Error cleaning up expired image cache: $e', name: 'DatabaseMaintenance');
+      
       return 0;
     }
   }
@@ -577,7 +561,7 @@ class DatabaseMaintenanceService {
       ''');
       return result;
     } catch (e) {
-      developer.log('Error cleaning up orphaned image cache: $e', name: 'DatabaseMaintenance');
+      
       return 0;
     }
   }
@@ -607,7 +591,7 @@ class DatabaseMaintenanceService {
       
       return result;
     } catch (e) {
-      developer.log('Error cleaning up migration logs: $e', name: 'DatabaseMaintenance');
+      
       return 0;
     }
   }
@@ -643,7 +627,7 @@ class DatabaseMaintenanceService {
       
       return missingIndexes;
     } catch (e) {
-      developer.log('Error checking for missing indexes: $e', name: 'DatabaseMaintenance');
+      
       return [];
     }
   }
@@ -665,7 +649,7 @@ class DatabaseMaintenanceService {
       
       return false;
     } catch (e) {
-      developer.log('Error rebuilding FTS index: $e', name: 'DatabaseMaintenance');
+      
       return false;
     }
   }
@@ -694,7 +678,7 @@ class DatabaseMaintenanceService {
         'tableRowCounts': tableStats,
       };
     } catch (e) {
-      developer.log('Error getting index usage statistics: $e', name: 'DatabaseMaintenance');
+      
       return {};
     }
   }
@@ -737,7 +721,7 @@ class DatabaseMaintenanceService {
       });
       
     } catch (e) {
-      developer.log('Error updating maintenance timestamp: $e', name: 'DatabaseMaintenance');
+      
     }
   }
   
@@ -762,7 +746,7 @@ class DatabaseMaintenanceService {
       
       return null;
     } catch (e) {
-      developer.log('Error getting last maintenance timestamp: $e', name: 'DatabaseMaintenance');
+      
       return null;
     }
   }
@@ -778,7 +762,7 @@ class DatabaseMaintenanceService {
         limit: limit,
       );
     } catch (e) {
-      developer.log('Error getting maintenance history: $e', name: 'DatabaseMaintenance');
+      
       return [];
     }
   }
@@ -793,7 +777,7 @@ class DatabaseMaintenanceService {
       if (lastMaintenance == null || 
           DateTime.now().difference(lastMaintenance) > _maintenanceInterval) {
         
-        developer.log('Automatic maintenance is due', name: 'DatabaseMaintenance');
+        
         
         // Perform lightweight maintenance
         await performMaintenance(
@@ -804,7 +788,7 @@ class DatabaseMaintenanceService {
         );
       }
     } catch (e) {
-      developer.log('Error in automatic maintenance: $e', name: 'DatabaseMaintenance');
+      
     }
   }
 }

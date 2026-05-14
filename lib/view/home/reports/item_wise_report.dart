@@ -1,27 +1,28 @@
-// Dart imports:
-import 'dart:io';
-
 // Flutter imports:
 import 'package:flutter/material.dart';
+import 'package:pos/core/widgets/text.dart';
+import 'package:flutter/services.dart' show rootBundle;
+import 'package:shared_preferences/shared_preferences.dart';
 
 // Package imports:
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
 import 'package:flutter_pos_printer_platform_image_3/flutter_pos_printer_platform_image_3.dart';
 import 'package:intl/intl.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:flutter/services.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'package:pos/data/services/report_service.dart';
 import 'package:pos/view/home/widgets/mydrawer.dart';
+import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
-import 'package:share_plus/share_plus.dart';
 
 // Project imports:
 import 'package:pos/data/providers/print_provider.dart';
 import 'package:pos/view/home/printer_connectionDialog.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:pos/core/utils/price_utils.dart';
+import 'package:pos/core/utils/snackbar_utils.dart';
+import 'package:pos/view/home/reports/widgets/report_nav_bar.dart';
 
 class ItemwiseReportScreen extends StatefulWidget {
   final String uid;
@@ -46,11 +47,18 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFFBFBFB),
       appBar: AppBar(
-        backgroundColor: primaryColor,
-        title: const Text('Itemwise report',
-            style: TextStyle(color: Colors.white)),
-        iconTheme: const IconThemeData(color: Colors.white),
+        elevation: 0,
+        scrolledUnderElevation: 0,
+
+        backgroundColor: Colors.white,
+        title: const MyText(
+          text: 'Item wise Report',
+          color: Colors.black87,
+          fontWeight: FontWeight.bold,
+          fontSize: 20,
+        ),
       ),
       drawer: MyDrawer(
         phoneNo: widget.uid,
@@ -58,208 +66,318 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
       ),
       body: Column(
         children: [
+          ReportNavBar(
+            currentReport: 'Item-wise',
+            uid: widget.uid,
+            adminUid: widget.adminUid,
+          ),
+          // Premium Date Selection
           Container(
             color: Colors.white,
-            padding: const EdgeInsets.all(16),
-            child: Column(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+            child: Row(
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: InkWell(
-                        onTap: () => _selectDate(context, true),
-                        child: Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.grey.shade300),
-                            borderRadius: BorderRadius.circular(4),
+                Expanded(
+                  child: InkWell(
+                    onTap: () => _selectDate(context, true),
+                    borderRadius: BorderRadius.circular(16),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.grey.shade200),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.03),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
                           ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.calendar_today,
-                                  color: Colors.red, size: 20),
-                              const SizedBox(width: 8),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text('From date:',
-                                      style: TextStyle(
-                                          fontSize: 12, color: Colors.grey)),
-                                  Text(
-                                    fromDate == null
-                                        ? 'Select date'
-                                        : DateFormat('dd MMM yyyy')
-                                            .format(fromDate!),
-                                    style: const TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.bold),
-                                  ),
-                                  Text(
-                                    fromDate == null
-                                        ? ''
-                                        : DateFormat('hh:mm:ss a')
-                                            .format(fromDate!),
-                                    style: const TextStyle(
-                                        fontSize: 12, color: Colors.blue),
-                                  ),
-                                ],
-                              ),
-                            ],
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.red.withOpacity(0.08),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.history_toggle_off_rounded, color: Colors.red, size: 18),
                           ),
-                        ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                MyText(
+                                  text: 'FROM',
+                                  fontSize: 10,
+                                  color: Colors.grey[400],
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 1.2,
+                                ),
+                                MyText(
+                                  text: fromDate == null ? 'Select' : DateFormat('dd MMM yyyy').format(fromDate!),
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: InkWell(
-                        onTap: () => _selectDate(context, false),
-                        child: Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.grey.shade300),
-                            borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: InkWell(
+                    onTap: () => _selectDate(context, false),
+                    borderRadius: BorderRadius.circular(16),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.grey.shade200),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.03),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
                           ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.calendar_today,
-                                  color: Colors.red, size: 20),
-                              const SizedBox(width: 8),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text('To date:',
-                                      style: TextStyle(
-                                          fontSize: 12, color: Colors.grey)),
-                                  Text(
-                                    toDate == null
-                                        ? 'Select date'
-                                        : DateFormat('dd MMM yyyy')
-                                            .format(toDate!),
-                                    style: const TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.bold),
-                                  ),
-                                  Text(
-                                    toDate == null
-                                        ? ''
-                                        : DateFormat('hh:mm:ss a')
-                                            .format(toDate!),
-                                    style: const TextStyle(
-                                        fontSize: 12, color: Colors.blue),
-                                  ),
-                                ],
-                              ),
-                            ],
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.withOpacity(0.08),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.history_toggle_off_rounded, color: Colors.blue, size: 18),
                           ),
-                        ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                MyText(
+                                  text: 'TO',
+                                  fontSize: 10,
+                                  color: Colors.grey[400],
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 1.2,
+                                ),
+                                MyText(
+                                  text: toDate == null ? 'Select' : DateFormat('dd MMM yyyy').format(toDate!),
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ],
+                  ),
                 ),
               ],
             ),
           ),
+
+          // Summary Dashboard
+          if (itemsData.isNotEmpty && !isLoading)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: IntrinsicHeight(
+                child: Row(
+                  children: [
+                    _buildSummaryMiniCard(
+                      'TOTAL ITEMS',
+                      itemsData.length.toString(),
+                      Icons.inventory_2_rounded,
+                      Colors.indigo,
+                    ),
+                    const SizedBox(width: 10),
+                    _buildSummaryMiniCard(
+                      'TOTAL QTY',
+                      totalQuantity.toStringAsFixed(1),
+                      Icons.shopping_basket_rounded,
+                      Colors.orange.shade800,
+                    ),
+                    const SizedBox(width: 10),
+                    _buildSummaryMiniCard(
+                      'NET SALES',
+                      PriceUtils.formatPrice(totalAmount),
+                      Icons.account_balance_wallet_rounded,
+                      const Color(0xFF10B981),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
           Expanded(
             child: isLoading
-                ? const Center(child: CircularProgressIndicator())
+                ? Center(child: CircularProgressIndicator(color: primaryColor))
                 : itemsData.isEmpty
                     ? Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.inventory_2,
-                                size: 64, color: Colors.grey.shade400),
-                            const SizedBox(height: 16),
-                            Text(
-                              fromDate == null || toDate == null
-                                  ? 'Please select date range'
-                                  : 'No items found for selected dates',
-                              style: TextStyle(
-                                  color: Colors.grey.shade600, fontSize: 16),
+                            Container(
+                              padding: const EdgeInsets.all(32),
+                              decoration: BoxDecoration(
+                                color: Colors.grey[50],
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(Icons.inventory_2_outlined, size: 80, color: Colors.grey.shade200),
+                            ),
+                            const SizedBox(height: 20),
+                            MyText(
+                              text: fromDate == null || toDate == null ? 'CHOOSE A DATE RANGE' : 'NO ITEMS FOUND',
+                              color: Colors.grey[400],
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 1,
                             ),
                           ],
                         ),
                       )
-                    : SingleChildScrollView(
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: DataTable(
-                            headingRowColor:
-                                MaterialStateProperty.all(Colors.black),
-                            columns: const [
-                              DataColumn(
-                                  label: Text('',
-                                      style: TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold))),
-                              DataColumn(
-                                  label: Text('Name',
-                                      style: TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold))),
-                              DataColumn(
-                                  label: Text('Items sold',
-                                      style: TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold))),
-                              DataColumn(
-                                  label: Text('Amount',
-                                      style: TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold))),
-                            ],
-                            rows: itemsData.asMap().entries.map((entry) {
-                              final index = entry.key;
-                              final item = entry.value;
-                              return DataRow(
-                                cells: [
-                                  DataCell(Text('${index + 1}')),
-                                  DataCell(Text(item['name'].toString())),
-                                  DataCell(Text(
-                                      item['quantity'].toStringAsFixed(1))),
-                                  DataCell(Text(
-                                      PriceUtils.formatPrice(item['amount'])))
-                                ],
-                              );
-                            }).toList(),
-                          ),
-                        ),
+                    : ListView.builder(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                        physics: const BouncingScrollPhysics(),
+                        itemCount: itemsData.length,
+                        itemBuilder: (context, index) {
+                          final item = itemsData[index];
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 20),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(24),
+                              border: Border.all(color: Colors.grey.shade300, width: 0.6),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.1),
+                                  blurRadius: 3,
+                                  offset: const Offset(0, 1),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              children: [
+                                // Item Header
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                                  decoration: BoxDecoration(
+                                    color: primaryColor.withOpacity(0.04),
+                                    borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(6),
+                                        decoration: BoxDecoration(
+                                          color: primaryColor.withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: Icon(Icons.lunch_dining_rounded, color: primaryColor, size: 14),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: MyText(
+                                          text: item['name'].toString().toUpperCase(),
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 13,
+                                          color: primaryColor,
+                                          letterSpacing: 0.5,
+                                          maxLines: 1,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.all(20),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          _buildBadge('${item['quantity'].toStringAsFixed(1)} SOLD',
+                                              Icons.shopping_cart_rounded, Colors.orange.shade800),
+                                          const SizedBox(height: 12),
+                                          MyText(
+                                            text: 'QUANTITY METRIC',
+                                            color: Colors.grey[400],
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.w600,
+                                            letterSpacing: 1,
+                                          ),
+                                        ],
+                                      ),
+                                      Column(
+                                        crossAxisAlignment: CrossAxisAlignment.end,
+                                        children: [
+                                          MyText(
+                                            text: PriceUtils.formatPrice(item['amount']),
+                                            color: const Color(0xFF10B981),
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 24,
+                                            letterSpacing: -1,
+                                          ),
+                                          MyText(
+                                            text: 'TOTAL SALES',
+                                            color: Colors.grey[400],
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.w600,
+                                            letterSpacing: 1,
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
                       ),
           ),
+
+          // Action Section
           Container(
-            padding: const EdgeInsets.all(16),
-            color: Colors.white,
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 15,
+                  offset: const Offset(0, -6),
+                ),
+              ],
+            ),
             child: Row(
               children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    icon: const Icon(Icons.print),
-                    label: const Text('PRINT REPORT'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: primaryColor,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      textStyle: const TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-                    onPressed: itemsData.isEmpty ? null : _printReport,
-                  ),
+                _actionButton(
+                  icon: Icons.print_rounded,
+                  label: "PRINT",
+                  color: primaryColor,
+                  enabled: itemsData.isNotEmpty,
+                  onTap: _printReport,
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    icon: const Icon(Icons.share),
-                    label: const Text('DOWNLOAD & SHARE'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: primaryColor,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      textStyle: const TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-                    onPressed:
-                        itemsData.isEmpty ? null : _downloadAndShareReport,
-                  ),
+                const SizedBox(width: 12),
+                _actionButton(
+                  icon: Icons.picture_as_pdf_rounded,
+                  label: "SAVE PDF",
+                  color: primaryColor,
+                  enabled: itemsData.isNotEmpty,
+                  onTap: _downloadAndShareReport,
                 ),
               ],
             ),
@@ -299,9 +417,7 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
 
   Future<void> _fetchItemsData() async {
     if (fromDate == null || toDate == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select both dates')),
-      );
+      SnackBarUtils.showWarning(context, 'Please select both dates');
       return;
     }
 
@@ -313,103 +429,45 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
     });
 
     try {
-      // Map to aggregate items by name
-      Map<String, Map<String, dynamic>> itemsMap = {};
+      final startDt = DateTime(fromDate!.year, fromDate!.month, fromDate!.day);
+      final endDt = DateTime(toDate!.year, toDate!.month, toDate!.day, 23, 59, 59);
 
-      final startDate =
-          DateTime(fromDate!.year, fromDate!.month, fromDate!.day);
-      final endDate = DateTime(toDate!.year, toDate!.month, toDate!.day);
+      final List<dynamic> report = await ReportService().getItemWiseReport(
+        startDate: startDt,
+        endDate: endDt,
+      );
 
-      Set<String> monthsToQuery = {};
-      DateTime current = DateTime(startDate.year, startDate.month);
-      DateTime end = DateTime(endDate.year, endDate.month);
+      double calculatedTotalAmount = 0;
+      double calculatedTotalQuantity = 0;
 
-      while (current.isBefore(end) || current.isAtSameMomentAs(end)) {
-        monthsToQuery.add(DateFormat('yyyyMM').format(current));
-        current = DateTime(current.year, current.month + 1);
-      }
+      final processedData = report.map((item) {
+        final name = item['itemName'] ?? item['name'] ?? item['_id']?.toString() ?? 'Unknown';
+        final qty = (item['quantitySold'] ?? item['totalQuantity'] ?? item['quantity'] ?? 0).toDouble();
+        final amt = (item['totalSales'] ?? item['totalAmount'] ?? item['amount'] ?? 0).toDouble();
 
-      for (String month in monthsToQuery) {
-        final collectionRef = FirebaseFirestore.instance
-            .collection('AllBills')
-            .doc(widget.uid)
-            .collection('myBills')
-            .doc(month);
+        calculatedTotalAmount += amt;
+        calculatedTotalQuantity += qty;
 
-        DateTime currentDate =
-            DateTime(startDate.year, startDate.month, startDate.day);
+        return {
+          'name': name,
+          'quantity': qty,
+          'amount': amt,
+        };
+      }).toList();
 
-        if (month != DateFormat('yyyyMM').format(startDate)) {
-          int year = int.parse(month.substring(0, 4));
-          int monthNum = int.parse(month.substring(4, 6));
-          currentDate = DateTime(year, monthNum, 1);
-        }
-
-        DateTime lastDayOfMonth = DateTime(int.parse(month.substring(0, 4)),
-            int.parse(month.substring(4, 6)) + 1, 0);
-        DateTime lastDate = endDate;
-
-        if (month != DateFormat('yyyyMM').format(endDate)) {
-          lastDate = lastDayOfMonth;
-        }
-
-        while (currentDate.isBefore(lastDate) ||
-            currentDate.isAtSameMomentAs(lastDate)) {
-          String dateStr = DateFormat('yyyyMMdd').format(currentDate);
-
-          try {
-            final dateCollectionRef = collectionRef.collection(dateStr);
-            final snapshot = await dateCollectionRef.get();
-
-            for (var doc in snapshot.docs) {
-              final data = doc.data();
-              final items = data['items'] as List<dynamic>? ?? [];
-
-              // Process each item in the bill
-              for (var item in items) {
-                final itemName = item['name'] as String? ?? 'Unknown';
-                final quantity = (item['quantity'] ?? 0).toDouble();
-                final price = (item['price'] ?? 0).toDouble();
-                final amount = quantity * price;
-
-                if (itemsMap.containsKey(itemName)) {
-                  itemsMap[itemName]!['quantity'] += quantity;
-                  itemsMap[itemName]!['amount'] += amount;
-                } else {
-                  itemsMap[itemName] = {
-                    'name': itemName,
-                    'quantity': quantity,
-                    'amount': amount,
-                  };
-                }
-              }
-            }
-          } catch (e) {
-            print('Error fetching date $dateStr: $e');
-          }
-
-          currentDate = currentDate.add(const Duration(days: 1));
-        }
-      }
-
-      // Convert map to list
-      itemsData = itemsMap.values.toList();
-
-      // Calculate totals
-      for (var item in itemsData) {
-        totalQuantity += item['quantity'];
-        totalAmount += item['amount'];
-      }
+      setState(() {
+        itemsData = processedData;
+        totalAmount = calculatedTotalAmount;
+        totalQuantity = calculatedTotalQuantity;
+      });
 
       // Sort by amount descending
       itemsData.sort(
           (a, b) => (b['amount'] as double).compareTo(a['amount'] as double));
     } catch (e) {
       if (mounted) {
-        print('Error fetching items data: $e');
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error fetching data: $e')),
-        );
+        print('Error fetching items data from API: $e');
+        SnackBarUtils.showError(context, 'Error fetching data: $e');
       }
     } finally {
       setState(() {
@@ -449,7 +507,7 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
       int totalCols = is58mm ? 32 : 48;
       String separator = '-' * totalCols;
 
-      // SAFE amount formatter (NO ₹)
+      // SAFE amount formatter (NO \u20B9)
       String formatAmount(dynamic value) {
         final amount = (value ?? 0) as num;
         return amount.toStringAsFixed(2);
@@ -556,51 +614,21 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
       bytes += generator.text(separator);
 
       bytes += generator.feed(2);
-      bytes += generator.text(
-        '--- END OF REPORT ---',
-        styles: const PosStyles(align: PosAlign.center),
-      );
-      bytes += generator.feed(4);
 
       await printerManager.send(
         type: printProvider.selectedPrinter!.typePrinter,
         bytes: bytes,
       );
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Report printed successfully!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
+      SnackBarUtils.showSuccess(context, 'Report printed successfully!');
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Print error: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      SnackBarUtils.showError(context, 'Print error: $e');
     }
   }
 
   Future<void> _downloadAndShareReport() async {
-    print('=== PDF Generation Started ===');
-    print('Items data length: ${itemsData.length}');
-    print('Total amount: $totalAmount');
-    print('Total quantity: $totalQuantity');
-
     if (itemsData.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-              'No data available. Please select dates and wait for data to load.'),
-          backgroundColor: Colors.orange,
-        ),
-      );
+      SnackBarUtils.showWarning(context, 'No data available. Please select dates and wait for data to load.');
       return;
     }
 
@@ -608,263 +636,139 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (context) => const Center(
-          child: CircularProgressIndicator(),
-        ),
+        builder: (context) => const Center(child: CircularProgressIndicator()),
       );
 
-      // Fetch shop details from Firestore
-      String shopName = 'RICHEY RICH INFOTECH';
-      String address = '';
-      String contact = '';
-      String gstNo = '';
+      final prefs = await SharedPreferences.getInstance();
+      String shopName = prefs.getString('shopName') ?? 'Shop Name';
+      String address = prefs.getString('address') ?? '';
+      String contact = prefs.getString('contact') ?? '';
+      String gstNo = prefs.getString('gstNumber') ?? '';
 
-      try {
-        final doc = await FirebaseFirestore.instance
-            .collection('AllAdmins')
-            .doc(widget.adminUid)
-            .collection('customer')
-            .doc(widget.uid)
-            .get();
+      final regularFont = pw.Font.ttf(await rootBundle.load('fonts/NotoSans-Regular.ttf'));
+      final boldFont = pw.Font.ttf(await rootBundle.load('fonts/NotoSans-Bold.ttf'));
 
-        if (doc.exists) {
-          final data = doc.data();
-          if (data != null) {
-            shopName = data['shopName'] ?? shopName;
-            address = data['address'] ?? '';
-            contact = data['contact'] ?? '';
-            gstNo = data['gstNo'] ?? '';
-            print('Shop details fetched: $shopName');
-          }
-        }
-      } catch (e) {
-        print('Error fetching shop details: $e');
-      }
+      if (mounted) Navigator.of(context).pop();
 
-      // Load font for Rupee symbol support
-      final fontData = await rootBundle.load("fonts/Roboto-Regular.ttf");
-      final ttf = pw.Font.ttf(fontData);
+      await Printing.layoutPdf(
+        name: 'ItemwiseReport_${DateFormat('ddMMyyyy_HHmmss').format(DateTime.now())}.pdf',
+        onLayout: (PdfPageFormat format) async {
+          final pdf = pw.Document();
 
-      final pdf = pw.Document(
-        theme: pw.ThemeData.withFont(
-          base: ttf,
-          bold: ttf,
-        ),
-      );
-
-      // Prepare table data as strings
-      final List<List<String>> tableData = [];
-      for (int i = 0; i < itemsData.length; i++) {
-        final item = itemsData[i];
-
-        String srNo = (i + 1).toString();
-        String itemName = item['name']?.toString() ?? '';
-        String quantity = '0.0';
-        String amount = '₹ 0.00';
-
-        try {
-          final qtyValue = item['quantity'];
-          if (qtyValue != null) {
-            quantity = double.parse(qtyValue.toString()).toStringAsFixed(1);
-          }
-        } catch (e) {
-          print('Error parsing quantity for item $i: $e');
-        }
-
-        try {
-          final amtValue = item['amount'];
-          if (amtValue != null) {
-            amount = PriceUtils.formatPrice(double.parse(amtValue.toString()));
-          }
-        } catch (e) {
-          print('Error parsing amount for item $i: $e');
-        }
-
-        tableData.add([srNo, itemName, quantity, amount]);
-      }
-
-      // Convert totals to strings
-      String totalQtyStr = '0.0';
-      String totalAmtStr = '0.00';
-
-      try {
-        totalQtyStr = double.parse(totalQuantity.toString()).toStringAsFixed(1);
-      } catch (e) {
-        print('Error parsing total quantity: $e');
-      }
-
-      try {
-        totalAmtStr = PriceUtils.formatPrice(totalAmount).substring(1);
-      } catch (e) {
-        print('Error parsing total amount: $e');
-      }
-
-      // Build the PDF page
-      pdf.addPage(
-        pw.Page(
-          pageFormat: PdfPageFormat.a4,
-          margin: const pw.EdgeInsets.all(20),
-          build: (pw.Context pdfContext) {
-            return pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                // Shop Header
+          pdf.addPage(
+            pw.MultiPage(
+              pageFormat: format,
+              margin: const pw.EdgeInsets.all(20),
+              theme: pw.ThemeData.withFont(
+                base: regularFont,
+                bold: boldFont,
+              ),
+              build: (pw.Context context) => [
+                /// SHOP HEADER
                 pw.Center(
                   child: pw.Text(
                     shopName,
-                    style: pw.TextStyle(
-                      fontSize: 20,
-                      fontWeight: pw.FontWeight.bold,
-                    ),
+                    style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold),
                   ),
                 ),
-                if (address.isNotEmpty) ...[
-                  pw.SizedBox(height: 4),
-                  pw.Center(
-                    child: pw.Text(
-                      address,
-                      style: const pw.TextStyle(fontSize: 10),
-                      textAlign: pw.TextAlign.center,
-                    ),
-                  ),
-                ],
-                if (contact.isNotEmpty) ...[
-                  pw.SizedBox(height: 2),
-                  pw.Center(
-                    child: pw.Text(
-                      'Contact: $contact',
-                      style: const pw.TextStyle(fontSize: 10),
-                    ),
-                  ),
-                ],
-                if (gstNo.isNotEmpty) ...[
-                  pw.SizedBox(height: 2),
-                  pw.Center(
-                    child: pw.Text(
-                      'GST: $gstNo',
-                      style: const pw.TextStyle(fontSize: 10),
-                    ),
-                  ),
-                ],
+                if (address.isNotEmpty) pw.Center(child: pw.Text(address, style: const pw.TextStyle(fontSize: 10))),
+                if (contact.isNotEmpty)
+                  pw.Center(child: pw.Text('Contact: $contact', style: const pw.TextStyle(fontSize: 10))),
+                if (gstNo.isNotEmpty) pw.Center(child: pw.Text('GST: $gstNo', style: const pw.TextStyle(fontSize: 10))),
 
                 pw.SizedBox(height: 10),
-                pw.Divider(thickness: 1),
+                pw.Divider(),
 
-                // Report Details
+                /// REPORT TITLE
+                pw.Center(
+                  child: pw.Text(
+                    'Item Wise Sales Report',
+                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 16),
+                  ),
+                ),
                 pw.Center(
                   child: pw.Text(
                     DateFormat('dd MMM yyyy hh:mm a').format(DateTime.now()),
                     style: const pw.TextStyle(fontSize: 10),
                   ),
                 ),
-                pw.SizedBox(height: 4),
-                pw.Center(
-                  child: pw.Text(
-                    'Item Wise Sales Report',
-                    style: pw.TextStyle(
-                      fontWeight: pw.FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
-                ),
 
-                pw.SizedBox(height: 8),
+                pw.SizedBox(height: 10),
 
-                // Date Range
+                /// DATE RANGE
                 pw.Container(
                   padding: const pw.EdgeInsets.all(8),
                   decoration: pw.BoxDecoration(
                     border: pw.Border.all(color: PdfColors.grey400),
-                    borderRadius:
-                        const pw.BorderRadius.all(pw.Radius.circular(4)),
                   ),
                   child: pw.Text(
                     'Period: ${DateFormat('dd/MM/yyyy').format(fromDate!)} to ${DateFormat('dd/MM/yyyy').format(toDate!)}',
-                    style: pw.TextStyle(
-                      fontWeight: pw.FontWeight.bold,
-                      fontSize: 11,
-                    ),
+                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
                   ),
                 ),
 
                 pw.SizedBox(height: 12),
 
-                // Items Table
-                pw.Table.fromTextArray(
-                  border: pw.TableBorder.all(
-                    color: PdfColors.grey600,
-                    width: 1,
-                  ),
-                  headerStyle: pw.TextStyle(
-                    fontSize: 11,
-                    fontWeight: pw.FontWeight.bold,
-                  ),
-                  cellStyle: const pw.TextStyle(fontSize: 10),
-                  headerDecoration: const pw.BoxDecoration(
-                    color: PdfColors.grey300,
-                  ),
-                  cellAlignment: pw.Alignment.centerLeft,
-                  cellAlignments: {
-                    0: pw.Alignment.center,
-                    1: pw.Alignment.centerLeft,
-                    2: pw.Alignment.centerRight,
-                    3: pw.Alignment.centerRight,
+                /// TABLE
+                pw.Table(
+                  border: pw.TableBorder.all(color: PdfColors.grey400),
+                  columnWidths: {
+                    0: const pw.FixedColumnWidth(30),
+                    1: const pw.FlexColumnWidth(3),
+                    2: const pw.FlexColumnWidth(1),
+                    3: const pw.FlexColumnWidth(1.5),
                   },
-                  headers: ['Sr.', 'Item Name', 'Quantity', 'Amount'],
-                  data: tableData,
-                  cellPadding: const pw.EdgeInsets.all(6),
-                  oddRowDecoration: const pw.BoxDecoration(
-                    color: PdfColors.grey100,
-                  ),
+                  children: [
+                    /// HEADER
+                    pw.TableRow(
+                      decoration: const pw.BoxDecoration(color: PdfColors.grey300),
+                      children: [
+                        _pdfHeaderCell('Sr.'),
+                        _pdfHeaderCell('Item Name'),
+                        _pdfHeaderCell('Qty'),
+                        _pdfHeaderCell('Amount'),
+                      ],
+                    ),
+
+                    /// DATA
+                    ...List.generate(itemsData.length, (index) {
+                      final item = itemsData[index];
+                      return pw.TableRow(
+                        children: [
+                          _pdfCell((index + 1).toString()),
+                          _pdfCell(item['name']?.toString() ?? ''),
+                          _pdfCell(item['quantity'].toString()),
+                          _pdfCell("\u20B9${item['amount']}"),
+                        ],
+                      );
+                    }),
+                  ],
                 ),
 
-                pw.SizedBox(height: 12),
-                pw.Divider(thickness: 2),
-                pw.SizedBox(height: 8),
+                pw.SizedBox(height: 15),
+                pw.Divider(),
 
-                // Summary Section
+                /// SUMMARY
                 pw.Container(
                   padding: const pw.EdgeInsets.all(10),
-                  decoration: const pw.BoxDecoration(
-                    color: PdfColors.grey200,
-                    borderRadius: pw.BorderRadius.all(pw.Radius.circular(4)),
-                  ),
+                  decoration: const pw.BoxDecoration(color: PdfColors.grey200),
                   child: pw.Column(
                     children: [
                       pw.Row(
                         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                         children: [
-                          pw.Text(
-                            'Total Items: ${itemsData.length}',
-                            style: pw.TextStyle(
-                              fontWeight: pw.FontWeight.bold,
-                              fontSize: 11,
-                            ),
-                          ),
-                          pw.Text(
-                            'Total Quantity: $totalQtyStr',
-                            style: pw.TextStyle(
-                              fontWeight: pw.FontWeight.bold,
-                              fontSize: 11,
-                            ),
-                          ),
+                          pw.Text('Total Items: ${itemsData.length}',
+                              style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                          pw.Text('Total Qty: $totalQuantity', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
                         ],
                       ),
-                      pw.SizedBox(height: 8),
-                      pw.Divider(),
                       pw.SizedBox(height: 8),
                       pw.Row(
                         mainAxisAlignment: pw.MainAxisAlignment.end,
                         children: [
+                          pw.Text('Grand Total: ', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 14)),
                           pw.Text(
-                            'Grand Total: ',
-                            style: pw.TextStyle(
-                              fontWeight: pw.FontWeight.bold,
-                              fontSize: 14,
-                            ),
-                          ),
-                          pw.Text(
-                            '₹ $totalAmtStr',
+                            "\u20B9${totalAmount.toStringAsFixed(2)}",
                             style: pw.TextStyle(
                               fontWeight: pw.FontWeight.bold,
                               fontSize: 16,
@@ -876,82 +780,187 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
                     ],
                   ),
                 ),
+              ],
+            ),
+          );
 
-                pw.Spacer(),
+          return pdf.save();
+        },
+      );
 
-                // Footer
-                pw.Center(
-                  child: pw.Text(
-                    'Generated by POS System',
-                    style: const pw.TextStyle(
-                      fontSize: 8,
-                      color: PdfColors.grey600,
-                    ),
-                  ),
+      SnackBarUtils.showSuccess(context, 'PDF generated successfully!');
+    } catch (e) {
+      if (mounted && Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
+      SnackBarUtils.showError(context, 'Error creating PDF: $e');
+    }
+  }
+
+  pw.Widget _pdfHeaderCell(String text) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.all(5),
+      child: pw.Text(
+        text,
+        style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
+        textAlign: pw.TextAlign.center,
+      ),
+    );
+  }
+
+  pw.Widget _pdfCell(String text) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.all(5),
+      child: pw.Text(
+        text,
+        style: const pw.TextStyle(fontSize: 9),
+        textAlign: pw.TextAlign.center,
+      ),
+    );
+  }
+
+  Widget _buildSummaryMiniCard(String label, String value, IconData icon, Color color) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.grey.shade100),
+          boxShadow: [
+            BoxShadow(
+              color: color.withOpacity(0.06),
+              blurRadius: 15,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.08),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: color, size: 20),
+            ),
+            const SizedBox(height: 12),
+            MyText(
+              text: value,
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: color.withOpacity(0.9),
+              letterSpacing: -0.5,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+            ),
+            const SizedBox(height: 4),
+            MyText(
+              text: label,
+              fontSize: 9,
+              color: Colors.grey[400],
+              fontWeight: FontWeight.w600,
+              letterSpacing: 1,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBadge(String label, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withOpacity(0.1), width: 1),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: color),
+          const SizedBox(width: 6),
+          MyText(
+            text: label,
+            color: color,
+            fontSize: 10,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.2,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _miniDetail(String label, String value, {bool isRed = false}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        MyText(
+          text: label,
+          fontSize: 9,
+          color: Colors.grey[400],
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.5,
+        ),
+        const SizedBox(height: 4),
+        MyText(
+          text: value,
+          fontSize: 13,
+          fontWeight: FontWeight.w800,
+          color: isRed ? Colors.red[700] : const Color(0xFF1F1F1F),
+        ),
+      ],
+    );
+  }
+
+  Widget _actionButton({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required bool enabled,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: InkWell(
+        onTap: enabled ? onTap : null,
+        borderRadius: BorderRadius.circular(16),
+        child: Opacity(
+          opacity: enabled ? 1.0 : 0.5,
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            decoration: BoxDecoration(
+              color: enabled ? color : Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: enabled
+                  ? [
+                      BoxShadow(
+                        color: color.withOpacity(0.3),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ]
+                  : [],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, color: enabled ? Colors.white : Colors.grey.shade400, size: 18),
+                const SizedBox(width: 10),
+                MyText(
+                  text: label,
+                  color: enabled ? Colors.white : Colors.grey.shade400,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 13,
+                  letterSpacing: 0.5,
                 ),
               ],
-            );
-          },
+            ),
+          ),
         ),
-      );
-
-      // Generate PDF bytes
-      final pdfBytes = await pdf.save();
-      print('PDF bytes generated: ${pdfBytes.length}');
-
-      // Save to file
-      final String fileName =
-          'ItemwiseReport_${DateFormat('ddMMyyyy_HHmmss').format(DateTime.now())}.pdf';
-
-      // Get temporary directory
-      final Directory tempDir = await getTemporaryDirectory();
-      final String filePath = '${tempDir.path}/$fileName';
-      final File file = File(filePath);
-
-      // Write PDF to file
-      await file.writeAsBytes(pdfBytes);
-      print('PDF saved to: $filePath');
-
-      // Close loading dialog
-      if (mounted) {
-        Navigator.of(context).pop();
-      }
-
-      // Share the file
-      await Share.shareXFiles(
-        [XFile(filePath)],
-        subject: 'Item Wise Sales Report',
-        text:
-            'Report for period: ${DateFormat('dd/MM/yyyy').format(fromDate!)} to ${DateFormat('dd/MM/yyyy').format(toDate!)}',
-      );
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('PDF generated and ready to share!'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 2),
-          ),
-        );
-      }
-    } catch (e, stackTrace) {
-      // Close loading dialog if open
-      if (mounted && Navigator.canPop(context)) {
-        Navigator.of(context).pop();
-      }
-
-      print('Error creating PDF: $e');
-      print('Stack trace: $stackTrace');
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error creating PDF: $e'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 4),
-          ),
-        );
-      }
-    }
+      ),
+    );
   }
 }

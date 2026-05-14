@@ -2,13 +2,17 @@
 
 // Flutter imports:
 import 'package:flutter/material.dart';
+import 'package:pos/core/widgets/text.dart';
 
 // Package imports:
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:pos/core/utils/offline_tts.dart';
 import 'package:pos/data/providers/order_type_provider.dart';
+import 'package:pos/data/providers/table_provider.dart';
+import 'package:pos/data/services/demo_data.dart';
 import 'package:pos/view/home/widgets/my_choiceChip.dart';
+import 'package:pos/view/home/widgets/dynamic_table_selector.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // Project imports:
 
@@ -21,7 +25,9 @@ import '../navigation.dart';
 import '../../../data/providers/print_provider.dart';
 import '../../../core/utils/price_utils.dart';
 import '../printer_connectionDialog.dart';
+import '../../../core/utils/snackbar_utils.dart';
 import '../receipt_preview.dart';
+import 'package:showcaseview/showcaseview.dart';
 
 /// Reusable Bill Cart Widget
 /// Can be used across multiple pages for consistent cart functionality
@@ -31,8 +37,10 @@ class BillCart extends StatefulWidget {
   final VoidCallback? onCartCleared;
   final Function(List<Map<String, dynamic>>, double)? onCartUpdated;
   final Function() orderBottomSheet;
+  final VoidCallback? onPlaceOrder;
   final bool? isRestaurantScreen;
   final bool? isContainerVisible;
+  final String? role;
 
   const BillCart({
     Key? key,
@@ -41,6 +49,8 @@ class BillCart extends StatefulWidget {
     this.onCartCleared,
     this.onCartUpdated,
     this.isContainerVisible,
+    this.role,
+    this.onPlaceOrder,
     this.isRestaurantScreen = false,
     required this.orderBottomSheet,
   }) : super(key: key);
@@ -57,9 +67,19 @@ class _BillCartState extends State<BillCart> {
   double subtotal = 0.0;
 
   @override
+  void didUpdateWidget(covariant BillCart oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isContainerVisible == false && oldWidget.isContainerVisible == true) {
+      // Auto-collapse when entering fullscreen mode to maximize product view
+      Provider.of<PrintProvider>(context, listen: false).setCartExpanded(false);
+    }
+  }
+
+  @override
   void initState() {
     super.initState();
     _initializeDatabase();
+    _loadCartData();
     _loadCartData();
   }
 
@@ -84,85 +104,61 @@ class _BillCartState extends State<BillCart> {
       selectedItemsDetails = printProvider.posts;
       subtotal = printProvider.total;
     });
+
+    if (selectedItemsDetails.isNotEmpty) {
+      _checkCartTutorial();
+    }
   }
 
-  /// Fetch shop data with local-first approach
-  /// First checks SQLite, then Firebase if not found locally
-  Future<Map<String, String>> _getShopData() async {
-    String shopName = 'N/A';
-    String contact = 'N/A';
-    String address = 'N/A';
-    String logoUrl = '';
-    String upiId = '';
+  Future<void> _checkCartTutorial() async {
+    final prefs = await SharedPreferences.getInstance();
+    final bool isDemoMode = prefs.getBool('isDemoMode') ?? false;
+    final bool isMainFirstTime = prefs.getBool('is_first_time_main_tutorial') ?? true;
+    final bool isDetailedFirstTime = prefs.getBool('is_first_time_detailed_tutorial') ?? true;
 
-    try {
-      // First try to get from local SQLite
-      final localData = await _sqliteHelper.getUserData(widget.phoneNo);
+    // Only start if:
+    // 1. In demo mode
+    // 2. Main tour is already finished (isMainFirstTime == false)
+    // 3. This detailed tour hasn't been shown yet
+    if (isDemoMode && !isMainFirstTime && isDetailedFirstTime) {
+      // Add a small delay to ensure the cart widget is fully rendered and stable
+      await Future.delayed(const Duration(milliseconds: 800));
+      if (!mounted) return;
 
-      if (localData != null) {
-        shopName = localData['shopName'] ?? 'N/A';
-        contact = localData['shopContact'] ?? 'N/A';
-        address = localData['address'] ?? 'N/A';
-        logoUrl = localData['shopLogoUrl'] ?? '';
-        upiId = localData['upiId'] ?? '';
-        debugPrint('Shop data loaded from local cache');
-      } else {
-        // Not found locally, fetch from Firebase
-        final doc = await FirebaseFirestore.instance
-            .collection('AllAdmins')
-            .doc(widget.adminUid)
-            .collection('customer')
-            .doc(widget.phoneNo)
-            .get();
-
-        if (doc.exists) {
-          final data = doc.data();
-          if (data != null) {
-            shopName = data['shopName'] ?? 'N/A';
-            contact = data['contact'] ?? 'N/A';
-            address = data['address'] ?? 'N/A';
-            upiId = data['upiId'] ?? '';
-
-            // Save all fields to local SQLite for future use
-            await _sqliteHelper.saveUserData({
-              'phoneNumber': data['phoneNumber'] ?? widget.phoneNo,
-              'adminUid': data['adminUid'] ?? widget.adminUid,
-              'shopName': shopName,
-              'contact': contact,
-              'address': address,
-              'upiId': upiId,
-              'logoUrl': data['logoUrl'],
-              'name': data['name'],
-              'email': data['email'],
-              'customerCode': data['customerCode'],
-              'gstNumber': data['gstNo'],
-              'createdAt': data['createdAt'],
-            });
-            debugPrint('Shop data loaded from Firebase and saved locally');
-          }
-        }
+      final showcase = ShowCaseWidget.of(context);
+      if (showcase != null) {
+        Provider.of<PrintProvider>(context, listen: false).setCartExpanded(true);
+        showcase.startShowCase([
+          TourKeys.cartItemsKey,
+          TourKeys.subtotalKey,
+          TourKeys.cartSaveKey,
+          TourKeys.cartPrintKey,
+        ]);
+        await prefs.setBool('is_first_time_detailed_tutorial', false);
       }
-    } catch (e) {
-      debugPrint('Error fetching shop data: $e');
     }
-
-    return {
-      'shopName': shopName,
-      'contact': contact,
-      'address': address,
-      'logoUrl': logoUrl,
-      'upiId': upiId,
-    };
   }
 
   void _updateCart() {
     final printProvider = Provider.of<PrintProvider>(context, listen: false);
+
     printProvider.additem(selectedItemsDetails, subtotal);
+
     widget.onCartUpdated?.call(selectedItemsDetails, subtotal);
+
+    if (selectedItemsDetails.isNotEmpty) {
+      _checkCartTutorial();
+    }
   }
 
-  void _clearCart() {
+  void _clearCart({bool clearTableBackend = false}) {
     final printProvider = Provider.of<PrintProvider>(context, listen: false);
+    final tableProvider = Provider.of<TableProvider>(context, listen: false);
+
+    if (clearTableBackend && tableProvider.selectedTableId != null) {
+      tableProvider.clearTable(tableProvider.selectedTableId!);
+    }
+
     printProvider.clearCart();
     setState(() {
       selectedItemsDetails.clear();
@@ -171,120 +167,23 @@ class _BillCartState extends State<BillCart> {
     widget.onCartCleared?.call();
   }
 
-  Future<void> _showTableNumberBottomSheet(BuildContext parentContext) async {
-    final printProvider = Provider.of<PrintProvider>(parentContext, listen: false);
-
-    final tableNumber = await TableNumberBottomSheet.show(
-      context: parentContext,
-      primaryColor: appbar1,
-      confirmButtonText: 'Print Receipt',
-    );
-
-    if (tableNumber == null || !mounted) return; // User cancelled or widget unmounted
-
-    // Show loading dialog
-    showDialog(
-      context: parentContext,
-      barrierDismissible: false,
-      builder: (context) => const Center(child: CircularProgressIndicator()),
-    );
-
-    try {
-      // Generate sequential receipt number (returns 8-digit padded string like "00000001")
-      String generatedReceiptNo = await _sqliteHelper.getNextReceiptNumber(widget.phoneNo);
-
-      // Get tax parameters (already have default values in PrintProvider)
-
-      final orderTypeProvider = Provider.of<OrderTypeProvider>(context, listen: false);
-      String paymentType = orderTypeProvider.paymentType.toString().split('.').last;
-      String orderType = orderTypeProvider.orderType.toString().split('.').last;
-
-      // Fetch shop data (local-first)
-      final shopData = await _getShopData();
-      String shopName = shopData['shopName']!;
-      String contact = shopData['contact']!;
-      String address = shopData['address']!;
-      String logoUrl = shopData['logoUrl']!;
-      String upiId = shopData['upiId'] ?? "";
-
-      if (!mounted) return;
-      Navigator.pop(parentContext);
-
-      // Print dine-in receipt with table number
-      await DirectPrintHelper().printReceipt(
-        adminUid: widget.phoneNo,
-        context: parentContext,
-        printer: printProvider.selectedPrinter!,
-        paperSize: printProvider.selectedPaperSize,
-        items: selectedItemsDetails,
-        subTotal: subtotal,
-        shopName: shopName,
-        contact: contact,
-        address: address,
-        logoUrl: logoUrl,
-        upiId: upiId,
-        tableNumber: tableNumber,
-        receiptNo: generatedReceiptNo,
-        customerName: "",
-        customerPhone: "",
-        customerGst: "",
-        orderType: orderType,
-
-        paymentType: paymentType,
-        discountAmount: 0,
-        discountPercent: 0,
-        customerNote: "",
-        customerAddress: "",
-        taxEnabled: printProvider.taxEnabled,
-        cgstPercent: printProvider.cgstPercent,
-        sgstPercent: printProvider.sgstPercent,
-        saveBill: false, // Bill already saved via SmartDatabaseService
-      );
-
-      _clearCart();
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(parentContext).showSnackBar(
-        SnackBar(
-          content: Text('Dine-in receipt printed for Table $tableNumber'),
-          backgroundColor: Colors.green,
-          duration: const Duration(seconds: 2),
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      Navigator.pop(parentContext);
-      ScaffoldMessenger.of(parentContext).showSnackBar(
-        SnackBar(
-          content: Text('Printing failed: $e'),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 3),
-        ),
-      );
-    }
-  }
-
   Future<void> _handlePreview() async {
     if (selectedItemsDetails.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No items in cart'),
-          backgroundColor: Colors.orange,
-          duration: Duration(seconds: 2),
-        ),
-      );
+      SnackBarUtils.showWarning(context, 'No items in cart');
       return;
     }
 
-    // Fetch shop data (local-first)
-    final shopData = await _getShopData();
+    // Fetch shop data from SharedPreferences
+    final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
 
-    String shopName = shopData['shopName']!;
-    String contact = shopData['contact']!;
-    String address = shopData['address']!;
-    String upiId = shopData['upiId'] ?? "";
+    String shopName = prefs.getString('shopName') ?? 'Shop Name';
+    String contact = prefs.getString('contact') ?? 'Contact';
+    String address = prefs.getString('address') ?? 'Address';
+    String upiId = prefs.getString('upiId') ?? "";
+    String logoUrl = prefs.getString('logoUrl') ?? "";
 
+    final tableProvider = Provider.of<TableProvider>(context, listen: false);
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
@@ -295,6 +194,8 @@ class _BillCartState extends State<BillCart> {
           address: address,
           upiId: upiId,
           phoneNo: widget.phoneNo,
+          logoUrl: logoUrl,
+          tableNumber: tableProvider.selectedTable?.tableNumber,
         ),
       ),
     );
@@ -317,24 +218,12 @@ class _BillCartState extends State<BillCart> {
         context: context,
         builder: (context) => const PrinterConnectionDialog(),
       );
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please connect a printer first'),
-          backgroundColor: Colors.orange,
-          duration: Duration(seconds: 2),
-        ),
-      );
+      SnackBarUtils.showWarning(context, 'Please connect a printer first');
       return;
     }
 
     if (selectedItemsDetails.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No items to print'),
-          backgroundColor: Colors.orange,
-          duration: Duration(seconds: 2),
-        ),
-      );
+      SnackBarUtils.showWarning(context, 'No items to print');
       return;
     }
 
@@ -347,23 +236,21 @@ class _BillCartState extends State<BillCart> {
     try {
       // Generate sequential receipt number (returns 8-digit padded string like "00000001")
       String generatedReceiptNo = await _sqliteHelper.getNextReceiptNumber(widget.phoneNo);
+      // ignore: use_build_context_synchronously
       final orderTypeProvider = Provider.of<OrderTypeProvider>(context, listen: false);
       String paymentType = orderTypeProvider.paymentType.toString().split('.').last;
       String orderType = orderTypeProvider.orderType.toString().split('.').last;
       final int amount = subtotal.round();
       final String amountInWords = numberToWords(amount);
 
-      // Fetch shop data (local-first)
-      final shopData = await _getShopData();
-      String shopName = shopData['shopName']!;
-      String contact = shopData['contact']!;
-      String address = shopData['address']!;
-      String logoUrl = shopData['logoUrl']!;
-      String upiId = shopData['upiId'] ?? "";
+      final prefs = await SharedPreferences.getInstance();
+      String shopName = prefs.getString('shopName') ?? 'Shop Name';
+      String contact = prefs.getString('contact') ?? 'Contact';
+      String address = prefs.getString('address') ?? 'Address';
+      String logoUrl = prefs.getString('logoUrl') ?? '';
+      String upiId = prefs.getString('upiId') ?? "";
 
-      if (!mounted) return;
-      Navigator.pop(context);
-
+      // ignore: use_build_context_synchronously
       await DirectPrintHelper().printReceipt(
         adminUid: widget.phoneNo,
         context: context,
@@ -375,18 +262,19 @@ class _BillCartState extends State<BillCart> {
         contact: contact,
         address: address,
         logoUrl: logoUrl,
-        customerName: "",
-        customerPhone: "",
+        customerName: printProvider.customerName ?? "",
+        customerPhone: printProvider.customerPhone ?? "",
         upiId: upiId,
-        customerGst: "",
+        customerGst: printProvider.customerGst ?? "",
         orderType: orderType,
         paymentType: paymentType,
-        tableNumber: "",
+        tableNumber: Provider.of<TableProvider>(context, listen: false).selectedTable?.tableNumber ?? "",
         discountAmount: 0,
         discountPercent: 0,
-        customerNote: "",
-        customerAddress: "",
+        customerNote: printProvider.customerNote ?? "",
+        customerAddress: printProvider.customerAddress ?? "",
         receiptNo: generatedReceiptNo,
+        customerId: printProvider.customerId,
         taxEnabled: printProvider.taxEnabled,
         cgstPercent: printProvider.cgstPercent,
         sgstPercent: printProvider.sgstPercent,
@@ -397,46 +285,20 @@ class _BillCartState extends State<BillCart> {
         "$amountInWords rupees",
       );
 
-      _clearCart();
+      _clearCart(clearTableBackend: true);
 
       orderTypeProvider.reset();
 
       if (!mounted) return;
-      final isOnline = _databaseService.isOnline;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              Icon(
-                isOnline ? Icons.cloud_done : Icons.cloud_off,
-                color: Colors.white,
-                size: 20,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  isOnline
-                      ? 'Printed & saved! Receipt: $generatedReceiptNo'
-                      : 'Printed & saved offline! Receipt: $generatedReceiptNo',
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: Colors.green,
-          duration: const Duration(seconds: 2),
-        ),
-      );
     } catch (e) {
-      if (!mounted) return;
-      Navigator.pop(context);
       debugPrint('Error printing receipt: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Printing failed: $e'),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 3),
-        ),
-      );
+      if (mounted) {
+        SnackBarUtils.showError(context, 'Printing failed: $e');
+      }
+    } finally {
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop(); // Close loader
+      }
     }
   }
 
@@ -448,26 +310,145 @@ class _BillCartState extends State<BillCart> {
         selectedItemsDetails = printProvider.posts;
         subtotal = printProvider.total;
 
-        return Container(
-          color: white,
-          margin: const EdgeInsets.only(top: 5, bottom: 5),
-          child: Column(
-            children: [
-              _buildItemsList(printProvider),
-              _buildFooter(printProvider),
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.fastOutSlowIn,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, -5),
+              ),
             ],
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           ),
-        );
-      },
+          child: RepaintBoundary(
+            child: AnimatedSize(
+              duration: const Duration(milliseconds: 400),
+              curve: Curves.fastOutSlowIn,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+              children: [
+                // Swipe/Tap to Toggle Cart
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onVerticalDragEnd: (details) {
+                    if (details.primaryVelocity! < 0) {
+                      // Swiped Up
+                      printProvider.setCartExpanded(true);
+                    } else if (details.primaryVelocity! > 0) {
+                      // Swiped Down
+                      printProvider.setCartExpanded(false);
+                    }
+                  },
+                  onTap: () {
+                    printProvider.setCartExpanded(!printProvider.isCartExpanded);
+                  },
+                  child: Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            // Pull handle
+                            Container(
+                              margin: const EdgeInsets.only(top: 12, bottom: 8),
+                              width: 60,
+                              height: 4,
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade300,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (!printProvider.isCartExpanded) _buildCollapsedSummary(printProvider),
+                    ],
+                  ),
+                ),
+                if (printProvider.isCartExpanded) ...[
+                  Showcase(
+                    key: TourKeys.cartItemsKey,
+                    title: 'Review Cart',
+                    description:
+                        'See all items added to the current order. You can adjust quantities or remove items here.',
+                    child: _buildItemsList(printProvider),
+                  ),
+                  Showcase(
+                    key: TourKeys.subtotalKey,
+                    title: 'Total Bill Amount',
+                    description: 'This is the calculated total including all items and addons.',
+                    child: _buildFooter(printProvider),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      );
+    },
+  );
+}
+
+  Widget _buildCollapsedSummary(PrintProvider printProvider) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: appbar1.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.shopping_cart_outlined, size: 16, color: appbar1),
+                const SizedBox(width: 6),
+                MyText(
+                  text: '${selectedItemsDetails.length} Items',
+                  color: appbar1,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ],
+            ),
+          ),
+          const Spacer(),
+          MyText(
+            text: 'Total: ',
+            fontSize: 14,
+            color: Colors.grey.shade600,
+            fontWeight: FontWeight.w600,
+          ),
+          MyText(
+            text: PriceUtils.formatPrice(subtotal),
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+            color: appbar1,
+          ),
+          const SizedBox(width: 10),
+        ],
+      ),
     );
   }
 
   Widget _buildItemsList(PrintProvider printProvider) {
-    return SizedBox(
-      height: 120,
-      child: ListView.builder(
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        maxHeight: 120,
+        minHeight: 100,
+      ),
+      child: ListView.separated(
         controller: _listScrollController,
+        shrinkWrap: true,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         itemCount: selectedItemsDetails.length,
+        separatorBuilder: (context, index) => const Divider(height: 16, color: Colors.black12),
         itemBuilder: (context, index) {
           return _buildCartItem(index, printProvider);
         },
@@ -478,73 +459,63 @@ class _BillCartState extends State<BillCart> {
   Widget _buildCartItem(int index, PrintProvider printProvider) {
     final item = selectedItemsDetails[index];
 
-    return Table(
-      columnWidths: const {
-        0: FlexColumnWidth(3),
-        1: FlexColumnWidth(2),
-        2: FlexColumnWidth(1),
-      },
-      defaultVerticalAlignment: TableCellVerticalAlignment.middle,
-      children: [
-        TableRow(
-          children: [
-            /// Item Name
-            Padding(
-              padding: const EdgeInsets.only(
-                left: 8,
-                top: 5,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item['name'],
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 14.5,
-                      fontWeight: FontWeight.w600,
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          /// Item Info
+          Expanded(
+            flex: 3,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                MyText(
+                  text: item['name'],
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                ),
+                const SizedBox(height: 4),
+                MyText(
+                  text: "${PriceUtils.formatPrice(item['price'])} × ${item['quantity']}",
+                  fontSize: 13,
+                  color: appbar1.withOpacity(0.8),
+                  fontWeight: FontWeight.w600,
+                ),
+                if (item['addons'] != null && item['addons'].isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4, left: 4),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: (item['addons'] as List).map((a) {
+                        return MyText(
+                          text: "+ ${a['name']} (${PriceUtils.formatPrice(a['price'])})",
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                        );
+                      }).toList(),
                     ),
                   ),
-                  Text(
-                    "${PriceUtils.formatPrice(item['price'])} × ${item['quantity']}",
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Colors.black54,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  if (item['addons'] != null && item['addons'].isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(left: 7),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: (item['addons'] as List).map((a) {
-                          return Text(
-                            "${a['name']} (${PriceUtils.formatPrice(a['price'])})",
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Colors.black54,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ),
-                ],
-              ),
+              ],
             ),
+          ),
 
-            /// Quantity Buttons
-            _buildQuantityControls(index, printProvider),
+          /// Quantity Controls
+          Expanded(
+            flex: 2,
+            child: _buildQuantityControls(index, printProvider),
+          ),
 
-            /// Delete Button
-            Center(
-              child: _buildDeleteButton(index, printProvider),
-            ),
-          ],
-        ),
-      ],
+          /// Delete Button
+          SizedBox(
+            width: 40,
+            child: _buildDeleteButton(index, printProvider),
+          ),
+        ],
+      ),
     );
   }
 
@@ -578,13 +549,11 @@ class _BillCartState extends State<BillCart> {
           Expanded(
             flex: 2,
             child: Center(
-              child: Text(
-                "${selectedItemsDetails[index]['quantity']}",
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.black,
-                ),
+              child: MyText(
+                text: "${selectedItemsDetails[index]['quantity']}",
+                fontSize: 18,
+                fontWeight: FontWeight.w500,
+                color: Colors.black,
               ),
             ),
           ),
@@ -632,117 +601,211 @@ class _BillCartState extends State<BillCart> {
 
   Widget _buildFooter(PrintProvider printProvider) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 15.0, vertical: 8),
-      color: Colors.grey.shade200,
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                decoration: BoxDecoration(
-                  color: primaryColor,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  '${selectedItemsDetails.length} Items',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+              Showcase(
+                key: TourKeys.cartItemsKey,
+                title: 'Cart Items',
+                description: 'Review the list of items you have added to this order.',
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: appbar1.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: appbar1.withOpacity(0.2)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.shopping_cart_outlined, size: 14, color: appbar1),
+                      const SizedBox(width: 6),
+                      MyText(
+                        text: '${selectedItemsDetails.length} Items',
+                        color: appbar1,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ],
                   ),
                 ),
               ),
+              const SizedBox(width: 8),
+              if (widget.role != 'customer' && widget.isRestaurantScreen == true)
+                Consumer<TableProvider>(
+                  builder: (context, tableProvider, _) {
+                    if (tableProvider.selectedTableId != null) {
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: Colors.orange.withOpacity(0.2)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.table_bar_outlined, size: 14, color: Colors.orange),
+                            const SizedBox(width: 6),
+                            MyText(
+                              text: tableProvider.selectedTable?.tableNumber ?? '',
+                              color: Colors.orange.shade900,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
               const Spacer(),
-              Text(
-                'Grand Total :',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[600],
-                  fontWeight: FontWeight.w500,
+              MyText(
+                text: 'Total: ',
+                fontSize: 15,
+                color: Colors.grey.shade600,
+                fontWeight: FontWeight.w600,
+              ),
+              const SizedBox(width: 4),
+              Showcase(
+                key: TourKeys.subtotalKey,
+                title: 'Order Total',
+                description: 'The final amount calculated for all items in the cart.',
+                child: MyText(
+                  text: PriceUtils.formatPrice(subtotal),
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  color: appbar1,
+                  letterSpacing: -0.5,
                 ),
               ),
-              const SizedBox(
-                width: 10,
-              ),
-              Text(
-                PriceUtils.formatPrice(subtotal),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 18,
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (widget.role != 'customer')
+            Consumer<OrderTypeProvider>(
+              builder: (context, provider, _) {
+                return MyChoiceChip(
+                  options: const ['Cash', 'UPI', 'Debit', 'Complementory'],
+                  selectedValue: provider.paymentType == PaymentType.cash
+                      ? 'Cash'
+                      : provider.paymentType == PaymentType.upi
+                          ? "UPI"
+                          : provider.paymentType == PaymentType.debit
+                              ? "Debit"
+                              : "Complementory",
+                  onSelected: (value) {
+                    provider.setPaymentType(
+                      value == 'Cash'
+                          ? PaymentType.cash
+                          : value == 'UPI'
+                              ? PaymentType.upi
+                              : value == 'Debit'
+                                  ? PaymentType.debit
+                                  : PaymentType.complementory,
+                    );
+                  },
+                );
+              },
+            ),
+          if (widget.role == 'customer')
+            SizedBox(
+              width: double.infinity,
+              height: 55,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  if (widget.onPlaceOrder != null) {
+                    widget.onPlaceOrder!();
+                  } else {
+                    widget.orderBottomSheet.call();
+                  }
+                },
+                icon: const Icon(Icons.check_circle_outline, color: Colors.white),
+                label: const MyText(
+                  text: 'Place Order',
+                  color: Colors.white,
                   fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: appbar1,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  elevation: 4,
+                  shadowColor: appbar1.withOpacity(0.4),
                 ),
               ),
-            ],
-          ),
-          Consumer<OrderTypeProvider>(
-            builder: (context, provider, _) {
-              return MyChoiceChip(
-                options: const ['Cash', 'UPI', 'Debit', 'Complementory'],
-                selectedValue: provider.paymentType == PaymentType.cash
-                    ? 'Cash'
-                    : provider.paymentType == PaymentType.upi
-                        ? "UPI"
-                        : provider.paymentType == PaymentType.debit
-                            ? "Debit"
-                            : "Complementory",
-                onSelected: (value) {
-                  provider.setPaymentType(
-                    value == 'Cash'
-                        ? PaymentType.cash
-                        : value == 'UPI'
-                            ? PaymentType.upi
-                            : value == 'Debit'
-                                ? PaymentType.debit
-                                : PaymentType.complementory,
-                  );
-                },
-              );
-            },
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _buildIconButton(
-                icon: Icons.table_bar,
-                onPressed: () async {
-                  if (!printProvider.isConnected || printProvider.selectedPrinter == null) {
-                    showDialog(
-                      context: context,
-                      builder: (context) => const PrinterConnectionDialog(),
-                    );
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Please connect a printer first'),
-                        backgroundColor: Colors.orange,
-                        duration: Duration(seconds: 2),
-                      ),
-                    );
-                    return;
-                  }
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  if (widget.isRestaurantScreen == true)
+                    _buildIconButton(
+                      icon: Icons.table_bar,
+                      onPressed: () async {
+                        final tableProvider = Provider.of<TableProvider>(context, listen: false);
+                        final printProvider = Provider.of<PrintProvider>(context, listen: false);
 
-                  if (selectedItemsDetails.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('No items in cart'),
-                        backgroundColor: Colors.orange,
-                        duration: Duration(seconds: 2),
-                      ),
-                    );
-                    return;
-                  }
+                        // Guard: a table must be selected
+                        if (tableProvider.selectedTableId == null) {
+                          SnackBarUtils.showWarning(context, 'Please select a table first');
+                          return;
+                        }
 
-                  await _showTableNumberBottomSheet(context);
-                },
+                        // Guard: cart must not be empty
+                        if (printProvider.posts.isEmpty) {
+                          SnackBarUtils.showWarning(context, 'Cart is empty — nothing to save');
+                          return;
+                        }
+
+                        // Explicit save: commit current cart to the selected table
+                        final savedTableNumber = tableProvider.selectedTable?.tableNumber ?? '';
+                        await tableProvider.setTableCart(
+                          tableProvider.selectedTableId!,
+                          printProvider.posts,
+                        );
+
+                        printProvider.clearCart();
+                        tableProvider.selectTable(null);
+
+                        if (mounted) {
+                          SnackBarUtils.showSuccess(context, 'Cart saved to Table $savedTableNumber ✓');
+                          // Navigate to Table Management screen
+                          final navigationState = context.findAncestorStateOfType<State<Navigation>>() as dynamic;
+                          if (navigationState != null) {
+                            navigationState.setState(() {
+                              navigationState.currentIndex = 2;
+                            });
+                          }
+                        }
+                      },
+                      iconColor: Colors.white,
+                    ),
+                  Showcase(
+                    key: TourKeys.cartSaveKey,
+                    title: 'Save Order',
+                    description: 'Saves the bill to print or preview later.',
+                    child: _buildIconButton(imagePath: "assets/images/save.png", onPressed: _handlePreview),
+                  ),
+                  Showcase(
+                    key: TourKeys.cartPrintKey,
+                    title: 'Save + Print',
+                    description: 'Saves the bill and instantly prints it.',
+                    child: _buildIconButton(imagePath: "assets/images/save2.png", onPressed: _handlePrint),
+                  ),
+                ],
               ),
-              _buildIconButton(icon: Icons.person, onPressed: () => widget.orderBottomSheet.call()),
-              _buildIconButton(imagePath: "assets/images/kot2.png", onPressed: () {}),
-              _buildIconButton(imagePath: "assets/images/save.png", onPressed: _handlePreview),
-              _buildIconButton(imagePath: "assets/images/save2.png", onPressed: _handlePrint),
-            ],
-          ),
+            ),
         ],
       ),
     );
@@ -753,23 +816,33 @@ class _BillCartState extends State<BillCart> {
     String? imagePath,
     required VoidCallback onPressed,
     double size = 35,
+    Color? iconColor,
   }) {
     assert(icon != null || imagePath != null);
 
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: appbar1,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: GestureDetector(
-        onTap: onPressed,
+    return InkWell(
+      onTap: onPressed,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        margin: const EdgeInsets.symmetric(horizontal: 5),
+        decoration: BoxDecoration(
+          color: appbar1,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [
+            BoxShadow(
+              color: appbar1.withOpacity(0.3),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
         child: Center(
           child: icon != null
               ? Icon(
                   icon,
                   size: size,
-                  color: Colors.white,
+                  color: iconColor ?? Colors.white,
                 )
               : Image.asset(
                   imagePath!,

@@ -1,758 +1,21 @@
-// import 'dart:async';
-// import 'dart:developer';
-// import 'dart:io';
-// import 'dart:typed_data';
-// import 'package:image/image.dart' as img;
-// import 'package:cloud_firestore/cloud_firestore.dart';
-// import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
-// import 'package:flutter/material.dart';
-// import 'package:flutter/services.dart';
-// import 'package:flutter_pos_printer_platform_image_3/flutter_pos_printer_platform_image_3.dart';
-// import 'package:intl/intl.dart';
-// import 'package:pos/view/home/print_provider.dart';
-// import 'package:provider/provider.dart';
-
-// class Printer extends StatefulWidget {
-//   final String adminUid;
-//   final String userId;
-//   List<Map<String, dynamic>> selectedItemsDetails = [];
-//   double total = 0;
-//   Printer({
-//     Key? key,
-//     required this.selectedItemsDetails,
-//     required this.total,
-//     required this.adminUid,
-//     required this.userId,
-//   }) : super(key: key);
-
-//   @override
-//   State<Printer> createState() => _PrinterState();
-// }
-
-// class _PrinterState extends State<Printer> {
-//   // Printer Type [bluetooth, usb, network]
-//   var defaultPrinterType = PrinterType.bluetooth;
-//   var _isBle = false;
-//   var _reconnect = false;
-//   var _isConnected = false;
-//   var printerManager = PrinterManager.instance;
-//   var devices = <BluetoothPrinter>[];
-//   StreamSubscription<PrinterDevice>? _subscription;
-//   StreamSubscription<BTStatus>? _subscriptionBtStatus;
-//   StreamSubscription<USBStatus>? _subscriptionUsbStatus;
-//   BTStatus _currentStatus = BTStatus.none;
-//   USBStatus _currentUsbStatus = USBStatus.none;
-//   List<int>? pendingTask;
-//   String _ipAddress = '';
-//   String _port = '9100';
-//   final _ipController = TextEditingController();
-//   final _portController = TextEditingController();
-//   BluetoothPrinter? selectedPrinter;
-//   PaperSize selectedPaperSize = PaperSize.mm58;
-
-//   // Receipt data
-//   bool _isLoading = true;
-//   String shopName = 'N/A';
-//   String contact = 'N/A';
-//   String address = 'N/A';
-
-//   double calculateTotal(List<Map<String, dynamic>> selectedItemsDetails) {
-//     double total = 0;
-//     for (var itemDetails in selectedItemsDetails) {
-//       double price = itemDetails['price'] ?? 0;
-//       int quantity = itemDetails['quantity'] ?? 0;
-//       total += price * quantity;
-//     }
-//     return total;
-//   }
-
-//   @override
-//   void initState() {
-//     super.initState();
-//     if (Platform.isWindows) defaultPrinterType = PrinterType.usb;
-//     _portController.text = _port;
-
-//     // Load shop data first
-//     _loadShopData();
-
-//     // subscription to listen change status of bluetooth connection
-//     _subscriptionBtStatus =
-//         PrinterManager.instance.stateBluetooth.listen((status) {
-//       log(' ----------------- status bt $status ------------------ ');
-//       _currentStatus = status;
-//       if (status == BTStatus.connected) {
-//         setState(() {
-//           _isConnected = true;
-//         });
-//       }
-//       if (status == BTStatus.none) {
-//         setState(() {
-//           _isConnected = false;
-//         });
-//       }
-//       if (status == BTStatus.connected && pendingTask != null) {
-//         if (Platform.isAndroid) {
-//           Future.delayed(const Duration(milliseconds: 1000), () {
-//             PrinterManager.instance
-//                 .send(type: PrinterType.bluetooth, bytes: pendingTask!);
-//             pendingTask = null;
-//           });
-//         } else if (Platform.isIOS) {
-//           PrinterManager.instance
-//               .send(type: PrinterType.bluetooth, bytes: pendingTask!);
-//           pendingTask = null;
-//         }
-//       }
-//     });
-
-//     _subscriptionUsbStatus = PrinterManager.instance.stateUSB.listen((status) {
-//       log(' ----------------- status usb $status ------------------ ');
-//       _currentUsbStatus = status;
-//       if (Platform.isAndroid) {
-//         if (status == USBStatus.connected && pendingTask != null) {
-//           Future.delayed(const Duration(milliseconds: 1000), () {
-//             PrinterManager.instance
-//                 .send(type: PrinterType.usb, bytes: pendingTask!);
-//             pendingTask = null;
-//           });
-//         }
-//       }
-//     });
-//   }
-
-//   Future<void> _loadShopData() async {
-//     try {
-//       final doc = await FirebaseFirestore.instance
-//           .collection('AllAdmins')
-//           .doc(widget.adminUid)
-//           .collection('customer')
-//           .doc(widget.userId)
-//           .get();
-
-//       if (doc.exists) {
-//         final data = doc.data();
-//         if (data != null) {
-//           setState(() {
-//             shopName = data['shopName'] ?? 'N/A';
-//             contact = data['contact'] ?? 'N/A';
-//             address = data['address'] ?? 'N/A';
-//           });
-//         }
-//       }
-//     } catch (e) {
-//       print('Error fetching receipt data: $e');
-//       // Continue with default values if fetch fails
-//     } finally {
-//       setState(() {
-//         _isLoading = false;
-//       });
-//       // Start scanning for printers after data is loaded
-//       _scan();
-//     }
-//   }
-
-//   @override
-//   void dispose() {
-//     _subscription?.cancel();
-//     _subscriptionBtStatus?.cancel();
-//     _subscriptionUsbStatus?.cancel();
-//     _portController.dispose();
-//     _ipController.dispose();
-//     super.dispose();
-//   }
-
-//   void _scan() {
-//     devices.clear();
-//     _subscription = printerManager
-//         .discovery(type: defaultPrinterType, isBle: _isBle)
-//         .listen((device) {
-//       devices.add(BluetoothPrinter(
-//         deviceName: device.name,
-//         address: device.address,
-//         isBle: _isBle,
-//         vendorId: device.vendorId,
-//         productId: device.productId,
-//         typePrinter: defaultPrinterType,
-//       ));
-//       setState(() {});
-//     });
-//   }
-
-//   void setPort(String value) {
-//     if (value.isEmpty) value = '9100';
-//     _port = value;
-//     var device = BluetoothPrinter(
-//       deviceName: value,
-//       address: _ipAddress,
-//       port: _port,
-//       typePrinter: PrinterType.network,
-//       state: false,
-//     );
-//     selectDevice(device);
-//   }
-
-//   void setIpAddress(String value) {
-//     _ipAddress = value;
-//     var device = BluetoothPrinter(
-//       deviceName: value,
-//       address: _ipAddress,
-//       port: _port,
-//       typePrinter: PrinterType.network,
-//       state: false,
-//     );
-//     selectDevice(device);
-//   }
-
-//   void selectDevice(BluetoothPrinter device) async {
-//     if (selectedPrinter != null) {
-//       if ((device.address != selectedPrinter!.address) ||
-//           (device.typePrinter == PrinterType.usb &&
-//               selectedPrinter!.vendorId != device.vendorId)) {
-//         await PrinterManager.instance
-//             .disconnect(type: selectedPrinter!.typePrinter);
-//       }
-//     }
-
-//     selectedPrinter = device;
-//     setState(() {});
-//   }
-
-//   Future<List<int>> addLogoToBytes(
-//       Generator generator, bool is58mm, List<int> bytes) async {
-//     // Load image from assets
-//     ByteData data = await rootBundle.load('assets/images/logo.jpg');
-//     Uint8List logoBytes = data.buffer.asUint8List();
-
-//     // Decode to Image object
-//     img.Image? logoImage = img.decodeImage(logoBytes);
-//     if (logoImage != null) {
-//       // Set width according to paper size
-//       int targetWidth = is58mm ? 200 : 400;
-//       int targetHeight =
-//           (logoImage.height * targetWidth / logoImage.width).round();
-
-//       // Resize the image
-//       img.Image resizedLogo = img.copyResize(
-//         logoImage,
-//         width: targetWidth,
-//         height:
-//             targetHeight, // remove this line if you want to preserve aspect ratio automatically
-//       );
-
-//       // Add to bytes
-//       bytes += generator.imageRaster(
-//         resizedLogo,
-//         align: PosAlign.center,
-//       );
-//     }
-
-//     return bytes;
-//   }
-
-//   Future<void> _printReceiveTest() async {
-//     try {
-//       final profile = await CapabilityProfile.load(name: 'XP-N160I');
-//       final Generator generator = Generator(selectedPaperSize, profile);
-
-//       List<int> bytes = [];
-
-//       bytes += generator.setGlobalCodeTable('CP1252');
-
-//       // Paper configuration
-//       bool is58mm = selectedPaperSize == PaperSize.mm58;
-//       int totalCols = is58mm ? 31 : 48;
-//       String separator = '*' * totalCols;
-
-//       // Smart dynamic columns
-//       int desc = is58mm ? 12 : 22;
-//       int qty = is58mm ? 5 : 6;
-//       int rate = is58mm ? 6 : 8;
-//       int amt = is58mm ? 7 : 10;
-
-//       // Small font style
-//       const smallFontCenter = PosStyles(
-//         align: PosAlign.center,
-//       );
-
-//       const smallFontLeft = PosStyles(
-//         align: PosAlign.left,
-//       );
-
-//       // bytes = await addLogoToBytes(generator, is58mm, bytes);
-
-//       // Header
-//       bytes += generator.text(shopName, styles: smallFontCenter);
-//       bytes += generator.text(address, styles: smallFontCenter);
-//       bytes += generator.text('$contact', styles: smallFontCenter);
-//       bytes += generator.text(
-//           DateFormat('dd-MM-yyyy | hh:mm a').format(DateTime.now()),
-//           styles: smallFontCenter);
-
-//       bytes += generator.text(separator, styles: smallFontLeft);
-
-//       bytes += generator.text('RECEIPT', styles: smallFontCenter);
-//       bytes += generator.text(separator, styles: smallFontLeft);
-
-//       // Table header
-//       bytes += generator.text(
-//         '${"Description".padRight(desc)}'
-//         '${"Qty".padLeft(qty)}'
-//         '${"Rate".padLeft(rate)}'
-//         '${"Amt".padLeft(amt)}',
-//         styles: smallFontLeft,
-//       );
-
-//       // Items
-//       for (var item in widget.selectedItemsDetails) {
-//         String name = item['name'].toString();
-//         if (name.length > desc) {
-//           name = name.substring(0, desc - 3) + "..."; // ASCII ellipsis
-//         }
-
-//         int qtyValue = int.tryParse(item['quantity'].toString()) ?? 1;
-//         double rateValue = double.tryParse(item['price'].toString()) ?? 0;
-//         double amtValue = qtyValue * rateValue;
-
-//         bytes += generator.text(
-//           '${name.padRight(desc)}'
-//           '${qtyValue.toString().padLeft(qty)}'
-//           '${rateValue.toStringAsFixed(2).padLeft(rate)}'
-//           '${amtValue.toStringAsFixed(2).padLeft(amt)}',
-//           styles: smallFontLeft,
-//         );
-//       }
-
-//       // Calculate GST
-//       double subtotal = widget.total ?? 0;
-//       double cgst = subtotal * 0.025; // 2.5% CGST
-//       double sgst = subtotal * 0.025; // 2.5% SGST
-//       double grandTotal = subtotal + cgst + sgst;
-
-//       // Subtotal
-//       bytes += generator.text(separator, styles: smallFontLeft);
-//       bytes += generator.text(
-//         'SUBTOTAL'.padRight(totalCols - 8) +
-//             subtotal.toStringAsFixed(2).padLeft(8),
-//         styles: smallFontLeft,
-//       );
-
-//       // CGST
-//       bytes += generator.text(
-//         'CGST (2.5%)'.padRight(totalCols - 8) +
-//             cgst.toStringAsFixed(2).padLeft(8),
-//         styles: smallFontLeft,
-//       );
-
-//       // SGST
-//       bytes += generator.text(
-//         'SGST (2.5%)'.padRight(totalCols - 8) +
-//             sgst.toStringAsFixed(2).padLeft(8),
-//         styles: smallFontLeft,
-//       );
-
-//       // Grand Total
-//       bytes += generator.text(separator, styles: smallFontLeft);
-//       bytes += generator.text(
-//         'GRAND TOTAL'.padRight(totalCols - 8) +
-//             grandTotal.toStringAsFixed(2).padLeft(8),
-//         styles: smallFontLeft,
-//       );
-
-//       // Footer
-//       bytes += generator.text(separator, styles: smallFontLeft);
-//       bytes +=
-//           generator.text('Thank you! Visit Again', styles: smallFontCenter);
-//       bytes += generator.cut();
-
-//       await _printEscPos(bytes, generator);
-//     } catch (e) {
-//       debugPrint("Printing error: $e");
-//     }
-//   }
-
-//   Future<void> _printEscPos(
-//     List<int> bytes,
-//     Generator generator,
-//   ) async {
-//     final printprovider = Provider.of<PrintProvider>(context, listen: false);
-//     if (selectedPrinter == null) return;
-//     var bluetoothPrinter = selectedPrinter!;
-//     try {
-//       switch (bluetoothPrinter.typePrinter) {
-//         case PrinterType.usb:
-//           await printerManager.connect(
-//               type: bluetoothPrinter.typePrinter,
-//               model: UsbPrinterInput(
-//                   name: bluetoothPrinter.deviceName,
-//                   productId: bluetoothPrinter.productId,
-//                   vendorId: bluetoothPrinter.vendorId));
-//           pendingTask = null;
-//           break;
-//         case PrinterType.bluetooth:
-//           await printerManager.connect(
-//               type: bluetoothPrinter.typePrinter,
-//               model: BluetoothPrinterInput(
-//                   name: bluetoothPrinter.deviceName,
-//                   address: bluetoothPrinter.address!,
-//                   isBle: bluetoothPrinter.isBle ?? false,
-//                   autoConnect: _reconnect));
-
-//           break;
-//         case PrinterType.network:
-//           await printerManager.connect(
-//               type: bluetoothPrinter.typePrinter,
-//               model: TcpPrinterInput(ipAddress: bluetoothPrinter.address!));
-//           break;
-//         default:
-//       }
-//       await printerManager.send(
-//           type: bluetoothPrinter.typePrinter, bytes: bytes);
-//       printprovider.clearCart();
-//     } catch (e) {
-//       print('Printing error: $e');
-//     }
-//   }
-
-//   Widget buildPaperSizeSelector() {
-//     return DropdownButtonFormField<PaperSize>(
-//       value: selectedPaperSize,
-//       decoration: const InputDecoration(
-//         prefixIcon: Icon(
-//           Icons.receipt_long,
-//           size: 24,
-//         ),
-//         labelText: "Paper Size",
-//         labelStyle: TextStyle(fontSize: 18.0),
-//         focusedBorder: InputBorder.none,
-//         enabledBorder: InputBorder.none,
-//       ),
-//       items: const <DropdownMenuItem<PaperSize>>[
-//         DropdownMenuItem(
-//           value: PaperSize.mm58,
-//           child: Text("58mm"),
-//         ),
-//         DropdownMenuItem(
-//           value: PaperSize.mm80,
-//           child: Text("80mm"),
-//         ),
-//       ],
-//       onChanged: (PaperSize? value) {
-//         if (value != null) {
-//           setState(() {
-//             selectedPaperSize = value;
-//           });
-//         }
-//       },
-//     );
-//   }
-
-//   _connectDevice() async {
-//     _isConnected = false;
-//     if (selectedPrinter == null) return;
-//     switch (selectedPrinter!.typePrinter) {
-//       case PrinterType.usb:
-//         await printerManager.connect(
-//             type: selectedPrinter!.typePrinter,
-//             model: UsbPrinterInput(
-//                 name: selectedPrinter!.deviceName,
-//                 productId: selectedPrinter!.productId,
-//                 vendorId: selectedPrinter!.vendorId));
-//         _isConnected = true;
-//         break;
-//       case PrinterType.bluetooth:
-//         await printerManager.connect(
-//             type: selectedPrinter!.typePrinter,
-//             model: BluetoothPrinterInput(
-//                 name: selectedPrinter!.deviceName,
-//                 address: selectedPrinter!.address!,
-//                 isBle: selectedPrinter!.isBle ?? false,
-//                 autoConnect: _reconnect));
-//         break;
-//       case PrinterType.network:
-//         await printerManager.connect(
-//             type: selectedPrinter!.typePrinter,
-//             model: TcpPrinterInput(ipAddress: selectedPrinter!.address!));
-//         _isConnected = true;
-//         break;
-//       default:
-//     }
-
-//     setState(() {});
-//   }
-
-//   @override
-//   Widget build(BuildContext context) {
-//     final printprovider = Provider.of<PrintProvider>(
-//       context,
-//     );
-//     return Scaffold(
-//       appBar: AppBar(
-//         title: const Text('Print Receipt'),
-//       ),
-//       body: _isLoading
-//           ? const Center(
-//               child: CircularProgressIndicator(),
-//             )
-//           : Center(
-//               child: Container(
-//                 height: double.infinity,
-//                 constraints: const BoxConstraints(maxWidth: 400),
-//                 child: SingleChildScrollView(
-//                   padding: EdgeInsets.zero,
-//                   child: Column(
-//                     children: [
-//                       Padding(
-//                         padding: const EdgeInsets.all(8.0),
-//                         child: buildPaperSizeSelector(),
-//                       ),
-//                       Padding(
-//                         padding: const EdgeInsets.all(8.0),
-//                         child: Row(
-//                           children: [
-//                             Expanded(
-//                               child: ElevatedButton(
-//                                 style: ElevatedButton.styleFrom(
-//                                   foregroundColor: Colors.black,
-//                                   backgroundColor:
-//                                       const Color.fromARGB(255, 125, 237, 155),
-//                                   shape: RoundedRectangleBorder(
-//                                     borderRadius: BorderRadius.circular(30),
-//                                   ),
-//                                 ),
-//                                 onPressed:
-//                                     selectedPrinter == null || _isConnected
-//                                         ? null
-//                                         : () {
-//                                             _connectDevice();
-//                                           },
-//                                 child: const Text("Connect",
-//                                     textAlign: TextAlign.center),
-//                               ),
-//                             ),
-//                             const SizedBox(width: 8),
-//                             Expanded(
-//                               child: ElevatedButton(
-//                                 style: ElevatedButton.styleFrom(
-//                                   foregroundColor: Colors.black,
-//                                   backgroundColor:
-//                                       const Color.fromARGB(255, 125, 237, 155),
-//                                   shape: RoundedRectangleBorder(
-//                                     borderRadius: BorderRadius.circular(30),
-//                                   ),
-//                                 ),
-//                                 onPressed: selectedPrinter == null ||
-//                                         !_isConnected
-//                                     ? null
-//                                     : () {
-//                                         if (selectedPrinter != null) {
-//                                           printerManager.disconnect(
-//                                               type:
-//                                                   selectedPrinter!.typePrinter);
-//                                         }
-//                                         setState(() {
-//                                           _isConnected = false;
-//                                         });
-//                                       },
-//                                 child: const Text("Disconnect",
-//                                     textAlign: TextAlign.center),
-//                               ),
-//                             ),
-//                           ],
-//                         ),
-//                       ),
-//                       DropdownButtonFormField<PrinterType>(
-//                         value: defaultPrinterType,
-//                         decoration: const InputDecoration(
-//                           prefixIcon: Icon(
-//                             Icons.print,
-//                             size: 24,
-//                           ),
-//                           labelText: "Type Printer Device",
-//                           labelStyle: TextStyle(fontSize: 18.0),
-//                           focusedBorder: InputBorder.none,
-//                           enabledBorder: InputBorder.none,
-//                         ),
-//                         items: <DropdownMenuItem<PrinterType>>[
-//                           if (Platform.isAndroid || Platform.isIOS)
-//                             const DropdownMenuItem(
-//                               value: PrinterType.bluetooth,
-//                               child: Text("bluetooth"),
-//                             ),
-//                           if (Platform.isAndroid || Platform.isWindows)
-//                             const DropdownMenuItem(
-//                               value: PrinterType.usb,
-//                               child: Text("usb"),
-//                             ),
-//                           const DropdownMenuItem(
-//                             value: PrinterType.network,
-//                             child: Text("Wifi"),
-//                           ),
-//                         ],
-//                         onChanged: (PrinterType? value) {
-//                           setState(() {
-//                             if (value != null) {
-//                               setState(() {
-//                                 defaultPrinterType = value;
-//                                 selectedPrinter = null;
-//                                 _isBle = false;
-//                                 _isConnected = false;
-//                                 _scan();
-//                               });
-//                             }
-//                           });
-//                         },
-//                       ),
-//                       Visibility(
-//                         visible: defaultPrinterType == PrinterType.bluetooth &&
-//                             Platform.isAndroid,
-//                         child: SwitchListTile.adaptive(
-//                           contentPadding:
-//                               const EdgeInsets.only(bottom: 20.0, left: 20),
-//                           title: const Text(
-//                             "reconnect",
-//                             textAlign: TextAlign.start,
-//                             style: TextStyle(fontSize: 19.0),
-//                           ),
-//                           value: _reconnect,
-//                           onChanged: (bool? value) {
-//                             setState(() {
-//                               _reconnect = value ?? false;
-//                             });
-//                           },
-//                         ),
-//                       ),
-//                       Column(
-//                           children: devices
-//                               .map(
-//                                 (device) => ListTile(
-//                                   title: Text('${device.deviceName}'),
-//                                   subtitle: Platform.isAndroid &&
-//                                           defaultPrinterType == PrinterType.usb
-//                                       ? null
-//                                       : Visibility(
-//                                           visible: !Platform.isWindows,
-//                                           child: Text("${device.address}")),
-//                                   onTap: () {
-//                                     selectDevice(device);
-//                                   },
-//                                   leading: selectedPrinter != null &&
-//                                           ((device.typePrinter ==
-//                                                           PrinterType.usb &&
-//                                                       Platform.isWindows
-//                                                   ? device.deviceName ==
-//                                                       selectedPrinter!
-//                                                           .deviceName
-//                                                   : device.vendorId != null &&
-//                                                       selectedPrinter!
-//                                                               .vendorId ==
-//                                                           device.vendorId) ||
-//                                               (device.address != null &&
-//                                                   selectedPrinter!.address ==
-//                                                       device.address))
-//                                       ? const Icon(
-//                                           Icons.check,
-//                                           color: Colors.green,
-//                                         )
-//                                       : null,
-//                                   trailing: OutlinedButton(
-//                                     onPressed: selectedPrinter == null ||
-//                                             device.deviceName !=
-//                                                 selectedPrinter?.deviceName
-//                                         ? null
-//                                         : () async {
-//                                             _printReceiveTest();
-//                                             printprovider.clearCart();
-//                                             Navigator.pop(context);
-//                                           },
-//                                     child: const Padding(
-//                                       padding: EdgeInsets.symmetric(
-//                                           vertical: 2, horizontal: 20),
-//                                       child: Text("Print Receipt",
-//                                           textAlign: TextAlign.center),
-//                                     ),
-//                                   ),
-//                                 ),
-//                               )
-//                               .toList()),
-//                       Visibility(
-//                         visible: defaultPrinterType == PrinterType.network &&
-//                             Platform.isWindows,
-//                         child: Padding(
-//                           padding: const EdgeInsets.only(top: 10.0),
-//                           child: TextFormField(
-//                             controller: _ipController,
-//                             keyboardType: const TextInputType.numberWithOptions(
-//                                 signed: true),
-//                             decoration: const InputDecoration(
-//                               label: Text("Ip Address"),
-//                               prefixIcon: Icon(Icons.wifi, size: 24),
-//                             ),
-//                             onChanged: setIpAddress,
-//                           ),
-//                         ),
-//                       ),
-//                       Visibility(
-//                         visible: defaultPrinterType == PrinterType.network &&
-//                             Platform.isWindows,
-//                         child: Padding(
-//                           padding: const EdgeInsets.only(top: 10.0),
-//                           child: TextFormField(
-//                             controller: _portController,
-//                             keyboardType: const TextInputType.numberWithOptions(
-//                                 signed: true),
-//                             decoration: const InputDecoration(
-//                               label: Text("Port"),
-//                               prefixIcon:
-//                                   Icon(Icons.numbers_outlined, size: 24),
-//                             ),
-//                             onChanged: setPort,
-//                           ),
-//                         ),
-//                       ),
-//                       Visibility(
-//                         visible: defaultPrinterType == PrinterType.network &&
-//                             Platform.isWindows,
-//                         child: Padding(
-//                           padding: const EdgeInsets.only(top: 10.0),
-//                           child: OutlinedButton(
-//                             onPressed: () async {
-//                               if (_ipController.text.isNotEmpty) {
-//                                 setIpAddress(_ipController.text);
-//                               }
-//                               _printReceiveTest();
-//                               printprovider.clearCart();
-//                             },
-//                             child: const Padding(
-//                               padding: EdgeInsets.symmetric(
-//                                   vertical: 4, horizontal: 50),
-//                               child: Text("Print test ticket",
-//                                   textAlign: TextAlign.center),
-//                             ),
-//                           ),
-//                         ),
-//                       )
-//                     ],
-//                   ),
-//                 ),
-//               ),
-//             ),
-//     );
-//   }
-// }
-
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
 import 'package:flutter/material.dart';
+import 'package:pos/core/widgets/text.dart';
 import 'package:flutter_pos_printer_platform_image_3/flutter_pos_printer_platform_image_3.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pos/data/datasources/smart_database_service.dart';
 import 'package:image/image.dart' as img_lib;
 import 'package:http/http.dart' as http;
+import 'package:pos/core/utils/snackbar_utils.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:pos/data/services/order_service.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
+import '../../../../../core/utils/snackbar_utils.dart';
 
-import '../../../../../core/network/connection_monitor.dart';
 import '../../../../../data/datasources/offline_bill_manager.dart';
 
 class DirectPrintHelper {
@@ -768,38 +31,57 @@ class DirectPrintHelper {
     String logoUrl,
     Generator generator,
   ) async {
+    if (logoUrl.isEmpty) return [];
+
     try {
       final dir = await getApplicationDocumentsDirectory();
-
-      // 🔥 URL-based filename
       final fileName = 'printer_logo_${logoUrl.hashCode}.png';
       final file = File('${dir.path}/$fileName');
 
       img_lib.Image? image;
 
-      // ✅ Offline-first
+      // ✅ Offline-first: Try local cache
       if (await file.exists()) {
-        final bytes = await file.readAsBytes();
-        image = img_lib.decodeImage(bytes);
+        try {
+          final bytes = await file.readAsBytes();
+          image = img_lib.decodeImage(bytes);
+        } catch (e) {
+          debugPrint("Failed to decode cached logo: $e");
+          await file.delete(); // Delete corrupted file
+        }
       }
 
-      // 🌐 Download only if missing
-      if (image == null && logoUrl.isNotEmpty) {
-        final response = await http.get(Uri.parse(logoUrl));
-        if (response.statusCode == 200) {
-          await file.writeAsBytes(response.bodyBytes);
-          image = img_lib.decodeImage(response.bodyBytes);
+      // 🌐 Download only if missing or decode failed
+      if (image == null) {
+        try {
+          // Add timeout to prevent hanging the print process
+          final response = await http.get(Uri.parse(logoUrl)).timeout(
+                const Duration(seconds: 5),
+              );
+
+          if (response.statusCode == 200) {
+            await file.writeAsBytes(response.bodyBytes);
+            image = img_lib.decodeImage(response.bodyBytes);
+          }
+        } catch (e) {
+          debugPrint("Logo download/decode failed: $e");
         }
       }
 
       if (image == null) return [];
 
-      final resized = img_lib.copyResize(image, width: 200);
+      // Ensure width is compatible with thermal printers (multiple of 8)
+      // We use a reasonable width for 58mm/80mm printers
+      const targetWidth = 200;
+      final int normalizedWidth = (targetWidth / 8).round() * 8;
+
+      // Processing image for thermal printing
+      final resized = img_lib.copyResize(image, width: normalizedWidth);
       final mono = img_lib.grayscale(resized);
 
       return generator.imageRaster(mono, align: PosAlign.center);
     } catch (e) {
-      debugPrint("Logo load failed: $e");
+      debugPrint("Logo processing failed: $e");
       return [];
     }
   }
@@ -830,11 +112,35 @@ class DirectPrintHelper {
     double discountAmount = 0.0,
     String? paymentType,
     String? orderType,
+    String? customerId,
     bool saveBill = false,
   }) async {
     try {
       // Use provided receipt number or generate a new one
-      final String finalReceiptNo = receiptNo ?? generateReceiptNumber();
+      String finalReceiptNo = receiptNo ?? generateReceiptNumber();
+
+      if (saveBill) {
+        finalReceiptNo = await saveBillData(
+          adminUid: adminUid,
+          receiptNo: finalReceiptNo,
+          items: items,
+          subTotal: subTotal,
+          tableNumber: tableNumber,
+          taxEnabled: taxEnabled,
+          cgstPercent: cgstPercent,
+          sgstPercent: sgstPercent,
+          customerName: customerName,
+          customerPhone: customerPhone,
+          customerGst: customerGst,
+          customerAddress: customerAddress,
+          customerNote: customerNote,
+          discountPercent: discountPercent,
+          discountAmount: discountAmount,
+          paymentType: paymentType,
+          orderType: orderType,
+          customerId: customerId,
+        );
+      }
 
       final profile = await CapabilityProfile.load(name: 'XP-N160I');
       final Generator generator = Generator(paperSize, profile);
@@ -870,18 +176,19 @@ class DirectPrintHelper {
       // Small font style
       const smallFontCenter = PosStyles(align: PosAlign.center);
       const smallFontLeft = PosStyles(align: PosAlign.left);
-      final qrSize = is58mm ? QRSize.Size2 : QRSize.Size4;
 
       // Header
 
+      // Header logo
       if (logoUrl.isNotEmpty) {
-        // final logoBytes = await _loadLogoForPrinter(logoUrl, generator);
         final logoBytes = await loadLogoOfflineSafe(logoUrl, generator);
-
-        bytes += logoBytes;
-        bytes += generator.feed(is58mm ? 2 : 0);
+        if (logoBytes.isNotEmpty) {
+          bytes += logoBytes;
+          bytes += generator.feed(is58mm ? 1 : 0);
+        }
       }
       bytes += generator.feed(1);
+
       bytes += generator.text(shopName, styles: const PosStyles(bold: true, align: PosAlign.center));
       bytes += generator.text(address, styles: smallFontCenter);
       bytes += generator.text("Mob.No : $contact", styles: smallFontCenter);
@@ -952,8 +259,8 @@ class DirectPrintHelper {
         bytes += generator.text(
           '${nameLines.first.padRight(desc)}'
           '${"x ${qtyValue.toString()}".padLeft(qty)}'
-          '${fmt(rateValue).padLeft(rate)}'
-          '${amtValue.toString().padLeft(amt)}',
+          '${rateValue.toStringAsFixed(1).padLeft(rate)}'
+          '${amtValue.toStringAsFixed(1).padLeft(amt)}',
           styles: smallFontLeft,
         );
 
@@ -991,7 +298,14 @@ class DirectPrintHelper {
       double subtotal = subTotal;
       double addons = addonsTotal;
       double taxTotal = 0;
-      double grandTotal = subtotal + addons;
+
+      if (taxEnabled) {
+        double cgst = subtotal * (cgstPercent / 100);
+        double sgst = subtotal * (sgstPercent / 100);
+        taxTotal = cgst + sgst;
+      }
+
+      double grandTotal = subtotal + addons + taxTotal - discountAmount;
 
       // Total Qty
       bytes += generator.text(separator, styles: smallFontLeft);
@@ -1008,33 +322,41 @@ class DirectPrintHelper {
         styles: smallFontLeft,
       );
 
-      // Only show tax if enabled
-      if (taxEnabled) {
-        double cgst = subtotal * (cgstPercent / 100);
-        double sgst = subtotal * (sgstPercent / 100);
-        taxTotal = cgst + sgst;
-        grandTotal += taxTotal;
-
-        // CGST
-        bytes += generator.text(
-          'CGST (${cgstPercent.toStringAsFixed(1)}%)'.padRight(totalCols - 8) + cgst.toStringAsFixed(2).padLeft(8),
-          styles: smallFontLeft,
-        );
-
-        // SGST
-        bytes += generator.text(
-          'SGST (${sgstPercent.toStringAsFixed(1)}%)'.padRight(totalCols - 8) + sgst.toStringAsFixed(2).padLeft(8),
-          styles: smallFontLeft,
-        );
-      }
+      // Add-ons
       if (addonsTotal > 0) {
         bytes += generator.text('ADD-ONS'.padRight(totalCols - 8) + fmt(addonsTotal).padLeft(8));
       }
 
+      // GST Lines (Only if enabled and > 0%)
+      if (taxEnabled) {
+        if (cgstPercent > 0) {
+          double cgst = subtotal * (cgstPercent / 100);
+          bytes += generator.text(
+            'CGST (${cgstPercent.toStringAsFixed(1)}%)'.padRight(totalCols - 8) + cgst.toStringAsFixed(2).padLeft(8),
+            styles: smallFontLeft,
+          );
+        }
+
+        if (sgstPercent > 0) {
+          double sgst = subtotal * (sgstPercent / 100);
+          bytes += generator.text(
+            'SGST (${sgstPercent.toStringAsFixed(1)}%)'.padRight(totalCols - 8) + sgst.toStringAsFixed(2).padLeft(8),
+            styles: smallFontLeft,
+          );
+        }
+      }
+
+      // Discount
+      if (discountAmount > 0) {
+        bytes += generator.text(
+          'DISCOUNT'.padRight(totalCols - 8) + '-${discountAmount.toStringAsFixed(2)}'.padLeft(8),
+          styles: smallFontLeft,
+        );
+      }
       // Grand Total
       bytes += generator.text(separator, styles: smallFontLeft);
 
-      bytes += generator.text('GRAND TOTAL'.padRight(totalCols - 8) + fmt(grandTotal).padLeft(8),
+      bytes += generator.text('GRAND TOTAL'.padRight(totalCols - 8) + grandTotal.toStringAsFixed(1).padLeft(8),
           styles: const PosStyles(bold: true));
       bytes += generator.text(separator, styles: smallFontLeft);
 
@@ -1060,7 +382,7 @@ class DirectPrintHelper {
 
         bytes += generator.qrcode(
           upiUrl,
-          size: is58mm ? QRSize.Size6 : QRSize.Size3,
+          size: is58mm ? QRSize.size6 : QRSize.size3,
           align: PosAlign.center,
         );
         bytes += generator.feed(1);
@@ -1080,65 +402,20 @@ class DirectPrintHelper {
         bytes: bytes,
       );
 
-      // Only save bill if saveBill flag is true (to avoid duplicate saves)
-      // When called from bill_cart_widget.dart, bill is already saved via SmartDatabaseService
-
-      if (saveBill) {
-        await saveBillData(
-          adminUid: adminUid,
-          receiptNo: finalReceiptNo,
-          items: items,
-          subTotal: subTotal,
-          tableNumber: tableNumber,
-          taxEnabled: taxEnabled,
-          cgstPercent: cgstPercent,
-          sgstPercent: sgstPercent,
-          customerName: customerName,
-          customerPhone: customerPhone,
-          customerGst: customerGst,
-          customerAddress: customerAddress,
-          customerNote: customerNote,
-          discountPercent: discountPercent,
-          discountAmount: discountAmount,
-          paymentType: paymentType,
-          orderType: orderType,
-        );
-      }
+      // We already called saveBillData at the top of this function!
 
       if (context.mounted) {
-        final message = isConnected
-            ? 'Receipt printed & saved online! Receipt No: $receiptNo'
-            : 'Receipt printed & saved offline! Will sync when online. Receipt No: $receiptNo';
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(message),
-            backgroundColor: isConnected ? Colors.green : Colors.orange,
-            duration: const Duration(seconds: 4),
-          ),
-        );
-        // ScaffoldMessenger.of(context).showSnackBar(
-        //   SnackBar(
-        //     content: Text('Receipt printed! Receipt No: $finalReceiptNo'),
-        //     backgroundColor: Colors.green,
-        //     duration: const Duration(seconds: 2),
-        //   ),
-        // );
+        SnackBarUtils.showSuccess(context, "Printed Successfully");
       }
     } catch (e) {
       debugPrint("Printing error: $e");
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Printing failed: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        SnackBarUtils.showError(context, 'Printing failed: $e');
       }
     }
   }
 
-  Future<void> saveBillData({
+  Future<String> saveBillData({
     required String adminUid,
     required String receiptNo,
     required List<Map<String, dynamic>> items,
@@ -1156,12 +433,14 @@ class DirectPrintHelper {
     double discountAmount = 0.0,
     String? paymentType,
     String? orderType,
+    String? customerId,
   }) async {
     try {
       final now = DateTime.now();
 
       final List<Map<String, dynamic>> itemsData = items.map((item) {
         return {
+          'productId': item['productId'] ?? '',
           'name': item['name'] ?? '',
           'price': double.tryParse(item['price'].toString()) ?? 0.0,
           'quantity': int.tryParse(item['quantity'].toString()) ?? 1,
@@ -1182,17 +461,52 @@ class DirectPrintHelper {
       // Calculate final total with discount
       double finalTotal = totalWithTax - discountAmount;
 
+      String finalReceiptNo = receiptNo;
+      String? orderId;
+
+      // 🔥 Try to create the order via OrderService first to get the backend-generated Bill Number
+      try {
+        final isOnlineStatus = await isOnline();
+        if (isOnlineStatus) {
+          final order = await OrderService().createOrder(
+            adminId: adminUid,
+            billNumber: receiptNo,
+            customerId: (customerId == null || customerId.isEmpty) ? null : customerId,
+            customerName: customerName,
+            customerPhone: customerPhone,
+            items: itemsData,
+            discount: discountAmount,
+            tax: cgstAmount + sgstAmount,
+            paymentMethod: paymentType,
+            orderType: orderType,
+            tableNumber: tableNumber,
+            notes: customerNote,
+            paymentStatus: 'Paid',
+            createKot: (tableNumber == null || tableNumber == 'N/A' || tableNumber == ''),
+          );
+          if (order.billNumber.isNotEmpty) {
+            finalReceiptNo = order.billNumber;
+          }
+          if (order.id != null) {
+            orderId = order.id;
+          }
+        }
+      } catch (e) {
+        debugPrint('[SaveBillData] Failed to create order via OrderService: $e');
+        // We don't rethrow here because we want to gracefully fallback to offline local saving
+      }
+
       // Prepare bill data for SmartDatabaseService
-      // Note: items must be JSON encoded string for SQLite storage
-      // Schema: id, admin_uid, customer_phone, items, total_amount, bill_date, created_at, updated_at, sync_status, firebase_id
       final billData = {
-        'id': receiptNo,
-        'bill_date': now.millisecondsSinceEpoch, // Store as integer for proper sorting
-        'items': jsonEncode(itemsData), // Convert to JSON string for SQLite
+        'id': finalReceiptNo,
+        'firebase_id': orderId,
+        'customer_id': (customerId == null || customerId.isEmpty) ? null : customerId,
+        'bill_date': now.millisecondsSinceEpoch,
+        'items': jsonEncode(itemsData),
         'total_amount': finalTotal,
         'sub_total': subTotal,
         'table_number': tableNumber ?? 'N/A',
-        'tax_enabled': taxEnabled ? 1 : 0, // SQLite doesn't support bool, use int
+        'tax_enabled': taxEnabled ? 1 : 0,
         'cgst_percent': cgstPercent,
         'sgst_percent': sgstPercent,
         'cgst_amount': cgstAmount,
@@ -1210,11 +524,9 @@ class DirectPrintHelper {
       };
 
       // Save using SmartDatabaseService (handles online/offline automatically)
-      // This already saves to Firebase when online, no need for separate Firebase call
       await _databaseService.saveBill(adminUid, billData);
 
-      debugPrint(
-          '[ReceiptPreview] Bill saved successfully - receiptNo: $receiptNo (${_databaseService.isOnline ? "online" : "offline"})');
+      return finalReceiptNo;
     } catch (e) {
       debugPrint('Error saving bill: $e');
       rethrow;
@@ -1468,53 +780,64 @@ class DirectPrintHelper {
         );
       }
 
-      bytes += generator.text(separator, styles: smallFontLeft);
+      bytes += generator.hr();
 
-      int billCol = is58mm ? 4 : 10;
-      int dateCol = is58mm ? 7 : 12;
-      int payCol = is58mm ? 9 : 14;
-      int amtCol = is58mm ? 11 : 10;
-      bytes += generator.text(
-        '${"No".padRight(billCol)}'
-        '${"Date".padLeft(dateCol)}'
-        '${"Mode".padLeft(payCol)}'
-        '${"Amt".padLeft(amtCol)}',
-        styles: smallFontLeft,
-      );
+      // Table Header using Row for perfect alignment
+      bytes += generator.row([
+        PosColumn(text: 'Bill', width: 4, styles: const PosStyles(bold: true)),
+        PosColumn(text: 'Date', width: 4, styles: const PosStyles(bold: true)),
+        PosColumn(text: 'Amt', width: 4, styles: const PosStyles(bold: true, align: PosAlign.right)),
+      ]);
 
-      bytes += generator.text(separator, styles: smallFontLeft);
+      bytes += generator.hr();
 
       // ===== BILLS =====
       for (final bill in bills) {
-        bytes += generator.text(
-          '${bill['billNo'].toString().padRight(billCol)}'
-          '${bill['date'].padLeft(dateCol)}'
-          '${bill['paymentType'].toString().toUpperCase().padLeft(payCol)}'
-          '${bill['amount'].toStringAsFixed(0).padLeft(amtCol)}',
-          styles: smallFontLeft,
-        );
+        bytes += generator.row([
+          PosColumn(text: bill['billNo'].toString(), width: 4),
+          PosColumn(text: bill['date'], width: 4),
+          PosColumn(
+            text: bill['amount'].toStringAsFixed(0),
+            width: 4,
+            styles: const PosStyles(align: PosAlign.right),
+          ),
+        ]);
+        // Optional: Small line for Mode if needed, or just keep it simple
       }
 
-      bytes += generator.text(separator, styles: smallFontLeft);
+      bytes += generator.hr();
 
       // ===== TOTALS =====
       double grandTotal = totalPaid + totalDue;
 
-      bytes += generator.text(
-        'GRAND TOTAL'.padRight(totalCols - 10) + grandTotal.toStringAsFixed(0).padLeft(10),
-        styles: const PosStyles(bold: true),
-      );
+      bytes += generator.row([
+        PosColumn(text: 'PAID', width: 6, styles: const PosStyles(bold: true)),
+        PosColumn(
+          text: totalPaid.toStringAsFixed(2),
+          width: 6,
+          styles: const PosStyles(align: PosAlign.right, bold: true),
+        ),
+      ]);
 
-      bytes += generator.text(separator, styles: smallFontLeft);
-      bytes += generator.text(
-        'Paid'.padRight(totalCols - 10) + totalPaid.toStringAsFixed(0).padLeft(10),
-        styles: smallFontLeft,
-      );
+      bytes += generator.row([
+        PosColumn(text: 'DUE', width: 6, styles: const PosStyles(bold: true)),
+        PosColumn(
+          text: totalDue.toStringAsFixed(2),
+          width: 6,
+          styles: const PosStyles(align: PosAlign.right, bold: true),
+        ),
+      ]);
 
-      bytes += generator.text(
-        'Due'.padRight(totalCols - 10) + totalDue.toStringAsFixed(0).padLeft(10),
-        styles: smallFontLeft,
-      );
+      bytes += generator.hr();
+
+      bytes += generator.row([
+        PosColumn(text: 'GRAND TOTAL', width: 6, styles: const PosStyles(bold: true, height: PosTextSize.size1)),
+        PosColumn(
+          text: grandTotal.toStringAsFixed(2),
+          width: 6,
+          styles: const PosStyles(align: PosAlign.right, bold: true, height: PosTextSize.size1),
+        ),
+      ]);
 
       // ===== FOOTER =====
       bytes += generator.text(separator, styles: smallFontLeft);
@@ -1529,22 +852,12 @@ class DirectPrintHelper {
       );
 
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Customer report printed successfully'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        SnackBarUtils.showSuccess(context, 'Customer report printed successfully');
       }
     } catch (e) {
       debugPrint('Customer print error: $e');
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Print failed: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        SnackBarUtils.showError(context, 'Print failed: $e');
       }
     }
   }
@@ -1552,13 +865,10 @@ class DirectPrintHelper {
   /// Check if device is currently online
   static Future<bool> isOnline() async {
     try {
-      final connectionMonitor = ConnectionMonitor();
-      await connectionMonitor.initialize();
-      final isConnected = connectionMonitor.isConnected;
-      connectionMonitor.dispose();
-      return isConnected;
+      final connectivityResult = await Connectivity().checkConnectivity();
+      return connectivityResult != ConnectivityResult.none;
     } catch (e) {
-      debugPrint('Error checking online status: $e');
+      debugPrint('Error checking connectivity status: $e');
       return false;
     }
   }
