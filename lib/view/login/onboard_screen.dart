@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:pos/core/widgets/text.dart';
-import 'package:pos/view/login/screens/auth_landing_screen.dart';
+import 'package:pos/view/login/login.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:math' as math;
@@ -33,12 +33,6 @@ class OnboardingScreenState extends State<OnboardingScreen> with TickerProviderS
       "title": "UPI & Card\nPayments Made Easy",
       "subtitle": "Accept secure payments with Razorpay. Fast transactions with automatic reconciliation.",
       "button": "Continue",
-    },
-    {
-      "image": "assets/images/richpos.png",
-      "title": "Trusted POS\nHardware Support",
-      "subtitle": "Reliable hardware solutions designed to keep your business running smoothly.",
-      "button": "Finish Setup",
     },
   ];
 
@@ -77,7 +71,7 @@ class OnboardingScreenState extends State<OnboardingScreen> with TickerProviderS
       Navigator.pushReplacement(
         context,
         PageRouteBuilder(
-          pageBuilder: (context, animation, secondaryAnimation) => const AuthLandingScreen(),
+          pageBuilder: (context, animation, secondaryAnimation) => const Login(),
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
             return FadeTransition(opacity: animation, child: child);
           },

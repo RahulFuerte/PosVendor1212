@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:pos/core/widgets/text.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 
 // Package imports:
 import 'package:cached_network_image/cached_network_image.dart';
@@ -23,20 +24,16 @@ import 'package:pos/core/utils/price_utils.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class EditBillReceiptScreen extends StatefulWidget {
-  final String AdminUid;
-  final String phoneNo;
-
-  const EditBillReceiptScreen({
-    Key? key,
-    required this.AdminUid,
-    required this.phoneNo,
-  }) : super(key: key);
+  const EditBillReceiptScreen({Key? key}) : super(key: key);
 
   @override
   State<EditBillReceiptScreen> createState() => _EditBillReceiptScreenState();
 }
 
 class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
+  String phoneNo = '';
+  String adminUid = '';
+
   final _formKey = GlobalKey<FormState>();
   final _shopNameController = TextEditingController();
   final _contactController = TextEditingController();
@@ -55,17 +52,29 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
   String? _city;
   double? _latitude;
   double? _longitude;
+  String _businessCategory = 'Food';
+  DateTime? _registerTime;
+  final List<String> _categories = ['Food', 'Retail'];
 
   @override
   void initState() {
     super.initState();
+    _loadSessionData();
+  }
+
+  Future<void> _loadSessionData() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      phoneNo = prefs.getString('phoneNumber') ?? prefs.getString('phoneNo') ?? '';
+      adminUid = prefs.getString('adminUid') ?? '';
+    });
     _loadSettings();
   }
 
   Future<void> _loadSettings() async {
     setState(() => _isLoading = true);
     try {
-      final sqliteData = await SQLiteHelper().getUserData(widget.phoneNo);
+      final sqliteData = await SQLiteHelper().getUserData(phoneNo);
       final prefs = await SharedPreferences.getInstance();
 
       if (sqliteData != null) {
@@ -79,6 +88,11 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
         _city = sqliteData['city'];
         _latitude = sqliteData['latitude'];
         _longitude = sqliteData['longitude'];
+        _businessCategory = _migrateCategory(sqliteData['businessCategory']);
+        final int? createdAt = sqliteData['createdAt'];
+        if (createdAt != null) {
+          _registerTime = DateTime.fromMillisecondsSinceEpoch(createdAt);
+        }
       } else {
         // Fallback to SharedPreferences if SQLite is empty
         _shopNameController.text = prefs.getString('shopName') ?? '';
@@ -91,6 +105,11 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
         _city = prefs.getString('city');
         _latitude = prefs.getDouble('latitude');
         _longitude = prefs.getDouble('longitude');
+        _businessCategory = _migrateCategory(prefs.getString('businessCategory'));
+        final int? createdAt = prefs.getInt('createdAt');
+        if (createdAt != null) {
+          _registerTime = DateTime.fromMillisecondsSinceEpoch(createdAt);
+        }
       }
     } catch (e) {
       debugPrint('Error loading settings: $e');
@@ -99,6 +118,16 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  String _migrateCategory(String? category) {
+    if (category == null || category == 'Food') return 'Food';
+    if (category == 'Retail') return 'Retail';
+    // Legacy categories go to Retail
+    if (['Clothing', 'Shoe', 'Multiple Category'].contains(category)) {
+      return 'Retail';
+    }
+    return 'Food'; // Default fallback
   }
 
   Future<void> _uploadImageAndSave() async {
@@ -172,13 +201,14 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
       await prefs.setString('fssaiNo', _fssaiNumberController.text.trim());
       await prefs.setString('upiId', _upiIdController.text.trim());
       await prefs.setString('logoUrl', _imageUrl ?? "");
+      await prefs.setString('businessCategory', _businessCategory);
       if (_latitude != null) await prefs.setDouble('latitude', _latitude!);
       if (_longitude != null) await prefs.setDouble('longitude', _longitude!);
 
       // 2. Save to SQLite
       await SQLiteHelper().saveUserData({
-        'phone_number': widget.phoneNo,
-        'admin_uid': widget.AdminUid,
+        'phone_number': phoneNo,
+        'admin_uid': adminUid,
         'shop_name': _shopNameController.text.trim(),
         'shop_contact': _contactController.text.trim(),
         'address': _addressController.text.trim(),
@@ -187,6 +217,7 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
         'upiId': _upiIdController.text.trim(),
         'city': _city ?? prefs.getString('city') ?? "",
         'shop_logo_url': _imageUrl ?? "",
+        'businessCategory': _businessCategory,
         'latitude': _latitude,
         'longitude': _longitude,
       });
@@ -195,7 +226,7 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
       debugPrint('Syncing profile to MongoDB with Location: [$_longitude, $_latitude]');
       await UserService().updateProfile({
         'name': prefs.getString('name') ?? "",
-        'phoneNumber': widget.phoneNo,
+        'phoneNumber': phoneNo,
         'shopName': _shopNameController.text.trim(),
         'address': _addressController.text.trim(),
         'city': _city ?? prefs.getString('city') ?? "",
@@ -205,6 +236,7 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
         'logo_url': _imageUrl ?? "",
         'shopLogoUrl': _imageUrl ?? "",
         'upiId': _upiIdController.text.trim(),
+        'businessCategory': _businessCategory,
         'latitude': _latitude,
         'longitude': _longitude,
         if (_latitude != null && _longitude != null)
@@ -374,6 +406,7 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
         backgroundColor: Colors.white,
         foregroundColor: Colors.black87,
         elevation: 0,
+        scrolledUnderElevation: 0,
         centerTitle: true,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios),
@@ -591,6 +624,30 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
                               validator: (value) {},
                             ),
                             const SizedBox(height: 16),
+
+                            // Business Category Dropdown
+                            _buildDropdownField(
+                              label: 'Business Category',
+                              value: _businessCategory,
+                              items: _categories,
+                              icon: Icons.category,
+                              onChanged: (value) {
+                                if (value != null) {
+                                  setState(() => _businessCategory = value);
+                                }
+                              },
+                            ),
+                            const SizedBox(height: 16),
+
+                            // Register Time Field (Read Only)
+                            if (_registerTime != null) ...[
+                              _buildReadOnlyField(
+                                label: 'Registration Date',
+                                value: DateFormat('dd MMM yyyy, hh:mm a').format(_registerTime!),
+                                icon: Icons.calendar_today,
+                              ),
+                              const SizedBox(height: 16),
+                            ],
 
                             // Address Field
                             _buildTextField(
@@ -936,6 +993,92 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
             alignLabelWithHint: true,
           ),
           validator: validator,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDropdownField({
+    required String label,
+    required String value,
+    required List<String> items,
+    required Function(String?) onChanged,
+    required IconData icon,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        MyText(
+          text: label,
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          color: Colors.black87,
+        ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey[300]!),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: value,
+              isExpanded: true,
+              icon: const Icon(Icons.keyboard_arrow_down_rounded, color: primaryColor),
+              items: items.map((String category) {
+                return DropdownMenuItem(
+                  value: category,
+                  child: MyText(
+                    text: category,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                  ),
+                );
+              }).toList(),
+              onChanged: onChanged,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildReadOnlyField({
+    required String label,
+    required String value,
+    required IconData icon,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        MyText(
+          text: label,
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          color: Colors.black87,
+        ),
+        const SizedBox(height: 8),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          decoration: BoxDecoration(
+            color: Colors.grey[100],
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey[200]!),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, color: Colors.grey[400], size: 20),
+              const SizedBox(width: 12),
+              MyText(
+                text: value,
+                fontSize: 15,
+                color: Colors.grey[600],
+              ),
+            ],
+          ),
         ),
       ],
     );

@@ -131,7 +131,7 @@ class TableProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> setTableOrderId(String tableId, String? orderId) async {
+  Future<void> setTableOrderId(String tableId, String? orderId) async { 
     final index = _tables.indexWhere((element) => element.id == tableId);
     if (index != -1) {
       try {

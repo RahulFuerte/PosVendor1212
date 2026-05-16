@@ -16,20 +16,16 @@ import 'sync_progress_dialog.dart';
 
 /// Comprehensive sync status page for detailed sync management
 class SyncStatusPage extends StatefulWidget {
-  final String adminUid;
-  final String uid;
-
-  const SyncStatusPage({
-    Key? key,
-    required this.adminUid,
-    required this.uid,
-  }) : super(key: key);
+  const SyncStatusPage({Key? key}) : super(key: key);
 
   @override
   State<SyncStatusPage> createState() => _SyncStatusPageState();
 }
 
 class _SyncStatusPageState extends State<SyncStatusPage> {
+  String adminUid = '';
+  String uid = '';
+
   final SyncManager _syncManager = SyncManager();
   final ConnectionMonitor _connectionMonitor = ConnectionMonitor();
 
@@ -148,7 +144,7 @@ class _SyncStatusPageState extends State<SyncStatusPage> {
   Future<void> _performFullSync() async {
     SyncProgressDialog.show(
       context,
-      adminUid: widget.adminUid,
+      adminUid: adminUid,
       onSyncCompleted: () {
         _loadSyncStatistics();
         SnackBarUtils.showSuccess(context, 'Full sync completed successfully');
@@ -496,8 +492,8 @@ class _SyncStatusPageState extends State<SyncStatusPage> {
     return Scaffold(
       backgroundColor: Colors.green[50],
       drawer: MyDrawer(
-        phoneNo: widget.uid,
-        adminPhoneNo: widget.adminUid,
+        phoneNo: uid,
+        adminPhoneNo: adminUid,
       ),
       appBar: AppBar(
         backgroundColor: white,

@@ -3,6 +3,7 @@ import 'package:pos/core/widgets/text.dart';
 import 'package:pos/data/providers/order_type_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:pos/view/home/navigation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class OrderTypeSelector extends StatelessWidget {
   const OrderTypeSelector({super.key});
@@ -12,12 +13,26 @@ class OrderTypeSelector extends StatelessWidget {
     final provider = context.watch<OrderTypeProvider>();
     final selected = provider.orderType;
 
-    return Row(
-      children: [
-        _item(context, "Dine In", OrderType.dineIn, selected),
-        _item(context, "Pick Up", OrderType.pickUp, selected),
-        _item(context, "Delivery", OrderType.delivery, selected),
-      ],
+    return FutureBuilder<SharedPreferences>(
+      future: SharedPreferences.getInstance(),
+      builder: (context, snapshot) {
+        String category = 'Food';
+        if (snapshot.hasData) {
+          category = snapshot.data!.getString('businessCategory') ?? 'Food';
+        }
+
+        if (category != 'Food') {
+          return const SizedBox.shrink();
+        }
+
+        return Row(
+          children: [
+            _item(context, category == 'Food' ? "Dine In" : "In-Store", OrderType.dineIn, selected),
+            _item(context, category == 'Food' ? "Pick Up" : "Takeaway", OrderType.pickUp, selected),
+            _item(context, "Delivery", OrderType.delivery, selected),
+          ],
+        );
+      },
     );
   }
 

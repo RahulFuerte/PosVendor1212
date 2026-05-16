@@ -6,18 +6,19 @@ import 'package:pos/view/home/navigation.dart';
 import 'package:pos/view/home/widgets/order_kot_widgets.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:pos/view/home/widgets/mydrawer.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class KotManagementScreen extends StatefulWidget {
-  final String phoneNo;
-  final String adminUid;
-  final String? role;
-  const KotManagementScreen({super.key, required this.phoneNo, required this.adminUid, this.role});
+  const KotManagementScreen({super.key});
 
   @override
   State<KotManagementScreen> createState() => _KotManagementScreenState();
 }
 
 class _KotManagementScreenState extends State<KotManagementScreen> {
+  String phoneNo = '';
+  String adminUid = '';
+
   List<KotModel> kots = [];
   bool isLoading = false;
   final Set<String> _updatingKotIds = {};
@@ -26,6 +27,15 @@ class _KotManagementScreenState extends State<KotManagementScreen> {
   @override
   void initState() {
     super.initState();
+    _loadSessionData();
+  }
+
+  Future<void> _loadSessionData() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      phoneNo = prefs.getString('phoneNumber') ?? prefs.getString('phoneNo') ?? '';
+      adminUid = prefs.getString('adminUid') ?? '';
+    });
     fetchKOTs();
   }
 
@@ -71,9 +81,10 @@ class _KotManagementScreenState extends State<KotManagementScreen> {
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
       appBar: AppBar(
-        title: const MyText(text: 'Kitchen Order Tickets (KOT)', fontWeight: FontWeight.bold),
-        elevation: 0,
+        title: const MyText(text: 'KOT History'),
         backgroundColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
         foregroundColor: Colors.black,
         actions: [
           IconButton(
@@ -83,9 +94,8 @@ class _KotManagementScreenState extends State<KotManagementScreen> {
         ],
       ),
       drawer: MyDrawer(
-        phoneNo: widget.phoneNo,
-        adminPhoneNo: widget.adminUid,
-        role: widget.role,
+        phoneNo: phoneNo,
+        adminPhoneNo: adminUid,
       ),
       body: isLoading
           ? Center(child: CircularProgressIndicator(color: appbar1))

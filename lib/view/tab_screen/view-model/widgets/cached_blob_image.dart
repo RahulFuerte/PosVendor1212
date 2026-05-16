@@ -3,8 +3,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:pos/core/widgets/text.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:provider/provider.dart';
+import 'package:shimmer/shimmer.dart';
 import '../../../../data/datasources/database_service.dart';
 
 /// A widget that displays images from BLOB cache when available,
@@ -92,7 +92,7 @@ class _CachedBlobImageState extends State<CachedBlobImage> {
 
       // If BLOB not available, check connectivity and try to download
       final isOnline = await databaseService.isOnline();
-      if (isOnline && widget.imageUrl.isNotEmpty && widget.imageUrl != 'N/A') {
+      if (isOnline && widget.imageUrl.isNotEmpty && widget.imageUrl != 'N/A' && widget.imageUrl.startsWith('http')) {
         try {
           final downloadedData = await databaseService.downloadAndCacheImage(
             widget.imageUrl,
@@ -112,14 +112,11 @@ class _CachedBlobImageState extends State<CachedBlobImage> {
         } catch (e) {
           // Handle specific network errors gracefully
           if (e is SocketException) {
-         
           } else {
+            _hasError = true;
           }
-          // Don't set error state here, let CachedNetworkImage handle it
         }
-      } else {
-      
-      }
+      } else {}
 
       // Continue to network image fallback or show appropriate state
       if (mounted) {
@@ -141,13 +138,15 @@ class _CachedBlobImageState extends State<CachedBlobImage> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return widget.placeholder ??
-          Container(
-            width: widget.width,
-            height: widget.height,
-            color: Colors.grey[200],
-            child: const Center(
-              child: CircularProgressIndicator(
-                color: primaryColor,
+          Shimmer.fromColors(
+            baseColor: Colors.grey[300]!,
+            highlightColor: Colors.grey[100]!,
+            child: Container(
+              width: widget.width,
+              height: widget.height,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: widget.borderRadius ?? BorderRadius.zero,
               ),
             ),
           );
@@ -191,7 +190,7 @@ class _CachedBlobImageState extends State<CachedBlobImage> {
     }
 
     // Fallback to network image if BLOB not available
-    if (widget.imageUrl.isNotEmpty && widget.imageUrl != 'N/A') {
+    if (widget.imageUrl.isNotEmpty && widget.imageUrl != 'N/A' && widget.imageUrl.startsWith('http')) {
       return CachedNetworkImage(
         imageUrl: widget.imageUrl,
         width: widget.width,
@@ -212,20 +211,22 @@ class _CachedBlobImageState extends State<CachedBlobImage> {
             : null,
         placeholder: (context, url) =>
             widget.placeholder ??
-            Container(
-              width: widget.width,
-              height: widget.height,
-              color: Colors.grey[200],
-              child: const Center(
-                child: CircularProgressIndicator(),
+            Shimmer.fromColors(
+              baseColor: Colors.grey[300]!,
+              highlightColor: Colors.grey[100]!,
+              child: Container(
+                width: widget.width,
+                height: widget.height,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: widget.borderRadius ?? BorderRadius.zero,
+                ),
               ),
             ),
         errorWidget: (context, url, error) {
           // Log network errors for debugging
           if (error is SocketException) {
-          
-          } else {
-          }
+          } else {}
 
           return widget.errorWidget ??
               GestureDetector(
@@ -269,7 +270,10 @@ class _CachedBlobImageState extends State<CachedBlobImage> {
     }
 
     // If no image URL, show error widget
-    return widget.errorWidget ?? 
-        const Icon(Icons.image_not_supported, size: 30,);
+    return widget.errorWidget ??
+        const Icon(
+          Icons.image_not_supported,
+          size: 30,
+        );
   }
 }

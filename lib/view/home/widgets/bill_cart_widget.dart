@@ -2,6 +2,7 @@
 
 // Flutter imports:
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:pos/core/widgets/text.dart';
 
 // Package imports:
@@ -10,7 +11,6 @@ import 'package:pos/data/providers/order_type_provider.dart';
 import 'package:pos/data/providers/table_provider.dart';
 import 'package:pos/data/services/demo_data.dart';
 import 'package:pos/view/home/widgets/my_choiceChip.dart';
-import 'package:pos/view/home/widgets/dynamic_table_selector.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -20,7 +20,6 @@ import '../../../data/datasources/local/sqlite_helper.dart';
 import '../../../data/datasources/smart_database_service.dart';
 import '../../tab_screen/view-model/constants/constants.dart';
 import '../../tab_screen/view-model/widgets/printers/printer.dart';
-import '../../tab_screen/view-model/widgets/table/table_number_bottom_sheet.dart';
 import '../navigation.dart';
 import '../../../data/providers/print_provider.dart';
 import '../../../core/utils/price_utils.dart';
@@ -32,24 +31,18 @@ import 'package:showcaseview/showcaseview.dart';
 /// Reusable Bill Cart Widget
 /// Can be used across multiple pages for consistent cart functionality
 class BillCart extends StatefulWidget {
-  final String adminUid;
-  final String phoneNo;
   final VoidCallback? onCartCleared;
   final Function(List<Map<String, dynamic>>, double)? onCartUpdated;
   final Function() orderBottomSheet;
   final VoidCallback? onPlaceOrder;
   final bool? isRestaurantScreen;
   final bool? isContainerVisible;
-  final String? role;
 
   const BillCart({
     Key? key,
-    required this.adminUid,
-    required this.phoneNo,
     this.onCartCleared,
     this.onCartUpdated,
     this.isContainerVisible,
-    this.role,
     this.onPlaceOrder,
     this.isRestaurantScreen = false,
     required this.orderBottomSheet,
@@ -60,9 +53,32 @@ class BillCart extends StatefulWidget {
 }
 
 class _BillCartState extends State<BillCart> {
+  String phoneNo = '';
+  String adminUid = '';
+  String businessCategory = 'Food';
+
   final ScrollController _listScrollController = ScrollController();
   final SmartDatabaseService _databaseService = SmartDatabaseService();
   final SQLiteHelper _sqliteHelper = SQLiteHelper();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSessionData();
+    _loadCartData();
+  }
+
+  Future<void> _loadSessionData() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        phoneNo = prefs.getString('phoneNumber') ?? prefs.getString('phoneNo') ?? '';
+        adminUid = prefs.getString('adminUid') ?? '';
+        businessCategory = prefs.getString('businessCategory') ?? 'Food';
+      });
+    }
+  }
+
   List<Map<String, dynamic>> selectedItemsDetails = [];
   double subtotal = 0.0;
 
@@ -73,14 +89,6 @@ class _BillCartState extends State<BillCart> {
       // Auto-collapse when entering fullscreen mode to maximize product view
       Provider.of<PrintProvider>(context, listen: false).setCartExpanded(false);
     }
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _initializeDatabase();
-    _loadCartData();
-    _loadCartData();
   }
 
   Future<void> _initializeDatabase() async {
@@ -151,6 +159,93 @@ class _BillCartState extends State<BillCart> {
     }
   }
 
+  void _showQuantityDialog(int index) {
+    final item = selectedItemsDetails[index];
+    final TextEditingController controller = TextEditingController(
+      text: item['quantity'].toString(),
+    );
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const MyText(
+                  text: "Set Quantity",
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: appbar1,
+                ),
+                const SizedBox(height: 8),
+                MyText(
+                  text: "Item: ${item['name']}",
+                  fontSize: 14,
+                  color: Colors.grey.shade600,
+                ),
+                const SizedBox(height: 20),
+                TextField(
+                  controller: controller,
+                  keyboardType: TextInputType.number,
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    labelText: "Quantity",
+                    hintText: "Enter amount",
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    prefixIcon: const Icon(Icons.shopping_basket_outlined),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: MyText(text: "Cancel", color: Colors.grey.shade600),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      onPressed: () {
+                        final int? newQty = int.tryParse(controller.text);
+                        if (newQty != null && newQty > 0) {
+                          setState(() {
+                            final oldQty = selectedItemsDetails[index]['quantity'];
+                            final price = (selectedItemsDetails[index]['price'] as num).toDouble();
+
+                            selectedItemsDetails[index]['quantity'] = newQty;
+                            subtotal = subtotal - (oldQty * price) + (newQty * price);
+
+                            _updateCart();
+                          });
+                        }
+                        Navigator.pop(context);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: appbar1,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const MyText(text: "Update", color: Colors.white),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   void _clearCart({bool clearTableBackend = false}) {
     final printProvider = Provider.of<PrintProvider>(context, listen: false);
     final tableProvider = Provider.of<TableProvider>(context, listen: false);
@@ -188,12 +283,12 @@ class _BillCartState extends State<BillCart> {
       context,
       MaterialPageRoute(
         builder: (context) => ReceiptPreviewScreen(
-          adminUid: widget.adminUid,
+          adminUid: adminUid,
           shopName: shopName,
           contact: contact,
           address: address,
           upiId: upiId,
-          phoneNo: widget.phoneNo,
+          phoneNo: phoneNo,
           logoUrl: logoUrl,
           tableNumber: tableProvider.selectedTable?.tableNumber,
         ),
@@ -235,7 +330,7 @@ class _BillCartState extends State<BillCart> {
 
     try {
       // Generate sequential receipt number (returns 8-digit padded string like "00000001")
-      String generatedReceiptNo = await _sqliteHelper.getNextReceiptNumber(widget.phoneNo);
+      String generatedReceiptNo = await _sqliteHelper.getNextReceiptNumber(phoneNo);
       // ignore: use_build_context_synchronously
       final orderTypeProvider = Provider.of<OrderTypeProvider>(context, listen: false);
       String paymentType = orderTypeProvider.paymentType.toString().split('.').last;
@@ -252,7 +347,7 @@ class _BillCartState extends State<BillCart> {
 
       // ignore: use_build_context_synchronously
       await DirectPrintHelper().printReceipt(
-        adminUid: widget.phoneNo,
+        adminUid: phoneNo,
         context: context,
         printer: printProvider.selectedPrinter!,
         paperSize: printProvider.selectedPaperSize,
@@ -330,69 +425,87 @@ class _BillCartState extends State<BillCart> {
               curve: Curves.fastOutSlowIn,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
-              children: [
-                // Swipe/Tap to Toggle Cart
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onVerticalDragEnd: (details) {
-                    if (details.primaryVelocity! < 0) {
-                      // Swiped Up
-                      printProvider.setCartExpanded(true);
-                    } else if (details.primaryVelocity! > 0) {
-                      // Swiped Down
-                      printProvider.setCartExpanded(false);
-                    }
-                  },
-                  onTap: () {
-                    printProvider.setCartExpanded(!printProvider.isCartExpanded);
-                  },
-                  child: Column(
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            // Pull handle
-                            Container(
-                              margin: const EdgeInsets.only(top: 12, bottom: 8),
-                              width: 60,
-                              height: 4,
-                              decoration: BoxDecoration(
-                                color: Colors.grey.shade300,
-                                borderRadius: BorderRadius.circular(10),
+                children: [
+                  // Swipe/Tap to Toggle Cart
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onVerticalDragEnd: (details) {
+                      if (details.primaryVelocity! < -100) {
+                        // Swiped Up (threshold added)
+                        if (!printProvider.isCartExpanded) {
+                          printProvider.setCartExpanded(true);
+                          HapticFeedback.mediumImpact();
+                        }
+                      } else if (details.primaryVelocity! > 100) {
+                        // Swiped Down (threshold added)
+                        if (printProvider.isCartExpanded) {
+                          printProvider.setCartExpanded(false);
+                          HapticFeedback.lightImpact();
+                        }
+                      }
+                    },
+                    onTap: () {
+                      printProvider.setCartExpanded(!printProvider.isCartExpanded);
+                      HapticFeedback.selectionClick();
+                    },
+                    child: Column(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Column(
+                                children: [
+                                  // Pull handle
+                                  Container(
+                                    margin: const EdgeInsets.only(top: 10, bottom: 4),
+                                    width: 40,
+                                    height: 4,
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey.shade300,
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                  ),
+                                  Icon(
+                                    printProvider.isCartExpanded
+                                        ? Icons.keyboard_arrow_down_rounded
+                                        : Icons.keyboard_arrow_up_rounded,
+                                    color: Colors.grey.shade400,
+                                    size: 18,
+                                  ),
+                                ],
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                      if (!printProvider.isCartExpanded) _buildCollapsedSummary(printProvider),
-                    ],
+                        if (!printProvider.isCartExpanded) _buildCollapsedSummary(printProvider),
+                      ],
+                    ),
                   ),
-                ),
-                if (printProvider.isCartExpanded) ...[
-                  Showcase(
-                    key: TourKeys.cartItemsKey,
-                    title: 'Review Cart',
-                    description:
-                        'See all items added to the current order. You can adjust quantities or remove items here.',
-                    child: _buildItemsList(printProvider),
-                  ),
-                  Showcase(
-                    key: TourKeys.subtotalKey,
-                    title: 'Total Bill Amount',
-                    description: 'This is the calculated total including all items and addons.',
-                    child: _buildFooter(printProvider),
-                  ),
+                  if (printProvider.isCartExpanded) ...[
+                    Showcase(
+                      key: TourKeys.cartItemsKey,
+                      title: 'Review Cart',
+                      description:
+                          'See all items added to the current order. You can adjust quantities or remove items here.',
+                      child: _buildItemsList(printProvider),
+                    ),
+                    Showcase(
+                      key: TourKeys.subtotalKey,
+                      title: 'Total Bill Amount',
+                      description: 'This is the calculated total including all items and addons.',
+                      child: _buildFooter(printProvider),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
-        ),
-      );
-    },
-  );
-}
+        );
+      },
+    );
+  }
 
   Widget _buildCollapsedSummary(PrintProvider printProvider) {
     return Padding(
@@ -460,41 +573,39 @@ class _BillCartState extends State<BillCart> {
     final item = selectedItemsDetails[index];
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.only(top: 8, bottom: 8, left: 4, right: 16),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           /// Item Info
           Expanded(
-            flex: 3,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 MyText(
                   text: item['name'],
-                  maxLines: 2,
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
                   color: Colors.black87,
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 2),
                 MyText(
-                  text: "${PriceUtils.formatPrice(item['price'])} × ${item['quantity']}",
-                  fontSize: 13,
-                  color: appbar1.withOpacity(0.8),
-                  fontWeight: FontWeight.w600,
+                  text: PriceUtils.formatPrice(item['price']),
+                  fontSize: 12,
+                  color: Colors.grey.shade600,
                 ),
                 if (item['addons'] != null && item['addons'].isNotEmpty)
                   Padding(
-                    padding: const EdgeInsets.only(top: 4, left: 4),
+                    padding: const EdgeInsets.only(top: 2),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: (item['addons'] as List).map((a) {
                         return MyText(
-                          text: "+ ${a['name']} (${PriceUtils.formatPrice(a['price'])})",
-                          fontSize: 12,
-                          color: Colors.grey.shade600,
+                          text: "+ ${a['name']}",
+                          fontSize: 11,
+                          color: Colors.grey.shade500,
                         );
                       }).toList(),
                     ),
@@ -502,85 +613,90 @@ class _BillCartState extends State<BillCart> {
               ],
             ),
           ),
+          const SizedBox(width: 20), // Increased spacing to reduce name width
 
           /// Quantity Controls
-          Expanded(
-            flex: 2,
-            child: _buildQuantityControls(index, printProvider),
-          ),
+          _buildQuantityControls(index, printProvider),
 
           /// Delete Button
-          SizedBox(
-            width: 40,
-            child: _buildDeleteButton(index, printProvider),
-          ),
+          const SizedBox(width: 12), // Increased spacing
+          _buildDeleteButton(index, printProvider),
         ],
       ),
     );
   }
 
   Widget _buildQuantityControls(int index, PrintProvider printProvider) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-      child: Row(
-        children: [
-          Expanded(
-            child: GestureDetector(
-              onTap: () {
-                setState(() {
-                  if (selectedItemsDetails[index]['quantity'] > 1) {
-                    selectedItemsDetails[index]['quantity']--;
-                    subtotal -= (selectedItemsDetails[index]['price'] as num).toDouble();
-                  } else {
-                    subtotal -= (selectedItemsDetails[index]['price'] as num).toDouble();
-
-                    selectedItemsDetails.removeAt(index);
-                  }
-                  _updateCart();
-                });
-              },
-              child: Container(
-                padding: const EdgeInsets.all(2),
-                decoration: BoxDecoration(color: appbar1, borderRadius: BorderRadius.circular(5)),
-                child: const Icon(Icons.remove, color: white, size: 25),
-              ),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        GestureDetector(
+          onTap: () {
+            setState(() {
+              if (selectedItemsDetails[index]['quantity'] > 1) {
+                selectedItemsDetails[index]['quantity']--;
+                subtotal -= (selectedItemsDetails[index]['price'] as num).toDouble();
+              } else {
+                subtotal -= (selectedItemsDetails[index]['price'] as num).toDouble();
+                selectedItemsDetails.removeAt(index);
+              }
+              _updateCart();
+            });
+          },
+          child: Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: appbar1.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(6),
             ),
+            child: const Icon(Icons.remove, color: appbar1, size: 18),
           ),
-          Expanded(
-            flex: 2,
+        ),
+        const SizedBox(width: 8),
+        InkWell(
+          onTap: () => _showQuantityDialog(index),
+          borderRadius: BorderRadius.circular(6),
+          child: Container(
+            constraints: const BoxConstraints(minWidth: 36),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey.shade300),
+              borderRadius: BorderRadius.circular(6),
+            ),
             child: Center(
               child: MyText(
                 text: "${selectedItemsDetails[index]['quantity']}",
-                fontSize: 18,
-                fontWeight: FontWeight.w500,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
                 color: Colors.black,
               ),
             ),
           ),
-          Expanded(
-            child: GestureDetector(
-              onTap: () {
-                setState(() {
-                  selectedItemsDetails[index]['quantity']++;
-                  subtotal += (selectedItemsDetails[index]['price'] as num).toDouble();
-
-                  _updateCart();
-                });
-              },
-              child: Container(
-                padding: const EdgeInsets.all(2),
-                decoration: BoxDecoration(color: appbar1, borderRadius: BorderRadius.circular(5)),
-                child: const Icon(Icons.add, color: white, size: 25),
-              ),
+        ),
+        const SizedBox(width: 8),
+        GestureDetector(
+          onTap: () {
+            setState(() {
+              selectedItemsDetails[index]['quantity']++;
+              subtotal += (selectedItemsDetails[index]['price'] as num).toDouble();
+              _updateCart();
+            });
+          },
+          child: Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: appbar1.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(6),
             ),
+            child: const Icon(Icons.add, color: appbar1, size: 18),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
   Widget _buildDeleteButton(int index, PrintProvider printProvider) {
-    return InkWell(
+    return GestureDetector(
       onTap: () {
         setState(() {
           subtotal -= selectedItemsDetails[index]['price'] * selectedItemsDetails[index]['quantity'];
@@ -589,12 +705,12 @@ class _BillCartState extends State<BillCart> {
         });
       },
       child: Container(
-        padding: const EdgeInsets.all(5),
+        padding: const EdgeInsets.all(6),
         decoration: BoxDecoration(
-          color: Colors.red.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(5),
+          color: Colors.red.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(8),
         ),
-        child: const Icon(Icons.delete, color: Colors.red, size: 22),
+        child: Icon(Icons.delete_outline, color: Colors.red.shade400, size: 20),
       ),
     );
   }
@@ -638,7 +754,7 @@ class _BillCartState extends State<BillCart> {
                 ),
               ),
               const SizedBox(width: 8),
-              if (widget.role != 'customer' && widget.isRestaurantScreen == true)
+              if (widget.isRestaurantScreen == true && businessCategory == 'Food')
                 Consumer<TableProvider>(
                   builder: (context, tableProvider, _) {
                     if (tableProvider.selectedTableId != null) {
@@ -690,122 +806,93 @@ class _BillCartState extends State<BillCart> {
             ],
           ),
           const SizedBox(height: 16),
-          if (widget.role != 'customer')
-            Consumer<OrderTypeProvider>(
-              builder: (context, provider, _) {
-                return MyChoiceChip(
-                  options: const ['Cash', 'UPI', 'Debit', 'Complementory'],
-                  selectedValue: provider.paymentType == PaymentType.cash
-                      ? 'Cash'
-                      : provider.paymentType == PaymentType.upi
-                          ? "UPI"
-                          : provider.paymentType == PaymentType.debit
-                              ? "Debit"
-                              : "Complementory",
-                  onSelected: (value) {
-                    provider.setPaymentType(
-                      value == 'Cash'
-                          ? PaymentType.cash
-                          : value == 'UPI'
-                              ? PaymentType.upi
-                              : value == 'Debit'
-                                  ? PaymentType.debit
-                                  : PaymentType.complementory,
-                    );
-                  },
-                );
-              },
-            ),
-          if (widget.role == 'customer')
-            SizedBox(
-              width: double.infinity,
-              height: 55,
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  if (widget.onPlaceOrder != null) {
-                    widget.onPlaceOrder!();
-                  } else {
-                    widget.orderBottomSheet.call();
-                  }
+          Consumer<OrderTypeProvider>(
+            builder: (context, provider, _) {
+              return MyChoiceChip(
+                options: const ['Cash', 'UPI', 'Debit', 'Complementory'],
+                selectedValue: provider.paymentType == PaymentType.cash
+                    ? 'Cash'
+                    : provider.paymentType == PaymentType.upi
+                        ? "UPI"
+                        : provider.paymentType == PaymentType.debit
+                            ? "Debit"
+                            : "Complementory",
+                onSelected: (value) {
+                  provider.setPaymentType(
+                    value == 'Cash'
+                        ? PaymentType.cash
+                        : value == 'UPI'
+                            ? PaymentType.upi
+                            : value == 'Debit'
+                                ? PaymentType.debit
+                                : PaymentType.complementory,
+                  );
                 },
-                icon: const Icon(Icons.check_circle_outline, color: Colors.white),
-                label: const MyText(
-                  text: 'Place Order',
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: appbar1,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  elevation: 4,
-                  shadowColor: appbar1.withOpacity(0.4),
-                ),
-              ),
-            )
-          else
-            Padding(
-              padding: const EdgeInsets.only(top: 10),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  if (widget.isRestaurantScreen == true)
-                    _buildIconButton(
-                      icon: Icons.table_bar,
-                      onPressed: () async {
-                        final tableProvider = Provider.of<TableProvider>(context, listen: false);
-                        final printProvider = Provider.of<PrintProvider>(context, listen: false);
+              );
+            },
+          ),
+          Padding(
+            padding: const EdgeInsets.only(top: 10),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                if (widget.isRestaurantScreen == true && businessCategory == 'Food')
+                  _buildIconButton(
+                    icon: Icons.table_bar,
+                    onPressed: () async {
+                      final tableProvider = Provider.of<TableProvider>(context, listen: false);
+                      final printProvider = Provider.of<PrintProvider>(context, listen: false);
 
-                        // Guard: a table must be selected
-                        if (tableProvider.selectedTableId == null) {
-                          SnackBarUtils.showWarning(context, 'Please select a table first');
-                          return;
+                      // Guard: a table must be selected
+                      if (tableProvider.selectedTableId == null) {
+                        SnackBarUtils.showWarning(context, 'Please select a table first');
+                        return;
+                      }
+
+                      // Guard: cart must not be empty
+                      if (printProvider.posts.isEmpty) {
+                        SnackBarUtils.showWarning(context, 'Cart is empty — nothing to save');
+                        return;
+                      }
+
+                      // Explicit save: commit current cart to the selected table
+                      final savedTableNumber = tableProvider.selectedTable?.tableNumber ?? '';
+                      await tableProvider.setTableCart(
+                        tableProvider.selectedTableId!,
+                        printProvider.posts,
+                      );
+
+                      printProvider.clearCart();
+                      tableProvider.selectTable(null);
+
+                      if (mounted) {
+                        SnackBarUtils.showSuccess(context, 'Cart saved to Table $savedTableNumber ✓');
+                        // Navigate to Table Management screen
+                        final navigationState = context.findAncestorStateOfType<State<Navigation>>() as dynamic;
+                        if (navigationState != null) {
+                          navigationState.setState(() {
+                            navigationState.currentIndex = 2;
+                          });
                         }
-
-                        // Guard: cart must not be empty
-                        if (printProvider.posts.isEmpty) {
-                          SnackBarUtils.showWarning(context, 'Cart is empty — nothing to save');
-                          return;
-                        }
-
-                        // Explicit save: commit current cart to the selected table
-                        final savedTableNumber = tableProvider.selectedTable?.tableNumber ?? '';
-                        await tableProvider.setTableCart(
-                          tableProvider.selectedTableId!,
-                          printProvider.posts,
-                        );
-
-                        printProvider.clearCart();
-                        tableProvider.selectTable(null);
-
-                        if (mounted) {
-                          SnackBarUtils.showSuccess(context, 'Cart saved to Table $savedTableNumber ✓');
-                          // Navigate to Table Management screen
-                          final navigationState = context.findAncestorStateOfType<State<Navigation>>() as dynamic;
-                          if (navigationState != null) {
-                            navigationState.setState(() {
-                              navigationState.currentIndex = 2;
-                            });
-                          }
-                        }
-                      },
-                      iconColor: Colors.white,
-                    ),
-                  Showcase(
-                    key: TourKeys.cartSaveKey,
-                    title: 'Save Order',
-                    description: 'Saves the bill to print or preview later.',
-                    child: _buildIconButton(imagePath: "assets/images/save.png", onPressed: _handlePreview),
+                      }
+                    },
+                    iconColor: Colors.white,
                   ),
-                  Showcase(
-                    key: TourKeys.cartPrintKey,
-                    title: 'Save + Print',
-                    description: 'Saves the bill and instantly prints it.',
-                    child: _buildIconButton(imagePath: "assets/images/save2.png", onPressed: _handlePrint),
-                  ),
-                ],
-              ),
+                Showcase(
+                  key: TourKeys.cartSaveKey,
+                  title: 'Save Order',
+                  description: 'Saves the bill to print or preview later.',
+                  child: _buildIconButton(imagePath: "assets/images/save.png", onPressed: _handlePreview),
+                ),
+                Showcase(
+                  key: TourKeys.cartPrintKey,
+                  title: 'Save + Print',
+                  description: 'Saves the bill and instantly prints it.',
+                  child: _buildIconButton(imagePath: "assets/images/save2.png", onPressed: _handlePrint),
+                ),
+              ],
             ),
+          ),
         ],
       ),
     );

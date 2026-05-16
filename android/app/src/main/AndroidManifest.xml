@@ -6,6 +6,7 @@
         android:fullBackupContent="false"
         android:requestLegacyExternalStorage="true"
         android:icon="@mipmap/ic_launcher"
+        android:extractNativeLibs="false"
         android:enableOnBackInvokedCallback="true">
         <activity
             android:name=".MainActivity"

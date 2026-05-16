@@ -2,16 +2,15 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:pos/core/widgets/text.dart';
-import 'package:pos/view/login/screens/admin_sign_up.dart';
-import 'package:pos/view/login/screens/customer_sign_up.dart';
-import 'package:pos/view/login/screens/otp.dart';
+import 'package:pos/view/login/admin_sign_up.dart';
+import 'package:pos/view/login/otp.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:pos/core/utils/snackbar_utils.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:pos/view/home/navigation.dart';
 
 class Login extends StatefulWidget {
-  final String role;
-
-  const Login({super.key, required this.role});
+  const Login({super.key});
 
   @override
   State<Login> createState() => _LoginState();
@@ -44,10 +43,10 @@ class _LoginState extends State<Login> {
             // Sign in automatically
             final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
             final firebaseToken = await userCredential.user!.getIdToken();
-            
+
             if (firebaseToken != null && mounted) {
               // Navigate to OTP screen or handle login directly
-              // For simplicity and consistency with existing logic, we can still go to OTP 
+              // For simplicity and consistency with existing logic, we can still go to OTP
               // but we might want to auto-submit there.
               // Alternatively, handle login here if we have everything.
               Navigator.push(
@@ -56,7 +55,6 @@ class _LoginState extends State<Login> {
                   builder: (context) => Otp(
                     phoneNumber: phone,
                     verificationId: "", // Empty because it's already verified
-                    role: widget.role,
                     credential: credential, // Pass the credential for auto-login
                   ),
                 ),
@@ -69,7 +67,7 @@ class _LoginState extends State<Login> {
         verificationFailed: (FirebaseAuthException e) {
           setState(() => _isLoading = false);
           debugPrint("Firebase Verification Failed: ${e.code} - ${e.message}");
-          
+
           String errorMessage = "Verification failed. Try again.";
           if (e.code == 'invalid-phone-number') {
             errorMessage = "The provided phone number is not valid.";
@@ -80,7 +78,7 @@ class _LoginState extends State<Login> {
           } else if (e.code == 'app-not-authorized') {
             errorMessage = "App not authorized. Check SHA-1/SHA-256 in Firebase console.";
           }
-          
+
           SnackBarUtils.showError(context, e.message ?? errorMessage);
         },
         codeSent: (String verificationId, int? resendToken) {
@@ -91,8 +89,7 @@ class _LoginState extends State<Login> {
               builder: (context) => Otp(
                 phoneNumber: phone,
                 verificationId: verificationId,
-                resendToken: resendToken, // Pass resendToken
-                role: widget.role,
+                resendToken: resendToken,
               ),
             ),
           );
@@ -118,7 +115,6 @@ class _LoginState extends State<Login> {
 
   @override
   Widget build(BuildContext context) {
-    final bool isAdmin = widget.role == 'admin';
     return Scaffold(
       backgroundColor: primaryColor,
       body: SafeArea(
@@ -127,24 +123,81 @@ class _LoginState extends State<Login> {
             Stack(
               children: [
                 Container(
-                  height: 220,
+                  height: 260,
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Center(
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.15),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white.withOpacity(0.2)),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.15),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white.withOpacity(0.2)),
+                        ),
+                        child: Image.asset(
+                          'assets/images/myBillLogo.png',
+                          fit: BoxFit.contain,
+                          width: 130,
+                          height: 130,
+                        ),
                       ),
-                      child: Image.asset(
-                        'assets/images/myBillLogo.png',
-                        fit: BoxFit.contain,
-                        width: 130,
-                        height: 130,
+                      const SizedBox(height: 16),
+                      // TRY DEMO BUTTON
+                      InkWell(
+                        onTap: () async {
+                          final prefs = await SharedPreferences.getInstance();
+                          final bool hasVisitedDemo = prefs.getBool('has_visited_demo') ?? false;
+                          if (!hasVisitedDemo) {
+                            await prefs.setBool('is_first_time_tutorial', true);
+                            await prefs.setBool('is_first_time_main_tutorial', true);
+                            await prefs.setBool('is_first_time_drawer_tutorial', true);
+                            await prefs.setBool('is_first_time_detailed_tutorial', true);
+                            await prefs.setBool('has_visited_demo', true);
+                          }
+                          await prefs.setBool('isDemoMode', true);
+                          await prefs.setBool('isLogged', true);
+                          await prefs.setString('role', 'admin');
+                          await prefs.setString('adminUid', 'demo_admin_123');
+                          await prefs.setString('_id', 'demo_admin_123');
+                          await prefs.setString('myPhone', '9999999999');
+                          await prefs.setString('shopName', 'Billing Spher');
+                          await prefs.setString('address', 'MG Road, Bangalore');
+                          await prefs.setString('contact', '9999999999');
+                          await prefs.setString('upiId', 'merchant@upi');
+
+                          if (!context.mounted) return;
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => Navigation(uId: 'demo_admin_123'),
+                            ),
+                          );
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(30),
+                            border: Border.all(color: Colors.white.withOpacity(0.3)),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.play_circle_fill, color: Colors.white, size: 20),
+                              SizedBox(width: 8),
+                              MyText(
+                                text: 'Try Demo',
+                                color: Colors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
+                    ],
                   ),
                 ),
                 Positioned(
@@ -179,14 +232,14 @@ class _LoginState extends State<Login> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      MyText(
-                        text: isAdmin ? "Organization Login" : "Customer Login",
+                      const MyText(
+                        text: "Merchant Login",
                         fontSize: 26,
                         fontWeight: FontWeight.bold,
                       ),
                       const SizedBox(height: 8),
                       MyText(
-                        text: "Enter your mobile number to receive an 6-digit OTP code.",
+                        text: "Enter your mobile number to receive a 6-digit OTP code.",
                         color: Colors.grey.shade500,
                         fontSize: 14,
                         maxLines: 2,
@@ -210,9 +263,10 @@ class _LoginState extends State<Login> {
                           counterText: "",
                           hintText: "Enter Your Mobile Number",
                           hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 11.5),
-                          prefixIcon: Icon(Icons.phone_android_rounded, color: primaryColor, size: 22),
-                          suffixIcon:
-                              _phoneController.text.length == 10 ? Icon(Icons.check_circle, color: primaryColor) : null,
+                          prefixIcon: const Icon(Icons.phone_android_rounded, color: primaryColor, size: 22),
+                          suffixIcon: _phoneController.text.length == 10
+                              ? const Icon(Icons.check_circle, color: primaryColor)
+                              : null,
                           filled: true,
                           fillColor: Colors.grey.shade50,
                           enabledBorder: OutlineInputBorder(
@@ -221,7 +275,7 @@ class _LoginState extends State<Login> {
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
-                            borderSide: BorderSide(color: primaryColor, width: 1.8),
+                            borderSide: const BorderSide(color: primaryColor, width: 1.8),
                           ),
                         ),
                       ),
@@ -259,7 +313,7 @@ class _LoginState extends State<Login> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) => isAdmin ? const AdminSignUp() : const CustomerSignUp(),
+                                builder: (_) => const AdminSignUp(),
                               ),
                             );
                           },
@@ -270,7 +324,7 @@ class _LoginState extends State<Login> {
                                 const TextSpan(
                                     text: "New here? ", style: TextStyle(color: Colors.grey, fontFamily: "Outfit")),
                                 TextSpan(
-                                  text: isAdmin ? "Register Shop" : "Join Now",
+                                  text: "Register Shop",
                                   style:
                                       TextStyle(color: primaryColor, fontWeight: FontWeight.bold, fontFamily: "Outfit"),
                                 ),

@@ -16,8 +16,8 @@ import 'package:pos/data/datasources/database_service.dart';
 import 'package:pos/data/datasources/unified_database_service.dart';
 import 'package:pos/data/providers/print_provider.dart';
 import 'package:pos/core/utils/snackbar_utils.dart';
-import 'package:pos/view/login/providers/login_provider.dart';
-import 'package:pos/view/login/screens/splash_screen.dart';
+import 'package:pos/data/providers/login_provider.dart';
+import 'package:pos/view/login/splash_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:showcaseview/showcaseview.dart';
 
@@ -84,6 +84,21 @@ class MyApp extends StatelessWidget {
       ],
       child: MaterialApp(
         title: 'Billing Sphere',
+        theme: ThemeData(
+          scaffoldBackgroundColor: Colors.grey[50],
+          appBarTheme: const AppBarTheme(
+            elevation: 0,
+            scrolledUnderElevation: 0,
+            backgroundColor: Colors.white,
+            iconTheme: IconThemeData(color: Colors.black87),
+            titleTextStyle: TextStyle(
+              color: Colors.black87,
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+              fontFamily: 'Outfit',
+            ),
+          ),
+        ),
         scaffoldMessengerKey: SnackBarUtils.messengerKey,
         home: const SplashScreen(),
         debugShowCheckedModeBanner: false,

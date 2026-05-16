@@ -3,6 +3,7 @@ import 'package:pos/core/utils/price_utils.dart';
 import 'package:pos/core/widgets/text.dart';
 import 'package:pos/view/home/navigation.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
 class OrderTile extends StatelessWidget {
   final String bill;
@@ -37,105 +38,140 @@ class OrderTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     bool isPaid = paymentStatus.toLowerCase() == 'paid';
+    bool isCancelled = status == 'Cancelled';
+
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4)),
-          ],
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+      child: Stack(
+        children: [
+          Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: isCancelled ? Colors.grey.shade50 : Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4)),
+              ],
+            ),
+            child: Opacity(
+              opacity: isCancelled ? 0.6 : 1.0,
+              child: Row(
                 children: [
-                  Row(
-                    children: [
-                      MyText(text: '#$bill', fontWeight: FontWeight.bold, fontSize: 16),
-                      const SizedBox(width: 10),
-                      StatusBadge(text: typeText, color: typeColor),
-                      const SizedBox(width: 8),
-                      StatusBadge(
-                        text: paymentStatus.toUpperCase(),
-                        color: isPaid ? Colors.green : Colors.orange,
-                        isGlass: true,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      const Icon(Icons.person_outline, size: 14, color: Colors.grey),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: MyText(
-                          text: customerName,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black87,
-                          overflow: TextOverflow.ellipsis,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            MyText(text: '#$bill', fontWeight: FontWeight.bold, fontSize: 16),
+                            const SizedBox(width: 10),
+                            StatusBadge(text: typeText, color: typeColor),
+                            if (!isCancelled) ...[
+                              const SizedBox(width: 8),
+                              StatusBadge(
+                                text: paymentStatus.toUpperCase(),
+                                color: isPaid ? Colors.green : Colors.orange,
+                                isGlass: true,
+                              ),
+                            ],
+                          ],
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            const Icon(Icons.person_outline, size: 14, color: Colors.grey),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: MyText(
+                                text: customerName,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black87,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            const Icon(Icons.access_time, size: 14, color: Colors.grey),
+                            const SizedBox(width: 6),
+                            MyText(text: '$time${edited ? ' • Edited' : ''}', fontSize: 12, color: Colors.grey),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 4),
-                  Row(
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      const Icon(Icons.access_time, size: 14, color: Colors.grey),
-                      const SizedBox(width: 6),
-                      MyText(text: '$time${edited ? ' • Edited' : ''}', fontSize: 12, color: Colors.grey),
+                      MyText(
+                        text: PriceUtils.formatPrice(amount),
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        color: isCancelled ? Colors.grey : primaryColor,
+                        decoration: isCancelled ? TextDecoration.lineThrough : null,
+                      ),
+                      const SizedBox(height: 8),
+                      if (!isCancelled)
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.green.withOpacity(0.1),
+                                shape: BoxShape.circle,
+                              ),
+                              child: InkWell(
+                                onTap: onWhatsapp,
+                                child: Icon(MdiIcons.whatsapp, color: Colors.green, size: 22),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: appbar1.withOpacity(0.1),
+                                shape: BoxShape.circle,
+                              ),
+                              child: InkWell(
+                                onTap: onPrint,
+                                child: Icon(Icons.print_rounded, color: appbar1, size: 20),
+                              ),
+                            ),
+                          ],
+                        ),
                     ],
                   ),
                 ],
               ),
             ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                MyText(
-                  text: PriceUtils.formatPrice(amount),
-                  fontSize: 20,
-                  fontWeight: FontWeight.w800,
-                  color: primaryColor,
+          ),
+          if (isCancelled)
+            Positioned(
+              right: 0,
+              top: 0,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: const BoxDecoration(
+                  color: Colors.red,
+                  borderRadius: BorderRadius.only(
+                    topRight: Radius.circular(20),
+                    bottomLeft: Radius.circular(20),
+                  ),
                 ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.green.withOpacity(0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: InkWell(
-                        onTap: onWhatsapp,
-                        child: Icon(Icons.send, color: Colors.green, size: 20),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: appbar1.withOpacity(0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: InkWell(
-                        onTap: onPrint,
-                        child: Icon(Icons.print_rounded, color: appbar1, size: 20),
-                      ),
-                    ),
-                  ],
+                child: const MyText(
+                  text: 'CANCELLED',
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 10,
+                  letterSpacing: 1,
                 ),
-              ],
+              ),
             ),
-          ],
-        ),
+        ],
       ),
     );
   }
@@ -150,6 +186,7 @@ class StatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (text.isEmpty) return const SizedBox();
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(

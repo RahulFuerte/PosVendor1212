@@ -345,7 +345,7 @@ class _SearchReceiptScreenState extends State<SearchReceiptScreen> {
                             hintStyle: TextStyle(
                               color: Colors.grey[400],
                               fontSize: 15,
-                              fontFamily: 'fontmain',
+                              fontFamily: 'Outfit',
                             ),
                           ),
                           onChanged: (value) {
@@ -393,7 +393,7 @@ class _SearchReceiptScreenState extends State<SearchReceiptScreen> {
                               const MyText(
                                 text: 'Search Receipt',
                                 fontSize: 16,
-                                fontFamily: 'fontmain',
+                                fontFamily: 'Outfit',
                                 fontWeight: FontWeight.bold,
                               ),
                             ],
@@ -420,7 +420,7 @@ class _SearchReceiptScreenState extends State<SearchReceiptScreen> {
                         MyText(
                           text: 'Loading...',
                           color: Colors.grey[600],
-                          fontFamily: 'fontmain',
+                          fontFamily: 'Outfit',
                           fontSize: 14,
                         ),
                       ],
@@ -495,7 +495,7 @@ class _SearchReceiptScreenState extends State<SearchReceiptScreen> {
                                         const SizedBox(height: 4),
                                         MyText(
                                           text: '${items.length} items',
-                                          fontFamily: 'fontmain',
+                                          fontFamily: 'Outfit',
                                           color: Colors.grey[600],
                                           fontSize: 13,
                                         ),
@@ -510,7 +510,7 @@ class _SearchReceiptScreenState extends State<SearchReceiptScreen> {
                                       child: Column(
                                         children: [
                                           const MyText(
-                                              text: 'Total', fontFamily: 'fontmain', color: Colors.white, fontSize: 12),
+                                              text: 'Total', fontFamily: 'Outfit', color: Colors.white, fontSize: 12),
                                           const SizedBox(height: 2),
                                           MyText(
                                             text: '₹${data['sub_total'] ?? data['total_amount'] ?? 0}',
@@ -569,7 +569,7 @@ class _SearchReceiptScreenState extends State<SearchReceiptScreen> {
                                                 children: [
                                                   MyText(
                                                     text: item['name']?.toString() ?? '',
-                                                    fontFamily: 'fontmain',
+                                                    fontFamily: 'Outfit',
                                                     fontSize: 15,
                                                     fontWeight: FontWeight.w600,
                                                     color: Colors.black87,
@@ -577,7 +577,7 @@ class _SearchReceiptScreenState extends State<SearchReceiptScreen> {
                                                   const SizedBox(height: 4),
                                                   MyText(
                                                     text: 'Qty: ${item['quantity']}',
-                                                    fontFamily: 'fontmain',
+                                                    fontFamily: 'Outfit',
                                                     fontSize: 13,
                                                     color: Colors.grey[600],
                                                   ),
@@ -647,7 +647,7 @@ class _SearchReceiptScreenState extends State<SearchReceiptScreen> {
               text:
                   'Receipt #$receiptNo does not exist for the selected date.\nPlease check the details and try again.',
               textAlign: TextAlign.center,
-              fontFamily: 'fontmain',
+              fontFamily: 'Outfit',
               fontSize: 14,
               color: Colors.grey[600],
             ),

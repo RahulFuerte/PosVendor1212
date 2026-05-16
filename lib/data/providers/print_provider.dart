@@ -9,8 +9,9 @@ import 'package:flutter/material.dart';
 import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-// Project imports:
 import 'package:pos/view/tab_screen/view-model/widgets/printers/printer.dart';
+import 'package:pos/data/models/order_model.dart';
+import 'package:pos/core/utils/snackbar_utils.dart';
 
 class PrintProvider extends ChangeNotifier {
   List<Map<String, dynamic>> _posts = [];
@@ -25,7 +26,7 @@ class PrintProvider extends ChangeNotifier {
   String? _customerGst;
   String? _customerAddress;
   String? _customerNote;
-  bool _isCartExpanded = false;
+  bool _isCartExpanded = true;
 
   // Printer connection state
   bool _isConnected = false;
@@ -178,6 +179,52 @@ class PrintProvider extends ChangeNotifier {
     _isConnected = false;
     _selectedPrinter = null;
     notifyListeners();
+  }
+
+  Future<void> printOrder(BuildContext context, OrderModel order) async {
+    if (_selectedPrinter == null) {
+      SnackBarUtils.showWarning(context, 'Please connect a printer first');
+      return;
+    }
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final shopName = prefs.getString('shopName') ?? 'Shop Name';
+      final contact = prefs.getString('contact') ?? 'Contact';
+      final address = prefs.getString('address') ?? 'Address';
+      final upiId = prefs.getString('upiId') ?? "";
+      final logoUrl = prefs.getString('logoUrl') ?? "";
+
+      final items = order.items.map((e) => e.toJson()).toList();
+
+      await DirectPrintHelper().printReceipt(
+        context: context,
+        printer: _selectedPrinter!,
+        paperSize: _selectedPaperSize,
+        items: items,
+        subTotal: order.totalAmount,
+        shopName: shopName,
+        logoUrl: logoUrl,
+        contact: contact,
+        address: address,
+        adminUid: order.adminId,
+        upiId: upiId,
+        receiptNo: order.billNumber,
+        customerName: order.customerName,
+        customerPhone: order.customerPhone,
+        paymentType: order.paymentMethod ?? 'Cash',
+        orderType: order.orderType ?? 'Dine In',
+        taxEnabled: taxEnabled,
+        cgstPercent: cgstPercent,
+        sgstPercent: sgstPercent,
+        discountAmount: order.discount ?? 0.0,
+      );
+    } catch (e) {
+      debugPrint('PrintOrder error: $e');
+      if (context.mounted) {
+        SnackBarUtils.showError(context, 'Failed to print: $e');
+      }
+    }
   }
 
   void reset() {

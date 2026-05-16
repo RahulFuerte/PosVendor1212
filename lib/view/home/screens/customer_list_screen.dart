@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:pos/core/widgets/text.dart';
+import 'package:shimmer/shimmer.dart';
+import 'package:pos/view/home/reports/widgets/report_skeleton.dart';
 import 'package:flutter/services.dart';
 import 'dart:io';
 import 'package:permission_handler/permission_handler.dart';
@@ -20,21 +22,19 @@ import 'package:pos/core/widgets/access_denied_widget.dart';
 import 'package:provider/provider.dart';
 import 'package:pos/data/providers/subscription_provider.dart';
 import 'package:pos/core/widgets/access_denied_widget.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class CustomersListScreen extends StatefulWidget {
-  final String adminUid;
-  final String phoneNo;
-  const CustomersListScreen({
-    Key? key,
-    required this.adminUid,
-    required this.phoneNo,
-  }) : super(key: key);
+  const CustomersListScreen({Key? key}) : super(key: key);
 
   @override
   State<CustomersListScreen> createState() => _CustomersListScreenState();
 }
 
 class _CustomersListScreenState extends State<CustomersListScreen> {
+  String phoneNo = '';
+  String adminUid = '';
+
   List<CustomerModel> customers = [];
   List<CustomerModel> notUploadedCustomers = [];
   List<CustomerModel> filteredCustomers = [];
@@ -46,8 +46,17 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
   @override
   void initState() {
     super.initState();
-    _loadCustomers();
+    _loadSessionData();
     _searchController.addListener(_filterCustomers);
+  }
+
+  Future<void> _loadSessionData() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      phoneNo = prefs.getString('phoneNumber') ?? prefs.getString('phoneNo') ?? '';
+      adminUid = prefs.getString('adminUid') ?? '';
+    });
+    _loadCustomers();
   }
 
   Future<void> _loadCustomers() async {
@@ -92,7 +101,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
         isLoading = false;
       });
     } catch (e) {
-        SnackBarUtils.showError(context, 'Error loading customers: $e');
+      SnackBarUtils.showError(context, 'Error loading customers: $e');
     }
   }
 
@@ -182,14 +191,14 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                   MyText(
                     text: 'Importing customers...',
                     fontSize: 16,
-                    fontFamily: 'fontmain',
+                    fontFamily: 'Outfit',
                     color: Colors.grey[600],
                   ),
                   const SizedBox(height: 8),
                   MyText(
                     text: 'Processing ${file.name}',
                     fontSize: 14,
-                    fontFamily: 'fontmain',
+                    fontFamily: 'Outfit',
                     color: Colors.grey[500],
                   ),
                 ],
@@ -391,7 +400,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
         Navigator.of(context).pop();
       }
 
-        SnackBarUtils.showError(context, 'Error importing customers: $e');
+      SnackBarUtils.showError(context, 'Error importing customers: $e');
     } finally {
       setState(() {
         isImporting = false;
@@ -538,7 +547,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
         }
 
         if (!status.isGranted) {
-            SnackBarUtils.showError(context, 'Storage permission denied');
+          SnackBarUtils.showError(context, 'Storage permission denied');
           return;
         }
       }
@@ -603,9 +612,9 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
         Navigator.pop(context);
       }
 
-        if (mounted) {
-          SnackBarUtils.showError(context, 'Download error: $e');
-        }
+      if (mounted) {
+        SnackBarUtils.showError(context, 'Download error: $e');
+      }
     }
   }
 
@@ -754,11 +763,11 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
 
       setState(() => isUploading = false);
 
-        SnackBarUtils.showSuccess(context, 'Successfully uploaded $successCount customers');
-        _loadCustomers();
+      SnackBarUtils.showSuccess(context, 'Successfully uploaded $successCount customers');
+      _loadCustomers();
     } catch (e) {
       setState(() => isUploading = false);
-        SnackBarUtils.showError(context, 'Error uploading: $e');
+      SnackBarUtils.showError(context, 'Error uploading: $e');
     }
   }
 
@@ -911,7 +920,6 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                   text: isEdit ? 'Edit Customer' : 'Add Customer',
                   fontSize: 24,
                   color: Colors.white,
-                 
                   fontWeight: FontWeight.bold,
                 ),
                 const SizedBox(height: 24),
@@ -1028,7 +1036,8 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                         _loadCustomers();
                       } catch (e) {
                         Navigator.pop(context); // Close loading dialog
-                        SnackBarUtils.showError(context, isEdit ? 'Error updating customer: $e' : 'Error adding customer: $e');
+                        SnackBarUtils.showError(
+                            context, isEdit ? 'Error updating customer: $e' : 'Error adding customer: $e');
                       }
                     },
                     style: ElevatedButton.styleFrom(
@@ -1040,7 +1049,6 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                     ),
                     child: MyText(
                       text: isEdit ? 'Update Customer' : 'Add Customer',
-                     
                       fontSize: 16,
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -1061,7 +1069,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                     ),
                     child: const MyText(
                       text: 'Cancel',
-                      fontFamily: 'fontmain',
+                      fontFamily: 'Outfit',
                       fontSize: 16,
                       color: Colors.grey,
                     ),
@@ -1121,6 +1129,8 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
             appBar: AppBar(
               title: const MyText(text: 'Customers'),
               backgroundColor: primaryColor,
+              elevation: 0,
+              scrolledUnderElevation: 0,
             ),
             body: const AccessDeniedWidget(feature: "MyCustomers"),
           );
@@ -1137,7 +1147,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
             ),
             centerTitle: true,
             elevation: 0,
-            scrolledUnderElevation: 1,
+            scrolledUnderElevation: 0,
             backgroundColor: Colors.white,
             iconTheme: const IconThemeData(color: Colors.black87),
             leading: IconButton(
@@ -1165,12 +1175,14 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                     onPressed: isUploading ? null : _uploadToFirebase,
                     icon: isUploading
                         ? const SizedBox(
-                            width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                         : const Icon(Icons.cloud_upload, size: 18, color: Colors.white),
                     label: MyText(
                       text: 'Sync (${notUploadedCustomers.length})',
                       color: Colors.white,
-                      fontFamily: 'fontmain',
+                      fontFamily: 'Outfit',
                     ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.orange,
@@ -1223,9 +1235,12 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
   }
 
   Widget _buildLoadingState() {
-    return const Center(
-      child: CircularProgressIndicator(
-        valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
+    return const SingleChildScrollView(
+      child: Column(
+        children: [
+          ReportSkeleton(height: 80, itemCount: 1, padding: EdgeInsets.all(16)), // For stats row
+          ReportSkeleton(height: 120, itemCount: 5), // For customer items
+        ],
       ),
     );
   }
@@ -1240,7 +1255,6 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
           MyText(
             text: 'No Customers Found',
             fontSize: 18,
-           
             color: Colors.grey[800],
             fontWeight: FontWeight.w600,
           ),
@@ -1248,7 +1262,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
           MyText(
             text: 'Add your first customer to get started',
             fontSize: 14,
-            fontFamily: 'fontmain',
+            fontFamily: 'Outfit',
             color: Colors.grey[500],
           ),
         ],
@@ -1292,7 +1306,6 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
               MyText(
                 text: count,
                 fontSize: 20,
-               
                 fontWeight: FontWeight.bold,
                 color: color,
               ),
@@ -1302,7 +1315,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
           MyText(
             text: title,
             fontSize: 13,
-            fontFamily: 'fontmain',
+            fontFamily: 'Outfit',
             color: Colors.grey[600],
             fontWeight: FontWeight.w500,
           ),
@@ -1322,10 +1335,10 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
         ),
         child: TextField(
           controller: _searchController,
-          style: const TextStyle(fontFamily: 'fontmain', fontSize: 14),
+          style: const TextStyle(fontFamily: 'Outfit', fontSize: 14),
           decoration: InputDecoration(
             hintText: 'Search customers...',
-            hintStyle: TextStyle(color: Colors.grey[400], fontFamily: 'fontmain'),
+            hintStyle: TextStyle(color: Colors.grey[400], fontFamily: 'Outfit'),
             prefixIcon: Icon(Icons.search, color: Colors.grey[500]),
             suffixIcon: _searchController.text.isNotEmpty
                 ? IconButton(
@@ -1360,7 +1373,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
           if (subProvider.hasPermission("MyCustomers", checkEdit: true)) {
             _showCustomerBottomSheet(customer: customer);
           } else {
-             SnackBarUtils.showWarning(context, "No Edit Permission under current plan");
+            SnackBarUtils.showWarning(context, "No Edit Permission under current plan");
           }
         },
         child: Padding(
@@ -1406,7 +1419,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                         const SizedBox(width: 6),
                         MyText(
                           text: customer.phoneNumber,
-                          fontFamily: 'fontmain',
+                          fontFamily: 'Outfit',
                           fontSize: 13,
                           color: Colors.grey[700],
                         ),
@@ -1420,7 +1433,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                           const SizedBox(width: 6),
                           MyText(
                             text: 'GST: ${customer.gstNo}',
-                            fontFamily: 'fontmain',
+                            fontFamily: 'Outfit',
                             fontSize: 13,
                             color: Colors.grey[700],
                           ),
@@ -1436,7 +1449,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                           Expanded(
                             child: MyText(
                               text: customer.address!,
-                              fontFamily: 'fontmain',
+                              fontFamily: 'Outfit',
                               fontSize: 13,
                               color: Colors.grey[700],
                               maxLines: 1,
@@ -1449,7 +1462,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                     const SizedBox(height: 8),
                     MyText(
                       text: 'Added: ${dateFormat.format(customer.createdAt ?? DateTime.now())}',
-                      fontFamily: 'fontmain',
+                      fontFamily: 'Outfit',
                       fontSize: 11,
                       color: Colors.grey[500],
                     ),
@@ -1465,14 +1478,14 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                     if (subProvider.hasPermission("MyCustomers", checkEdit: true)) {
                       _showCustomerBottomSheet(customer: customer);
                     } else {
-                       SnackBarUtils.showWarning(context, "No Edit Permission under current plan");
+                      SnackBarUtils.showWarning(context, "No Edit Permission under current plan");
                     }
                   }
                   if (value == 'delete') {
                     if (subProvider.hasPermission("MyCustomers", checkDelete: true)) {
                       _deleteCustomer(customer);
                     } else {
-                       SnackBarUtils.showWarning(context, "No Delete Permission under current plan");
+                      SnackBarUtils.showWarning(context, "No Delete Permission under current plan");
                     }
                   }
                 },
@@ -1483,7 +1496,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                       children: [
                         Icon(Icons.edit, size: 20, color: Colors.blue),
                         SizedBox(width: 8),
-                        MyText(text: 'Edit', fontFamily: 'fontmain'),
+                        MyText(text: 'Edit', fontFamily: 'Outfit'),
                       ],
                     ),
                   ),
@@ -1493,7 +1506,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                       children: [
                         Icon(Icons.delete, size: 20, color: Colors.red),
                         SizedBox(width: 8),
-                        MyText(text: 'Delete', fontFamily: 'fontmain', color: Colors.red),
+                        MyText(text: 'Delete', fontFamily: 'Outfit', color: Colors.red),
                       ],
                     ),
                   ),

@@ -10,7 +10,7 @@ import 'package:pos/view/home/navigation.dart';
 import 'package:pos/view/home/offline_bill_status_screen.dart';
 import 'package:pos/data/providers/print_provider.dart';
 import 'package:pos/view/home/printer_connectionDialog.dart';
-import 'package:pos/view/home/reports/bill_wise_report.dart';
+import 'package:pos/view/home/reports/bill_wise_report.dart'; 
 import 'package:pos/view/home/reports/customer_wise_report.dart';
 import 'package:pos/view/home/reports/date_wise_report.dart';
 import 'package:pos/view/home/reports/item_wise_report.dart';
@@ -20,11 +20,10 @@ import 'package:pos/view/home/screens/expense_main.dart';
 import 'package:pos/view/home/screens/customer_list_screen.dart';
 import 'package:pos/view/home/screens/dashboard.dart';
 import 'package:pos/view/home/screens/edit_bill_receipt.dart';
-import 'package:pos/view/home/screens/settings/setting_main.dart';
 import 'package:pos/view/home/screens/users_data_screen.dart';
-import 'package:pos/view/login/providers/login_provider.dart';
+import 'package:pos/data/providers/login_provider.dart';
 import 'package:pos/view/home/screens/table_management_screen.dart';
-import 'package:pos/view/login/screens/auth_landing_screen.dart';
+import 'package:pos/view/login/login.dart';
 import 'package:pos/view/home/screens/kot_management_screen.dart';
 import 'package:pos/view/home/screens/order_management_screen.dart';
 import 'package:pos/core/utils/snackbar_utils.dart';
@@ -43,12 +42,10 @@ import 'package:pos/data/services/user_service.dart';
 class MyDrawer extends StatefulWidget {
   final String phoneNo;
   final String adminPhoneNo;
-  final String? role;
   const MyDrawer({
     super.key,
     required this.phoneNo,
     required this.adminPhoneNo,
-    this.role,
   });
 
   @override
@@ -111,6 +108,7 @@ class _MyDrawerState extends State<MyDrawer> {
           'upiId': prefs.getString('upiId'),
           'fssaiNo': prefs.getString('fssaiNo'),
           'role': prefs.getString('role'),
+          'businessCategory': prefs.getString('businessCategory') ?? 'Food',
         };
         adminUid = prefs.getString('adminUid') ?? '';
         userRole = prefs.getString('role') ?? '';
@@ -123,6 +121,7 @@ class _MyDrawerState extends State<MyDrawer> {
   Widget build(BuildContext context) {
     final sub = context.watch<SubscriptionProvider>();
     return Drawer(
+        child: RepaintBoundary(
       child: ListView(
         padding: EdgeInsets.zero,
         children: [
@@ -144,10 +143,7 @@ class _MyDrawerState extends State<MyDrawer> {
                           onTap: userRole == 'staff'
                               ? null
                               : () {
-                                  _navigate(EditBillReceiptScreen(
-                                    AdminUid: adminUid,
-                                    phoneNo: widget.phoneNo,
-                                  ));
+                                  _navigate(const EditBillReceiptScreen());
                                 },
                           child: Container(
                             height: 90,
@@ -201,10 +197,7 @@ class _MyDrawerState extends State<MyDrawer> {
                             onTap: userRole == 'staff'
                                 ? null
                                 : () {
-                                    _navigate(EditBillReceiptScreen(
-                                      AdminUid: adminUid,
-                                      phoneNo: widget.phoneNo,
-                                    ));
+                                    _navigate(const EditBillReceiptScreen());
                                   },
                             child: Padding(
                               padding: const EdgeInsets.only(left: 16, right: 8),
@@ -324,24 +317,18 @@ class _MyDrawerState extends State<MyDrawer> {
                 leading: const Icon(Icons.dashboard, color: primaryColor),
                 title: const MyText(fontWeight: FontWeight.w500, text: 'Dashboard'),
                 onTap: () {
-                  _navigate(Dashboard(
-                    adminUid: adminUid,
-                    phoneNo: widget.phoneNo,
-                    name: userData['shopName'],
-                    role: userRole,
-                  ));
+                  _navigate(const Dashboard());
                 },
               ),
             ),
           ),
           Visibility(
-            visible: sub.hasPermission('TableBooking', checkView: true),
+            visible: sub.hasPermission('TableBooking', checkView: true) && userData['businessCategory'] == 'Food',
             child: ListTile(
               leading: const Icon(Icons.table_restaurant, color: primaryColor),
               title: const MyText(fontWeight: FontWeight.w500, text: 'Table Booking'),
               onTap: () {
-                _navigate(
-                    TableManagementScreen(phoneNo: widget.phoneNo, role: widget.role, adminId: widget.adminPhoneNo));
+                _navigate(const TableManagementScreen());
               },
             ),
           ),
@@ -351,25 +338,17 @@ class _MyDrawerState extends State<MyDrawer> {
               leading: const Icon(Icons.receipt_long, color: primaryColor),
               title: const MyText(fontWeight: FontWeight.w500, text: 'Order Management'),
               onTap: () {
-                _navigate(OrderManagementScreen(
-                  phoneNo: widget.phoneNo,
-                  adminUid: widget.adminPhoneNo,
-                  role: widget.role,
-                ));
+                _navigate(const OrderManagementScreen());
               },
             ),
           ),
           Visibility(
-            visible: sub.hasPermission('KitchenOrders', checkView: true),
+            visible: sub.hasPermission('KitchenOrders', checkView: true) && userData['businessCategory'] == 'Food',
             child: ListTile(
               leading: const Icon(Icons.kitchen, color: primaryColor),
               title: const MyText(fontWeight: FontWeight.w500, text: 'Kitchen Orders (KOT)'),
               onTap: () {
-                _navigate(KotManagementScreen(
-                  phoneNo: widget.phoneNo,
-                  adminUid: widget.adminPhoneNo,
-                  role: widget.role,
-                ));
+                _navigate(const KotManagementScreen());
               },
             ),
           ),
@@ -379,12 +358,7 @@ class _MyDrawerState extends State<MyDrawer> {
               leading: const Icon(Icons.person, color: primaryColor),
               title: const MyText(fontWeight: FontWeight.w500, text: 'My Customers'),
               onTap: () {
-                _navigate(
-                  CustomersListScreen(
-                    adminUid: adminUid,
-                    phoneNo: widget.phoneNo,
-                  ),
-                );
+                _navigate(const CustomersListScreen());
               },
             ),
           ),
@@ -409,10 +383,7 @@ class _MyDrawerState extends State<MyDrawer> {
             leading: const Icon(Icons.save_as, color: primaryColor),
             title: const MyText(fontWeight: FontWeight.w500, text: 'Saved Orders'),
             onTap: () {
-              _navigate(UsersScreen(
-                adminId: adminUid,
-                uid: widget.phoneNo,
-              ));
+              _navigate(const UsersScreen());
             },
           ),
           Visibility(
@@ -420,10 +391,15 @@ class _MyDrawerState extends State<MyDrawer> {
             child: Showcase(
               key: TourKeys.drawerMenuKey,
               title: 'Manage Menu',
-              description: 'Add your Food Items, Categories, and set prices or variants.',
+              description: userData['businessCategory'] == 'Food'
+                  ? 'Add your Food Items, Categories, and set prices or variants.'
+                  : 'Add your Products, Categories, and set prices or variants.',
               child: ListTile(
-                leading: const Icon(Icons.restaurant_menu, color: primaryColor),
-                title: const MyText(fontWeight: FontWeight.w500, text: 'Menu'),
+                leading: Icon(
+                    userData['businessCategory'] == 'Food' ? Icons.restaurant_menu : Icons.inventory_2_outlined,
+                    color: primaryColor),
+                title: MyText(
+                    fontWeight: FontWeight.w500, text: userData['businessCategory'] == 'Food' ? 'Menu' : 'Products'),
                 onTap: () {
                   _navigate(const MenuScreen());
                 },
@@ -434,12 +410,7 @@ class _MyDrawerState extends State<MyDrawer> {
             leading: const Icon(Icons.sync, color: primaryColor),
             title: const MyText(fontWeight: FontWeight.w500, text: 'Offline Status & Bills'),
             onTap: () {
-              _navigate(
-                OfflineBillStatusScreen(
-                  adminUid: adminUid,
-                  uid: widget.phoneNo,
-                ),
-              );
+              _navigate(const OfflineBillStatusScreen());
             },
           ),
           if (userRole != 'staff') ...[
@@ -447,12 +418,7 @@ class _MyDrawerState extends State<MyDrawer> {
               leading: const Icon(Icons.sync_problem, color: primaryColor),
               title: const MyText(fontWeight: FontWeight.w500, text: 'Sync Diagnostics'),
               onTap: () {
-                _navigate(
-                  SyncStatusPage(
-                    adminUid: adminUid,
-                    uid: widget.phoneNo,
-                  ),
-                );
+                _navigate(const SyncStatusPage());
               },
             ),
           ],
@@ -461,7 +427,7 @@ class _MyDrawerState extends State<MyDrawer> {
             Visibility(
               visible: sub.hasPermission('Reports', checkView: true),
               child: Theme(
-                data: ThemeData(dividerColor: Colors.transparent),
+                data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
                 child: ExpansionTile(
                   leading: Icon(MdiIcons.chartBoxOutline, color: primaryColor),
                   childrenPadding: const EdgeInsets.only(left: 16),
@@ -473,72 +439,42 @@ class _MyDrawerState extends State<MyDrawer> {
                       leading: Icon(MdiIcons.chartBar, color: primaryColor),
                       title: const MyText(fontWeight: FontWeight.w500, text: 'Sales Report'),
                       onTap: () {
-                        _navigate(
-                          SalesReportScreen(
-                            adminUid: adminUid,
-                            uid: widget.phoneNo,
-                          ),
-                        );
+                        _navigate(const SalesReportScreen());
                       },
                     ),
                     ListTile(
                       leading: const Icon(Icons.people, color: primaryColor),
                       title: const MyText(fontWeight: FontWeight.w500, text: 'Customerwise Report'),
                       onTap: () {
-                        _navigate(
-                          CustomerWiseReport(
-                            adminUid: adminUid,
-                            uid: widget.phoneNo,
-                          ),
-                        );
+                        _navigate(const CustomerWiseReport());
                       },
                     ),
                     ListTile(
                       leading: Icon(MdiIcons.fileDocumentOutline, color: primaryColor),
                       title: const MyText(fontWeight: FontWeight.w500, text: 'Billwise Report'),
                       onTap: () {
-                        _navigate(
-                          BillwiseReportScreen(
-                            adminUid: adminUid,
-                            uid: widget.phoneNo,
-                          ),
-                        );
+                        _navigate(const BillwiseReportScreen());
                       },
                     ),
                     ListTile(
                       leading: Icon(MdiIcons.foodOutline, color: primaryColor),
                       title: const MyText(fontWeight: FontWeight.w500, text: 'Itemwise Report'),
                       onTap: () {
-                        _navigate(
-                          ItemwiseReportScreen(
-                            uid: widget.phoneNo,
-                            adminUid: adminUid,
-                          ),
-                        );
+                        _navigate(const ItemwiseReportScreen());
                       },
                     ),
                     ListTile(
                       leading: Icon(MdiIcons.calendarMonth, color: primaryColor),
                       title: const MyText(fontWeight: FontWeight.w500, text: 'Datewise Report'),
                       onTap: () {
-                        _navigate(
-                          DatewiseReportScreen(
-                            adminUid: adminUid,
-                            uid: widget.phoneNo,
-                          ),
-                        );
+                        _navigate(const DatewiseReportScreen());
                       },
                     ),
                     ListTile(
                       leading: const Icon(Icons.badge_outlined, color: primaryColor),
                       title: const MyText(fontWeight: FontWeight.w500, text: 'Staff-wise Report'),
                       onTap: () {
-                        _navigate(
-                          StaffWiseReportScreen(
-                            adminUid: adminUid,
-                            uid: widget.phoneNo,
-                          ),
-                        );
+                        _navigate(const StaffWiseReportScreen());
                       },
                     ),
                   ],
@@ -555,9 +491,7 @@ class _MyDrawerState extends State<MyDrawer> {
                   leading: const Icon(Icons.account_balance_wallet, color: primaryColor),
                   title: const MyText(fontWeight: FontWeight.w500, text: 'Expenses'),
                   onTap: () {
-                    _navigate(
-                      Expenses(uid: widget.phoneNo),
-                    );
+                    _navigate(const Expenses());
                   },
                 ),
               ),
@@ -638,7 +572,7 @@ class _MyDrawerState extends State<MyDrawer> {
 
                                       Navigator.pushAndRemoveUntil(
                                         context,
-                                        MaterialPageRoute(builder: (context) => const AuthLandingScreen()),
+                                        MaterialPageRoute(builder: (context) => const Login()),
                                         (route) => false,
                                       );
                                     }
@@ -749,7 +683,7 @@ class _MyDrawerState extends State<MyDrawer> {
           ),
         ],
       ),
-    );
+    ));
   }
 
   Widget _subscriptionContainer({

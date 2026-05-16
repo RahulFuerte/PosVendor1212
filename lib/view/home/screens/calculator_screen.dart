@@ -19,13 +19,12 @@ import 'package:pos/view/home/navigation.dart';
 import 'package:pos/data/providers/print_provider.dart';
 import 'package:pos/view/home/screens/users_data_screen.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../widgets/bill_cart_widget.dart';
 import '../widgets/show_save_order_bottom_sheet.dart';
 
 class PLUCalculatorScreen extends StatefulWidget {
-  final String phoneNumber;
-
-  const PLUCalculatorScreen({super.key, required this.phoneNumber});
+  const PLUCalculatorScreen({super.key});
   @override
   // ignore: library_private_types_in_public_api
   _PLUPageState createState() => _PLUPageState();
@@ -36,8 +35,10 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
   TextEditingController mobileController = TextEditingController();
 
   AudioPlayer audioPlayer = AudioPlayer();
-  bool isTapped = false;
+
+  String phoneNumber = '';
   String adminUid = '';
+  bool isTapped = false;
   String previousItemName = '';
   int previousItemPrice = 0;
 
@@ -68,6 +69,7 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
       }
       return items;
     });
+    _loadSessionData();
 
     _textEditingController.addListener(() {
       if (mounted) {
@@ -90,6 +92,14 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
           totalSum = printprovider.total;
         });
       }
+    });
+  }
+
+  Future<void> _loadSessionData() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      phoneNumber = prefs.getString('phoneNumber') ?? prefs.getString('phoneNo') ?? '';
+      adminUid = prefs.getString('adminUid') ?? '';
     });
   }
 
@@ -216,7 +226,7 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
       // Check connection status first
       final sqliteHelper = SQLiteHelper();
       // Try SQLite cache first for adminUid
-      final cachedUid = await sqliteHelper.getAdminUid(widget.phoneNumber);
+      final cachedUid = await sqliteHelper.getAdminUid(phoneNumber);
       if (cachedUid != null && cachedUid.isNotEmpty) {
         setState(() {
           adminUid = cachedUid;
@@ -225,9 +235,9 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
       }
       // Fallback to phoneNumber as adminUid
       setState(() {
-        adminUid = widget.phoneNumber;
+        adminUid = phoneNumber;
       });
-      return widget.phoneNumber;
+      return phoneNumber;
     } catch (e) {
       return await _getCachedAdminUid();
     }
@@ -237,7 +247,7 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
   Future<String> _getCachedAdminUid() async {
     try {
       final sqliteHelper = SQLiteHelper();
-      final cachedAdminUid = await sqliteHelper.getAdminUid(widget.phoneNumber);
+      final cachedAdminUid = await sqliteHelper.getAdminUid(phoneNumber);
 
       if (cachedAdminUid != null && cachedAdminUid.isNotEmpty) {
         developer.log('Using cached adminUid from SQLite: $cachedAdminUid', name: 'CalculatorScreen');
@@ -250,15 +260,15 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
       // Last resort: use phoneNumber as adminUid
       developer.log('No cached adminUid found, using phoneNumber as fallback', name: 'CalculatorScreen');
       setState(() {
-        adminUid = widget.phoneNumber;
+        adminUid = phoneNumber;
       });
-      return widget.phoneNumber;
+      return phoneNumber;
     } catch (e) {
       developer.log('Error getting cached adminUid from SQLite: $e', name: 'CalculatorScreen');
       setState(() {
-        adminUid = widget.phoneNumber;
+        adminUid = phoneNumber;
       });
-      return widget.phoneNumber;
+      return phoneNumber;
     }
   }
 
@@ -580,8 +590,6 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
 
                             if (printprovider.posts.isNotEmpty)
                               BillCart(
-                                adminUid: adminUid,
-                                phoneNo: widget.phoneNumber,
                                 onCartCleared: () {
                                   setState(() {
                                     cartItems.clear();

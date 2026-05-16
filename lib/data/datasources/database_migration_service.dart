@@ -11,12 +11,11 @@ import 'local/sqlite_helper.dart';
 import 'remote/firebase_dao.dart';
 import 'shared_preferences.dart';
 
-
 /// Service for handling database migrations and schema updates
 class DatabaseMigrationService {
   static const String _lastMigrationCheckKey = 'last_migration_check';
   static const String _schemaVersionKey = 'schema_version';
-  
+
   final SQLiteHelper _sqliteHelper = SQLiteHelper();
   final NodeApiDAO _NodeApiDAO = NodeApiDAO();
   final MySharedPreferences _prefs = MySharedPreferences();
@@ -27,7 +26,7 @@ class DatabaseMigrationService {
       final prefs = await SharedPreferences.getInstance();
       final lastCheck = prefs.getInt(_lastMigrationCheckKey) ?? 0;
       final now = DateTime.now().millisecondsSinceEpoch;
-      
+
       // Check for migrations daily
       if (now - lastCheck > const Duration(days: 1).inMilliseconds) {
         await _performPendingMigrations();
@@ -51,11 +50,11 @@ class DatabaseMigrationService {
       }
 
       print('Performing incremental sync...');
-      
+
       // Get last sync timestamp
       final prefs = await SharedPreferences.getInstance();
-      final lastSyncTime = since?.millisecondsSinceEpoch ?? 
-          prefs.getInt('last_incremental_sync') ?? 
+      final lastSyncTime = since?.millisecondsSinceEpoch ??
+          prefs.getInt('last_incremental_sync') ??
           DateTime.now().subtract(const Duration(days: 7)).millisecondsSinceEpoch;
 
       await _syncIncrementalFoodItems(adminUid, DateTime.fromMillisecondsSinceEpoch(lastSyncTime));
@@ -64,7 +63,7 @@ class DatabaseMigrationService {
 
       // Update last sync timestamp
       await prefs.setInt('last_incremental_sync', DateTime.now().millisecondsSinceEpoch);
-      
+
       print('Incremental sync completed');
     } catch (e) {
       print('Error during incremental sync: $e');
@@ -84,16 +83,15 @@ class DatabaseMigrationService {
       if (adminUid.isEmpty) return results;
 
       final db = await _sqliteHelper.database;
-      
+
       // Validate food items
       await _validateTableIntegrity(db, 'food_items', adminUid, results);
-      
+
       // Validate departments
       await _validateTableIntegrity(db, 'departments', adminUid, results);
-      
+
       // Validate bills
       await _validateTableIntegrity(db, 'bills', adminUid, results);
-      
     } catch (e) {
       print('Error validating data integrity: $e');
       results['error'] = e.toString();
@@ -107,7 +105,7 @@ class DatabaseMigrationService {
     try {
       final db = await _sqliteHelper.database;
       final prefs = await SharedPreferences.getInstance();
-      
+
       // Create backup data structure
       final backup = <String, dynamic>{
         'timestamp': DateTime.now().millisecondsSinceEpoch,
@@ -117,7 +115,7 @@ class DatabaseMigrationService {
 
       // Backup each table
       final tables = ['food_items', 'departments', 'bills', 'sync_log', 'image_cache'];
-      
+
       for (final table in tables) {
         try {
           final data = await db.query(table);
@@ -131,13 +129,12 @@ class DatabaseMigrationService {
       // For larger datasets, consider writing to file
       final backupJson = jsonEncode(backup);
       final backupKey = 'db_backup_${DateTime.now().millisecondsSinceEpoch}';
-      
+
       await prefs.setString(backupKey, backupJson);
       await prefs.setString('latest_backup_key', backupKey);
-      
+
       print('Database backup created: $backupKey');
       return backupKey;
-      
     } catch (e) {
       print('Error creating database backup: $e');
       return null;
@@ -149,7 +146,7 @@ class DatabaseMigrationService {
     try {
       final prefs = await SharedPreferences.getInstance();
       final backupJson = prefs.getString(backupKey);
-      
+
       if (backupJson == null) {
         print('Backup not found: $backupKey');
         return false;
@@ -157,32 +154,31 @@ class DatabaseMigrationService {
 
       final backup = jsonDecode(backupJson) as Map<String, dynamic>;
       final db = await _sqliteHelper.database;
-      
+
       // Restore each table
       final tables = backup['tables'] as Map<String, dynamic>;
-      
+
       for (final entry in tables.entries) {
         final tableName = entry.key;
         final tableData = entry.value as List<dynamic>;
-        
+
         try {
           // Clear existing data
           await db.delete(tableName);
-          
+
           // Insert backup data
           for (final row in tableData) {
             await db.insert(tableName, row as Map<String, dynamic>);
           }
-          
+
           print('Restored table $tableName with ${tableData.length} records');
         } catch (e) {
           print('Error restoring table $tableName: $e');
         }
       }
-      
+
       print('Database restored from backup: $backupKey');
       return true;
-      
     } catch (e) {
       print('Error restoring from backup: $e');
       return false;
@@ -194,14 +190,14 @@ class DatabaseMigrationService {
     try {
       final prefs = await SharedPreferences.getInstance();
       final keys = prefs.getKeys().where((key) => key.startsWith('db_backup_')).toList();
-      
+
       // Sort by timestamp (newest first)
       keys.sort((a, b) {
         final timestampA = int.tryParse(a.split('_').last) ?? 0;
         final timestampB = int.tryParse(b.split('_').last) ?? 0;
         return timestampB.compareTo(timestampA);
       });
-      
+
       // Remove old backups
       if (keys.length > keepCount) {
         final toRemove = keys.skip(keepCount);
@@ -221,7 +217,7 @@ class DatabaseMigrationService {
     // Check for schema updates or data migrations
     // This could include checking Firebase for new data structure changes
     print('Checking for pending migrations...');
-    
+
     // Example: Check if new fields were added to Firebase collections
     await _checkForSchemaUpdates();
   }
@@ -233,9 +229,8 @@ class DatabaseMigrationService {
       final prefs = await SharedPreferences.getInstance();
       final currentSchemaVersion = prefs.getInt(_schemaVersionKey) ?? 1;
       const latestSchemaVersion = 2;
-      
+
       if (currentSchemaVersion < latestSchemaVersion) {
-        print('Schema update needed: $currentSchemaVersion -> $latestSchemaVersion');
         // Perform schema updates here
         await prefs.setInt(_schemaVersionKey, latestSchemaVersion);
       }
@@ -250,7 +245,7 @@ class DatabaseMigrationService {
       // For now, we'll sync all items and check timestamps locally
       final remoteItems = await _NodeApiDAO.getFoodItems(adminUid);
       final db = await _sqliteHelper.database;
-      
+
       for (final item in remoteItems) {
         final updatedAt = item['updated_at'] ?? 0;
         if (updatedAt > since.millisecondsSinceEpoch) {
@@ -286,7 +281,7 @@ class DatabaseMigrationService {
     try {
       final remoteDepts = await _NodeApiDAO.getDepartments(adminUid);
       final db = await _sqliteHelper.database;
-      
+
       for (final dept in remoteDepts) {
         final updatedAt = dept['updated_at'] ?? 0;
         if (updatedAt > since.millisecondsSinceEpoch) {
@@ -316,7 +311,7 @@ class DatabaseMigrationService {
     try {
       final remoteBills = await _NodeApiDAO.getBills(adminUid, startDate: since);
       final db = await _sqliteHelper.database;
-      
+
       for (final bill in remoteBills) {
         await db.insert(
           'bills',
@@ -340,15 +335,16 @@ class DatabaseMigrationService {
     }
   }
 
-  Future<void> _validateTableIntegrity(Database db, String tableName, String adminUid, Map<String, dynamic> results) async {
+  Future<void> _validateTableIntegrity(
+      Database db, String tableName, String adminUid, Map<String, dynamic> results) async {
     try {
       // Count local records
-      final localCount = Sqflite.firstIntValue(
-        await db.rawQuery('SELECT COUNT(*) FROM $tableName WHERE admin_uid = ?', [adminUid])
-      ) ?? 0;
-      
+      final localCount =
+          Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM $tableName WHERE admin_uid = ?', [adminUid])) ??
+              0;
+
       results[tableName]['local'] = localCount;
-      
+
       // Count remote records (this is a simplified check)
       int remoteCount = 0;
       try {
@@ -365,9 +361,9 @@ class DatabaseMigrationService {
       } catch (e) {
         print('Could not get remote count for $tableName: $e');
       }
-      
+
       results[tableName]['remote'] = remoteCount;
-      
+
       // Check for discrepancies
       if (localCount != remoteCount) {
         results[tableName]['discrepancies'].add({
@@ -376,7 +372,6 @@ class DatabaseMigrationService {
           'remote': remoteCount,
         });
       }
-      
     } catch (e) {
       print('Error validating $tableName integrity: $e');
       results[tableName]['error'] = e.toString();

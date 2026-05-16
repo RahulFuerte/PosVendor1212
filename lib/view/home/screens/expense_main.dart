@@ -11,8 +11,7 @@ import 'package:pos/data/providers/subscription_provider.dart';
 import 'package:pos/core/widgets/access_denied_widget.dart';
 
 class Expenses extends StatefulWidget {
-  final String uid;
-  const Expenses({super.key, required this.uid});
+  const Expenses({super.key});
 
   @override
   State<Expenses> createState() => _ExpensesState();
@@ -403,7 +402,7 @@ class _ExpensesState extends State<Expenses> {
                                                           context,
                                                           MaterialPageRoute(
                                                             builder: (_) => AddExpense(
-                                                              uid: widget.uid,
+                                                              
                                                               categories: categories,
                                                               expense: exp,
                                                             ),
@@ -449,7 +448,6 @@ class _ExpensesState extends State<Expenses> {
                                       context,
                                       MaterialPageRoute(
                                         builder: (_) => AddExpense(
-                                          uid: widget.uid,
                                           categories: categories,
                                         ),
                                       ),
@@ -606,10 +604,9 @@ class _ExpensesState extends State<Expenses> {
 }
 
 class AddExpense extends StatefulWidget {
-  final String uid;
   final List<ExpenseCategoryModel> categories;
   final ExpenseModel? expense;
-  const AddExpense({super.key, required this.uid, required this.categories, this.expense});
+  const AddExpense({super.key, required this.categories, this.expense});
 
   @override
   State<AddExpense> createState() => _AddExpenseState();

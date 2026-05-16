@@ -46,6 +46,8 @@ class UserService {
     String? city,
     double? latitude,
     double? longitude,
+    String? businessCategory,
+    String? businessIcon,
   }) async {
     try {
       final response = await http.post(
@@ -62,6 +64,8 @@ class UserService {
           if (logoUrl != null) 'logoUrl': logoUrl,
           if (upiId != null) 'upiId': upiId,
           if (city != null) 'city': city,
+          if (businessCategory != null) 'businessCategory': businessCategory,
+          if (businessIcon != null) 'businessIcon': businessIcon,
         }),
       );
 
@@ -114,7 +118,7 @@ class UserService {
     await prefs.setBool('isDemoMode', false);
     await prefs.setString('myPhone', userModel.phoneNumber);
     await prefs.setString('phoneNumber', userModel.phoneNumber);
-    await prefs.setString('role', userModel.role ?? 'customer');
+    await prefs.setString('role', userModel.role ?? 'admin');
     await prefs.setString('_id', userModel.id ?? '');
     await prefs.setString('adminUid', userModel.id ?? '');
     await prefs.setBool('isAdmin', userModel.role == 'admin' || userModel.role == 'superAdmin');
@@ -130,6 +134,8 @@ class UserService {
     if (userModel.city != null) await prefs.setString('city', userModel.city!);
     if (userModel.location?.latitude != null) await prefs.setDouble('latitude', userModel.location!.latitude!);
     if (userModel.location?.longitude != null) await prefs.setDouble('longitude', userModel.location!.longitude!);
+    if (userModel.businessCategory != null) await prefs.setString('businessCategory', userModel.businessCategory!);
+    if (userModel.businessIcon != null) await prefs.setString('businessIcon', userModel.businessIcon!);
     await prefs.setString('contact', userModel.phoneNumber); // Save contact for receipt fallback
     await prefs.setBool('isShopOpen', userModel.isShopOpen ?? false);
 
@@ -160,40 +166,12 @@ class UserService {
       'longitude': userModel.location?.longitude,
       'shopContact': userModel.phoneNumber, // Map phoneNumber to shopContact
       'isShopOpen': userModel.isShopOpen ?? false,
+      'businessCategory': userModel.businessCategory ?? 'Food',
+      'businessIcon': userModel.businessIcon ?? '',
     });
   }
 
-  Future<UserModel> registerCustomer({
-    required String name,
-    required String phoneNumber,
-    String? password,
-  }) async {
-    try {
-      final response = await http.post(
-        Uri.parse('${ApiConstants.users}/register-customer'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'name': name,
-          'phoneNumber': phoneNumber,
-          if (password != null) 'password': password,
-        }),
-      );
 
-      final data = jsonDecode(response.body);
-
-      if (response.statusCode == 201) {
-        final user = UserModel.fromJson(data);
-        if (user.token != null) {
-          await _saveToken(user.token!);
-        }
-        return user;
-      } else {
-        throw Exception(data['message'] ?? 'Failed to register customer');
-      }
-    } catch (e) {
-      throw Exception('Registration error: ${e.toString()}');
-    }
-  }
 
   Future<List<UserModel>> getShops() async {
     try {
@@ -346,6 +324,8 @@ class UserService {
         if (updates.containsKey('upiId')) await prefs.setString('upiId', updates['upiId']);
         if (updates.containsKey('isShopOpen')) await prefs.setBool('isShopOpen', updates['isShopOpen']);
         if (updates.containsKey('phoneNumber')) await prefs.setString('contact', updates['phoneNumber']);
+        if (updates.containsKey('businessCategory')) await prefs.setString('businessCategory', updates['businessCategory']);
+        if (updates.containsKey('businessIcon')) await prefs.setString('businessIcon', updates['businessIcon']);
 
         // Sync with SQLite for secondary screens (like Edit Bill)
         await SQLiteHelper().saveUserData({
@@ -363,6 +343,8 @@ class UserService {
           'longitude': updatedUser.location?.longitude,
           'shopContact': updatedUser.phoneNumber,
           'isShopOpen': updatedUser.isShopOpen ?? false,
+          'businessCategory': updatedUser.businessCategory ?? 'Food',
+          'businessIcon': updatedUser.businessIcon ?? '',
         });
 
         return updatedUser;

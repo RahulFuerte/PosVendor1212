@@ -113,9 +113,11 @@ class DirectPrintHelper {
     String? paymentType,
     String? orderType,
     String? customerId,
+    String? employeeId,
     bool saveBill = false,
   }) async {
     try {
+      final prefs = await SharedPreferences.getInstance();
       // Use provided receipt number or generate a new one
       String finalReceiptNo = receiptNo ?? generateReceiptNumber();
 
@@ -139,6 +141,7 @@ class DirectPrintHelper {
           paymentType: paymentType,
           orderType: orderType,
           customerId: customerId,
+          employeeId: employeeId, 
         );
       }
 
@@ -391,6 +394,14 @@ class DirectPrintHelper {
       // Footer
       bytes += generator.text(separator, styles: smallFontLeft);
       bytes += generator.text('Thank you! Visit Again', styles: smallFontCenter);
+
+      // Branding for free users
+      final String planType = prefs.getString('subscriptionPlanType') ?? 'free';
+      if (planType.toLowerCase() == 'free') {
+        bytes += generator.feed(1);
+        bytes += generator.text('Powered by Billing Sphere', styles: smallFontCenter);
+      }
+
       bytes += generator.feed(3);
       // bytes += generator.cut(mode: PosCutMode.partial);
 
@@ -434,6 +445,7 @@ class DirectPrintHelper {
     String? paymentType,
     String? orderType,
     String? customerId,
+    String? employeeId, // Added
   }) async {
     try {
       final now = DateTime.now();
@@ -482,6 +494,7 @@ class DirectPrintHelper {
             tableNumber: tableNumber,
             notes: customerNote,
             paymentStatus: 'Paid',
+            employeeId: employeeId, // Passed
             createKot: (tableNumber == null || tableNumber == 'N/A' || tableNumber == ''),
           );
           if (order.billNumber.isNotEmpty) {
@@ -727,6 +740,7 @@ class DirectPrintHelper {
     required double totalDue,
   }) async {
     try {
+      final prefs = await SharedPreferences.getInstance();
       final profile = await CapabilityProfile.load(name: 'XP-N160I');
       final generator = Generator(paperSize, profile);
       List<int> bytes = [];
@@ -843,6 +857,14 @@ class DirectPrintHelper {
       bytes += generator.text(separator, styles: smallFontLeft);
 
       bytes += generator.text('Thank you!', styles: smallFontCenter);
+
+      // Branding for free users
+      final String planType = prefs.getString('subscriptionPlanType') ?? 'free';
+      if (planType.toLowerCase() == 'free') {
+        bytes += generator.feed(1);
+        bytes += generator.text('Powered by Billing Sphere', styles: smallFontCenter);
+      }
+
       bytes += generator.feed(4);
 
       // ===== PRINT =====

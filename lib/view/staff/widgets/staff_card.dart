@@ -39,7 +39,6 @@ class StaffCard extends StatelessWidget {
                 child: MyText(
                   text: staff.name.isNotEmpty ? staff.name.substring(0, 1).toUpperCase() : '?',
                   color: primaryColor,
-                  
                   fontWeight: FontWeight.bold,
                   fontSize: 18,
                 ),
@@ -54,7 +53,6 @@ class StaffCard extends StatelessWidget {
                         Expanded(
                           child: MyText(
                             text: staff.name,
-                            
                             fontWeight: FontWeight.bold,
                             fontSize: 16,
                             color: Colors.black87,
@@ -69,7 +67,7 @@ class StaffCard extends StatelessWidget {
                         const SizedBox(width: 6),
                         MyText(
                           text: staff.phoneNumber,
-                          fontFamily: 'fontmain',
+                          fontFamily: 'Outfit',
                           fontSize: 13,
                           color: Colors.grey[700],
                         ),

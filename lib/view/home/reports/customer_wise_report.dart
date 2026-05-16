@@ -18,19 +18,22 @@ import 'package:pos/core/utils/price_utils.dart';
 import 'package:pos/data/providers/print_provider.dart';
 import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
+import 'package:shimmer/shimmer.dart';
 import 'package:pos/core/utils/snackbar_utils.dart';
-import 'package:pos/view/home/reports/widgets/report_nav_bar.dart';
+import 'package:pos/view/home/reports/report_nav_bar.dart';
+import 'package:pos/view/home/reports/widgets/report_skeleton.dart';
 
 class CustomerWiseReport extends StatefulWidget {
-  final String adminUid;
-  final String uid;
-  const CustomerWiseReport({super.key, required this.adminUid, required this.uid});
+  const CustomerWiseReport({super.key});
 
   @override
   State<CustomerWiseReport> createState() => _CustomerWiseReportState();
 }
 
 class _CustomerWiseReportState extends State<CustomerWiseReport> {
+  String adminUid = '';
+  String uid = '';
+
   bool isLoading = false;
   bool hasSearched = false;
   DateTime? startDate = DateTime.now();
@@ -49,7 +52,21 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
   @override
   void initState() {
     super.initState();
+    _loadSessionData();
     _initializeServices();
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
+
+  Future<void> _loadSessionData() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      uid = prefs.getString('phoneNumber') ?? prefs.getString('phoneNo') ?? '';
+      adminUid = prefs.getString('adminUid') ?? '';
+    });
     fetchCustomers();
   }
 
@@ -159,8 +176,7 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
       final regularFont = pw.Font.ttf(await rootBundle.load('fonts/NotoSans-Regular.ttf'));
       final boldFont = pw.Font.ttf(await rootBundle.load('fonts/NotoSans-Bold.ttf'));
 
-      if (!mounted) return;
-      Navigator.pop(context);
+      if (mounted) Navigator.of(context, rootNavigator: true).pop();
 
       // ================== PDF GENERATION ==================
       await Printing.layoutPdf(
@@ -419,34 +435,38 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
       builder: (context) => const Center(child: CircularProgressIndicator()),
     );
 
-    String shopName = '';
-    String contact = '';
-    String address = '';
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final String shopName = prefs.getString('shopName') ?? "";
+      final String contact = prefs.getString('contact') ?? "";
+      final String address = prefs.getString('address') ?? "";
 
-    final prefs = await SharedPreferences.getInstance();
-    shopName = prefs.getString('shopName') ?? "";
-    contact = prefs.getString('contact') ?? "";
-    address = prefs.getString('address') ?? "";
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
 
-    if (!mounted) return;
-    Navigator.pop(context);
-
-    await DirectPrintHelper.printCustomerWiseReport(
-      context: context,
-      printer: printProvider.selectedPrinter!,
-      paperSize: printProvider.selectedPaperSize,
-      shopName: shopName,
-      contact: contact,
-      address: address,
-      customerName: selectedCustomer!.name,
-      customerPhone: selectedCustomer!.phone,
-      customerGST: selectedCustomer!.gstNo ?? "",
-      fromDate: startDate!,
-      toDate: endDate!,
-      bills: customerBills,
-      totalPaid: totalPaid,
-      totalDue: totalDue,
-    );
+      await DirectPrintHelper.printCustomerWiseReport(
+        context: context,
+        printer: printProvider.selectedPrinter!,
+        paperSize: printProvider.selectedPaperSize,
+        shopName: shopName,
+        contact: contact,
+        address: address,
+        customerName: selectedCustomer!.name,
+        customerPhone: selectedCustomer!.phone,
+        customerGST: selectedCustomer!.gstNo ?? "",
+        fromDate: startDate!,
+        toDate: endDate!,
+        bills: customerBills,
+        totalPaid: totalPaid,
+        totalDue: totalDue,
+      );
+    } catch (e) {
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+        SnackBarUtils.showError(context, 'Print failed: $e');
+      }
+    }
   }
 
   @override
@@ -454,8 +474,8 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
     return Scaffold(
       backgroundColor: Colors.grey[100],
       drawer: MyDrawer(
-        phoneNo: widget.uid,
-        adminPhoneNo: widget.adminUid,
+        phoneNo: uid,
+        adminPhoneNo: adminUid,
       ),
       appBar: AppBar(
         elevation: 0,
@@ -485,127 +505,132 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
         children: [
           ReportNavBar(
             currentReport: 'Customer-wise',
-            uid: widget.uid,
-            adminUid: widget.adminUid,
+            uid: uid,
+            adminUid: adminUid,
           ),
-
-          /// Select Customer Dropdown
-          Container(
-            margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            decoration: _cardDecoration(),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<CustomerModel>(
-                value: selectedCustomer,
-                isExpanded: true,
-                hint: const MyText(text: "Select Customer"),
-                icon: const Icon(Icons.keyboard_arrow_down),
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black87,
-                ),
-                items: allCustomers.map((customer) {
-                  return DropdownMenuItem<CustomerModel>(
-                    value: customer,
-                    child: MyText(text: "${customer.name} (${customer.phone})"),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  setState(() {
-                    selectedCustomer = value;
-                    hasSearched = false;
-                    customerBills.clear();
-                  });
-                },
-              ),
-            ),
-          ),
-
-          /// Start & End Date
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _dateField(
-                    label: "Start Date",
-                    date: startDate,
-                    onTap: () => pickDate(true),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _dateField(
-                    label: "End Date",
-                    date: endDate,
-                    onTap: () => pickDate(false),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          GestureDetector(
-            onTap: selectedCustomer == null
-                ? null
-                : () {
-                    setState(() {
-                      hasSearched = true;
-                    });
-                    fetchCustomerTransactions(selectedCustomer!);
-                  },
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 15),
-              margin: const EdgeInsets.symmetric(horizontal: 12),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(25),
-                color: selectedCustomer != null ? appbar1 : Colors.grey[400],
-              ),
-              child: const Center(
-                child: MyText(
-                  text: "Find Bills",
-                  color: white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 16),
           Expanded(
-            child: selectedCustomer == null || !hasSearched
-                ? const SizedBox()
-                : isLoading
-                    ? Center(
-                        child: CircularProgressIndicator(
-                          color: appbar1,
+            child: ListView(
+              padding: const EdgeInsets.only(bottom: 24),
+              children: [
+                /// Select Customer Dropdown
+                Container(
+                  margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  decoration: _cardDecoration(),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<CustomerModel>(
+                      value: selectedCustomer,
+                      isExpanded: true,
+                      hint: const MyText(text: "Select Customer"),
+                      icon: const Icon(Icons.keyboard_arrow_down),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
+                      items: allCustomers.map((customer) {
+                        return DropdownMenuItem<CustomerModel>(
+                          value: customer,
+                          child: MyText(text: "${customer.name} (${customer.phone})"),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        setState(() {
+                          selectedCustomer = value;
+                          hasSearched = false;
+                          customerBills.clear();
+                        });
+                      },
+                    ),
+                  ),
+                ),
+
+                /// Start & End Date
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _dateField(
+                          label: "Start Date",
+                          date: startDate,
+                          onTap: () => pickDate(true),
                         ),
-                      )
-                    : customerBills.isEmpty
-                        ? const Center(
-                            child: MyText(
-                              text: 'No transactions found for selected customer',
-                              color: Colors.grey,
-                              fontSize: 16,
-                            ),
-                          )
-                        : Column(
-                            children: [
-                              Container(
-                                margin: const EdgeInsets.symmetric(horizontal: 16),
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: appbar1,
-                                  borderRadius: BorderRadius.circular(16),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _dateField(
+                          label: "End Date",
+                          date: endDate,
+                          onTap: () => pickDate(false),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                GestureDetector(
+                  onTap: selectedCustomer == null
+                      ? null
+                      : () {
+                          setState(() {
+                            hasSearched = true;
+                          });
+                          fetchCustomerTransactions(selectedCustomer!);
+                        },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 15),
+                    margin: const EdgeInsets.symmetric(horizontal: 16),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(25),
+                      color: selectedCustomer != null ? appbar1 : Colors.grey[400],
+                    ),
+                    child: const Center(
+                      child: MyText(
+                        text: "Find Bills",
+                        color: white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                if (selectedCustomer != null && hasSearched)
+                  isLoading
+                      ? const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 16),
+                          child: ReportSkeleton(height: 100, borderRadius: 15),
+                        )
+                      : customerBills.isEmpty
+                          ? const Center(
+                              child: Padding(
+                                padding: EdgeInsets.all(40),
+                                child: MyText(
+                                  text: 'No transactions found for selected customer',
+                                  color: Colors.grey,
+                                  fontSize: 16,
                                 ),
-                                child: Column(
-                                  children: [
-                                    /// Top Row – Customer Info
-                                    if (selectedCustomer != null)
+                              ),
+                            )
+                          : Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                /// Summary Card
+                                Container(
+                                  margin: const EdgeInsets.symmetric(horizontal: 16),
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: appbar1,
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      /// Top Row – Customer Info
                                       Row(
                                         children: [
                                           CircleAvatar(
@@ -658,164 +683,153 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
                                         ],
                                       ),
 
-                                    const SizedBox(height: 16),
-                                    const Divider(color: Colors.white24),
-                                    const SizedBox(height: 12),
+                                      const SizedBox(height: 16),
+                                      const Divider(color: Colors.white24),
+                                      const SizedBox(height: 12),
 
-                                    /// Bottom Row – Paid & Due
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: _amountTile(
-                                            title: "Paid",
-                                            value: totalPaid,
-                                            icon: Icons.check_circle,
-                                            color: Colors.lightGreenAccent,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: _amountTile(
-                                            title: "Due",
-                                            value: totalDue,
-                                            icon: Icons.warning_amber_rounded,
-                                            color: Colors.orangeAccent,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-
-                              const SizedBox(height: 16),
-
-                              /// Bills Header
-                              const Padding(
-                                padding: EdgeInsets.symmetric(horizontal: 16),
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.receipt_long, color: Colors.blue),
-                                    SizedBox(width: 8),
-                                    MyText(
-                                      text: "Bills",
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ],
-                                ),
-                              ),
-
-                              const SizedBox(height: 12),
-
-                              /// Bills List
-                              Expanded(
-                                child: ListView.builder(
-                                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                                  itemCount: customerBills.length,
-                                  itemBuilder: (context, index) {
-                                    final bill = customerBills[index];
-                                    final List items = bill['allItems'] ?? [];
-
-                                    return Container(
-                                      margin: const EdgeInsets.only(bottom: 12),
-                                      decoration: _cardDecoration(),
-                                      child: Theme(
-                                        data: Theme.of(context).copyWith(
-                                          dividerColor: Colors.transparent,
-                                        ),
-                                        child: ExpansionTile(
-                                          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                          childrenPadding: const EdgeInsets.only(
-                                            left: 16,
-                                            right: 16,
-                                            bottom: 12,
-                                          ),
-                                          leading: Container(
-                                            width: 40,
-                                            height: 40,
-                                            decoration: BoxDecoration(
-                                              color: _getPaymentColor(bill['paymentType']).withOpacity(0.2),
-                                              borderRadius: BorderRadius.circular(10),
+                                      /// Bottom Row – Paid & Due
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: _amountTile(
+                                              title: "Paid",
+                                              value: totalPaid,
+                                              icon: Icons.check_circle,
+                                              color: Colors.lightGreenAccent,
                                             ),
-                                            child: Icon(
-                                              _getPaymentIcon(bill['paymentType']),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: _amountTile(
+                                              title: "Due",
+                                              value: totalDue,
+                                              icon: Icons.warning_amber_rounded,
+                                              color: Colors.orangeAccent,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+
+                                const SizedBox(height: 24),
+
+                                /// Bills Header
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(horizontal: 16),
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.receipt_long, color: Colors.blue),
+                                      SizedBox(width: 8),
+                                      MyText(
+                                        text: "Bills",
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+
+                                const SizedBox(height: 12),
+
+                                /// Bills List
+                                ...customerBills.map((bill) {
+                                  final List items = bill['allItems'] ?? [];
+                                  return Container(
+                                    margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                                    decoration: _cardDecoration(),
+                                    child: Theme(
+                                      data: Theme.of(context).copyWith(
+                                        dividerColor: Colors.transparent,
+                                      ),
+                                      child: ExpansionTile(
+                                        tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                        childrenPadding: const EdgeInsets.only(
+                                          left: 16,
+                                          right: 16,
+                                          bottom: 12,
+                                        ),
+                                        leading: Container(
+                                          width: 40,
+                                          height: 40,
+                                          decoration: BoxDecoration(
+                                            color: _getPaymentColor(bill['paymentType']).withOpacity(0.2),
+                                            borderRadius: BorderRadius.circular(10),
+                                          ),
+                                          child: Icon(
+                                            _getPaymentIcon(bill['paymentType']),
+                                            color: _getPaymentColor(bill['paymentType']),
+                                          ),
+                                        ),
+                                        title: MyText(
+                                          text: "Bill No: ${bill['billNo']}",
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 15,
+                                        ),
+                                        subtitle: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            MyText(
+                                              text: "${bill['items']} items • ${bill['date']} ${bill['time']}",
+                                              fontSize: 13,
+                                              color: Colors.grey[600],
+                                            ),
+                                            const SizedBox(height: 2),
+                                            MyText(
+                                              text: "Payment: ${_formatPaymentType(bill['paymentType'])}",
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w500,
                                               color: _getPaymentColor(bill['paymentType']),
                                             ),
-                                          ),
-
-                                          title: MyText(
-                                            text: "Bill No: ${bill['billNo']}",
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 15,
-                                          ),
-
-                                          subtitle: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              MyText(
-                                                text: "${bill['items']} items • ${bill['date']} ${bill['time']}",
-                                                fontSize: 13,
-                                                color: Colors.grey[600],
-                                              ),
-                                              const SizedBox(height: 2),
-                                              MyText(
-                                                text: "Payment: ${_formatPaymentType(bill['paymentType'])}",
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.w500,
-                                                color: _getPaymentColor(bill['paymentType']),
-                                              ),
-                                            ],
-                                          ),
-
-                                          trailing: MyText(
-                                            text: "${PriceUtils.formatPrice(bill['amount'])}",
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
-                                            color: bill['paymentType'] == 'debit' ? Colors.orange : Colors.green,
-                                          ),
-
-                                          // 👇 Expanded item list
-                                          children: items.map<Widget>((item) {
-                                            return Padding(
-                                              padding: const EdgeInsets.symmetric(vertical: 6),
-                                              child: Row(
-                                                children: [
-                                                  Expanded(
-                                                    flex: 4,
-                                                    child: MyText(
-                                                      text: item['name'],
-                                                      fontSize: 14,
-                                                      fontWeight: FontWeight.w500,
-                                                    ),
-                                                  ),
-                                                  Expanded(
-                                                    child: MyText(
-                                                      text: "x${item['quantity']}",
-                                                      fontSize: 13,
-                                                      fontWeight: FontWeight.w500,
-                                                    ),
-                                                  ),
-                                                  const SizedBox(width: 12),
-                                                  Expanded(
-                                                    child: MyText(
-                                                      text: "\u20B9${item['price']}",
-                                                      fontSize: 14,
-                                                      fontWeight: FontWeight.bold,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            );
-                                          }).toList(),
+                                          ],
                                         ),
+                                        trailing: MyText(
+                                          text: PriceUtils.formatPrice(bill['amount']),
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                          color: bill['paymentType'] == 'debit' ? Colors.orange : Colors.green,
+                                        ),
+                                        children: items.map<Widget>((item) {
+                                          return Padding(
+                                            padding: const EdgeInsets.symmetric(vertical: 6),
+                                            child: Row(
+                                              children: [
+                                                Expanded(
+                                                  flex: 4,
+                                                  child: MyText(
+                                                    text: item['name'],
+                                                    fontSize: 14,
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
+                                                ),
+                                                Expanded(
+                                                  child: MyText(
+                                                    text: "x${item['quantity']}",
+                                                    fontSize: 13,
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 12),
+                                                Expanded(
+                                                  child: MyText(
+                                                    text: PriceUtils.formatPrice(item['price']),
+                                                    fontSize: 14,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                        }).toList(),
                                       ),
-                                    );
-                                  },
-                                ),
-                              ),
-                            ],
-                          ),
+                                    ),
+                                  );
+                                }).toList(),
+                              ],
+                            ),
+              ],
+            ),
           ),
         ],
       ),

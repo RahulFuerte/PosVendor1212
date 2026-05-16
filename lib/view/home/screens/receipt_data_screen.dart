@@ -100,11 +100,69 @@ class _ReceiptPreviewOnlyWidgetState extends State<ReceiptPreviewOnlyWidget> {
         _currentPaymentStatus = 'Paid';
         _isLoading = false;
       });
-        SnackBarUtils.showSuccess(context, 'Payment Received Successfully!');
+      if (mounted) SnackBarUtils.showSuccess(context, 'Payment Received Successfully!');
     } catch (e) {
       setState(() => _isLoading = false);
-        SnackBarUtils.showError(context, 'Failed to update payment: $e');
+      if (mounted) SnackBarUtils.showError(context, 'Failed to update payment: $e');
     }
+  }
+
+  Future<void> _cancelOrder(String reason) async {
+    if (widget.orderId == null) return;
+
+    setState(() => _isLoading = true);
+    try {
+      await OrderService().cancelOrder(widget.orderId!, reason);
+      setState(() {
+        _currentPaymentStatus = 'Cancelled';
+        _isLoading = false;
+      });
+      if (mounted) {
+        SnackBarUtils.showSuccess(context, 'Order Cancelled Successfully!');
+        Navigator.pop(context, true); // Return true to indicate change
+      }
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (mounted) SnackBarUtils.showError(context, 'Failed to cancel order: $e');
+    }
+  }
+
+  void _showCancelDialog() {
+    final TextEditingController reasonCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const MyText(text: "Cancel Bill", fontWeight: FontWeight.bold),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const MyText(text: "Are you sure you want to cancel this bill? This will restore the stock."),
+            const SizedBox(height: 15),
+            TextField(
+              controller: reasonCtrl,
+              decoration: const InputDecoration(
+                labelText: "Reason for cancellation",
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const MyText(text: "No"),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _cancelOrder(reasonCtrl.text.isEmpty ? "Mistake in bill" : reasonCtrl.text);
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const MyText(text: "Yes, Cancel", color: Colors.white),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showPaymentSelection() {
@@ -154,6 +212,7 @@ class _ReceiptPreviewOnlyWidgetState extends State<ReceiptPreviewOnlyWidget> {
       backgroundColor: const Color(0xFFF5F6F9),
       appBar: AppBar(
         elevation: 0,
+        scrolledUnderElevation: 0,
         centerTitle: true,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black, size: 20),
@@ -164,10 +223,11 @@ class _ReceiptPreviewOnlyWidgetState extends State<ReceiptPreviewOnlyWidget> {
           color: Colors.black,
           fontWeight: FontWeight.bold,
         ),
-        backgroundColor: Colors.transparent,
+        backgroundColor: Colors.white,
       ),
-      bottomNavigationBar: _currentPaymentStatus != 'Paid' && widget.orderId != null
-          ? Container(
+      bottomNavigationBar: _currentPaymentStatus == 'Cancelled'
+          ? null
+          : Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -179,30 +239,58 @@ class _ReceiptPreviewOnlyWidgetState extends State<ReceiptPreviewOnlyWidget> {
                   ),
                 ],
               ),
-              child: ElevatedButton(
-                onPressed: _isLoading ? null : _showPaymentSelection,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: appbar1,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: _isLoading
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                      )
-                    : const MyText(
-                        text: "CONFIRM PAYMENT",
-                        color: Colors.white,
+              child: Row(
+                children: [
+                  if (_currentPaymentStatus != 'Paid') ...[
+                    Expanded(
+                      flex: 2,
+                      child: ElevatedButton(
+                        onPressed: _isLoading ? null : _showPaymentSelection,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: appbar1,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: _isLoading
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                              )
+                            : const MyText(
+                                text: "CONFIRM PAYMENT",
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                  ],
+                  Expanded(
+                    flex: 1,
+                    child: OutlinedButton(
+                      onPressed: _isLoading ? null : _showCancelDialog,
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        side: const BorderSide(color: Colors.red),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const MyText(
+                        text: "CANCEL",
+                        color: Colors.red,
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
                       ),
+                    ),
+                  ),
+                ],
               ),
-            )
-          : null,
+            ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 10, 20, 30),
         child: Column(
@@ -222,6 +310,27 @@ class _ReceiptPreviewOnlyWidgetState extends State<ReceiptPreviewOnlyWidget> {
               ),
               child: Column(
                 children: [
+                  if (_currentPaymentStatus == 'Cancelled')
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      decoration: const BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.only(
+                          topLeft: Radius.circular(20),
+                          topRight: Radius.circular(20),
+                        ),
+                      ),
+                      child: const Center(
+                        child: MyText(
+                          text: "CANCELLED BILL",
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          letterSpacing: 2,
+                        ),
+                      ),
+                    ),
                   const SizedBox(height: 30),
 
                   /// SHOP INFO

@@ -16,9 +16,7 @@ const Color appbar1 = Color.fromARGB(255, 12, 107, 15);
 class Navigation extends StatefulWidget {
   final AnimationController? resizableController;
   final String uId;
-  final String? role;
-  final String? adminId;
-  Navigation({required this.uId, this.role, this.adminId, this.resizableController, super.key});
+  Navigation({required this.uId, this.resizableController, super.key});
 
   @override
   State<Navigation> createState() => _AdminDashboardState();
@@ -28,14 +26,25 @@ class _AdminDashboardState extends State<Navigation> {
   int currentIndex = 0;
   final List<GlobalKey<NavigatorState>> _navigatorKeys = [];
   List<Widget> _pages = [];
+  String businessCategory = 'Food';
 
   @override
   void initState() {
     super.initState();
-    _initNavigation();
+    _loadBusinessCategory();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkAndReloadTables();
     });
+  }
+
+  Future<void> _loadBusinessCategory() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        businessCategory = prefs.getString('businessCategory') ?? 'Food';
+        _initNavigation();
+      });
+    }
   }
 
   Future<void> _checkAndReloadTables() async {
@@ -45,9 +54,9 @@ class _AdminDashboardState extends State<Navigation> {
   }
 
   @override
-  void didUpdateWidget(covariant Navigation oldWidget) {
+  void didUpdateWidget(Navigation oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.role != widget.role || oldWidget.uId != widget.uId || oldWidget.adminId != widget.adminId) {
+    if (oldWidget.uId != widget.uId) {
       _initNavigation();
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _checkAndReloadTables();
@@ -57,7 +66,7 @@ class _AdminDashboardState extends State<Navigation> {
 
   void _initNavigation() {
     // Determine tab count
-    int count = widget.role == 'customer' ? 2 : 4;
+    int count = businessCategory == 'Food' ? 4 : 3;
 
     // Setup keys
     _navigatorKeys.clear();
@@ -76,8 +85,8 @@ class _AdminDashboardState extends State<Navigation> {
 
   /// Check if tutorial should start when switching to restaurant screen
   Future<void> _checkAndStartTutorial(int newIndex) async {
-    // Only start tutorial when switching to restaurant screen (index 1 for regular users)
-    if (newIndex == 1 && widget.role != 'customer') {
+    // Only start tutorial when switching to restaurant screen (index 1)
+    if (newIndex == 1) {
       final prefs = await SharedPreferences.getInstance();
       final bool isDemoMode = prefs.getBool('isDemoMode') ?? false;
       final bool isMainFirstTime = prefs.getBool('is_first_time_main_tutorial') ?? true;
@@ -105,27 +114,21 @@ class _AdminDashboardState extends State<Navigation> {
   }
 
   List<Widget> _buildPages() {
-    if (widget.role == 'customer') {
-      return [
-        _buildNavigator(0, ProductDashBoard(phoneNo: widget.uId, role: widget.role, adminId: widget.adminId)),
-        _buildNavigator(1, RestaurantScreen(phoneNo: widget.adminId ?? widget.uId, role: widget.role)),
-      ];
-    } else {
-      return [
-        _buildNavigator(0, ProductDashBoard(phoneNo: widget.uId)),
-        _buildNavigator(1, RestaurantScreen(phoneNo: widget.uId)),
-        _buildNavigator(2, TableManagementScreen(phoneNo: widget.uId, role: widget.role, adminId: widget.adminId)),
-        _buildNavigator(3, PLUCalculatorScreen(phoneNumber: widget.uId)),
-      ];
-    }
+    return [
+      _buildNavigator(0, const ProductDashBoard()),
+      _buildNavigator(1, const RestaurantScreen()),
+      if (businessCategory == 'Food') _buildNavigator(2, const TableManagementScreen()),
+      _buildNavigator(businessCategory == 'Food' ? 3 : 2, const PLUCalculatorScreen()),
+    ];
   }
 
   List<IconData> _buildIcons() {
-    if (widget.role == 'customer') {
-      return [Icons.local_fire_department, Icons.restaurant];
-    } else {
-      return [Icons.local_fire_department, Icons.restaurant, Icons.table_bar, Icons.calculate];
-    }
+    return [
+      Icons.grid_view_rounded,
+      businessCategory == 'Food' ? Icons.restaurant : Icons.shopping_bag,
+      if (businessCategory == 'Food') Icons.table_bar,
+      Icons.calculate
+    ];
   }
 
   Widget _buildNavigator(int index, Widget rootPage) {

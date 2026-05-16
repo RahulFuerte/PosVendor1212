@@ -3,20 +3,17 @@ import 'dart:async';
 
 // Flutter imports:
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:pos/core/widgets/text.dart';
 import 'package:pos/data/providers/subscription_provider.dart';
+import 'package:pos/view/login/onboard_screen.dart';
 import 'package:provider/provider.dart';
 
 // Package imports:
 import 'package:shared_preferences/shared_preferences.dart';
 
 // Project imports:
-import 'package:pos/view/customer/customer_dashboard.dart';
-import 'package:pos/view/login/screens/auth_landing_screen.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
-import 'package:pos/view/login/screens/onboard_screen.dart';
-import '../../home/navigation.dart';
+import '../home/navigation.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -25,53 +22,21 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _animation;
-  double _displayValue = 0;
-
+class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.dark);
-
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2500),
-    );
-
-    _animation = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    )..addListener(() {
-        setState(() {
-          _displayValue = _animation.value;
-        });
-      });
-
     _startSequence();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
   }
 
   Future<void> _startSequence() async {
     // Start prep logic
     final prep = _prepareData();
 
-    // Start progress animation to ~90%
-    _controller.animateTo(0.9, duration: const Duration(milliseconds: 2000));
-
-    // Wait for data and at least some time
     await Future.wait([
       prep,
-      Future.delayed(const Duration(milliseconds: 2000)),
+      Future.delayed(const Duration(milliseconds: 1500)),
     ]);
-
-    // Finish animation to 100%
-    await _controller.animateTo(1.0, duration: const Duration(milliseconds: 500));
 
     if (mounted) await _navigate();
   }
@@ -92,13 +57,12 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   Future<void> _navigate() async {
     final prefs = await SharedPreferences.getInstance();
     final isLogged = prefs.getBool('isLogged') ?? false;
-    final role = prefs.getString('role') ?? '';
     final phone = prefs.getString('myPhone') ?? '';
 
     if (!mounted) return;
 
     if (isLogged && phone.isNotEmpty) {
-      final next = role == 'customer' ? const CustomerDashboard() : Navigation(uId: phone);
+      final next = Navigation(uId: phone);
       Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => next));
     } else {
       Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const OnboardingScreen()));
@@ -145,38 +109,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                       color: primaryColor,
                       fontSize: 36,
                     ),
-                    const SizedBox(height: 12),
-                    const MyText(
-                      text: 'Billing made simple.',
-                      textAlign: TextAlign.center,
-                      color: Color(0xFF757575),
-                      fontSize: 15,
-                      fontWeight: FontWeight.w400,
-                    ),
                     const SizedBox(height: 70),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 60),
-                      child: Column(
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(10),
-                            child: LinearProgressIndicator(
-                              value: _displayValue,
-                              color: primaryColor,
-                              backgroundColor: const Color(0xFFF0F0F0),
-                              minHeight: 8,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          MyText(
-                            text: '${(_displayValue * 100).toInt()}%',
-                            color: primaryColor,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                        ],
-                      ),
-                    ),
                   ],
                 ),
               ),
@@ -194,17 +127,10 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                       letterSpacing: 2.5,
                     ),
                     const SizedBox(height: 20),
-                    Row(
+                    const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Expanded(child: _PartnerLogo(path: '$imagesPath/razorpay.png')),
-                        Container(
-                          height: 35,
-                          width: 1.5,
-                          margin: const EdgeInsets.symmetric(horizontal: 25),
-                          color: Colors.grey.shade300,
-                        ),
-                        Expanded(child: _PartnerLogo(path: '$imagesPath/richpos.png')),
+                        _PartnerLogo(path: '$imagesPath/razorpay.png'),
                       ],
                     ),
                   ],
@@ -224,19 +150,19 @@ class _PartnerLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(8),
           border: Border.all(color: const Color(0xFFE8ECF4)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 8,
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 4,
               offset: const Offset(0, 2),
             ),
           ],
         ),
-        child: Image.asset(path, height: 55, fit: BoxFit.contain),
+        child: Image.asset(path, height: 24, fit: BoxFit.contain),
       );
 }

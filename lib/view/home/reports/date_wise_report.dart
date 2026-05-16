@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:pos/core/widgets/text.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shimmer/shimmer.dart';
+import 'package:pos/view/home/reports/widgets/report_skeleton.dart';
 
 // Package imports:
 import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
@@ -21,19 +23,19 @@ import 'package:pos/view/home/printer_connectionDialog.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:pos/core/utils/price_utils.dart';
 import 'package:pos/core/utils/snackbar_utils.dart';
-import 'package:pos/view/home/reports/widgets/report_nav_bar.dart';
+import 'package:pos/view/home/reports/report_nav_bar.dart';
 
 class DatewiseReportScreen extends StatefulWidget {
-  final String uid;
-  final String adminUid;
-
-  const DatewiseReportScreen({Key? key, required this.uid, required this.adminUid}) : super(key: key);
+  const DatewiseReportScreen({Key? key}) : super(key: key);
 
   @override
   State<DatewiseReportScreen> createState() => _DatewiseReportScreenState();
 }
 
 class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
+  String uid = '';
+  String adminUid = '';
+
   DateTime? fromDate;
   DateTime? toDate;
   List<Map<String, dynamic>> dateData = [];
@@ -41,6 +43,25 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
   bool showSummary = false;
   double totalAmount = 0;
   int totalBills = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSessionData();
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
+
+  Future<void> _loadSessionData() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      uid = prefs.getString('phoneNumber') ?? prefs.getString('phoneNo') ?? '';
+      adminUid = prefs.getString('adminUid') ?? '';
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -59,15 +80,15 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
         ),
       ),
       drawer: MyDrawer(
-        phoneNo: widget.uid,
-        adminPhoneNo: widget.adminUid,
+        phoneNo: uid,
+        adminPhoneNo: adminUid,
       ),
       body: Column(
         children: [
           ReportNavBar(
             currentReport: 'Date-wise',
-            uid: widget.uid,
-            adminUid: widget.adminUid,
+            uid: uid,
+            adminUid: adminUid,
           ),
           // Premium Date Selection
           Container(
@@ -220,7 +241,7 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
 
           Expanded(
             child: isLoading
-                ? Center(child: CircularProgressIndicator(color: primaryColor))
+                ? const ReportSkeleton(height: 80, borderRadius: 15)
                 : dateData.isEmpty
                     ? Center(
                         child: Column(
@@ -495,6 +516,12 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
   }
 
   Future<void> _printThermalReceipt() async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
     final printProvider = Provider.of<PrintProvider>(context, listen: false);
     final printerManager = PrinterManager.instance;
     final prefs = await SharedPreferences.getInstance();
@@ -606,7 +633,19 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
 
       bytes += generator.text("-" * 32);
 
-      bytes += generator.emptyLines(4);
+      bytes += generator.emptyLines(1);
+
+      // Branding for free users
+      final String planType = prefs.getString('subscriptionPlanType') ?? 'free';
+      if (planType.toLowerCase() == 'free') {
+        bytes += generator.text('Powered by Billing Sphere', styles: const PosStyles(align: PosAlign.center));
+      }
+
+      bytes += generator.emptyLines(3);
+
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
 
       await printerManager.send(
         type: printProvider.selectedPrinter!.typePrinter,
@@ -615,6 +654,9 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
 
       SnackBarUtils.showSuccess(context, 'Report printed successfully!');
     } catch (e) {
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
       SnackBarUtils.showError(context, 'Print error: $e');
     }
   }
@@ -641,7 +683,7 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
       final regularFont = pw.Font.ttf(await rootBundle.load('fonts/NotoSans-Regular.ttf'));
       final boldFont = pw.Font.ttf(await rootBundle.load('fonts/NotoSans-Bold.ttf'));
 
-      if (mounted) Navigator.of(context).pop();
+      if (mounted) Navigator.of(context, rootNavigator: true).pop();
 
       await Printing.layoutPdf(
         name: 'DatewiseReport_${DateFormat('ddMMyyyy_HHmmss').format(DateTime.now())}.pdf',
