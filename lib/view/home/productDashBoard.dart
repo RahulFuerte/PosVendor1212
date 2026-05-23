@@ -19,6 +19,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 
 // Project imports:
+import 'package:flutter_localization/flutter_localization.dart';
+import 'package:pos/l10n/app_locale.dart';
 import 'package:pos/view/home/navigation.dart';
 import 'package:pos/data/providers/print_provider.dart';
 import 'package:pos/data/services/product_service.dart';
@@ -29,6 +31,7 @@ import 'package:pos/data/services/order_service.dart';
 import 'widgets/bill_cart_widget.dart';
 import 'widgets/show_save_order_bottom_sheet.dart';
 
+import 'package:pos/view/home/screens/barcode_scanner_screen.dart';
 import 'package:pos/view/tab_screen/view-model/widgets/offline_status_banner.dart' as banner;
 
 class ProductDashBoard extends StatefulWidget {
@@ -170,18 +173,40 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                       contentPadding: EdgeInsets.all(15)),
                 ),
               )
-            : const Row(
+            : Row(
                 children: [
                   MyText(
-                    text: 'Product Dashboard',
+                    text: AppLocale.productDashboard.getString(context),
                     color: Colors.black,
                     fontSize: 17,
+                    fontWeight: FontWeight.w600,
                   ),
                   // SizedBox(width: 8),
                   // OfflineStatusIndicator(showWhenOnline: true),
                 ],
               ),
         actions: [
+          // Padding(
+          //   padding: const EdgeInsets.only(right: 10.0),
+          //   child: GestureDetector(
+          //     child: const CircleAvatar(
+          //         maxRadius: 20,
+          //         backgroundColor: appbar1,
+          //         child: Icon(
+          //           Icons.barcode_reader,
+          //           size: 22,
+          //           color: Colors.white,
+          //         )),
+          //     onTap: () {
+          //       Navigator.push(
+          //         context,
+          //         MaterialPageRoute(
+          //           builder: (context) => const BarcodeScannerScreen(),
+          //         ),
+          //       );
+          //     },
+          //   ),
+          // ),
           Padding(
             padding: const EdgeInsets.only(right: 10.0),
             child: isSearching

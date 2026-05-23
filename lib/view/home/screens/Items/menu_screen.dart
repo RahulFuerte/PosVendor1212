@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localization/flutter_localization.dart';
 import 'package:provider/provider.dart';
 import 'package:pos/data/providers/subscription_provider.dart';
 import 'package:pos/core/widgets/text.dart';
+import 'package:pos/l10n/app_locale.dart';
 import 'package:pos/data/models/product_model.dart';
 import 'package:pos/data/models/category_model.dart';
 import 'package:pos/data/services/product_service.dart';
@@ -164,7 +166,7 @@ class _MenuScreenState extends State<MenuScreen> {
           icon: const Icon(Icons.arrow_back_ios, color: Colors.black),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const MyText(text: "Menu Management", fontWeight: FontWeight.w600),
+        title: MyText(text: AppLocale.menuManagement.getString(context), fontSize: 17, color: Colors.black, fontWeight: FontWeight.w600),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),

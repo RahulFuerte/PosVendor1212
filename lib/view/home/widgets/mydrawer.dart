@@ -1,5 +1,6 @@
 // Package imports:
 import 'package:flutter/material.dart';
+import 'package:flutter_localization/flutter_localization.dart';
 import 'package:pos/core/widgets/text.dart';
 import 'package:flutter_pos_printer_platform_image_3/flutter_pos_printer_platform_image_3.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -29,6 +30,11 @@ import 'package:pos/view/home/screens/order_management_screen.dart';
 import 'package:pos/core/utils/snackbar_utils.dart';
 import 'package:pos/data/services/demo_data.dart';
 import 'package:showcaseview/showcaseview.dart';
+import 'package:pos/data/providers/tour_provider.dart';
+import 'package:pos/l10n/app_locale.dart';
+import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
+import 'package:pos/view/home/screens/settings/setting_main.dart';
+import 'package:pos/view/login/language_selection_screen.dart';
 
 import 'package:pos/view/staff/screens/staff_list_screen.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
@@ -57,11 +63,93 @@ class _MyDrawerState extends State<MyDrawer> {
   bool isUserLoading = true;
   String adminUid = '';
   String userRole = '';
+  bool _tourShowing = false;
+  TutorialCoachMark? _tourMark;
 
   @override
   void initState() {
     super.initState();
     _loadUserData();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<TourProvider>().addListener(_onTourStateChanged);
+      _onTourStateChanged();
+    });
+  }
+
+  @override
+  void dispose() {
+    try {
+      context.read<TourProvider>().removeListener(_onTourStateChanged);
+    } catch (_) {}
+    _tourMark?.finish();
+    super.dispose();
+  }
+
+  void _onTourStateChanged() {
+    if (!mounted) return;
+    final tourProvider = Provider.of<TourProvider>(context, listen: false);
+    if (tourProvider.isTourActive && tourProvider.currentStep == 23 && !_tourShowing) {
+      _tourShowing = true;
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted && tourProvider.isTourActive && tourProvider.currentStep == 23) {
+          _showTour();
+        } else {
+          _tourShowing = false;
+        }
+      });
+    }
+  }
+
+  void _showTour() {
+    final tourProvider = Provider.of<TourProvider>(context, listen: false);
+    final targets = [
+      TargetFocus(
+        identify: "drawer_settings",
+        keyTarget: TourKeys.drawerSettingsKey,
+        alignSkip: Alignment.topRight,
+        contents: [
+          TargetContent(
+            align: ContentAlign.top,
+            builder: (context, controller) {
+              return tourProvider.buildTourTooltip(
+                context: context,
+                step: 23,
+                title: AppLocale.settings.getString(context),
+                description: AppLocale.tourDesc23.getString(context),
+                onNext: () => controller.next(),
+                onSkip: () {
+                  tourProvider.stopTour();
+                  controller.skip();
+                },
+              );
+            },
+          ),
+        ],
+      ),
+    ];
+
+    _tourMark = TutorialCoachMark(
+      targets: targets,
+      colorShadow: Colors.black.withOpacity(0.85),
+      paddingFocus: 10,
+      opacityShadow: 0.85,
+      onFinish: () {
+        _tourShowing = false;
+        if (tourProvider.isTourActive) {
+          tourProvider.setStep(24);
+          Navigator.of(context).pop();
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const Setting()),
+          );
+        }
+      },
+      onSkip: () {
+        _tourShowing = false;
+        tourProvider.stopTour();
+        return true;
+      },
+    )..show(context: context);
   }
 
   void startDrawerTutorial() async {
@@ -127,8 +215,8 @@ class _MyDrawerState extends State<MyDrawer> {
         children: [
           Showcase(
             key: TourKeys.drawerProfileKey,
-            title: 'Your Shop Profile',
-            description: 'Tap here to update your shop Name, Address, and receipt Logo.',
+            title: AppLocale.tourTitleShopProfile.getString(context),
+            description: AppLocale.tourDescShopProfile.getString(context),
             child: DrawerHeader(
               decoration: const BoxDecoration(
                 color: primaryColor,
@@ -214,8 +302,8 @@ class _MyDrawerState extends State<MyDrawer> {
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                   const SizedBox(height: 4),
-                                  const MyText(
-                                    text: 'Edit Profile',
+                                  MyText(
+                                    text: AppLocale.editProfile.getString(context),
                                     color: Colors.white70,
                                     fontSize: 12,
                                     fontWeight: FontWeight.w400,
@@ -255,7 +343,9 @@ class _MyDrawerState extends State<MyDrawer> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           MyText(
-                            text: printProvider.isConnected ? 'Printer Connected' : 'Printer Not Connected',
+                            text: printProvider.isConnected
+                                ? AppLocale.printerConnected.getString(context)
+                                : AppLocale.printerNotConnected.getString(context),
                             fontWeight: FontWeight.bold,
                             color: printProvider.isConnected ? Colors.green.shade900 : Colors.orange.shade900,
                           ),
@@ -282,7 +372,9 @@ class _MyDrawerState extends State<MyDrawer> {
                   color: printProvider.isConnected ? Colors.red : Colors.blue,
                 ),
                 title: MyText(
-                  text: printProvider.isConnected ? 'Disconnect Printer' : 'Connect Printer',
+                  text: printProvider.isConnected
+                      ? AppLocale.disconnectPrinter.getString(context)
+                      : AppLocale.connectPrinter.getString(context),
                 ),
                 onTap: () async {
                   if (printProvider.isConnected) {
@@ -292,7 +384,7 @@ class _MyDrawerState extends State<MyDrawer> {
                         type: printProvider.selectedPrinter!.typePrinter,
                       );
                       printProvider.disconnectPrinter();
-                      SnackBarUtils.showWarning(context, 'Printer disconnected');
+                      SnackBarUtils.showWarning(context, AppLocale.printerDisconnected.getString(context));
                     }
                   } else {
                     // Show connection dialog
@@ -311,11 +403,11 @@ class _MyDrawerState extends State<MyDrawer> {
             visible: sub.hasPermission('Dashboard', checkView: true),
             child: Showcase(
               key: TourKeys.drawerDashboardKey,
-              title: 'Business Dashboard',
-              description: 'Monitor your Today Sales, Total Orders, and Profit charts here.',
+              title: AppLocale.tourTitleBizDashboard.getString(context),
+              description: AppLocale.tourDescBizDashboard.getString(context),
               child: ListTile(
                 leading: const Icon(Icons.dashboard, color: primaryColor),
-                title: const MyText(fontWeight: FontWeight.w500, text: 'Dashboard'),
+                title: MyText(fontWeight: FontWeight.w500, text: AppLocale.dashboard.getString(context)),
                 onTap: () {
                   _navigate(const Dashboard());
                 },
@@ -326,7 +418,7 @@ class _MyDrawerState extends State<MyDrawer> {
             visible: sub.hasPermission('TableBooking', checkView: true) && userData['businessCategory'] == 'Food',
             child: ListTile(
               leading: const Icon(Icons.table_restaurant, color: primaryColor),
-              title: const MyText(fontWeight: FontWeight.w500, text: 'Table Booking'),
+              title: MyText(fontWeight: FontWeight.w500, text: AppLocale.tableBooking.getString(context)),
               onTap: () {
                 _navigate(const TableManagementScreen());
               },
@@ -336,7 +428,7 @@ class _MyDrawerState extends State<MyDrawer> {
             visible: sub.hasPermission('OrderManagement', checkView: true),
             child: ListTile(
               leading: const Icon(Icons.receipt_long, color: primaryColor),
-              title: const MyText(fontWeight: FontWeight.w500, text: 'Order Management'),
+              title: MyText(fontWeight: FontWeight.w500, text: AppLocale.orderManagement.getString(context)),
               onTap: () {
                 _navigate(const OrderManagementScreen());
               },
@@ -346,7 +438,7 @@ class _MyDrawerState extends State<MyDrawer> {
             visible: sub.hasPermission('KitchenOrders', checkView: true) && userData['businessCategory'] == 'Food',
             child: ListTile(
               leading: const Icon(Icons.kitchen, color: primaryColor),
-              title: const MyText(fontWeight: FontWeight.w500, text: 'Kitchen Orders (KOT)'),
+              title: MyText(fontWeight: FontWeight.w500, text: AppLocale.kitchenOrdersKot.getString(context)),
               onTap: () {
                 _navigate(const KotManagementScreen());
               },
@@ -356,7 +448,7 @@ class _MyDrawerState extends State<MyDrawer> {
             visible: sub.hasPermission('MyCustomers', checkView: true),
             child: ListTile(
               leading: const Icon(Icons.person, color: primaryColor),
-              title: const MyText(fontWeight: FontWeight.w500, text: 'My Customers'),
+              title: MyText(fontWeight: FontWeight.w500, text: AppLocale.myCustomers.getString(context)),
               onTap: () {
                 _navigate(const CustomersListScreen());
               },
@@ -367,11 +459,11 @@ class _MyDrawerState extends State<MyDrawer> {
               visible: sub.hasPermission('StaffManagement', checkView: true),
               child: Showcase(
                 key: TourKeys.drawerStaffKey,
-                title: 'Staff Management',
-                description: 'Add employees and give them Staff roles for limited access.',
+                title: AppLocale.staffManagement.getString(context),
+                description: AppLocale.tourDescStaff.getString(context),
                 child: ListTile(
                   leading: const Icon(Icons.people, color: primaryColor),
-                  title: const MyText(fontWeight: FontWeight.w500, text: 'Staff Management'),
+                  title: MyText(fontWeight: FontWeight.w500, text: AppLocale.staffManagement.getString(context)),
                   onTap: () {
                     _navigate(const StaffListScreen());
                   },
@@ -381,7 +473,7 @@ class _MyDrawerState extends State<MyDrawer> {
           ],
           ListTile(
             leading: const Icon(Icons.save_as, color: primaryColor),
-            title: const MyText(fontWeight: FontWeight.w500, text: 'Saved Orders'),
+            title: MyText(fontWeight: FontWeight.w500, text: AppLocale.savedOrders.getString(context)),
             onTap: () {
               _navigate(const UsersScreen());
             },
@@ -390,16 +482,19 @@ class _MyDrawerState extends State<MyDrawer> {
             visible: sub.hasPermission('Menu', checkView: true),
             child: Showcase(
               key: TourKeys.drawerMenuKey,
-              title: 'Manage Menu',
+              title: AppLocale.tourTitleManageMenu.getString(context),
               description: userData['businessCategory'] == 'Food'
-                  ? 'Add your Food Items, Categories, and set prices or variants.'
-                  : 'Add your Products, Categories, and set prices or variants.',
+                  ? AppLocale.tourDescManageMenuFood.getString(context)
+                  : AppLocale.tourDescManageMenu.getString(context),
               child: ListTile(
                 leading: Icon(
                     userData['businessCategory'] == 'Food' ? Icons.restaurant_menu : Icons.inventory_2_outlined,
                     color: primaryColor),
                 title: MyText(
-                    fontWeight: FontWeight.w500, text: userData['businessCategory'] == 'Food' ? 'Menu' : 'Products'),
+                    fontWeight: FontWeight.w500,
+                    text: userData['businessCategory'] == 'Food'
+                        ? AppLocale.menu.getString(context)
+                        : AppLocale.products.getString(context)),
                 onTap: () {
                   _navigate(const MenuScreen());
                 },
@@ -408,7 +503,7 @@ class _MyDrawerState extends State<MyDrawer> {
           ),
           ListTile(
             leading: const Icon(Icons.sync, color: primaryColor),
-            title: const MyText(fontWeight: FontWeight.w500, text: 'Offline Status & Bills'),
+            title: MyText(fontWeight: FontWeight.w500, text: AppLocale.offlineStatusBills.getString(context)),
             onTap: () {
               _navigate(const OfflineBillStatusScreen());
             },
@@ -416,7 +511,7 @@ class _MyDrawerState extends State<MyDrawer> {
           if (userRole != 'staff') ...[
             ListTile(
               leading: const Icon(Icons.sync_problem, color: primaryColor),
-              title: const MyText(fontWeight: FontWeight.w500, text: 'Sync Diagnostics'),
+              title: MyText(fontWeight: FontWeight.w500, text: AppLocale.syncDiagnostics.getString(context)),
               onTap: () {
                 _navigate(const SyncStatusPage());
               },
@@ -431,48 +526,48 @@ class _MyDrawerState extends State<MyDrawer> {
                 child: ExpansionTile(
                   leading: Icon(MdiIcons.chartBoxOutline, color: primaryColor),
                   childrenPadding: const EdgeInsets.only(left: 16),
-                  title: const MyText(
-                    text: 'Reports',
+                  title: MyText(
+                    text: AppLocale.reports.getString(context),
                   ),
                   children: [
                     ListTile(
                       leading: Icon(MdiIcons.chartBar, color: primaryColor),
-                      title: const MyText(fontWeight: FontWeight.w500, text: 'Sales Report'),
+                      title: MyText(fontWeight: FontWeight.w500, text: AppLocale.salesReport.getString(context)),
                       onTap: () {
                         _navigate(const SalesReportScreen());
                       },
                     ),
                     ListTile(
                       leading: const Icon(Icons.people, color: primaryColor),
-                      title: const MyText(fontWeight: FontWeight.w500, text: 'Customerwise Report'),
+                      title: MyText(fontWeight: FontWeight.w500, text: AppLocale.customerwiseReport.getString(context)),
                       onTap: () {
                         _navigate(const CustomerWiseReport());
                       },
                     ),
                     ListTile(
                       leading: Icon(MdiIcons.fileDocumentOutline, color: primaryColor),
-                      title: const MyText(fontWeight: FontWeight.w500, text: 'Billwise Report'),
+                      title: MyText(fontWeight: FontWeight.w500, text: AppLocale.billwiseReport.getString(context)),
                       onTap: () {
                         _navigate(const BillwiseReportScreen());
                       },
                     ),
                     ListTile(
                       leading: Icon(MdiIcons.foodOutline, color: primaryColor),
-                      title: const MyText(fontWeight: FontWeight.w500, text: 'Itemwise Report'),
+                      title: MyText(fontWeight: FontWeight.w500, text: AppLocale.itemwiseReport.getString(context)),
                       onTap: () {
                         _navigate(const ItemwiseReportScreen());
                       },
                     ),
                     ListTile(
                       leading: Icon(MdiIcons.calendarMonth, color: primaryColor),
-                      title: const MyText(fontWeight: FontWeight.w500, text: 'Datewise Report'),
+                      title: MyText(fontWeight: FontWeight.w500, text: AppLocale.datewiseReport.getString(context)),
                       onTap: () {
                         _navigate(const DatewiseReportScreen());
                       },
                     ),
                     ListTile(
                       leading: const Icon(Icons.badge_outlined, color: primaryColor),
-                      title: const MyText(fontWeight: FontWeight.w500, text: 'Staff-wise Report'),
+                      title: MyText(fontWeight: FontWeight.w500, text: AppLocale.staffWiseReport.getString(context)),
                       onTap: () {
                         _navigate(const StaffWiseReportScreen());
                       },
@@ -485,11 +580,11 @@ class _MyDrawerState extends State<MyDrawer> {
               visible: sub.hasPermission('Expenses', checkView: true),
               child: Showcase(
                 key: TourKeys.drawerExpenseKey,
-                title: 'Expenses Tracker',
-                description: 'Record daily costs like Rent, Electricity, or Raw Materials.',
+                title: AppLocale.tourTitleExpenses.getString(context),
+                description: AppLocale.tourDescExpenses.getString(context),
                 child: ListTile(
                   leading: const Icon(Icons.account_balance_wallet, color: primaryColor),
-                  title: const MyText(fontWeight: FontWeight.w500, text: 'Expenses'),
+                  title: MyText(fontWeight: FontWeight.w500, text: AppLocale.expenses.getString(context)),
                   onTap: () {
                     _navigate(const Expenses());
                   },
@@ -499,8 +594,50 @@ class _MyDrawerState extends State<MyDrawer> {
           ],
 
           ListTile(
+            key: TourKeys.drawerSettingsKey,
+            leading: const Icon(Icons.settings, color: primaryColor),
+            title: MyText(
+              fontWeight: FontWeight.w500,
+              text: AppLocale.settings.getString(context),
+            ),
+            onTap: () {
+              _navigate(const Setting());
+            },
+          ),
+
+          ListTile(
+            leading: const Icon(Icons.language_rounded, color: primaryColor),
+            title: MyText(
+              fontWeight: FontWeight.w500,
+              text: AppLocale.selectLanguage.getString(context),
+            ),
+            trailing: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: primaryColor.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: MyText(
+                text: FlutterLocalization.instance.currentLocale?.languageCode.toUpperCase() ?? 'EN',
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: primaryColor,
+              ),
+            ),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const LanguageSelectionScreen(isFirstLaunch: false),
+                ),
+              );
+            },
+          ),
+
+          ListTile(
             leading: const Icon(Icons.logout, color: Colors.red),
-            title: const MyText(fontWeight: FontWeight.w500, text: 'Log Out'),
+            title: MyText(fontWeight: FontWeight.w500, text: AppLocale.logout.getString(context)),
             onTap: () {
               showDialog(
                 context: context,
@@ -521,15 +658,14 @@ class _MyDrawerState extends State<MyDrawer> {
                             child: const Icon(Icons.logout, color: Colors.red, size: 32),
                           ),
                           const SizedBox(height: 24),
-                          const MyText(
-                            text: "Confirm Logout",
+                          MyText(
+                            text: AppLocale.confirmLogout.getString(context),
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
                           ),
                           const SizedBox(height: 12),
                           MyText(
-                            text:
-                                "Are you sure you want to logout? You will need to login again to access your account.",
+                            text: AppLocale.logoutConfirmMsg.getString(context),
                             textAlign: TextAlign.center,
                             color: Colors.grey.shade600,
                             fontSize: 14,
@@ -549,7 +685,7 @@ class _MyDrawerState extends State<MyDrawer> {
                                     side: BorderSide(color: Colors.grey.shade300),
                                   ),
                                   child: MyText(
-                                    text: "Cancel",
+                                    text: AppLocale.cancel.getString(context),
                                     color: Colors.grey.shade800,
                                     fontWeight: FontWeight.w600,
                                   ),
@@ -586,8 +722,8 @@ class _MyDrawerState extends State<MyDrawer> {
                                       borderRadius: BorderRadius.circular(12),
                                     ),
                                   ),
-                                  child: const MyText(
-                                    text: "Logout",
+                                  child: MyText(
+                                    text: AppLocale.logout.getString(context),
                                     color: Colors.white,
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -614,7 +750,7 @@ class _MyDrawerState extends State<MyDrawer> {
                     iconColor: Colors.grey,
                     borderColor: Colors.grey,
                     bgColor: Colors.grey.shade200,
-                    child: const MyText(text: 'Checking subscription...'),
+                    child: MyText(text: AppLocale.checkingSubscription.getString(context)),
                   );
                 }
 
@@ -627,13 +763,15 @@ class _MyDrawerState extends State<MyDrawer> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         MyText(
-                          text: sub.status == 'inactive' ? 'Subscription Inactive' : 'Subscription Expired',
+                          text: sub.status == 'inactive'
+                              ? AppLocale.subscriptionInactive.getString(context)
+                              : AppLocale.subscriptionExpired.getString(context),
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                           color: Colors.red,
                         ),
                         MyText(
-                          text: 'Plan: ${sub.planType.toUpperCase()}',
+                          text: '${AppLocale.plan.getString(context)}: ${sub.planType.toUpperCase()}',
                           fontSize: 12,
                           color: Colors.redAccent,
                         ),
@@ -654,7 +792,7 @@ class _MyDrawerState extends State<MyDrawer> {
                           Icon(Icons.stars, color: appbar1, size: 16),
                           const SizedBox(width: 8),
                           MyText(
-                            text: 'Plan: ${sub.planType.toUpperCase()}',
+                            text: '${AppLocale.plan.getString(context)}: ${sub.planType.toUpperCase()}',
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
                             color: appbar1,
@@ -665,7 +803,9 @@ class _MyDrawerState extends State<MyDrawer> {
                         height: 10,
                       ),
                       MyText(
-                        text: sub.remaining == null ? 'Subscription Status' : 'Subscription Expires In',
+                        text: sub.remaining == null
+                            ? AppLocale.subscriptionStatus.getString(context)
+                            : AppLocale.subscriptionExpiresIn.getString(context),
                         fontSize: 12,
                         color: Colors.black54,
                       ),

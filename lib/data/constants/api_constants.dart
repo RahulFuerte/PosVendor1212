@@ -1,7 +1,7 @@
 class ApiConstants {
   // Base URL - Update this for production
-  // static const String baseUrl = 'http://192.168.0.102:5000/api';
-  static const String baseUrl = 'https://api.billingsphere.com/api';
+  static const String baseUrl = 'http://192.168.0.105:5000/api';
+  // static const String baseUrl = 'https://api.billingsphere.com/api';
   // static const String baseUrl = 'https://billing-pos-tvtw.onrender.com/api';
   // Endpoints
   static const String users = '$baseUrl/users';

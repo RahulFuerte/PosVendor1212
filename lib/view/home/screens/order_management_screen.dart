@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localization/flutter_localization.dart';
 import 'package:intl/intl.dart';
+import 'package:pos/l10n/app_locale.dart';
 import 'package:pos/core/utils/snackbar_utils.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:pos/core/widgets/text.dart';
@@ -237,7 +239,7 @@ class _OrderManagementScreenState extends State<OrderManagementScreen> {
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
       appBar: AppBar(
-        title: const MyText(text: 'Order Management', fontWeight: FontWeight.bold),
+        title: MyText(text: AppLocale.orderManagement.getString(context), fontSize: 17, color: Colors.black, fontWeight: FontWeight.w600),
         elevation: 0,
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,

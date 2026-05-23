@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localization/flutter_localization.dart';
 import 'package:pos/core/widgets/text.dart';
+import 'package:pos/l10n/app_locale.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:pos/view/home/reports/widgets/report_skeleton.dart';
 import 'package:flutter/services.dart';
@@ -16,9 +18,6 @@ import 'package:pos/data/models/customer_model.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:pos/core/utils/snackbar_utils.dart';
 import 'package:intl/intl.dart';
-import 'package:provider/provider.dart';
-import 'package:pos/data/providers/subscription_provider.dart';
-import 'package:pos/core/widgets/access_denied_widget.dart';
 import 'package:provider/provider.dart';
 import 'package:pos/data/providers/subscription_provider.dart';
 import 'package:pos/core/widgets/access_denied_widget.dart';
@@ -363,8 +362,8 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                 ),
-                child: const MyText(
-                  text: 'Close',
+                child: MyText(
+                  text: AppLocale.close.getString(context),
                   fontSize: 16,
                   fontWeight: FontWeight.w500,
                 ),
@@ -457,7 +456,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const MyText(text: 'Cancel'),
+            child: MyText(text: AppLocale.cancel.getString(context)),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
@@ -530,7 +529,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                 actions: [
                   TextButton(
                     onPressed: () => Navigator.pop(context),
-                    child: const MyText(text: 'Cancel'),
+                    child: MyText(text: AppLocale.cancel.getString(context)),
                   ),
                   ElevatedButton(
                     onPressed: () {
@@ -724,8 +723,8 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                 borderRadius: BorderRadius.circular(8),
               ),
             ),
-            child: const MyText(
-              text: 'OK',
+            child: MyText(
+              text: AppLocale.ok.getString(context),
               fontSize: 16,
               fontWeight: FontWeight.w500,
             ),
@@ -800,12 +799,12 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
         ),
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.delete_outline, color: Colors.red, size: 28),
-            SizedBox(width: 12),
+            const Icon(Icons.delete_outline, color: Colors.red, size: 28),
+            const SizedBox(width: 12),
             MyText(
-              text: 'Delete Customer',
+              text: AppLocale.deleteCustomer.getString(context),
               fontWeight: FontWeight.bold,
               fontSize: 18,
             ),
@@ -827,8 +826,8 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                 borderRadius: BorderRadius.circular(8),
               ),
             ),
-            child: const MyText(
-              text: 'Cancel',
+            child: MyText(
+              text: AppLocale.cancel.getString(context),
               fontSize: 16,
               fontWeight: FontWeight.w500,
             ),
@@ -843,8 +842,8 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                 borderRadius: BorderRadius.circular(8),
               ),
             ),
-            child: const MyText(
-              text: 'Delete',
+            child: MyText(
+              text: AppLocale.delete.getString(context),
               fontSize: 16,
               fontWeight: FontWeight.w600,
             ),
@@ -1067,8 +1066,8 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    child: const MyText(
-                      text: 'Cancel',
+                    child: MyText(
+                      text: AppLocale.cancel.getString(context),
                       fontFamily: 'Outfit',
                       fontSize: 16,
                       color: Colors.grey,
@@ -1127,7 +1126,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
         if (!subProvider.hasPermission("MyCustomers", checkView: true)) {
           return Scaffold(
             appBar: AppBar(
-              title: const MyText(text: 'Customers'),
+              title: MyText(text: AppLocale.customers.getString(context)),
               backgroundColor: primaryColor,
               elevation: 0,
               scrolledUnderElevation: 0,
@@ -1139,8 +1138,8 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
         return Scaffold(
           backgroundColor: Colors.grey[50], // Very clean background
           appBar: AppBar(
-            title: const MyText(
-              text: 'Customers',
+            title: MyText(
+              text: AppLocale.customers.getString(context),
               fontWeight: FontWeight.w600,
               fontSize: 20,
               color: Colors.black87,
@@ -1222,8 +1221,8 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                   elevation: 4,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   icon: const Icon(Icons.person_add_alt_1, color: Colors.white),
-                  label: const MyText(
-                    text: 'Add Customer',
+                  label: MyText(
+                    text: AppLocale.addCustomer.getString(context),
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
                   ),
@@ -1253,14 +1252,14 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
           Icon(Icons.people_alt_outlined, size: 64, color: Colors.grey[400]),
           const SizedBox(height: 16),
           MyText(
-            text: 'No Customers Found',
+            text: AppLocale.noCustomersFound.getString(context),
             fontSize: 18,
             color: Colors.grey[800],
             fontWeight: FontWeight.w600,
           ),
           const SizedBox(height: 8),
           MyText(
-            text: 'Add your first customer to get started',
+            text: AppLocale.addFirstCustomerMsg.getString(context),
             fontSize: 14,
             fontFamily: 'Outfit',
             color: Colors.grey[500],
@@ -1490,23 +1489,23 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                   }
                 },
                 itemBuilder: (context) => [
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'edit',
                     child: Row(
                       children: [
-                        Icon(Icons.edit, size: 20, color: Colors.blue),
-                        SizedBox(width: 8),
-                        MyText(text: 'Edit', fontFamily: 'Outfit'),
+                        const Icon(Icons.edit, size: 20, color: Colors.blue),
+                        const SizedBox(width: 8),
+                        MyText(text: AppLocale.edit.getString(context), fontFamily: 'Outfit'),
                       ],
                     ),
                   ),
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'delete',
                     child: Row(
                       children: [
-                        Icon(Icons.delete, size: 20, color: Colors.red),
-                        SizedBox(width: 8),
-                        MyText(text: 'Delete', fontFamily: 'Outfit', color: Colors.red),
+                        const Icon(Icons.delete, size: 20, color: Colors.red),
+                        const SizedBox(width: 8),
+                        MyText(text: AppLocale.delete.getString(context), fontFamily: 'Outfit', color: Colors.red),
                       ],
                     ),
                   ),

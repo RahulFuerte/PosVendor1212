@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pos/l10n/app_locale.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:pos/core/widgets/text.dart';
 import 'package:shimmer/shimmer.dart';
@@ -25,6 +26,12 @@ import 'package:pos/core/utils/pdf_helper.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:pos/data/services/demo_data.dart';
+import 'package:pos/data/providers/tour_provider.dart';
+import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
+import 'package:flutter_localization/flutter_localization.dart';
+import 'package:pos/l10n/app_locale.dart';
+
 
 class Dashboard extends StatefulWidget {
   const Dashboard({super.key});
@@ -61,6 +68,117 @@ class _DashboardState extends State<Dashboard> {
   final OrderService _orderService = OrderService();
   final SQLiteHelper _sqliteHelper = SQLiteHelper();
 
+  TutorialCoachMark? _tourMark;
+
+  void _checkTour() {
+    final tourProvider = context.read<TourProvider>();
+    if (tourProvider.isTourActive && tourProvider.currentStep == 11) {
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) _showTour();
+      });
+    }
+  }
+
+  void _showTour() {
+    final tourProvider = context.read<TourProvider>();
+    final targets = [
+      TargetFocus(
+        identify: "dash_drawer",
+        keyTarget: TourKeys.drawerIconKey,
+        alignSkip: Alignment.topRight,
+        contents: [
+          TargetContent(
+            align: ContentAlign.bottom,
+            builder: (context, controller) {
+              return tourProvider.buildTourTooltip(
+                context: context,
+                step: 11,
+                title: AppLocale.tourTitle11.getString(context),
+                description: AppLocale.tourDesc11.getString(context),
+                onNext: () => controller.next(),
+                onSkip: () {
+                  tourProvider.stopTour();
+                  controller.skip();
+                },
+              );
+            },
+          ),
+        ],
+      ),
+      TargetFocus(
+        identify: "dash_sales",
+        keyTarget: TourKeys.dashSalesCardKey,
+        alignSkip: Alignment.topRight,
+        contents: [
+          TargetContent(
+            align: ContentAlign.bottom,
+            builder: (context, controller) {
+              return tourProvider.buildTourTooltip(
+                context: context,
+                step: 12,
+                title: AppLocale.tourTitle12.getString(context),
+                description: AppLocale.tourDesc12.getString(context),
+                onNext: () => controller.next(),
+                onPrev: () => controller.previous(),
+                onSkip: () {
+                  tourProvider.stopTour();
+                  controller.skip();
+                },
+              );
+            },
+          ),
+        ],
+      ),
+      TargetFocus(
+        identify: "dash_recent_orders",
+        keyTarget: TourKeys.dashRecentOrdersKey,
+        alignSkip: Alignment.topRight,
+        contents: [
+          TargetContent(
+            align: ContentAlign.top,
+            builder: (context, controller) {
+              return tourProvider.buildTourTooltip(
+                context: context,
+                step: 13,
+                title: AppLocale.tourTitle13.getString(context),
+                description: AppLocale.tourDesc13.getString(context),
+                onNext: () => controller.next(),
+                onPrev: () => controller.previous(),
+                onSkip: () {
+                  tourProvider.stopTour();
+                  controller.skip();
+                },
+              );
+            },
+          ),
+        ],
+      ),
+    ];
+
+    _tourMark = TutorialCoachMark(
+      targets: targets,
+      colorShadow: Colors.black.withOpacity(0.85),
+      paddingFocus: 10,
+      opacityShadow: 0.85,
+      onFinish: () {
+        if (tourProvider.isTourActive) {
+          Navigator.of(context).pop();
+          tourProvider.setStep(14);
+        }
+      },
+      onSkip: () {
+        tourProvider.stopTour();
+        return true;
+      },
+    )..show(context: context);
+  }
+
+  @override
+  void dispose() {
+    _tourMark?.finish();
+    super.dispose();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -68,7 +186,11 @@ class _DashboardState extends State<Dashboard> {
     final now = DateTime.now();
     monthKey = DateFormat('yyyyMM').format(now);
     dateKey = DateFormat('yyyyMMdd').format(now);
-    _loadSessionData();
+    _loadSessionData().then((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _checkTour();
+      });
+    });
   }
 
   Future<void> _loadSessionData() async {
@@ -392,6 +514,13 @@ class _DashboardState extends State<Dashboard> {
           child: Icon(Icons.add_shopping_cart),
         ),
         appBar: AppBar(
+          leading: Builder(
+            builder: (context) => IconButton(
+              key: TourKeys.drawerIconKey,
+              icon: const Icon(Icons.menu),
+              onPressed: () => Scaffold.of(context).openDrawer(),
+            ),
+          ),
           elevation: 0,
           scrolledUnderElevation: 0,
           backgroundColor: Colors.white,
@@ -434,14 +563,15 @@ class _DashboardState extends State<Dashboard> {
                       Row(
                         children: [
                           _InfoCard(
-                            title: "Sales",
+                            key: TourKeys.dashSalesCardKey,
+                            title: AppLocale.sales.getString(context),
                             value: PriceUtils.formatPrice(totalSales),
                             icon: Icons.point_of_sale,
                             color: Colors.teal,
                           ),
                           const SizedBox(width: 10),
                           _InfoCard(
-                            title: "Net Profit",
+                            title: AppLocale.netProfit.getString(context),
                             value: PriceUtils.formatPrice(netProfit),
                             icon: Icons.account_balance_wallet,
                             color: Colors.indigo,
@@ -454,7 +584,7 @@ class _DashboardState extends State<Dashboard> {
                       Row(
                         children: [
                           _InfoCard(
-                            title: "Total Bills",
+                            title: AppLocale.totalBills.getString(context),
                             value: numberFormat.format(totalBills),
                             icon: Icons.receipt,
                             color: appbar1,
@@ -463,7 +593,7 @@ class _DashboardState extends State<Dashboard> {
                             width: 10,
                           ),
                           _InfoCard(
-                            title: "Total Expenses",
+                            title: AppLocale.totalExpenses.getString(context),
                             value: PriceUtils.formatPrice(totalExpenses),
                             icon: Icons.trending_down,
                             color: Colors.red.shade600,
@@ -487,8 +617,8 @@ class _DashboardState extends State<Dashboard> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const MyText(
-                              text: 'Filter Orders',
+                            MyText(
+                              text: AppLocale.filterOrders.getString(context),
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
                             ),
@@ -555,23 +685,23 @@ class _DashboardState extends State<Dashboard> {
                                       ),
                                     ),
                                     items: [
-                                      const DropdownMenuItem(
+                                      DropdownMenuItem(
                                         value: 'all',
-                                        child: MyText(text: 'All Orders'),
+                                        child: MyText(text: AppLocale.allOrders.getString(context)),
                                       ),
                                       if (businessCategory == 'Food') ...[
-                                        const DropdownMenuItem(
+                                        DropdownMenuItem(
                                           value: 'DineIn',
-                                          child: MyText(text: '🍽 Dine In'),
+                                          child: MyText(text: '🍽 ' + AppLocale.dineIn.getString(context)),
                                         ),
-                                        const DropdownMenuItem(
+                                        DropdownMenuItem(
                                           value: 'PickUp',
-                                          child: MyText(text: '🛍 Pick Up'),
+                                          child: MyText(text: '🛍 ' + AppLocale.pickUp.getString(context)),
                                         ),
                                       ],
-                                      const DropdownMenuItem(
+                                      DropdownMenuItem(
                                         value: 'Delivery',
-                                        child: MyText(text: '🚚 Delivery'),
+                                        child: MyText(text: '🚚 ' + AppLocale.delivery.getString(context)),
                                       ),
                                     ],
                                     onChanged: (value) {
@@ -592,13 +722,14 @@ class _DashboardState extends State<Dashboard> {
                       if (orderDistribution.isNotEmpty && businessCategory == 'Food')
                         _OrderDistributionChart(data: orderDistribution, businessCategory: businessCategory),
                       if (businessCategory == 'Food') const SizedBox(height: 15),
-                      Padding(
-                        padding: EdgeInsets.symmetric(vertical: 5.0),
+                       Padding(
+                        key: TourKeys.dashRecentOrdersKey,
+                        padding: const EdgeInsets.symmetric(vertical: 5.0),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             MyText(
-                              text: "Recent Orders",
+                              text: AppLocale.recentOrders.getString(context),
                               fontSize: 20,
                               fontWeight: FontWeight.w600,
                             ),
@@ -611,8 +742,8 @@ class _DashboardState extends State<Dashboard> {
                                   ),
                                 );
                               },
-                              child: const MyText(
-                                text: "View All",
+                              child: MyText(
+                                text: AppLocale.viewAll.getString(context),
                                 color: Colors.blue,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -622,14 +753,14 @@ class _DashboardState extends State<Dashboard> {
                       ),
                       const SizedBox(height: 15),
                       orders.isEmpty
-                          ? const Center(child: MyText(text: 'No Orders Found'))
+                          ? Center(child: MyText(text: AppLocale.noOrdersFound.getString(context)))
                           : Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 ListView.builder(
                                   shrinkWrap: true,
                                   physics: const NeverScrollableScrollPhysics(),
-                                  itemCount: orders.length > 10 ? 10 : orders.length,
+                            itemCount: orders.length > 10 ? 10 : orders.length,
                                   itemBuilder: (context, index) {
                                     final data = orders[index];
                                     final dateData = data['orderDate'] ?? data['created_at'];
@@ -639,9 +770,9 @@ class _DashboardState extends State<Dashboard> {
                                     // Extract guest/customer name
                                     String customerName = data['customerName'] ?? data['customer_name'] ?? "";
                                     if (customerName.isEmpty && data['unknownCustomerId'] != null) {
-                                      customerName = data['unknownCustomerId']['name'] ?? "Guest User";
+                                      customerName = data['unknownCustomerId']['name'] ?? AppLocale.guestUser.getString(context);
                                     }
-                                    if (customerName.isEmpty) customerName = "Walk In";
+                                    if (customerName.isEmpty) customerName = AppLocale.walkIn.getString(context);
 
                                     return OrderTile(
                                       bill: data['billNumber'] ?? data['id'] ?? '0',
@@ -884,6 +1015,7 @@ class _InfoCard extends StatelessWidget {
   final IconData icon;
 
   const _InfoCard({
+    super.key,
     required this.title,
     required this.value,
     required this.icon,
@@ -972,8 +1104,8 @@ class _SalesOverviewChartState extends State<_SalesOverviewChart> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const MyText(
-                    text: 'Revenue Analysis',
+                  MyText(
+                    text: AppLocale.revenueAnalysis.getString(context),
                     fontWeight: FontWeight.w700,
                     fontSize: 20,
                   ),
@@ -995,7 +1127,7 @@ class _SalesOverviewChartState extends State<_SalesOverviewChart> {
                       ),
                       const SizedBox(width: 8),
                       MyText(
-                        text: 'Total Period',
+                        text: AppLocale.totalPeriod.getString(context),
                         fontSize: 11,
                         color: Colors.grey.shade500,
                         fontWeight: FontWeight.w500,
@@ -1042,7 +1174,7 @@ class _SalesOverviewChartState extends State<_SalesOverviewChart> {
   }
 
   Widget _buildBarChart() {
-    if (widget.data.isEmpty) return const Center(child: MyText(text: 'No data available'));
+    if (widget.data.isEmpty) return Center(child: MyText(text: AppLocale.noDataAvailable.getString(context)));
 
     final maxAmount = widget.data.map((e) => (e['amount'] as num).toDouble()).reduce((a, b) => a > b ? a : b);
     final maxY = (maxAmount * 1.2).clamp(1000.0, double.infinity);
@@ -1155,7 +1287,7 @@ class _SalesOverviewChartState extends State<_SalesOverviewChart> {
   }
 
   Widget _buildAreaChart() {
-    if (widget.data.isEmpty) return const Center(child: MyText(text: 'No data available'));
+    if (widget.data.isEmpty) return Center(child: MyText(text: AppLocale.noDataAvailable.getString(context)));
 
     final maxAmount = widget.data.map((e) => (e['amount'] as num).toDouble()).reduce((a, b) => a > b ? a : b);
     final maxY = (maxAmount * 1.2).clamp(1000.0, double.infinity);
@@ -1385,7 +1517,7 @@ class _OrderDistributionChart extends StatelessWidget {
                       color: Colors.black,
                     ),
                     MyText(
-                      text: 'Orders',
+                      text: AppLocale.ordersLabel.getString(context),
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                       color: Colors.grey.shade400,
@@ -1402,8 +1534,8 @@ class _OrderDistributionChart extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const MyText(
-                  text: 'Distribution',
+                MyText(
+                  text: AppLocale.distribution.getString(context),
                   fontWeight: FontWeight.w800,
                   fontSize: 16,
                   letterSpacing: -0.5,
@@ -1411,20 +1543,20 @@ class _OrderDistributionChart extends StatelessWidget {
                 const SizedBox(height: 18),
                 if (businessCategory == 'Food')
                   _DistributionLegend(
-                    label: 'Dine-In',
+                    label: AppLocale.dineIn.getString(context),
                     count: (data['DineIn'] ?? 0).toInt(),
                     color: Colors.teal.shade400,
                     percent: total > 0 ? (data['DineIn'] ?? 0) / total : 0,
                   ),
                 if (businessCategory == 'Food')
                   _DistributionLegend(
-                    label: 'Pick-Up',
+                    label: AppLocale.pickUp.getString(context),
                     count: (data['PickUp'] ?? 0).toInt(),
                     color: Colors.orange.shade400,
                     percent: total > 0 ? (data['PickUp'] ?? 0) / total : 0,
                   ),
                 _DistributionLegend(
-                  label: 'Delivery',
+                  label: AppLocale.delivery.getString(context),
                   count: (data['Delivery'] ?? 0).toInt(),
                   color: Colors.red.shade400,
                   percent: total > 0 ? (data['Delivery'] ?? 0) / total : 0,

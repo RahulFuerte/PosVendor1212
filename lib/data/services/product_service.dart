@@ -3,7 +3,6 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/product_model.dart';
 import '../constants/api_constants.dart';
-import 'demo_data.dart';
 
 class ProductService {
   static const String baseUrl = ApiConstants.products;
@@ -34,6 +33,7 @@ class ProductService {
     String? tax,
     String? uid,
     List<dynamic>? variants,
+    String? barcode,
   }) async {
     final token = await _getToken();
     final response = await http.post(
@@ -63,6 +63,7 @@ class ProductService {
         'tax': tax ?? "",
         'uid': uid ?? "",
         'variants': variants ?? [],
+        'barcode': barcode ?? "",
       }),
     );
 
@@ -74,19 +75,13 @@ class ProductService {
     }
   }
 
-  Future<List<ProductModel>> getProducts({String? categoryId, String? foodCode}) async {
-    final prefs = await SharedPreferences.getInstance();
-    final isDemoMode = prefs.getBool('isDemoMode') ?? false;
-
-    if (isDemoMode) {
-      return DemoData.products;
-    }
-
+  Future<List<ProductModel>> getProducts({String? categoryId, String? foodCode, String? barcode}) async {
     final token = await _getToken();
 
     final List<String> queryParams = [];
     if (categoryId != null) queryParams.add('categoryId=$categoryId');
     if (foodCode != null) queryParams.add('foodCode=$foodCode');
+    if (barcode != null) queryParams.add('barcode=$barcode');
 
     final String queryString = queryParams.isNotEmpty ? '?${queryParams.join('&')}' : '';
 

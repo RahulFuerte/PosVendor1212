@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localization/flutter_localization.dart';
 import 'package:pos/core/utils/error_utils.dart';
 import 'package:pos/core/widgets/text.dart';
 import 'package:pos/data/models/user_model.dart';
 import 'package:pos/data/services/user_service.dart';
 import 'package:pos/core/utils/snackbar_utils.dart';
+import 'package:pos/l10n/app_locale.dart';
 import 'package:pos/view/home/navigation.dart';
 import 'package:pos/view/staff/screens/add_staff_screen.dart';
 import 'package:pos/view/staff/screens/edit_staff_screen.dart';
@@ -70,17 +72,17 @@ class _StaffListScreenState extends State<StaffListScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const MyText(text: 'Delete Staff'),
+        title: MyText(text: AppLocale.deleteStaff.getString(context)),
         content: MyText(text: 'Are you sure you want to delete ${staff.name}?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const MyText(text: 'Cancel'),
+            child: MyText(text: AppLocale.cancel.getString(context)),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const MyText(text: 'Delete'),
+            child: MyText(text: AppLocale.delete.getString(context)),
           ),
         ],
       ),
@@ -92,7 +94,7 @@ class _StaffListScreenState extends State<StaffListScreen> {
         await _loadStaff();
         _searchController.clear();
         if (mounted) {
-          SnackBarUtils.showSuccess(context, 'Staff deleted successfully');
+          SnackBarUtils.showSuccess(context, AppLocale.staffDeletedSuccess.getString(context));
         }
       } catch (e) {
         if (mounted) {
@@ -111,8 +113,8 @@ class _StaffListScreenState extends State<StaffListScreen> {
           icon: const Icon(Icons.arrow_back_ios, color: Colors.black),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: const MyText(
-          text: "Staff Management",
+        title: MyText(
+          text: AppLocale.staffManagement.getString(context),
           fontWeight: FontWeight.w600,
         ),
       ),
@@ -128,7 +130,7 @@ class _StaffListScreenState extends State<StaffListScreen> {
                     controller: _searchController,
                     onChanged: _filterStaff,
                     decoration: InputDecoration(
-                      hintText: "Search by name or phone",
+                      hintText: AppLocale.searchByNameOrPhone.getString(context),
                       prefixIcon: Icon(Icons.search, color: appbar1),
                       filled: true,
                       fillColor: Colors.white,
@@ -146,7 +148,7 @@ class _StaffListScreenState extends State<StaffListScreen> {
                 Expanded(
                   child: _staff.isEmpty
                       ? Center(
-                          child: MyText(text: "No staff members found"),
+                          child: MyText(text: AppLocale.noStaffFound.getString(context)),
                         )
                       : ListView.separated(
                           padding: const EdgeInsets.all(16),
@@ -253,8 +255,8 @@ class _StaffListScreenState extends State<StaffListScreen> {
                             _searchController.clear();
                           }
                         },
-                        child: const MyText(
-                          text: "Add Staff",
+                        child: MyText(
+                          text: AppLocale.addStaff.getString(context),
                           fontSize: 16,
                           color: Colors.white,
                           fontWeight: FontWeight.w600,

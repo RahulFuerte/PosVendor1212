@@ -3,7 +3,9 @@ import 'dart:io';
 
 // Flutter imports:
 import 'package:flutter/material.dart';
+import 'package:flutter_localization/flutter_localization.dart';
 import 'package:pos/core/widgets/text.dart';
+import 'package:pos/l10n/app_locale.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
@@ -41,6 +43,8 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
   final _gstNumberController = TextEditingController();
   final _fssaiNumberController = TextEditingController();
   final _upiIdController = TextEditingController();
+  final _passwordController = TextEditingController();
+  bool _obscurePassword = true;
   final ImagePicker _picker = ImagePicker();
   final CloudinaryService _storageService = CloudinaryService();
 
@@ -224,7 +228,8 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
 
       // 3. Save to MongoDB (Sync Profile)
       debugPrint('Syncing profile to MongoDB with Location: [$_longitude, $_latitude]');
-      await UserService().updateProfile({
+      
+      final Map<String, dynamic> profileUpdates = {
         'name': prefs.getString('name') ?? "",
         'phoneNumber': phoneNo,
         'shopName': _shopNameController.text.trim(),
@@ -244,7 +249,13 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
             'type': 'Point',
             'coordinates': [_longitude, _latitude],
           },
-      });
+      };
+
+      if (_passwordController.text.trim().isNotEmpty) {
+        profileUpdates['password'] = _passwordController.text.trim();
+      }
+
+      await UserService().updateProfile(profileUpdates);
 
       if (mounted) {
         SnackBarUtils.showSuccess(context, 'Settings saved successfully');
@@ -391,6 +402,7 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
     _gstNumberController.dispose();
     _fssaiNumberController.dispose();
     _upiIdController.dispose();
+    _passwordController.dispose();
     super.dispose();
   }
 
@@ -399,10 +411,7 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
     return Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
-        title: const MyText(
-          text: 'Edit Bill Receipt',
-          fontWeight: FontWeight.w600,
-        ),
+        title: MyText(text: AppLocale.editBillReceipt.getString(context), fontSize: 17, color: Colors.black, fontWeight: FontWeight.w600),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black87,
         elevation: 0,
@@ -855,6 +864,29 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
                                 );
                               },
                             ),
+
+                            const SizedBox(height: 24),
+
+                            // Security Settings Section
+                            const MyText(
+                              text: 'Security Settings',
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
+                            const SizedBox(height: 8),
+                            MyText(
+                              text: 'Update your password to secure your account',
+                              fontSize: 14,
+                              color: Colors.grey[600],
+                            ),
+                            const SizedBox(height: 16),
+                            _buildPasswordField(
+                              controller: _passwordController,
+                              label: 'New Password',
+                              hint: 'Enter new password to change (leave empty to keep current)',
+                              icon: Icons.lock_outline,
+                            ),
                           ],
                         ),
                       ),
@@ -1129,6 +1161,70 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
             ),
             onChanged: onChanged,
           ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPasswordField({
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    required IconData icon,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        MyText(
+          text: label,
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          color: Colors.black87,
+        ),
+        const SizedBox(height: 8),
+        TextFormField(
+          controller: controller,
+          obscureText: _obscurePassword,
+          style: const TextStyle(fontFamily: "Outfit", fontWeight: FontWeight.w600),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: TextStyle(fontFamily: "Outfit", fontWeight: FontWeight.w500, color: Colors.grey[400], fontSize: 13),
+            prefixIcon: Icon(icon, color: primaryColor),
+            suffixIcon: IconButton(
+              icon: Icon(
+                _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                color: Colors.grey,
+              ),
+              onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey[300]!),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey[300]!),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(
+                color: primaryColor,
+                width: 2,
+              ),
+            ),
+            filled: true,
+            fillColor: Colors.white,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 16,
+            ),
+          ),
+          validator: (value) {
+            if (value != null && value.isNotEmpty && value.length < 6) {
+              return 'Password must be at least 6 characters';
+            }
+            return null;
+          },
         ),
       ],
     );

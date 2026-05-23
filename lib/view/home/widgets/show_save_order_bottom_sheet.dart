@@ -11,6 +11,11 @@ import 'package:pos/data/models/customer_model.dart';
 import 'package:pos/data/services/customer_service.dart';
 import 'package:provider/provider.dart';
 import 'dart:developer' as developer;
+import 'package:pos/data/providers/tour_provider.dart';
+import 'package:pos/data/services/demo_data.dart';
+import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
+import 'package:flutter_localization/flutter_localization.dart';
+import 'package:pos/l10n/app_locale.dart';
 
 class SaveOrderBottomSheet extends StatefulWidget {
   const SaveOrderBottomSheet({
@@ -61,10 +66,117 @@ class _SaveOrderBottomSheetState extends State<SaveOrderBottomSheet> {
   String? _selectedCustomerId;
   bool _isFetchingCustomers = false;
 
+  bool _tourShowing = false;
+  TutorialCoachMark? _tourMark;
+
   @override
   void initState() {
     super.initState();
     _fetchCustomers();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<TourProvider>().addListener(_onTourStateChanged);
+      _onTourStateChanged();
+    });
+  }
+
+  @override
+  void dispose() {
+    try {
+      context.read<TourProvider>().removeListener(_onTourStateChanged);
+    } catch (_) {}
+    _tourMark?.finish();
+    super.dispose();
+  }
+
+  void _onTourStateChanged() {
+    if (!mounted) return;
+    final tourProvider = context.read<TourProvider>();
+    if (tourProvider.isTourActive && tourProvider.currentStep == 20 && !_tourShowing) {
+      _tourShowing = true;
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted && tourProvider.isTourActive && tourProvider.currentStep == 20) {
+          _showTour();
+        } else {
+          _tourShowing = false;
+        }
+      });
+    }
+  }
+
+  void _showTour() {
+    final tourProvider = context.read<TourProvider>();
+    final targets = [
+      TargetFocus(
+        identify: "checkout_customer",
+        keyTarget: TourKeys.checkoutPaymentMethodKey,
+        alignSkip: Alignment.topRight,
+        contents: [
+          TargetContent(
+            align: ContentAlign.top,
+            builder: (context, controller) {
+              return tourProvider.buildTourTooltip(
+                context: context,
+                step: 20,
+                title: AppLocale.tourTitle20.getString(context),
+                description: AppLocale.tourDesc20.getString(context),
+                onNext: () => controller.next(),
+                onSkip: () {
+                  tourProvider.stopTour();
+                  controller.skip();
+                },
+              );
+            },
+          ),
+        ],
+      ),
+      TargetFocus(
+        identify: "checkout_confirm",
+        keyTarget: TourKeys.checkoutConfirmPayKey,
+        alignSkip: Alignment.topRight,
+        contents: [
+          TargetContent(
+            align: ContentAlign.top,
+            builder: (context, controller) {
+              return tourProvider.buildTourTooltip(
+                context: context,
+                step: 21,
+                title: AppLocale.tourTitle21.getString(context),
+                description: AppLocale.tourDesc21.getString(context),
+                onNext: () => controller.next(),
+                onPrev: () => controller.previous(),
+                onSkip: () {
+                  tourProvider.stopTour();
+                  controller.skip();
+                },
+              );
+            },
+          ),
+        ],
+      ),
+    ];
+
+    _tourMark = TutorialCoachMark(
+      targets: targets,
+      colorShadow: Colors.black.withOpacity(0.85),
+      paddingFocus: 10,
+      opacityShadow: 0.85,
+      onFinish: () {
+        _tourShowing = false;
+        if (tourProvider.isTourActive) {
+          if (widget.formKey.currentState!.validate()) {
+            widget.onSave(_selectedCustomerId);
+          } else {
+            widget.onSave(null);
+          }
+          tourProvider.setStep(22);
+        }
+      },
+      onSkip: () {
+        _tourShowing = false;
+        tourProvider.stopTour();
+        return true;
+      },
+    )..show(context: context);
   }
 
   Future<void> _fetchCustomers() async {
@@ -102,11 +214,24 @@ class _SaveOrderBottomSheetState extends State<SaveOrderBottomSheet> {
               children: [
                 _dragHandle(),
                 const SizedBox(height: 20),
-                MyText(text: widget.title, fontSize: 24, fontWeight: FontWeight.bold),
+                MyText(
+                    text: widget.title == 'Save Order'
+                        ? AppLocale.saveOrder.getString(context)
+                        : widget.title,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold),
                 const SizedBox(height: 8),
-                MyText(text: widget.subtitle, fontSize: 14, color: Colors.grey[600]),
+                MyText(
+                    text: widget.subtitle == 'Enter customer details to save this order'
+                        ? AppLocale.saveOrderDesc.getString(context)
+                        : widget.subtitle,
+                    fontSize: 14,
+                    color: Colors.grey[600]),
                 const SizedBox(height: 24),
-                _customerAutoCompleteField(),
+                Container(
+                  key: TourKeys.checkoutPaymentMethodKey,
+                  child: _customerAutoCompleteField(),
+                ),
                 const SizedBox(height: 16),
                 _mobileField(),
                 const SizedBox(height: 24),
@@ -313,7 +438,7 @@ class _SaveOrderBottomSheetState extends State<SaveOrderBottomSheet> {
           controller: textEditingController,
           focusNode: focusNode,
           decoration: _inputDecoration(
-            label: 'Customer Name',
+            label: AppLocale.customerName.getString(context),
             icon: Icons.person_outline,
           ).copyWith(
             suffixIcon: _isFetchingCustomers
@@ -388,7 +513,7 @@ class _SaveOrderBottomSheetState extends State<SaveOrderBottomSheet> {
     return TextFormField(
       controller: widget.nameController,
       decoration: _inputDecoration(
-        label: 'Customer Name',
+        label: AppLocale.customerName.getString(context),
         icon: Icons.person_outline,
       ),
       validator: (value) {
@@ -404,13 +529,13 @@ class _SaveOrderBottomSheetState extends State<SaveOrderBottomSheet> {
       keyboardType: TextInputType.phone,
       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
       decoration: _inputDecoration(
-        label: 'Mobile Number',
+        label: AppLocale.mobileNumber.getString(context),
         icon: Icons.phone_outlined,
       ),
       validator: (value) {
         // Not mandatory, but if provided, check length for sanity (optional)
         if (value != null && value.isNotEmpty && value.length != 10) {
-          return 'Mobile number must be 10 digits';
+          return AppLocale.mobileNumberMustBe10Digits.getString(context);
         }
         return null;
       },
@@ -422,7 +547,7 @@ class _SaveOrderBottomSheetState extends State<SaveOrderBottomSheet> {
       controller: widget.addressController,
       keyboardType: TextInputType.text,
       decoration: _inputDecoration(
-        label: 'Enter Address',
+        label: AppLocale.enterAddress.getString(context),
         icon: Icons.home,
       ),
     );
@@ -433,7 +558,7 @@ class _SaveOrderBottomSheetState extends State<SaveOrderBottomSheet> {
       controller: widget.gstController,
       keyboardType: TextInputType.text,
       decoration: _inputDecoration(
-        label: 'Enter GST Number',
+        label: AppLocale.enterGstNumber.getString(context),
         icon: Icons.note,
       ),
     );
@@ -451,12 +576,12 @@ class _SaveOrderBottomSheetState extends State<SaveOrderBottomSheet> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            MyText(text: 'Order Summary', color: Colors.grey[600]),
+            MyText(text: AppLocale.orderSummary.getString(context), color: Colors.grey[600]),
             const SizedBox(height: 4),
-            MyText(text: '${widget.itemCount} items', fontSize: 16, fontWeight: FontWeight.w600),
+            MyText(text: '${widget.itemCount} ${AppLocale.items.getString(context)}', fontSize: 16, fontWeight: FontWeight.w600),
           ]),
           Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-            MyText(text: 'Total Amount', color: Colors.grey[600]),
+            MyText(text: AppLocale.totalAmount.getString(context), color: Colors.grey[600]),
             const SizedBox(height: 4),
             MyText(
               text: '₹${widget.totalAmount}',
@@ -471,17 +596,21 @@ class _SaveOrderBottomSheetState extends State<SaveOrderBottomSheet> {
   }
 
   Widget _actionButtons(BuildContext context) {
+    final displaySaveButtonText = widget.saveButtonText == 'Save Order'
+        ? AppLocale.saveOrder.getString(context)
+        : widget.saveButtonText;
     return Row(
       children: [
         Expanded(
           child: OutlinedButton(
             onPressed: widget.onCancel,
-            child: const MyText(text: 'Cancel'),
+            child: MyText(text: AppLocale.cancel.getString(context)),
           ),
         ),
         const SizedBox(width: 16),
         Expanded(
           child: ElevatedButton(
+            key: TourKeys.checkoutConfirmPayKey,
             onPressed: () {
               if (widget.formKey.currentState!.validate()) {
                 widget.onSave(_selectedCustomerId);
@@ -492,7 +621,7 @@ class _SaveOrderBottomSheetState extends State<SaveOrderBottomSheet> {
               // textStyle: const TextStyle(color: Colors.white)
             ),
             child: MyText(
-              text: widget.saveButtonText,
+              text: displaySaveButtonText,
               color: Colors.white,
             ),
           ),

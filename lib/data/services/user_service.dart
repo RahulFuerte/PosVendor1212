@@ -4,7 +4,6 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_model.dart';
 import '../constants/api_constants.dart';
-import 'demo_data.dart';
 import '../datasources/local/sqlite_helper.dart';
 import '../datasources/shared_preferences.dart';
 
@@ -85,6 +84,32 @@ class UserService {
     }
   }
 
+  /// Direct login using phone and password
+  static Future<Map<String, dynamic>> loginWithPassword({
+    required String phoneNumber,
+    required String password,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('${ApiConstants.users}/login-password'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'phoneNumber': phoneNumber,
+          'password': password,
+        }),
+      );
+
+      final data = jsonDecode(response.body);
+      if ((response.statusCode == 200 || response.statusCode == 201) && data['success'] != false) {
+        return {'success': true, 'token': data['token'], 'user': data['user']};
+      } else {
+        return {'success': false, 'message': data['message'] ?? 'Login failed'};
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Connection error: ${e.toString()}'};
+    }
+  }
+
   /// Exchanges a Firebase ID token for a backend JWT session.
   static Future<Map<String, dynamic>> firebaseLogin(String firebaseToken) async {
     try {
@@ -115,7 +140,17 @@ class UserService {
 
     // 2. Save Session Flags
     await prefs.setBool('isLogged', true);
-    await prefs.setBool('isDemoMode', false);
+    final bool clickedTryDemo = prefs.getBool('clickedTryDemo') ?? false;
+    final bool isDemo = userModel.phoneNumber == '9999999999' || clickedTryDemo;
+    await prefs.setBool('isDemoMode', isDemo);
+    if (isDemo) {
+      await prefs.setBool('is_first_time_tutorial', true);
+      await prefs.setBool('is_first_time_main_tutorial', true);
+      await prefs.setBool('is_first_time_drawer_tutorial', true);
+      await prefs.setBool('is_first_time_detailed_tutorial', true);
+    }
+    // Reset the flag so that future logins are treated normally
+    await prefs.setBool('clickedTryDemo', false);
     await prefs.setString('myPhone', userModel.phoneNumber);
     await prefs.setString('phoneNumber', userModel.phoneNumber);
     await prefs.setString('role', userModel.role ?? 'admin');
@@ -170,8 +205,6 @@ class UserService {
       'businessIcon': userModel.businessIcon ?? '',
     });
   }
-
-
 
   Future<List<UserModel>> getShops() async {
     try {
@@ -268,13 +301,6 @@ class UserService {
   }
 
   Future<UserModel> getProfile() async {
-    final prefs = await SharedPreferences.getInstance();
-    final isDemoMode = prefs.getBool('isDemoMode') ?? false;
-
-    if (isDemoMode) {
-      return DemoData.profile;
-    }
-
     try {
       final token = await _getToken();
       final response = await http.get(
@@ -324,7 +350,8 @@ class UserService {
         if (updates.containsKey('upiId')) await prefs.setString('upiId', updates['upiId']);
         if (updates.containsKey('isShopOpen')) await prefs.setBool('isShopOpen', updates['isShopOpen']);
         if (updates.containsKey('phoneNumber')) await prefs.setString('contact', updates['phoneNumber']);
-        if (updates.containsKey('businessCategory')) await prefs.setString('businessCategory', updates['businessCategory']);
+        if (updates.containsKey('businessCategory'))
+          await prefs.setString('businessCategory', updates['businessCategory']);
         if (updates.containsKey('businessIcon')) await prefs.setString('businessIcon', updates['businessIcon']);
 
         // Sync with SQLite for secondary screens (like Edit Bill)

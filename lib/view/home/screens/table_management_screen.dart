@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localization/flutter_localization.dart';
 import 'package:pos/core/widgets/text.dart';
+import 'package:pos/l10n/app_locale.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:pos/data/providers/table_provider.dart';
 import 'package:pos/view/home/navigation.dart';
@@ -47,12 +49,7 @@ class _TableManagementScreenState extends State<TableManagementScreen> {
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
-        title: const MyText(
-          text: 'Table Management',
-          fontSize: 20,
-          fontWeight: FontWeight.bold,
-          color: Colors.black,
-        ),
+        title: MyText(text: AppLocale.tableManagement.getString(context), fontSize: 17, color: Colors.black, fontWeight: FontWeight.w600),
         backgroundColor: Colors.white,
         elevation: 0,
         scrolledUnderElevation: 0,

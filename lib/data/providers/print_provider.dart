@@ -101,6 +101,40 @@ class PrintProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void addToCart(dynamic product, {int quantity = 1, String? variant, List<dynamic>? selectedAddons}) {
+    // Determine the product ID (supports both Map and ProductModel)
+    final String productId = (product is Map)
+        ? (product['_id'] ?? product['id'] ?? product['productId'] ?? product['foodCode'] ?? "")
+        : (product.id ?? product.foodCode ?? "");
+
+    final String productName = (product is Map) ? product['name'] : product.name;
+    final double productPrice = (product is Map) ? (product['price'] as num).toDouble() : product.price;
+    final String productImageUrl = (product is Map)
+        ? (product['imageUrl'] ?? product['imagePath'] ?? "")
+        : (product.imageUrl ?? product.imagePath ?? "");
+
+    final existingIndex = _posts.indexWhere((item) => item['productId'] == productId && item['variant'] == variant);
+
+    if (existingIndex != -1) {
+      _posts[existingIndex]['quantity'] += quantity;
+    } else {
+      _posts.add({
+        'productId': productId,
+        'id': productId, // Keep 'id' for backward compatibility if needed
+        'name': productName,
+        'price': productPrice,
+        'quantity': quantity,
+        'variant': variant,
+        'addons': selectedAddons ?? [],
+        'image': productImageUrl,
+      });
+    }
+
+    // Recalculate total
+    _total = _posts.fold(0, (sum, item) => sum + (item['price'] * item['quantity']));
+    notifyListeners();
+  }
+
   int generateRandomReceiptNumber() {
     final random = Random();
     return random.nextInt(99999999 - 10000000 + 1) + 10000000;

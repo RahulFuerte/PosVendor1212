@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localization/flutter_localization.dart';
 import 'package:pos/core/widgets/text.dart';
+import 'package:pos/l10n/app_locale.dart';
 import 'package:hive/hive.dart';
 import 'package:pos/data/models/order_model.dart';
 import 'package:pos/data/providers/print_provider.dart';
@@ -48,7 +50,7 @@ class _UsersScreenState extends State<UsersScreen> {
     final sub = context.watch<SubscriptionProvider>();
     return Scaffold(
       appBar: AppBar(
-        title: const MyText(text: 'Saved Orders'),
+        title: MyText(text: AppLocale.savedOrders.getString(context), fontSize: 17, color: Colors.black, fontWeight: FontWeight.w600),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black87,
         elevation: 0,

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localization/flutter_localization.dart';
 import 'package:intl/intl.dart';
 import 'package:pos/core/widgets/text.dart';
 import 'package:pos/data/models/subscription_history_model.dart';
 import 'package:pos/data/providers/subscription_provider.dart';
+import 'package:pos/l10n/app_locale.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:provider/provider.dart';
 
@@ -27,12 +29,7 @@ class _SubscriptionHistoryScreenState extends State<SubscriptionHistoryScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const MyText(
-          text: 'Transaction History',
-          color: Color(0xFF1E293B),
-          fontWeight: FontWeight.bold,
-          fontSize: 20,
-        ),
+        title: MyText(text: AppLocale.transactionHistory.getString(context), fontSize: 17, color: Colors.black, fontWeight: FontWeight.w600),
         backgroundColor: Colors.white,
         elevation: 0,
         centerTitle: true,

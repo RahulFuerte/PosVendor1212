@@ -6,6 +6,11 @@ import 'package:provider/provider.dart';
 import 'package:showcaseview/showcaseview.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:pos/data/services/demo_data.dart';
+import 'package:pos/data/providers/tour_provider.dart';
+import 'package:pos/view/home/screens/dashboard.dart';
+import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
+import 'package:flutter_localization/flutter_localization.dart';
+import 'package:pos/l10n/app_locale.dart';
 
 import 'screens/calculator_screen.dart';
 import 'screens/restaurant_screen.dart';
@@ -27,6 +32,7 @@ class _AdminDashboardState extends State<Navigation> {
   final List<GlobalKey<NavigatorState>> _navigatorKeys = [];
   List<Widget> _pages = [];
   String businessCategory = 'Food';
+  TutorialCoachMark? _tourMark;
 
   @override
   void initState() {
@@ -34,7 +40,155 @@ class _AdminDashboardState extends State<Navigation> {
     _loadBusinessCategory();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkAndReloadTables();
+      _checkTour();
     });
+    context.read<TourProvider>().addListener(_onTourStateChanged);
+  }
+
+  void _onTourStateChanged() {
+    final tourProvider = context.read<TourProvider>();
+    if (tourProvider.isTourActive && tourProvider.currentStep == 14 && currentIndex != 1) {
+      setState(() {
+        currentIndex = 1;
+      });
+    }
+  }
+
+  void _checkTour() {
+    final tourProvider = context.read<TourProvider>();
+    if (tourProvider.isTourActive && tourProvider.currentStep == 7) {
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) _showTour();
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    context.read<TourProvider>().removeListener(_onTourStateChanged);
+    _tourMark?.finish();
+    super.dispose();
+  }
+
+  void _showTour() {
+    final tourProvider = context.read<TourProvider>();
+    final targets = [
+      TargetFocus(
+        identify: "nav_home",
+        keyTarget: TourKeys.navHomeTabKey,
+        alignSkip: Alignment.topRight,
+        contents: [
+          TargetContent(
+            align: ContentAlign.top,
+            builder: (context, controller) {
+              return tourProvider.buildTourTooltip(
+                context: context,
+                step: 7,
+                title: AppLocale.tourTitle7.getString(context),
+                description: AppLocale.tourDesc7.getString(context),
+                onNext: () => controller.next(),
+                onSkip: () {
+                  tourProvider.stopTour();
+                  controller.skip();
+                },
+              );
+            },
+          ),
+        ],
+      ),
+      TargetFocus(
+        identify: "nav_billing",
+        keyTarget: TourKeys.navBillingTabKey,
+        alignSkip: Alignment.topRight,
+        contents: [
+          TargetContent(
+            align: ContentAlign.top,
+            builder: (context, controller) {
+              return tourProvider.buildTourTooltip(
+                context: context,
+                step: 8,
+                title: AppLocale.tourTitle8.getString(context),
+                description: AppLocale.tourDesc8.getString(context),
+                onNext: () => controller.next(),
+                onPrev: () => controller.previous(),
+                onSkip: () {
+                  tourProvider.stopTour();
+                  controller.skip();
+                },
+              );
+            },
+          ),
+        ],
+      ),
+      TargetFocus(
+        identify: "nav_tables",
+        keyTarget: TourKeys.navTablesTabKey,
+        alignSkip: Alignment.topRight,
+        contents: [
+          TargetContent(
+            align: ContentAlign.top,
+            builder: (context, controller) {
+              return tourProvider.buildTourTooltip(
+                context: context,
+                step: 9,
+                title: AppLocale.tourTitle9.getString(context),
+                description: AppLocale.tourDesc9.getString(context),
+                onNext: () => controller.next(),
+                onPrev: () => controller.previous(),
+                onSkip: () {
+                  tourProvider.stopTour();
+                  controller.skip();
+                },
+              );
+            },
+          ),
+        ],
+      ),
+      TargetFocus(
+        identify: "nav_calculator",
+        keyTarget: TourKeys.navCalculatorTabKey,
+        alignSkip: Alignment.topRight,
+        contents: [
+          TargetContent(
+            align: ContentAlign.top,
+            builder: (context, controller) {
+              return tourProvider.buildTourTooltip(
+                context: context,
+                step: 10,
+                title: AppLocale.tourTitle10.getString(context),
+                description: AppLocale.tourDesc10.getString(context),
+                onNext: () => controller.next(),
+                onPrev: () => controller.previous(),
+                onSkip: () {
+                  tourProvider.stopTour();
+                  controller.skip();
+                },
+              );
+            },
+          ),
+        ],
+      ),
+    ];
+
+    _tourMark = TutorialCoachMark(
+      targets: targets,
+      colorShadow: Colors.black.withOpacity(0.85),
+      paddingFocus: 10,
+      opacityShadow: 0.85,
+      onFinish: () {
+        if (tourProvider.isTourActive) {
+          tourProvider.setStep(11);
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const Dashboard()),
+          );
+        }
+      },
+      onSkip: () {
+        tourProvider.stopTour();
+        return true;
+      },
+    )..show(context: context);
   }
 
   Future<void> _loadBusinessCategory() async {
@@ -192,7 +346,19 @@ class _AdminDashboardState extends State<Navigation> {
             bottom: true,
             child: Row(
               children: List.generate(icons.length, (index) {
+                Key? itemKey;
+                if (index == 0) {
+                  itemKey = TourKeys.navHomeTabKey;
+                } else if (index == 1) {
+                  itemKey = TourKeys.navBillingTabKey;
+                } else if (index == 2 && businessCategory == 'Food') {
+                  itemKey = TourKeys.navTablesTabKey;
+                } else if (index == (businessCategory == 'Food' ? 3 : 2)) {
+                  itemKey = TourKeys.navCalculatorTabKey;
+                }
+
                 return BottomNavItem(
+                    key: itemKey,
                     index: index,
                     currentIndex: currentIndex,
                     icon: icons[index],

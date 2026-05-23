@@ -3,7 +3,6 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/table_model.dart';
 import '../constants/api_constants.dart';
-import 'demo_data.dart';
 
 class TableService {
   static const String baseUrl = ApiConstants.tables;
@@ -14,13 +13,6 @@ class TableService {
   }
 
   Future<List<TableModel>> getTables() async {
-    final prefs = await SharedPreferences.getInstance();
-    final isDemoMode = prefs.getBool('isDemoMode') ?? false;
-
-    if (isDemoMode) {
-      return DemoData.tables;
-    }
-
     final token = await _getToken();
     final response = await http.get(
       Uri.parse(baseUrl),

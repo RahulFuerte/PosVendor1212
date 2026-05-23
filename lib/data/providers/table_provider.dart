@@ -47,10 +47,6 @@ class TableProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> _isDemoMode() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool('isDemoMode') ?? false;
-  }
 
   Future<void> addTable(String tableNumber) async {
     try {

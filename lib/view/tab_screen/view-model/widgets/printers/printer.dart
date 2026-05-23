@@ -141,7 +141,7 @@ class DirectPrintHelper {
           paymentType: paymentType,
           orderType: orderType,
           customerId: customerId,
-          employeeId: employeeId, 
+          employeeId: employeeId,
         );
       }
 
@@ -452,7 +452,7 @@ class DirectPrintHelper {
 
       final List<Map<String, dynamic>> itemsData = items.map((item) {
         return {
-          'productId': item['productId'] ?? '',
+          'productId': item['productId'] ?? item['id'] ?? '',
           'name': item['name'] ?? '',
           'price': double.tryParse(item['price'].toString()) ?? 0.0,
           'quantity': int.tryParse(item['quantity'].toString()) ?? 1,
@@ -480,6 +480,9 @@ class DirectPrintHelper {
       try {
         final isOnlineStatus = await isOnline();
         if (isOnlineStatus) {
+          final prefs = await SharedPreferences.getInstance();
+          final businessCategory = prefs.getString('businessCategory') ?? 'Food';
+
           final order = await OrderService().createOrder(
             adminId: adminUid,
             billNumber: receiptNo,
@@ -495,7 +498,8 @@ class DirectPrintHelper {
             notes: customerNote,
             paymentStatus: 'Paid',
             employeeId: employeeId, // Passed
-            createKot: (tableNumber == null || tableNumber == 'N/A' || tableNumber == ''),
+            createKot:
+                (businessCategory == 'Food' && (tableNumber == null || tableNumber == 'N/A' || tableNumber == '')),
           );
           if (order.billNumber.isNotEmpty) {
             finalReceiptNo = order.billNumber;

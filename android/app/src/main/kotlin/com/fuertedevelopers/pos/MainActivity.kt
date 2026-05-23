@@ -7,7 +7,17 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import java.util.*
 
-class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
+import androidx.camera.camera2.Camera2Config
+import androidx.camera.core.CameraXConfig
+import android.util.Log
+
+class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener, CameraXConfig.Provider {
+
+    override fun getCameraXConfig(): CameraXConfig {
+        return CameraXConfig.Builder.fromConfig(Camera2Config.defaultConfig())
+            .setMinimumLoggingLevel(Log.ERROR)
+            .build()
+    }
 
     private val CHANNEL = "com.fuertedevelopers.pos/tts"
     private lateinit var tts: TextToSpeech

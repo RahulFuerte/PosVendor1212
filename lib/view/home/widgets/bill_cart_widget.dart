@@ -3,7 +3,11 @@
 // Flutter imports:
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_localization/flutter_localization.dart';
 import 'package:pos/core/widgets/text.dart';
+import 'package:pos/data/providers/tour_provider.dart';
+import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
+import 'package:pos/l10n/app_locale.dart';
 
 // Package imports:
 import 'package:pos/core/utils/offline_tts.dart';
@@ -26,6 +30,7 @@ import '../../../core/utils/price_utils.dart';
 import '../printer_connectionDialog.dart';
 import '../../../core/utils/snackbar_utils.dart';
 import '../receipt_preview.dart';
+import '../screens/barcode_scanner_screen.dart';
 import 'package:showcaseview/showcaseview.dart';
 
 /// Reusable Bill Cart Widget
@@ -61,11 +66,126 @@ class _BillCartState extends State<BillCart> {
   final SmartDatabaseService _databaseService = SmartDatabaseService();
   final SQLiteHelper _sqliteHelper = SQLiteHelper();
 
+  bool _tourShowing = false;
+  TutorialCoachMark? _tourMark;
+
+  void _onTourStateChanged() {
+    if (!mounted) return;
+    final tourProvider = context.read<TourProvider>();
+    if (tourProvider.isTourActive && tourProvider.currentStep == 17 && !_tourShowing) {
+      _tourShowing = true;
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted && tourProvider.isTourActive && tourProvider.currentStep == 17) {
+          _showTour();
+        } else {
+          _tourShowing = false;
+        }
+      });
+    }
+  }
+
+  void _showTour() {
+    final tourProvider = context.read<TourProvider>();
+    final targets = [
+      TargetFocus(
+        identify: "cart_items",
+        keyTarget: TourKeys.cartItemsKey,
+        alignSkip: Alignment.topRight,
+        contents: [
+          TargetContent(
+            align: ContentAlign.top,
+            builder: (context, controller) {
+              return tourProvider.buildTourTooltip(
+                context: context,
+                step: 17,
+                title: AppLocale.cartItems.getString(context),
+                description: AppLocale.tourDesc17.getString(context),
+                onNext: () => controller.next(),
+                onSkip: () {
+                  tourProvider.stopTour();
+                  controller.skip();
+                },
+              );
+            },
+          ),
+        ],
+      ),
+      TargetFocus(
+        identify: "cart_subtotal",
+        keyTarget: TourKeys.subtotalKey,
+        alignSkip: Alignment.topRight,
+        contents: [
+          TargetContent(
+            align: ContentAlign.top,
+            builder: (context, controller) {
+              return tourProvider.buildTourTooltip(
+                context: context,
+                step: 18,
+                title: AppLocale.subtotal.getString(context),
+                description: AppLocale.tourDesc18.getString(context),
+                onNext: () => controller.next(),
+                onPrev: () => controller.previous(),
+                onSkip: () {
+                  tourProvider.stopTour();
+                  controller.skip();
+                },
+              );
+            },
+          ),
+        ],
+      ),
+      TargetFocus(
+        identify: "cart_pay",
+        keyTarget: TourKeys.cartPayButtonKey,
+        alignSkip: Alignment.topRight,
+        contents: [
+          TargetContent(
+            align: ContentAlign.top,
+            builder: (context, controller) {
+              return tourProvider.buildTourTooltip(
+                context: context,
+                step: 19,
+                title: AppLocale.pay.getString(context),
+                description: AppLocale.tourDesc19.getString(context),
+                onNext: () => controller.next(),
+                onPrev: () => controller.previous(),
+                onSkip: () {
+                  tourProvider.stopTour();
+                  controller.skip();
+                },
+              );
+            },
+          ),
+        ],
+      ),
+    ];
+
+    _tourMark = TutorialCoachMark(
+      targets: targets,
+      colorShadow: Colors.black.withOpacity(0.85),
+      paddingFocus: 10,
+      opacityShadow: 0.85,
+      onFinish: () {
+        _tourShowing = false;
+        if (tourProvider.isTourActive) {
+          tourProvider.setStep(20);
+          widget.orderBottomSheet();
+        }
+      },
+      onSkip: () {
+        _tourShowing = false;
+        tourProvider.stopTour();
+        return true;
+      },
+    )..show(context: context);
+  }
+
   @override
   void initState() {
     super.initState();
     _loadSessionData();
     _loadCartData();
+    context.read<TourProvider>().addListener(_onTourStateChanged);
   }
 
   Future<void> _loadSessionData() async {
@@ -81,6 +201,7 @@ class _BillCartState extends State<BillCart> {
 
   List<Map<String, dynamic>> selectedItemsDetails = [];
   double subtotal = 0.0;
+  bool _cartTourShown = false;
 
   @override
   void didUpdateWidget(covariant BillCart oldWidget) {
@@ -102,6 +223,7 @@ class _BillCartState extends State<BillCart> {
 
   @override
   void dispose() {
+    context.read<TourProvider>().removeListener(_onTourStateChanged);
     _listScrollController.dispose();
     super.dispose();
   }
@@ -119,22 +241,26 @@ class _BillCartState extends State<BillCart> {
   }
 
   Future<void> _checkCartTutorial() async {
+    final tourProvider = Provider.of<TourProvider>(context, listen: false);
+    if (tourProvider.isTourActive) {
+      return;
+    }
     final prefs = await SharedPreferences.getInstance();
     final bool isDemoMode = prefs.getBool('isDemoMode') ?? false;
     final bool isMainFirstTime = prefs.getBool('is_first_time_main_tutorial') ?? true;
-    final bool isDetailedFirstTime = prefs.getBool('is_first_time_detailed_tutorial') ?? true;
 
     // Only start if:
     // 1. In demo mode
     // 2. Main tour is already finished (isMainFirstTime == false)
-    // 3. This detailed tour hasn't been shown yet
-    if (isDemoMode && !isMainFirstTime && isDetailedFirstTime) {
+    // 3. This detailed tour hasn't been shown in current session
+    if (isDemoMode && !isMainFirstTime && !_cartTourShown) {
       // Add a small delay to ensure the cart widget is fully rendered and stable
       await Future.delayed(const Duration(milliseconds: 800));
       if (!mounted) return;
 
       final showcase = ShowCaseWidget.of(context);
       if (showcase != null) {
+        _cartTourShown = true;
         Provider.of<PrintProvider>(context, listen: false).setCartExpanded(true);
         showcase.startShowCase([
           TourKeys.cartItemsKey,
@@ -176,15 +302,15 @@ class _BillCartState extends State<BillCart> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const MyText(
-                  text: "Set Quantity",
+                MyText(
+                  text: AppLocale.setQuantity.getString(context),
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                   color: appbar1,
                 ),
                 const SizedBox(height: 8),
                 MyText(
-                  text: "Item: ${item['name']}",
+                  text: "${AppLocale.menu.getString(context)}: ${item['name']}",
                   fontSize: 14,
                   color: Colors.grey.shade600,
                 ),
@@ -194,8 +320,8 @@ class _BillCartState extends State<BillCart> {
                   keyboardType: TextInputType.number,
                   autofocus: true,
                   decoration: InputDecoration(
-                    labelText: "Quantity",
-                    hintText: "Enter amount",
+                    labelText: AppLocale.quantity.getString(context),
+                    hintText: AppLocale.enterAmount.getString(context),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -208,7 +334,7 @@ class _BillCartState extends State<BillCart> {
                   children: [
                     TextButton(
                       onPressed: () => Navigator.pop(context),
-                      child: MyText(text: "Cancel", color: Colors.grey.shade600),
+                      child: MyText(text: AppLocale.cancel.getString(context), color: Colors.grey.shade600),
                     ),
                     const SizedBox(width: 8),
                     ElevatedButton(
@@ -234,7 +360,7 @@ class _BillCartState extends State<BillCart> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      child: const MyText(text: "Update", color: Colors.white),
+                      child: MyText(text: AppLocale.update.getString(context), color: Colors.white),
                     ),
                   ],
                 ),
@@ -258,6 +384,7 @@ class _BillCartState extends State<BillCart> {
     setState(() {
       selectedItemsDetails.clear();
       subtotal = 0.0;
+      _cartTourShown = false;
     });
     widget.onCartCleared?.call();
   }
@@ -452,8 +579,8 @@ class _BillCartState extends State<BillCart> {
                       children: [
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
+                          child: Stack(
+                            alignment: Alignment.center,
                             children: [
                               Column(
                                 children: [
@@ -484,19 +611,22 @@ class _BillCartState extends State<BillCart> {
                     ),
                   ),
                   if (printProvider.isCartExpanded) ...[
-                    Showcase(
-                      key: TourKeys.cartItemsKey,
-                      title: 'Review Cart',
-                      description:
-                          'See all items added to the current order. You can adjust quantities or remove items here.',
-                      child: _buildItemsList(printProvider),
-                    ),
-                    Showcase(
-                      key: TourKeys.subtotalKey,
-                      title: 'Total Bill Amount',
-                      description: 'This is the calculated total including all items and addons.',
-                      child: _buildFooter(printProvider),
-                    ),
+                    widget.isRestaurantScreen == true
+                        ? Showcase(
+                            key: TourKeys.cartItemsKey,
+                            title: AppLocale.cart.getString(context),
+                            description: AppLocale.tourDesc17.getString(context),
+                            child: _buildItemsList(printProvider),
+                          )
+                        : _buildItemsList(printProvider),
+                    widget.isRestaurantScreen == true
+                        ? Showcase(
+                            key: TourKeys.subtotalKey,
+                            title: AppLocale.totalAmount.getString(context),
+                            description: AppLocale.tourDesc18.getString(context),
+                            child: _buildFooter(printProvider),
+                          )
+                        : _buildFooter(printProvider),
                   ],
                 ],
               ),
@@ -523,7 +653,7 @@ class _BillCartState extends State<BillCart> {
                 Icon(Icons.shopping_cart_outlined, size: 16, color: appbar1),
                 const SizedBox(width: 6),
                 MyText(
-                  text: '${selectedItemsDetails.length} Items',
+                  text: '${selectedItemsDetails.length} ${AppLocale.items.getString(context)}',
                   color: appbar1,
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
@@ -533,7 +663,7 @@ class _BillCartState extends State<BillCart> {
           ),
           const Spacer(),
           MyText(
-            text: 'Total: ',
+            text: '${AppLocale.total.getString(context)}: ',
             fontSize: 14,
             color: Colors.grey.shade600,
             fontWeight: FontWeight.w600,
@@ -727,30 +857,25 @@ class _BillCartState extends State<BillCart> {
         children: [
           Row(
             children: [
-              Showcase(
-                key: TourKeys.cartItemsKey,
-                title: 'Cart Items',
-                description: 'Review the list of items you have added to this order.',
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: appbar1.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: appbar1.withOpacity(0.2)),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.shopping_cart_outlined, size: 14, color: appbar1),
-                      const SizedBox(width: 6),
-                      MyText(
-                        text: '${selectedItemsDetails.length} Items',
-                        color: appbar1,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ],
-                  ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: appbar1.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: appbar1.withOpacity(0.2)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.shopping_cart_outlined, size: 14, color: appbar1),
+                    const SizedBox(width: 6),
+                    MyText(
+                      text: '${selectedItemsDetails.length} ${AppLocale.items.getString(context)}',
+                      color: appbar1,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(width: 8),
@@ -785,45 +910,45 @@ class _BillCartState extends State<BillCart> {
                 ),
               const Spacer(),
               MyText(
-                text: 'Total: ',
+                text: '${AppLocale.total.getString(context)}: ',
                 fontSize: 15,
                 color: Colors.grey.shade600,
                 fontWeight: FontWeight.w600,
               ),
               const SizedBox(width: 4),
-              Showcase(
-                key: TourKeys.subtotalKey,
-                title: 'Order Total',
-                description: 'The final amount calculated for all items in the cart.',
-                child: MyText(
-                  text: PriceUtils.formatPrice(subtotal),
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
-                  color: appbar1,
-                  letterSpacing: -0.5,
-                ),
+              MyText(
+                text: PriceUtils.formatPrice(subtotal),
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+                color: appbar1,
+                letterSpacing: -0.5,
               ),
             ],
           ),
           const SizedBox(height: 16),
           Consumer<OrderTypeProvider>(
             builder: (context, provider, _) {
+              final cashLabel = AppLocale.cash.getString(context);
+              final upiLabel = AppLocale.upi.getString(context);
+              final debitLabel = AppLocale.debit.getString(context);
+              final compLabel = AppLocale.complementary.getString(context);
+
               return MyChoiceChip(
-                options: const ['Cash', 'UPI', 'Debit', 'Complementory'],
+                options: [cashLabel, upiLabel, debitLabel, compLabel],
                 selectedValue: provider.paymentType == PaymentType.cash
-                    ? 'Cash'
+                    ? cashLabel
                     : provider.paymentType == PaymentType.upi
-                        ? "UPI"
+                        ? upiLabel
                         : provider.paymentType == PaymentType.debit
-                            ? "Debit"
-                            : "Complementory",
+                            ? debitLabel
+                            : compLabel,
                 onSelected: (value) {
                   provider.setPaymentType(
-                    value == 'Cash'
+                    value == cashLabel
                         ? PaymentType.cash
-                        : value == 'UPI'
+                        : value == upiLabel
                             ? PaymentType.upi
-                            : value == 'Debit'
+                            : value == debitLabel
                                 ? PaymentType.debit
                                 : PaymentType.complementory,
                   );
@@ -845,13 +970,13 @@ class _BillCartState extends State<BillCart> {
 
                       // Guard: a table must be selected
                       if (tableProvider.selectedTableId == null) {
-                        SnackBarUtils.showWarning(context, 'Please select a table first');
+                        SnackBarUtils.showWarning(context, AppLocale.pleaseSelectTableFirst.getString(context));
                         return;
                       }
 
                       // Guard: cart must not be empty
                       if (printProvider.posts.isEmpty) {
-                        SnackBarUtils.showWarning(context, 'Cart is empty — nothing to save');
+                        SnackBarUtils.showWarning(context, AppLocale.cartIsEmpty.getString(context));
                         return;
                       }
 
@@ -866,7 +991,7 @@ class _BillCartState extends State<BillCart> {
                       tableProvider.selectTable(null);
 
                       if (mounted) {
-                        SnackBarUtils.showSuccess(context, 'Cart saved to Table $savedTableNumber ✓');
+                        SnackBarUtils.showSuccess(context, '${AppLocale.cartSavedToTable.getString(context)} $savedTableNumber ✓');
                         // Navigate to Table Management screen
                         final navigationState = context.findAncestorStateOfType<State<Navigation>>() as dynamic;
                         if (navigationState != null) {
@@ -878,18 +1003,32 @@ class _BillCartState extends State<BillCart> {
                     },
                     iconColor: Colors.white,
                   ),
-                Showcase(
-                  key: TourKeys.cartSaveKey,
-                  title: 'Save Order',
-                  description: 'Saves the bill to print or preview later.',
-                  child: _buildIconButton(imagePath: "assets/images/save.png", onPressed: _handlePreview),
+                Container(
+                  key: widget.isRestaurantScreen == true ? TourKeys.cartPayButtonKey : null,
+                  child: _buildIconButton(
+                    icon: Icons.payment,
+                    onPressed: () {
+                      widget.orderBottomSheet();
+                    },
+                    iconColor: Colors.white,
+                  ),
                 ),
-                Showcase(
-                  key: TourKeys.cartPrintKey,
-                  title: 'Save + Print',
-                  description: 'Saves the bill and instantly prints it.',
-                  child: _buildIconButton(imagePath: "assets/images/save2.png", onPressed: _handlePrint),
-                ),
+                widget.isRestaurantScreen == true
+                    ? Showcase(
+                        key: TourKeys.cartSaveKey,
+                        title: AppLocale.saveOrder.getString(context),
+                        description: AppLocale.saveOrderDesc.getString(context),
+                        child: _buildIconButton(imagePath: "assets/images/save.png", onPressed: _handlePreview),
+                      )
+                    : _buildIconButton(imagePath: "assets/images/save.png", onPressed: _handlePreview),
+                widget.isRestaurantScreen == true
+                    ? Showcase(
+                        key: TourKeys.cartPrintKey,
+                        title: AppLocale.saveAndPrint.getString(context),
+                        description: AppLocale.saveAndPrintDesc.getString(context),
+                        child: _buildIconButton(imagePath: "assets/images/save2.png", onPressed: _handlePrint),
+                      )
+                    : _buildIconButton(imagePath: "assets/images/save2.png", onPressed: _handlePrint),
               ],
             ),
           ),

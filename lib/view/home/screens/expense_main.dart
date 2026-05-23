@@ -9,6 +9,8 @@ import 'package:pos/core/utils/price_utils.dart';
 import 'package:provider/provider.dart';
 import 'package:pos/data/providers/subscription_provider.dart';
 import 'package:pos/core/widgets/access_denied_widget.dart';
+import 'package:pos/core/widgets/skeleton.dart';
+
 
 class Expenses extends StatefulWidget {
   const Expenses({super.key});
@@ -272,9 +274,7 @@ class _ExpensesState extends State<Expenses> {
           ],
         ),
         body: isLoading
-            ? Center(
-                child: CircularProgressIndicator(color: appbar1),
-              )
+            ? _buildSkeletonList()
             : Consumer<SubscriptionProvider>(
                 builder: (context, subProvider, _) {
                   final hasView = subProvider.hasPermission("Expenses", checkView: true);
@@ -599,6 +599,59 @@ class _ExpensesState extends State<Expenses> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildSkeletonList() {
+    return Column(
+      children: [
+        // Tab Skeleton
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: const Skeleton(height: 45, borderRadius: 25, width: double.infinity),
+        ),
+        // Search Skeleton
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: const Skeleton(height: 55, borderRadius: 14, width: double.infinity),
+        ),
+        const SizedBox(height: 12),
+        // List Skeleton
+        Expanded(
+          child: ListView.separated(
+            padding: const EdgeInsets.all(16),
+            itemCount: 6,
+            separatorBuilder: (_, __) => const SizedBox(height: 10),
+            itemBuilder: (_, __) => Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: const [
+                  BoxShadow(color: Colors.black12, blurRadius: 5),
+                ],
+              ),
+              child: Row(
+                children: [
+                  const Skeleton(height: 50, width: 50, borderRadius: 25),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Skeleton(height: 16, width: 120),
+                        const SizedBox(height: 8),
+                        const Skeleton(height: 12, width: 80),
+                      ],
+                    ),
+                  ),
+                  const Skeleton(height: 20, width: 60),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

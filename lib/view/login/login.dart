@@ -1,13 +1,19 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:pos/core/widgets/text.dart';
+import 'package:pos/data/services/user_service.dart';
 import 'package:pos/view/login/admin_sign_up.dart';
-import 'package:pos/view/login/otp.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:pos/core/utils/snackbar_utils.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:pos/view/home/navigation.dart';
+import 'package:provider/provider.dart';
+import 'package:pos/data/providers/subscription_provider.dart';
+import 'package:flutter_localization/flutter_localization.dart';
+import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
+import 'package:pos/l10n/app_locale.dart';
+import 'package:pos/data/providers/tour_provider.dart';
+import 'package:pos/data/services/demo_data.dart';
 
 class Login extends StatefulWidget {
   const Login({super.key});
@@ -18,99 +24,180 @@ class Login extends StatefulWidget {
 
 class _LoginState extends State<Login> {
   final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
   bool _isLoading = false;
+  bool _obscurePassword = true;
+  TutorialCoachMark? _tourMark;
 
-  Future<void> _verifyPhone() async {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final tourProvider = context.read<TourProvider>();
+      if (tourProvider.isTourActive && tourProvider.currentStep == 4) {
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (mounted) _showTour();
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _tourMark?.finish();
+    _phoneController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  void _showTour() {
+    final tourProvider = context.read<TourProvider>();
+    final targets = [
+      TargetFocus(
+        identify: "login_phone",
+        keyTarget: TourKeys.loginPhoneKey,
+        alignSkip: Alignment.topRight,
+        contents: [
+          TargetContent(
+            align: ContentAlign.bottom,
+            builder: (context, controller) {
+              return tourProvider.buildTourTooltip(
+                context: context,
+                step: 4,
+                title: AppLocale.tourTitle4.getString(context),
+                description: AppLocale.tourDesc4.getString(context),
+                onNext: () => controller.next(),
+                onSkip: () {
+                  tourProvider.stopTour();
+                  controller.skip();
+                },
+              );
+            },
+          ),
+        ],
+      ),
+      TargetFocus(
+        identify: "login_password",
+        keyTarget: TourKeys.loginPasswordKey,
+        alignSkip: Alignment.topRight,
+        contents: [
+          TargetContent(
+            align: ContentAlign.bottom,
+            builder: (context, controller) {
+              return tourProvider.buildTourTooltip(
+                context: context,
+                step: 5,
+                title: AppLocale.tourTitle5.getString(context),
+                description: AppLocale.tourDesc5.getString(context),
+                onNext: () => controller.next(),
+                onPrev: () => controller.previous(),
+                onSkip: () {
+                  tourProvider.stopTour();
+                  controller.skip();
+                },
+              );
+            },
+          ),
+        ],
+      ),
+      TargetFocus(
+        identify: "login_button",
+        keyTarget: TourKeys.loginButtonKey,
+        alignSkip: Alignment.topRight,
+        contents: [
+          TargetContent(
+            align: ContentAlign.top,
+            builder: (context, controller) {
+              return tourProvider.buildTourTooltip(
+                context: context,
+                step: 6,
+                title: AppLocale.tourTitle6.getString(context),
+                description: AppLocale.tourDesc6.getString(context),
+                onNext: () {
+                  _phoneController.text = '9999999999';
+                  _passwordController.text = '12345678';
+                  controller.next();
+                },
+                onPrev: () => controller.previous(),
+                onSkip: () {
+                  tourProvider.stopTour();
+                  controller.skip();
+                },
+              );
+            },
+          ),
+        ],
+      ),
+    ];
+
+    _tourMark = TutorialCoachMark(
+      targets: targets,
+      colorShadow: Colors.black.withOpacity(0.85),
+      paddingFocus: 10,
+      opacityShadow: 0.85,
+      onFinish: () {
+        if (tourProvider.isTourActive) {
+          tourProvider.setStep(7);
+          _loginWithPassword();
+        }
+      },
+      onSkip: () {
+        tourProvider.stopTour();
+        return true;
+      },
+    )..show(context: context);
+  }
+
+  Future<void> _loginWithPassword() async {
     final phone = _phoneController.text.trim();
+    String password = _passwordController.text.trim();
 
     if (phone.length != 10) {
       SnackBarUtils.showWarning(context, "Enter a valid 10-digit phone number.");
+      return;
+    }
+    if (phone == '9999999999' && password.isEmpty) {
+      password = '12345678';
+    }
+    if (password.isEmpty) {
+      SnackBarUtils.showWarning(context, "Enter your password.");
       return;
     }
 
     setState(() => _isLoading = true);
 
     try {
-      await FirebaseAuth.instance.verifyPhoneNumber(
-        phoneNumber: '+91$phone',
-        timeout: const Duration(seconds: 60),
-        verificationCompleted: (PhoneAuthCredential credential) async {
-          // This callback will be called in two situations:
-          // 1. On Android devices that support self-verification (Instant verification)
-          // 2. On some devices where the SMS code is automatically retrieved
-          setState(() => _isLoading = false);
-          try {
-            // Sign in automatically
-            final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
-            final firebaseToken = await userCredential.user!.getIdToken();
-
-            if (firebaseToken != null && mounted) {
-              // Navigate to OTP screen or handle login directly
-              // For simplicity and consistency with existing logic, we can still go to OTP
-              // but we might want to auto-submit there.
-              // Alternatively, handle login here if we have everything.
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => Otp(
-                    phoneNumber: phone,
-                    verificationId: "", // Empty because it's already verified
-                    credential: credential, // Pass the credential for auto-login
-                  ),
-                ),
-              );
-            }
-          } catch (e) {
-            SnackBarUtils.showError(context, "Auto-verification failed: ${e.toString()}");
-          }
-        },
-        verificationFailed: (FirebaseAuthException e) {
-          setState(() => _isLoading = false);
-          debugPrint("Firebase Verification Failed: ${e.code} - ${e.message}");
-
-          String errorMessage = "Verification failed. Try again.";
-          if (e.code == 'invalid-phone-number') {
-            errorMessage = "The provided phone number is not valid.";
-          } else if (e.code == 'quota-exceeded') {
-            errorMessage = "SMS quota exceeded. Please try again later.";
-          } else if (e.code == 'too-many-requests') {
-            errorMessage = "Too many attempts. Please try again later.";
-          } else if (e.code == 'app-not-authorized') {
-            errorMessage = "App not authorized. Check SHA-1/SHA-256 in Firebase console.";
-          }
-
-          SnackBarUtils.showError(context, e.message ?? errorMessage);
-        },
-        codeSent: (String verificationId, int? resendToken) {
-          setState(() => _isLoading = false);
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => Otp(
-                phoneNumber: phone,
-                verificationId: verificationId,
-                resendToken: resendToken,
-              ),
-            ),
-          );
-        },
-        codeAutoRetrievalTimeout: (String verificationId) {
-          if (mounted) {
-            setState(() => _isLoading = false);
-          }
-        },
+      final response = await UserService.loginWithPassword(
+        phoneNumber: phone,
+        password: password,
       );
+
+      setState(() => _isLoading = false);
+
+      if (response['success'] == true) {
+        await UserService.saveUserData(
+          token: response['token'],
+          user: Map<String, dynamic>.from(response['user']),
+        );
+
+        if (mounted) {
+          final subProvider = Provider.of<SubscriptionProvider>(context, listen: false);
+          await subProvider.loadSavedSubscription();
+          subProvider.syncSubscriptionWithApi();
+
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (_) => Navigation(uId: phone)),
+            (route) => false,
+          );
+        }
+      } else {
+        SnackBarUtils.showError(context, response['message'] ?? 'Login failed');
+      }
     } catch (e) {
       setState(() => _isLoading = false);
-      debugPrint("Error in verifyPhone: $e");
       SnackBarUtils.showError(context, "Error: ${e.toString()}");
     }
-  }
-
-  @override
-  void dispose() {
-    _phoneController.dispose();
-    super.dispose();
   }
 
   @override
@@ -144,36 +231,19 @@ class _LoginState extends State<Login> {
                         ),
                       ),
                       const SizedBox(height: 16),
-                      // TRY DEMO BUTTON
                       InkWell(
                         onTap: () async {
                           final prefs = await SharedPreferences.getInstance();
-                          final bool hasVisitedDemo = prefs.getBool('has_visited_demo') ?? false;
-                          if (!hasVisitedDemo) {
-                            await prefs.setBool('is_first_time_tutorial', true);
-                            await prefs.setBool('is_first_time_main_tutorial', true);
-                            await prefs.setBool('is_first_time_drawer_tutorial', true);
-                            await prefs.setBool('is_first_time_detailed_tutorial', true);
-                            await prefs.setBool('has_visited_demo', true);
-                          }
-                          await prefs.setBool('isDemoMode', true);
-                          await prefs.setBool('isLogged', true);
-                          await prefs.setString('role', 'admin');
-                          await prefs.setString('adminUid', 'demo_admin_123');
-                          await prefs.setString('_id', 'demo_admin_123');
-                          await prefs.setString('myPhone', '9999999999');
-                          await prefs.setString('shopName', 'Billing Spher');
-                          await prefs.setString('address', 'MG Road, Bangalore');
-                          await prefs.setString('contact', '9999999999');
-                          await prefs.setString('upiId', 'merchant@upi');
+                          await prefs.setBool('clickedTryDemo', true);
+                          await prefs.setBool('is_first_time_tutorial', true);
+                          await prefs.setBool('is_first_time_main_tutorial', true);
+                          await prefs.setBool('is_first_time_drawer_tutorial', true);
+                          await prefs.setBool('is_first_time_detailed_tutorial', true);
+                          await prefs.setBool('has_visited_demo', true);
 
-                          if (!context.mounted) return;
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => Navigation(uId: 'demo_admin_123'),
-                            ),
-                          );
+                          _phoneController.text = '9999999999';
+                          _passwordController.text = '12345678';
+                          _loginWithPassword();
                         },
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -182,13 +252,13 @@ class _LoginState extends State<Login> {
                             borderRadius: BorderRadius.circular(30),
                             border: Border.all(color: Colors.white.withOpacity(0.3)),
                           ),
-                          child: const Row(
+                          child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.play_circle_fill, color: Colors.white, size: 20),
-                              SizedBox(width: 8),
+                              const Icon(Icons.play_circle_fill, color: Colors.white, size: 20),
+                              const SizedBox(width: 8),
                               MyText(
-                                text: 'Try Demo',
+                                text: AppLocale.tryDemo.getString(context),
                                 color: Colors.white,
                                 fontSize: 14,
                                 fontWeight: FontWeight.w700,
@@ -232,14 +302,14 @@ class _LoginState extends State<Login> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const MyText(
-                        text: "Merchant Login",
+                      MyText(
+                        text: AppLocale.merchantLogin.getString(context),
                         fontSize: 26,
                         fontWeight: FontWeight.bold,
                       ),
                       const SizedBox(height: 8),
                       MyText(
-                        text: "Enter your mobile number to receive a 6-digit OTP code.",
+                        text: AppLocale.enterMobile.getString(context),
                         color: Colors.grey.shade500,
                         fontSize: 14,
                         maxLines: 2,
@@ -247,43 +317,83 @@ class _LoginState extends State<Login> {
                       const SizedBox(height: 40),
 
                       // ─── Phone Number ─────────────────────────────────────
-                      _label("Mobile Number"),
-                      TextFormField(
-                        controller: _phoneController,
-                        keyboardType: TextInputType.phone,
-                        maxLength: 10,
-                        inputFormatters: [
-                          LengthLimitingTextInputFormatter(10),
-                          FilteringTextInputFormatter.digitsOnly,
-                        ],
-                        onChanged: (_) => setState(() {}),
-                        style: const TextStyle(
-                            letterSpacing: 3.2, fontSize: 18, fontWeight: FontWeight.w600, fontFamily: 'Outfit'),
-                        decoration: InputDecoration(
-                          counterText: "",
-                          hintText: "Enter Your Mobile Number",
-                          hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 11.5),
-                          prefixIcon: const Icon(Icons.phone_android_rounded, color: primaryColor, size: 22),
-                          suffixIcon: _phoneController.text.length == 10
-                              ? const Icon(Icons.check_circle, color: primaryColor)
-                              : null,
-                          filled: true,
-                          fillColor: Colors.grey.shade50,
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16),
-                            borderSide: BorderSide(color: Colors.grey.shade200),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16),
-                            borderSide: const BorderSide(color: primaryColor, width: 1.8),
+                      _label(AppLocale.mobileNumber.getString(context)),
+                      Container(
+                        key: TourKeys.loginPhoneKey,
+                        child: TextFormField(
+                          controller: _phoneController,
+                          keyboardType: TextInputType.phone,
+                          maxLength: 10,
+                          inputFormatters: [
+                            LengthLimitingTextInputFormatter(10),
+                            FilteringTextInputFormatter.digitsOnly,
+                          ],
+                          onChanged: (_) => setState(() {}),
+                          style: const TextStyle(
+                              letterSpacing: 3.2, fontSize: 18, fontWeight: FontWeight.w600, fontFamily: 'Outfit'),
+                          decoration: InputDecoration(
+                            counterText: "",
+                            hintText: AppLocale.enterYourMobile.getString(context),
+                            hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 11.5),
+                            prefixIcon: const Icon(Icons.phone_android_rounded, color: primaryColor, size: 22),
+                            suffixIcon: _phoneController.text.length == 10
+                                ? const Icon(Icons.check_circle, color: primaryColor)
+                                : null,
+                            filled: true,
+                            fillColor: Colors.grey.shade50,
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide(color: Colors.grey.shade200),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(color: primaryColor, width: 1.8),
+                            ),
                           ),
                         ),
                       ),
 
-                      const SizedBox(height: 48),
+                      const SizedBox(height: 20),
 
-                      // ─── Get OTP Button ─────────────────────────────────────
+                      // ─── Password ──────────────────────────────────────────
+                      _label(AppLocale.password.getString(context)),
+                      Container(
+                        key: TourKeys.loginPasswordKey,
+                        child: TextFormField(
+                          controller: _passwordController,
+                          obscureText: _obscurePassword,
+                          style: const TextStyle(
+                              letterSpacing: 2.0, fontSize: 18, fontWeight: FontWeight.w600, fontFamily: 'Outfit'),
+                          decoration: InputDecoration(
+                            hintText: AppLocale.enterYourPassword.getString(context),
+                            hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 11.5),
+                            prefixIcon: const Icon(Icons.lock_rounded, color: primaryColor, size: 22),
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                                color: Colors.grey,
+                              ),
+                              onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                            ),
+                            filled: true,
+                            fillColor: Colors.grey.shade50,
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide(color: Colors.grey.shade200),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(color: primaryColor, width: 1.8),
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 30),
+
+                      // ─── Login Button ──────────────────────────────────────
                       SizedBox(
+                        key: TourKeys.loginButtonKey,
                         width: double.infinity,
                         height: 58,
                         child: ElevatedButton(
@@ -292,11 +402,11 @@ class _LoginState extends State<Login> {
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
                             elevation: 0,
                           ),
-                          onPressed: _isLoading ? null : _verifyPhone,
+                          onPressed: _isLoading ? null : _loginWithPassword,
                           child: _isLoading
                               ? Transform.scale(scale: 0.5, child: const CircularProgressIndicator(color: Colors.white))
-                              : const MyText(
-                                  text: "CONTINUE TO VERIFY",
+                              : MyText(
+                                  text: AppLocale.continueToLogin.getString(context),
                                   color: Colors.white,
                                   fontWeight: FontWeight.bold,
                                   letterSpacing: 1.2,
@@ -321,12 +431,13 @@ class _LoginState extends State<Login> {
                             text: TextSpan(
                               style: const TextStyle(color: Colors.black54, fontSize: 14),
                               children: [
-                                const TextSpan(
-                                    text: "New here? ", style: TextStyle(color: Colors.grey, fontFamily: "Outfit")),
                                 TextSpan(
-                                  text: "Register Shop",
-                                  style:
-                                      TextStyle(color: primaryColor, fontWeight: FontWeight.bold, fontFamily: "Outfit"),
+                                  text: AppLocale.newHereRegister.getString(context),
+                                  style: TextStyle(
+                                    color: primaryColor,
+                                    fontWeight: FontWeight.bold,
+                                    fontFamily: "Outfit",
+                                  ),
                                 ),
                               ],
                             ),

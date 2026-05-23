@@ -1,9 +1,9 @@
-import 'package:firebase_auth/firebase_auth.dart';
+// import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:pos/core/widgets/text.dart';
 import 'package:pos/data/services/user_service.dart';
-import 'package:pos/view/home/navigation.dart';
+// import 'package:pos/view/home/navigation.dart';
 import 'package:pos/core/utils/snackbar_utils.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 
@@ -20,6 +20,8 @@ class _AdminSignUpState extends State<AdminSignUp> {
   // Controllers
   final _nameCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
+  final _passwordCtrl = TextEditingController();
+  final _confirmPasswordCtrl = TextEditingController();
   final _shopCtrl = TextEditingController();
   final _fssaiCtrl = TextEditingController();
   final _gstCtrl = TextEditingController();
@@ -30,11 +32,15 @@ class _AdminSignUpState extends State<AdminSignUp> {
   final List<String> _categories = ['Food', 'Retail'];
 
   bool _isLoading = false;
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
 
   @override
   void dispose() {
     _nameCtrl.dispose();
     _phoneCtrl.dispose();
+    _passwordCtrl.dispose();
+    _confirmPasswordCtrl.dispose();
     _shopCtrl.dispose();
     _fssaiCtrl.dispose();
     _gstCtrl.dispose();
@@ -54,6 +60,7 @@ class _AdminSignUpState extends State<AdminSignUp> {
       await UserService().registerAdmin(
         name: _nameCtrl.text.trim(),
         phoneNumber: phone,
+        password: _passwordCtrl.text.trim(),
         shopName: _shopCtrl.text.trim(),
         fssaiNo: _fssaiCtrl.text.trim().isEmpty ? null : _fssaiCtrl.text.trim(),
         gstNo: _gstCtrl.text.trim().isEmpty ? null : _gstCtrl.text.trim(),
@@ -153,6 +160,46 @@ class _AdminSignUpState extends State<AdminSignUp> {
                         validator: (v) {
                           if (v == null || v.trim().isEmpty) return 'Phone is required';
                           if (v.trim().length != 10) return 'Enter a valid 10-digit number';
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      _label('Password *'),
+                      _textField(
+                        controller: _passwordCtrl,
+                        hint: 'Choose a secure password (min 6 chars)',
+                        icon: Icons.lock_outlined,
+                        obscure: _obscurePassword,
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                            color: Colors.grey,
+                          ),
+                          onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                        ),
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) return 'Password is required';
+                          if (v.trim().length < 6) return 'Password must be at least 6 characters';
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      _label('Confirm Password *'),
+                      _textField(
+                        controller: _confirmPasswordCtrl,
+                        hint: 'Confirm your password',
+                        icon: Icons.lock_outlined,
+                        obscure: _obscureConfirmPassword,
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscureConfirmPassword ? Icons.visibility_off : Icons.visibility,
+                            color: Colors.grey,
+                          ),
+                          onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
+                        ),
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) return 'Confirm password is required';
+                          if (v.trim() != _passwordCtrl.text.trim()) return 'Passwords do not match';
                           return null;
                         },
                       ),

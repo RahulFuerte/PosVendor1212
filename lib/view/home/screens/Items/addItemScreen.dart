@@ -15,7 +15,9 @@ import 'package:pos/data/services/category_service.dart';
 import 'package:pos/data/services/product_service.dart';
 import 'package:pos/data/services/cloudinary_service.dart';
 import 'package:pos/core/utils/snackbar_utils.dart';
+import 'package:pos/view/home/screens/barcode_scanner_screen.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AddItemScreen extends StatefulWidget {
   final ProductModel? product; // null = create, non-null = edit
@@ -46,6 +48,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
   String? existingImageUrl;
   List<CategoryModel> categories = [];
   String? selectedCategoryId;
+  String businessCategory = 'Food';
 
   final List<String> baseVarients = ['Kg', 'Liter', 'Item Per Pc'];
   final List<String> sizeOptions = ['Small', 'Medium', 'Large', 'Extra Large'];
@@ -63,6 +66,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
   final variantPriceController = TextEditingController();
   final addonNameController = TextEditingController();
   final addonPriceController = TextEditingController();
+  final barcodeController = TextEditingController();
 
   bool get _isEditing => widget.product != null;
 
@@ -85,6 +89,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
     variantPriceController.dispose();
     addonNameController.dispose();
     addonPriceController.dispose();
+    barcodeController.dispose();
     super.dispose();
   }
 
@@ -92,6 +97,8 @@ class _AddItemScreenState extends State<AddItemScreen> {
     try {
       try {
         categories = await _categoryService.getCategories();
+        final prefs = await SharedPreferences.getInstance();
+        businessCategory = prefs.getString('businessCategory') ?? 'Food';
       } catch (_) {}
 
       if (_isEditing) {
@@ -103,6 +110,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
         foodCodeController.text = p.foodCode ?? '';
         foodStockController.text = p.stocks?.toString() ?? '';
         foodDescriptionController.text = p.description ?? '';
+        barcodeController.text = p.barcode ?? '';
         existingImageUrl = p.imagePath;
 
         // Robust handling for Dropdown values to avoid "value not found in items" errors
@@ -232,6 +240,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
       final code = foodCodeController.text.trim().isEmpty ? "" : foodCodeController.text.trim();
       final stocks = int.tryParse(foodStockController.text.trim()) ?? 0;
       final desc = foodDescriptionController.text.trim().isEmpty ? "" : foodDescriptionController.text.trim();
+      final barcode = barcodeController.text.trim();
 
       String imageUrl = existingImageUrl ?? "";
       if (selectedImage != null) {
@@ -269,6 +278,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
           'baseVariant': baseVarient,
           'variants': formattedVariants,
           'addons': addons,
+          'barcode': barcode,
           'imageUrl': imageUrl,
           'image_url': imageUrl, // Backend fallback
           'imagePath': imageUrl, // Backend fallback
@@ -291,6 +301,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
           baseVariant: baseVarient,
           variants: formattedVariants,
           addons: addons,
+          barcode: barcode,
         );
         SnackBarUtils.showSuccess(context, 'Product added!');
         _clearForm();
@@ -311,6 +322,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
     foodCodeController.clear();
     foodStockController.clear();
     foodDescriptionController.clear();
+    barcodeController.clear();
     variantQtyController.clear();
     variantPriceController.clear();
     setState(() {
@@ -322,7 +334,6 @@ class _AddItemScreenState extends State<AddItemScreen> {
       selectedImage = null;
     });
   }
-
 
   // ── UI ────────────────────────────────────────────────────
   @override
@@ -542,6 +553,31 @@ class _AddItemScreenState extends State<AddItemScreen> {
             decoration: _dec('Item Code / PLU', Icons.qr_code_rounded),
             keyboardType: TextInputType.number,
           ),
+          if (businessCategory == 'Retail') ...[
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: barcodeController,
+              decoration: _dec('Barcode', Icons.barcode_reader).copyWith(
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.qr_code_scanner, color: primaryColor),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => BarcodeScannerScreen(
+                          onResult: (code) {
+                            setState(() {
+                              barcodeController.text = code;
+                            });
+                          },
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
           // Base Unit
           DropdownButtonFormField<String>(

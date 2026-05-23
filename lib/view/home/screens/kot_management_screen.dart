@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localization/flutter_localization.dart';
 import 'package:pos/core/widgets/text.dart';
 import 'package:pos/data/models/kot_model.dart';
+import 'package:pos/l10n/app_locale.dart';
 import 'package:pos/data/services/kots_services.dart';
 import 'package:pos/view/home/navigation.dart';
 import 'package:pos/view/home/widgets/order_kot_widgets.dart';
@@ -81,7 +83,7 @@ class _KotManagementScreenState extends State<KotManagementScreen> {
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
       appBar: AppBar(
-        title: const MyText(text: 'KOT History'),
+        title: MyText(text: AppLocale.kotHistory.getString(context), fontSize: 17, color: Colors.black, fontWeight: FontWeight.w600),
         backgroundColor: Colors.white,
         elevation: 0,
         scrolledUnderElevation: 0,

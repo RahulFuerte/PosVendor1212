@@ -9,6 +9,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   firebase_auth
   firebase_core
   firebase_storage
+  flutter_localization
   flutter_pos_printer_platform_image_3
   geolocator_windows
   permission_handler_windows

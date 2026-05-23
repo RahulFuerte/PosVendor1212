@@ -49,35 +49,12 @@ class OrderService {
     bool createKot = true,
   }) async {
     final prefs = await SharedPreferences.getInstance();
-    if (prefs.getBool('isDemoMode') ?? false) {
-      final List<OrderItem> orderItems = items.map((item) {
-        return OrderItem(
-          productId: item['productId']?.toString() ?? '',
-          name: item['name']?.toString() ?? '',
-          price: (item['price'] as num?)?.toDouble() ?? 0.0,
-          quantity: (item['quantity'] as num?)?.toInt() ?? 0,
-          total: ((item['price'] as num?)?.toDouble() ?? 0.0) * ((item['quantity'] as num?)?.toInt() ?? 0),
-        );
-      }).toList();
-
-      final total = orderItems.fold(0.0, (sum, item) => sum + item.total);
-
-      return OrderModel(
-        id: "demo_order_${DateTime.now().millisecondsSinceEpoch}",
-        adminId: adminId,
-        billNumber: billNumber,
-        items: orderItems,
-        totalAmount: total,
-        finalAmount: total,
-        paymentMethod: paymentMethod ?? "Cash",
-        orderType: orderType ?? "DineIn",
-        createdAt: DateTime.now(),
-      );
-    }
-
     final token = await _getToken();
     final double total = items.fold(
         0.0, (sum, item) => sum + ((item['price'] as num).toDouble() * (item['quantity'] as num).toDouble()));
+
+    final businessCategory = prefs.getString('businessCategory') ?? 'Food';
+    final bool effectiveCreateKot = businessCategory == 'Food' && createKot;
 
     final response = await http.post(
       Uri.parse(baseUrl),
@@ -102,7 +79,7 @@ class OrderService {
         'notes': notes,
         'paymentStatus': _normalize(paymentStatus),
         'employeeId': employeeId, // Included
-        'createKot': createKot,
+        'createKot': effectiveCreateKot,
       }),
     );
 
@@ -153,6 +130,11 @@ class OrderService {
 
     final double effectiveTotal = totalAmount ?? calculatedTotal;
     final double effectiveFinal = finalAmount ?? (effectiveTotal - (discount ?? 0) + (tax ?? 0));
+
+    final prefs = await SharedPreferences.getInstance();
+    final businessCategory = prefs.getString('businessCategory') ?? 'Food';
+    final bool effectiveCreateKot = businessCategory == 'Food' && createKot;
+
     final response = await http.post(
       Uri.parse('$baseUrl/guest'),
       headers: {'Content-Type': 'application/json'},
@@ -173,7 +155,7 @@ class OrderService {
         'paymentStatus': _normalize(paymentStatus ?? "Paid"),
         'tableNumber': tableNumber ?? "",
         'notes': notes ?? "",
-        'createKot': createKot,
+        'createKot': effectiveCreateKot,
       }),
     );
 

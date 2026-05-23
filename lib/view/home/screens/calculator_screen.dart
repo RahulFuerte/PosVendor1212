@@ -12,6 +12,8 @@ import 'package:hive/hive.dart';
 import 'package:provider/provider.dart';
 
 // Project imports:
+import 'package:flutter_localization/flutter_localization.dart';
+import 'package:pos/l10n/app_locale.dart';
 import 'package:pos/core/utils/price_utils.dart';
 import 'package:pos/data/datasources/local/sqlite_helper.dart';
 import 'package:pos/data/services/product_service.dart';
@@ -443,12 +445,13 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
                             contentPadding: EdgeInsets.all(15)),
                       ),
                     )
-                  : const Row(
+                  : Row(
                       children: [
                         MyText(
-                          text: 'Enter Food Code',
+                          text: AppLocale.enterFoodCode.getString(context),
                           color: Colors.black,
-                          fontSize: 20,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w600,
                         ),
                       ],
                     ),
