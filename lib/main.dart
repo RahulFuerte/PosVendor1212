@@ -9,15 +9,19 @@ import 'package:path_provider/path_provider.dart';
 import 'package:pos/data/providers/order_type_provider.dart';
 import 'package:pos/data/providers/subscription_provider.dart';
 import 'package:pos/data/providers/table_provider.dart';
+import 'package:pos/data/providers/barcode_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_localization/flutter_localization.dart';
 
 // Project imports:
+import 'package:pos/l10n/app_locale.dart';
+import 'package:pos/data/providers/tour_provider.dart';
 import 'package:pos/data/datasources/database_service.dart';
 import 'package:pos/data/datasources/unified_database_service.dart';
 import 'package:pos/data/providers/print_provider.dart';
 import 'package:pos/core/utils/snackbar_utils.dart';
-import 'package:pos/view/login/providers/login_provider.dart';
-import 'package:pos/view/login/screens/splash_screen.dart';
+import 'package:pos/data/providers/login_provider.dart';
+import 'package:pos/view/login/splash_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:showcaseview/showcaseview.dart';
 
@@ -50,8 +54,49 @@ void main() async {
   runApp(const MyApp());
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  final FlutterLocalization _localization = FlutterLocalization.instance;
+
+  @override
+  void initState() {
+    super.initState();
+    _localization.init(
+      mapLocales: [
+        const MapLocale('en', AppLocale.EN),
+        const MapLocale('gu', AppLocale.GU),
+        const MapLocale('hi', AppLocale.HI),
+        const MapLocale('sd', AppLocale.SD),
+        const MapLocale('mr', AppLocale.MR),
+        const MapLocale('pa', AppLocale.PA),
+        const MapLocale('bn', AppLocale.BN),
+        const MapLocale('ta', AppLocale.TA),
+        const MapLocale('te', AppLocale.TE),
+        const MapLocale('ur', AppLocale.UR),
+      ],
+      initLanguageCode: 'en',
+    );
+    _localization.onTranslatedLanguage = _onTranslatedLanguage;
+    _loadSavedLanguage();
+  }
+
+  void _onTranslatedLanguage(Locale? locale) {
+    setState(() {});
+  }
+
+  Future<void> _loadSavedLanguage() async {
+    final prefs = await SharedPreferences.getInstance();
+    final langCode = prefs.getString('app_language');
+    if (langCode != null) {
+      _localization.translate(langCode);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -81,9 +126,28 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(
           create: (context) => TableProvider(),
         ),
+        ChangeNotifierProvider(create: (_) => BarcodeProvider()),
+        ChangeNotifierProvider(create: (_) => TourProvider()),
       ],
       child: MaterialApp(
         title: 'Billing Sphere',
+        supportedLocales: _localization.supportedLocales,
+        localizationsDelegates: _localization.localizationsDelegates,
+        theme: ThemeData(
+          scaffoldBackgroundColor: Colors.grey[50],
+          appBarTheme: const AppBarTheme(
+            elevation: 0,
+            scrolledUnderElevation: 0,
+            backgroundColor: Colors.white,
+            iconTheme: IconThemeData(color: Colors.black87),
+            titleTextStyle: TextStyle(
+              color: Colors.black87,
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+              fontFamily: 'Outfit',
+            ),
+          ),
+        ),
         scaffoldMessengerKey: SnackBarUtils.messengerKey,
         home: const SplashScreen(),
         debugShowCheckedModeBanner: false,

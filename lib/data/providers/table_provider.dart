@@ -47,10 +47,6 @@ class TableProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> _isDemoMode() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool('isDemoMode') ?? false;
-  }
 
   Future<void> addTable(String tableNumber) async {
     try {
@@ -131,7 +127,7 @@ class TableProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> setTableOrderId(String tableId, String? orderId) async {
+  Future<void> setTableOrderId(String tableId, String? orderId) async { 
     final index = _tables.indexWhere((element) => element.id == tableId);
     if (index != -1) {
       try {

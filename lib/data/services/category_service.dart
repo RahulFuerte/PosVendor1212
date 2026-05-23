@@ -3,7 +3,6 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/category_model.dart';
 import '../constants/api_constants.dart';
-import 'demo_data.dart';
 
 class CategoryService {
   static const String baseUrl = ApiConstants.categories;
@@ -24,7 +23,7 @@ class CategoryService {
       body: jsonEncode({
         'name': name,
         'imageUrl': imageUrl ?? "",
-        'image_url': imageUrl ?? "", 
+        'image_url': imageUrl ?? "",
         'imagePath': imageUrl ?? "", // Backend fallback
       }),
     );
@@ -38,13 +37,6 @@ class CategoryService {
   }
 
   Future<List<CategoryModel>> getCategories() async {
-    final prefs = await SharedPreferences.getInstance();
-    final isDemoMode = prefs.getBool('isDemoMode') ?? false;
-
-    if (isDemoMode) {
-      return DemoData.categories;
-    }
-
     final token = await _getToken();
     final response = await http.get(
       Uri.parse(baseUrl),

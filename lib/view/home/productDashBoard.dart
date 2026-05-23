@@ -1,6 +1,5 @@
 // Dart imports:
 import 'dart:async';
-import 'dart:convert';
 import 'dart:developer' as developer;
 
 // Flutter imports:
@@ -11,6 +10,7 @@ import 'package:pos/core/widgets/text.dart';
 // Package imports:
 import 'package:audioplayers/audioplayers.dart';
 import 'package:hive/hive.dart';
+import 'package:shimmer/shimmer.dart';
 import 'package:pos/data/providers/table_provider.dart';
 import 'package:pos/view/home/screens/order_type_selector.dart';
 import 'package:pos/view/home/widgets/mydrawer.dart';
@@ -19,8 +19,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 
 // Project imports:
-import 'package:pos/core/error/network_error_handler.dart';
-import 'package:pos/data/datasources/smart_database_service.dart';
+import 'package:flutter_localization/flutter_localization.dart';
+import 'package:pos/l10n/app_locale.dart';
 import 'package:pos/view/home/navigation.dart';
 import 'package:pos/data/providers/print_provider.dart';
 import 'package:pos/data/services/product_service.dart';
@@ -28,24 +28,23 @@ import 'package:pos/view/home/screens/users_data_screen.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:pos/view/tab_screen/view-model/widgets/offline_status_indicator.dart';
 import 'package:pos/data/services/order_service.dart';
-import 'package:pos/view/customer/customer_order_summary.dart';
 import 'widgets/bill_cart_widget.dart';
 import 'widgets/show_save_order_bottom_sheet.dart';
 
+import 'package:pos/view/home/screens/barcode_scanner_screen.dart';
 import 'package:pos/view/tab_screen/view-model/widgets/offline_status_banner.dart' as banner;
 
 class ProductDashBoard extends StatefulWidget {
-  final String phoneNo;
-  final String? role;
-  final String? adminId;
-
-  const ProductDashBoard({required this.phoneNo, this.role, this.adminId, Key? key}) : super(key: key);
+  const ProductDashBoard({Key? key}) : super(key: key);
 
   @override
   State<ProductDashBoard> createState() => _ProductDashBoardState();
 }
 
 class _ProductDashBoardState extends State<ProductDashBoard> {
+  String phoneNo = '';
+  String adminId = '';
+
   TextEditingController search = TextEditingController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   TextEditingController nameController = TextEditingController();
@@ -64,33 +63,30 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
   bool isTapped = false;
   bool isLoading = false;
   Map<String, dynamic> userData = {};
-  String? customerId;
   bool isSearching = false;
+  String businessCategory = 'Food';
   TextEditingController searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
+    _loadSessionData();
     foodItemsFuture = _fetchProducts();
-    if (widget.role == 'customer') {
-      _loadCustomerInfo();
-    }
   }
 
-  Future<void> _loadCustomerInfo() async {
+  Future<void> _loadSessionData() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      nameController.text = prefs.getString('name') ?? '';
-      mobileController.text = prefs.getString('phoneNumber') ?? widget.phoneNo;
-      customerId = prefs.getString('_id');
+      phoneNo = prefs.getString('phoneNumber') ?? prefs.getString('phoneNo') ?? '';
+      adminId = prefs.getString('adminUid') ?? '';
+      adminUid = adminId;
+      businessCategory = prefs.getString('businessCategory') ?? 'Food';
     });
   }
 
   Future<List<Map<String, dynamic>>> _fetchProducts() async {
     try {
-      final products = widget.role == 'customer' && widget.adminId != null
-          ? await ProductService().getPublicProducts(widget.adminId!)
-          : await ProductService().getProducts();
+      final products = await ProductService().getProducts();
       return products.map((p) => p.toJson()).toList();
     } catch (e) {
       developer.log('Error fetching products: $e', name: 'ProductDashBoard');
@@ -148,17 +144,12 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
     subtotal = printprovider.total;
 
     return Scaffold(
-      backgroundColor: Colors.green[50],
+      backgroundColor: Colors.grey[100],
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         scrolledUnderElevation: 0,
-        leading: widget.role == 'customer'
-            ? IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new, color: primaryColor, size: 20),
-                onPressed: () => Navigator.of(context).pop(),
-              )
-            : null,
+        leading: null,
         title: isSearching
             ? Container(
                 height: 45,
@@ -182,16 +173,48 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                       contentPadding: EdgeInsets.all(15)),
                 ),
               )
-            : const OfflineStatusIndicator(showWhenOnline: true),
+            : Row(
+                children: [
+                  MyText(
+                    text: AppLocale.productDashboard.getString(context),
+                    color: Colors.black,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  // SizedBox(width: 8),
+                  // OfflineStatusIndicator(showWhenOnline: true),
+                ],
+              ),
         actions: [
+          // Padding(
+          //   padding: const EdgeInsets.only(right: 10.0),
+          //   child: GestureDetector(
+          //     child: const CircleAvatar(
+          //         maxRadius: 20,
+          //         backgroundColor: appbar1,
+          //         child: Icon(
+          //           Icons.barcode_reader,
+          //           size: 22,
+          //           color: Colors.white,
+          //         )),
+          //     onTap: () {
+          //       Navigator.push(
+          //         context,
+          //         MaterialPageRoute(
+          //           builder: (context) => const BarcodeScannerScreen(),
+          //         ),
+          //       );
+          //     },
+          //   ),
+          // ),
           Padding(
             padding: const EdgeInsets.only(right: 10.0),
             child: isSearching
                 ? GestureDetector(
-                    child: CircleAvatar(
+                    child: const CircleAvatar(
                         maxRadius: 20,
                         backgroundColor: appbar1,
-                        child: const Icon(
+                        child: Icon(
                           Icons.search_off,
                           size: 22,
                           color: Colors.white,
@@ -204,10 +227,10 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                     },
                   )
                 : GestureDetector(
-                    child: CircleAvatar(
+                    child: const CircleAvatar(
                         maxRadius: 20,
                         backgroundColor: appbar1,
-                        child: const Icon(
+                        child: Icon(
                           Icons.search,
                           size: 22,
                           color: Colors.white,
@@ -220,25 +243,19 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
           ),
         ],
       ),
-      drawer: widget.role == 'customer'
-          ? null
-          : MyDrawer(
-              phoneNo: widget.phoneNo,
-              adminPhoneNo: adminUid,
-            ),
+      drawer: MyDrawer(
+        phoneNo: phoneNo,
+        adminPhoneNo: adminUid,
+      ),
       body: Column(
         children: [
-          if (widget.role != 'customer') banner.OfflineStatusBanner(adminUid: adminUid),
+          banner.OfflineStatusBanner(adminUid: adminUid),
           Expanded(
             child: FutureBuilder(
               future: foodItemsFuture,
               builder: (context, AsyncSnapshot<List<Map<String, dynamic>>> snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return Center(
-                    child: CircularProgressIndicator(
-                      color: appbar1,
-                    ),
-                  );
+                  return const _ProductSkeleton();
                 } else if (snapshot.hasError) {
                   return Center(
                     child: MyText(text: 'Error: ${snapshot.error}'),
@@ -252,12 +269,13 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
 
                   return Column(
                     children: [
-                      Container(
-                        height: 50,
-                        margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 10),
-                        width: double.infinity,
-                        child: const OrderTypeSelector(),
-                      ),
+                      if (businessCategory == 'Food')
+                        Container(
+                          height: 50,
+                          margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 10),
+                          width: double.infinity,
+                          child: const OrderTypeSelector(),
+                        ),
 
                       // billCountContainer(),
                       Expanded(
@@ -349,9 +367,6 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                       printprovider.posts.isEmpty
                           ? const SizedBox()
                           : BillCart(
-                              adminUid: adminUid,
-                              phoneNo: widget.phoneNo,
-                              role: widget.role,
                               onCartCleared: () {
                                 setState(() {
                                   selectedItemsDetails.clear();
@@ -364,23 +379,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
                                   subtotal = updatedTotal;
                                 });
                               },
-                              onPlaceOrder: widget.role == 'customer'
-                                  ? () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) => CustomerOrderSummary(
-                                            items: List.from(selectedItemsDetails),
-                                            totalAmount: subtotal,
-                                            adminId: widget.adminId ?? '',
-                                            customerId: customerId,
-                                            customerName: nameController.text,
-                                            customerPhone: mobileController.text,
-                                          ),
-                                        ),
-                                      );
-                                    }
-                                  : null,
+                              onPlaceOrder: null,
                               orderBottomSheet: () {
                                 showSaveOrderBottomSheet(
                                   context: context,
@@ -416,14 +415,14 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
   }
 
   void _saveDataAndNavigate(String? customerId) async {
-    final effectiveAdminId = widget.role == 'customer' ? widget.adminId : adminUid;
+    final effectiveAdminId = adminUid;
 
     final userMap = {
       'userName': nameController.text,
       'phoneNumber': mobileController.text,
       'details': _encodeDetails(selectedItemsDetails),
       'totalAmount': subtotal,
-      'customerId': widget.role == 'customer' ? widget.phoneNo : customerId,
+      'customerId': customerId,
       'status': 'Pending',
       'timestamp': DateTime.now().toIso8601String(),
       'adminId': effectiveAdminId,
@@ -450,28 +449,17 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
           };
         }).toList();
 
-        if (widget.role == 'customer') {
-          await orderService.createGuestOrder(
-            adminId: effectiveAdminId,
-            customerName: nameController.text,
-            customerPhone: mobileController.text,
-            items: formattedItems,
-            orderType: 'Pickup',
-            unknownCustomerId: customerId,
-          );
-        } else {
-          await orderService.createOrder(
-            adminId: effectiveAdminId,
-            billNumber: 'POS-${DateTime.now().millisecondsSinceEpoch}',
-            customerName: nameController.text,
-            customerPhone: mobileController.text,
-            customerId: customerId,
-            items: formattedItems,
-            orderType: 'Pickup',
-            paymentMethod: 'Cash',
-            paymentStatus: 'Due',
-          );
-        }
+        await orderService.createOrder(
+          adminId: effectiveAdminId,
+          billNumber: 'POS-${DateTime.now().millisecondsSinceEpoch}',
+          customerName: nameController.text,
+          customerPhone: mobileController.text,
+          customerId: customerId,
+          items: formattedItems,
+          orderType: 'Pickup',
+          paymentMethod: 'Cash',
+          paymentStatus: 'Due',
+        );
 
         if (mounted) {
           SnackBarUtils.showSuccess(context, 'Order placed successfully!');
@@ -489,17 +477,12 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
     mobileController.clear();
 
     if (mounted) {
-      if (widget.role == 'customer') {
-        // Customers stay on dashboard, cart is cleared.
-        SnackBarUtils.showInfo(context, 'Order placed! You can see status in My Orders.');
-      } else {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const UsersScreen(),
-          ),
-        );
-      }
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const UsersScreen(),
+        ),
+      );
     }
   }
 
@@ -521,5 +504,52 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
     _listScrollController.dispose();
     audioPlayer.dispose();
     super.dispose();
+  }
+}
+
+class _ProductSkeleton extends StatelessWidget {
+  const _ProductSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Container(
+          height: 50,
+          margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 10),
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: Colors.grey[200],
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
+            child: GridView.builder(
+              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                maxCrossAxisExtent: 170,
+                childAspectRatio: 0.75,
+                crossAxisSpacing: 8,
+                mainAxisSpacing: 8,
+              ),
+              itemCount: 12,
+              itemBuilder: (context, index) {
+                return Shimmer.fromColors(
+                  baseColor: Colors.grey[300]!,
+                  highlightColor: Colors.grey[100]!,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }

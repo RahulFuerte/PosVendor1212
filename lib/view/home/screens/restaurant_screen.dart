@@ -3,6 +3,7 @@ import 'dart:async';
 
 // Flutter imports:
 import 'package:flutter/material.dart';
+import 'package:flutter_localization/flutter_localization.dart';
 import 'package:pos/core/widgets/text.dart';
 
 // Package imports:
@@ -14,8 +15,12 @@ import 'package:pos/view/home/widgets/mydrawer.dart';
 import 'package:pos/view/tab_screen/view-model/widgets/cached_blob_image.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
-import 'package:showcaseview/showcaseview.dart';
+import 'package:shimmer/shimmer.dart';
 import 'package:pos/data/services/demo_data.dart';
+import 'package:pos/data/providers/tour_provider.dart';
+import 'package:showcaseview/showcaseview.dart';
+import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
+
 
 // Project imports:
 import 'package:pos/core/network/connection_monitor.dart';
@@ -29,7 +34,7 @@ import 'package:pos/core/utils/snackbar_utils.dart';
 import 'package:pos/view/home/navigation.dart';
 import 'package:pos/data/providers/print_provider.dart';
 import 'package:pos/data/services/order_service.dart';
-import 'package:pos/view/customer/customer_order_summary.dart';
+import 'package:pos/view/home/screens/edit_bill_receipt.dart';
 import 'package:pos/view/home/screens/users_data_screen.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:pos/view/tab_screen/view-model/frontend/menuItems.dart';
@@ -39,20 +44,23 @@ import 'package:pos/data/models/table_model.dart';
 import 'package:pos/data/models/order_model.dart';
 import '../widgets/bill_cart_widget.dart';
 import '../widgets/show_save_order_bottom_sheet.dart';
+import 'package:pos/l10n/app_locale.dart';
+
 
 class RestaurantScreen extends StatefulWidget {
-  final String phoneNo;
   final bool isEditBill;
   final String? receiptNo;
   final String? role;
-  const RestaurantScreen({required this.phoneNo, Key? key, this.isEditBill = false, this.receiptNo, this.role})
-      : super(key: key);
+  const RestaurantScreen({Key? key, this.isEditBill = false, this.receiptNo, this.role}) : super(key: key);
 
   @override
   _RestaurantScreenState createState() => _RestaurantScreenState();
 }
 
 class _RestaurantScreenState extends State<RestaurantScreen> {
+  String phoneNo = '';
+  String adminUid = '';
+
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
   AudioPlayer audioPlayer = AudioPlayer();
@@ -60,11 +68,11 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
   int selectedItemPrice = 0;
   double subtotal = 0.0;
   int currentCategoryIndex = 0;
-  String adminUid = '';
   String? customerId;
   bool _isDemoMode = false;
   bool _showTutorialActions = false;
   String selectedDepartment = '';
+  String businessCategory = 'Food';
   bool isTapped = false;
   Map<String, int> itemPriceCount = {};
   double totalPrice = 0.0;
@@ -96,13 +104,172 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
 
   DateTime? currentBackPressTime;
 
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  bool _tourShowing = false;
+  TutorialCoachMark? _tourMark;
+
+  void _onTourStateChanged() {
+    if (!mounted) return;
+    final tourProvider = context.read<TourProvider>();
+    if (tourProvider.isTourActive && tourProvider.currentStep == 14 && !_tourShowing) {
+      _tourShowing = true;
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted && tourProvider.isTourActive && tourProvider.currentStep == 14) {
+          _showTour();
+        } else {
+          _tourShowing = false;
+        }
+      });
+    } else if (tourProvider.isTourActive && tourProvider.currentStep == 22) {
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted && tourProvider.isTourActive && tourProvider.currentStep == 22) {
+          _scaffoldKey.currentState?.openDrawer();
+          tourProvider.setStep(23);
+        }
+      });
+    }
+  }
+
+  void _showTour() {
+    final tourProvider = context.read<TourProvider>();
+    final printProvider = Provider.of<PrintProvider>(context, listen: false);
+    final targets = [
+      TargetFocus(
+        identify: "pos_drawer",
+        keyTarget: TourKeys.drawerIconKey,
+        alignSkip: Alignment.topRight,
+        contents: [
+          TargetContent(
+            align: ContentAlign.bottom,
+            builder: (context, controller) {
+              return tourProvider.buildTourTooltip(
+                context: context,
+                step: 14,
+                title: AppLocale.tourTitle14.getString(context),
+                description: AppLocale.tourDesc14.getString(context),
+                onNext: () => controller.next(),
+                onSkip: () {
+                  tourProvider.stopTour();
+                  controller.skip();
+                },
+              );
+            },
+          ),
+        ],
+      ),
+      TargetFocus(
+        identify: "pos_table",
+        keyTarget: TourKeys.tableSelectorKey,
+        alignSkip: Alignment.topRight,
+        contents: [
+          TargetContent(
+            align: ContentAlign.bottom,
+            builder: (context, controller) {
+              return tourProvider.buildTourTooltip(
+                context: context,
+                step: 15,
+                title: AppLocale.tourTitle15.getString(context),
+                description: AppLocale.tourDesc15.getString(context),
+                onNext: () => controller.next(),
+                onPrev: () => controller.previous(),
+                onSkip: () {
+                  tourProvider.stopTour();
+                  controller.skip();
+                },
+              );
+            },
+          ),
+        ],
+      ),
+      TargetFocus(
+        identify: "pos_product",
+        keyTarget: TourKeys.firstProductKey,
+        alignSkip: Alignment.topRight,
+        contents: [
+          TargetContent(
+            align: ContentAlign.bottom,
+            builder: (context, controller) {
+              return tourProvider.buildTourTooltip(
+                context: context,
+                step: 16,
+                title: AppLocale.tourTitle16.getString(context),
+                description: AppLocale.tourDesc16.getString(context),
+                onNext: () => controller.next(),
+                onPrev: () => controller.previous(),
+                onSkip: () {
+                  tourProvider.stopTour();
+                  controller.skip();
+                },
+              );
+            },
+          ),
+        ],
+      ),
+    ];
+
+    _tourMark = TutorialCoachMark(
+      targets: targets,
+      colorShadow: Colors.black.withOpacity(0.85),
+      paddingFocus: 10,
+      opacityShadow: 0.85,
+      onFinish: () {
+        _tourShowing = false;
+        if (tourProvider.isTourActive) {
+          if (printProvider.posts.isEmpty) {
+            printProvider.additem([
+              {
+                'id': 'demo_product_id',
+                'name': 'Demo Burger',
+                'price': '150.0',
+                'quantity': 1,
+                'unit': 'pcs',
+                'addons': [],
+              }
+            ], 150.0);
+          }
+          tourProvider.setStep(17);
+        }
+      },
+      onSkip: () {
+        _tourShowing = false;
+        tourProvider.stopTour();
+        return true;
+      },
+    )..show(context: context);
+  }
+
   @override
   void initState() {
     super.initState();
+    _loadSessionData();
+    context.read<TourProvider>().addListener(_onTourStateChanged);
+  }
+
+  @override
+  void dispose() {
+    context.read<TourProvider>().removeListener(_onTourStateChanged);
+    _connectionSubscription?.cancel();
+    audioPlayer.dispose();
+    userNameController.dispose();
+    userPhoneController.dispose();
+    addressController.dispose();
+    gstController.dispose();
+    restaurantSearch.dispose();
+    _listScrollController.dispose();
+    _gridViewController.dispose();
+    _tourMark?.finish();
+    super.dispose();
+  }
+
+  Future<void> _loadSessionData() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      phoneNo = prefs.getString('phoneNumber') ?? prefs.getString('phoneNo') ?? '';
+      adminUid = prefs.getString('adminUid') ?? '';
+      businessCategory = prefs.getString('businessCategory') ?? 'Food';
+    });
     _initializeAll();
-    if (widget.role == 'customer') {
-      _loadCustomerInfo();
-    }
     _initializeDemoTutorial();
   }
 
@@ -124,15 +291,6 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
     // Detailed tutorial is handled by BillCartWidget after main tutorial completes
   }
 
-  Future<void> _loadCustomerInfo() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      userNameController.text = prefs.getString('name') ?? '';
-      userPhoneController.text = prefs.getString('phoneNumber') ?? widget.phoneNo;
-      customerId = prefs.getString('_id');
-    });
-  }
-
   /// Initialize all services efficiently - check connectivity first
   Future<void> _initializeAll() async {
     // Setup connection listener FIRST to know online/offline status immediately
@@ -142,6 +300,13 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
     unawaited(_initializeSmartDatabase());
     unawaited(_initializeOfflineData());
     unawaited(_initializeOfflineBillManager());
+
+    // Load business category
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      businessCategory = prefs.getString('businessCategory') ?? 'Food';
+    });
 
     // Load data - this will use cache if offline
     foodDepartmentsFuture = fetchFoodDepartment();
@@ -258,6 +423,7 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
   Future<void> _initializeFoodItems() async {
     try {
       List<Map<String, dynamic>> departments = await foodDepartmentsFuture;
+      if (!mounted) return;
       if (departments.isNotEmpty) {
         setState(() {
           selectedDepartment = departments[0]['name'] ?? '';
@@ -270,16 +436,19 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
         });
       }
     } catch (e) {
-      setState(() {
-        isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
     }
   }
 
   Future<String> fetchAdminUid() async {
     try {
       final sqliteHelper = SQLiteHelper();
-      final cachedUid = await sqliteHelper.getAdminUid(widget.phoneNo);
+      final cachedUid = await sqliteHelper.getAdminUid(phoneNo);
+      if (!mounted) return cachedUid ?? phoneNo;
       if (cachedUid != null && cachedUid.isNotEmpty) {
         setState(() {
           adminUid = cachedUid;
@@ -287,9 +456,9 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
         return cachedUid;
       }
       setState(() {
-        adminUid = widget.phoneNo;
+        adminUid = phoneNo;
       });
-      return widget.phoneNo;
+      return phoneNo;
     } catch (e) {
       return await _getCachedAdminUid();
     }
@@ -299,8 +468,9 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
   Future<String> _getCachedAdminUid() async {
     try {
       final sqliteHelper = SQLiteHelper();
-      final cachedAdminUid = await sqliteHelper.getAdminUid(widget.phoneNo);
+      final cachedAdminUid = await sqliteHelper.getAdminUid(phoneNo);
 
+      if (!mounted) return cachedAdminUid ?? phoneNo;
       if (cachedAdminUid != null && cachedAdminUid.isNotEmpty) {
         setState(() {
           adminUid = cachedAdminUid;
@@ -310,24 +480,24 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
 
       // Last resort: use phoneNo as adminUid (common pattern in this app)
       setState(() {
-        adminUid = widget.phoneNo;
+        adminUid = phoneNo;
       });
-      return widget.phoneNo;
+      return phoneNo;
     } catch (e) {
-      // Ultimate fallback: use phoneNo
-      setState(() {
-        adminUid = widget.phoneNo;
-      });
-      return widget.phoneNo;
+      if (mounted) {
+        // Ultimate fallback: use phoneNo
+        setState(() {
+          adminUid = phoneNo;
+        });
+      }
+      return phoneNo;
     }
   }
 
   /// Fetch departments using CategoryService
   Future<List<Map<String, dynamic>>> fetchFoodDepartment() async {
     try {
-      final categories = widget.role == 'customer'
-          ? await CategoryService().getPublicCategories(widget.phoneNo)
-          : await CategoryService().getCategories();
+      final categories = await CategoryService().getCategories();
 
       // Map API models to UI expected names
       final departments = categories
@@ -359,9 +529,7 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
       }
 
       // Fetch products using the new API
-      final products = widget.role == 'customer'
-          ? await ProductService().getPublicProducts(widget.phoneNo, categoryId: categoryId)
-          : await ProductService().getProducts(categoryId: categoryId);
+      final products = await ProductService().getProducts(categoryId: categoryId);
 
       // Map API models to UI expected names
       final items = products.map((item) {
@@ -383,15 +551,19 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
         };
       }).toList();
 
-      setState(() {
-        isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
 
       return items;
     } catch (e) {
-      setState(() {
-        isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
       return [];
     }
   }
@@ -456,7 +628,7 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
   Widget _buildTableSelector() {
     final tableProvider = Provider.of<TableProvider>(context);
     final orderTypeProvider = Provider.of<OrderTypeProvider>(context);
-    if (orderTypeProvider.orderType != OrderType.dineIn) {
+    if (orderTypeProvider.orderType != OrderType.dineIn || businessCategory != 'Food') {
       return const SizedBox.shrink();
     }
 
@@ -573,7 +745,7 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               MyText(
-                text: 'Table ${table.tableNumber} Summary',
+                text: '${AppLocale.tables.getString(context)} ${table.tableNumber} ${AppLocale.orderSummary.getString(context)}',
                 color: Colors.white,
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -599,14 +771,14 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                       const Icon(Icons.person_outline, size: 16),
                       const SizedBox(width: 8),
                       MyText(
-                        text: '${table.customerName} (${table.customerPhone ?? 'No Phone'})',
+                        text: '${table.customerName} (${table.customerPhone ?? ''})',
                         fontWeight: FontWeight.bold,
                       ),
                     ],
                   ),
                 ),
-              const MyText(
-                text: 'Items',
+              MyText(
+                text: AppLocale.items.getString(context),
                 fontWeight: FontWeight.bold,
                 fontSize: 14,
               ),
@@ -644,8 +816,8 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const MyText(
-                    text: 'Total Amount',
+                  MyText(
+                    text: AppLocale.totalAmount.getString(context),
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
                   ),
@@ -666,12 +838,12 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
               Navigator.pop(context);
               _handleTableSelection(table.id);
             },
-            child: MyText(text: 'Switch to Table', color: appbar1, fontWeight: FontWeight.bold),
+            child: MyText(text: AppLocale.switchToTable.getString(context), color: appbar1, fontWeight: FontWeight.bold),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context),
             style: ElevatedButton.styleFrom(backgroundColor: appbar1),
-            child: const MyText(text: 'Close', color: Colors.white),
+            child: MyText(text: AppLocale.close.getString(context), color: Colors.white),
           ),
         ],
       ),
@@ -703,26 +875,22 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
     subtotal = printprovider.total;
 
     return Scaffold(
+        key: _scaffoldKey,
         appBar: AppBar(
           backgroundColor: Colors.white,
           elevation: 0,
           scrolledUnderElevation: 0,
-          leading: widget.role == 'customer'
-              ? IconButton(
-                  icon: const Icon(Icons.arrow_back_ios_new, color: primaryColor, size: 20),
-                  onPressed: () => Navigator.of(context).pop(),
-                )
-              : Showcase(
-                  key: TourKeys.drawerIconKey,
-                  title: 'Main Menu',
-                  description: 'Open this to access your Dashboard, Menu, Reports, and Settings.',
-                  child: Builder(builder: (context) {
-                    return IconButton(
-                      icon: const Icon(Icons.menu, color: primaryColor),
-                      onPressed: () => Scaffold.of(context).openDrawer(),
-                    );
-                  }),
-                ),
+          leading: Showcase(
+            key: TourKeys.drawerIconKey,
+            title: AppLocale.menu.getString(context),
+            description: AppLocale.tourDesc14.getString(context),
+            child: Builder(builder: (context) {
+              return IconButton(
+                icon: const Icon(Icons.menu, color: Colors.black),
+                onPressed: () => Scaffold.of(context).openDrawer(),
+              );
+            }),
+          ),
           title: isSearching
               ? Container(
                   height: 45,
@@ -738,16 +906,16 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                       setState(() {});
                     },
                     style: const TextStyle(fontSize: 14),
-                    decoration: const InputDecoration(
-                        hintText: "Search Item Name",
-                        prefixIcon: Icon(Icons.search, size: 18),
+                    decoration: InputDecoration(
+                        hintText: AppLocale.searchItemName.getString(context),
+                        prefixIcon: const Icon(Icons.search, size: 18),
                         border: InputBorder.none,
                         isDense: true,
-                        contentPadding: EdgeInsets.all(15)),
+                        contentPadding: const EdgeInsets.all(15)),
                   ),
                 )
-              : const MyText(
-                  text: 'Restaurants',
+              : MyText(
+                  text: businessCategory == 'Food' ? AppLocale.restaurants.getString(context) : AppLocale.billingAndPos.getString(context),
                   color: Colors.black,
                   fontSize: 17,
                 ),
@@ -770,8 +938,8 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                     }
                   },
                   icon: const Icon(Icons.skip_next, color: Colors.orange, size: 18),
-                  label: const MyText(
-                    text: 'Skip Tour',
+                  label: MyText(
+                    text: AppLocale.skipTour.getString(context),
                     color: Colors.orange,
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
@@ -782,11 +950,11 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                   ),
                 ),
               ),
-            if (!isSearching && widget.role != 'customer')
-              Padding(
-                padding: const EdgeInsets.only(right: 12.0),
-                child: _buildConnectionStatusIndicator(),
-              ),
+            // if (!isSearching)
+            //   Padding(
+            //     padding: const EdgeInsets.only(right: 12.0),
+            //     child: _buildConnectionStatusIndicator(),
+            //   ),
 
             // Fullscreen
             if (!isSearching)
@@ -804,7 +972,7 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
               ),
 
             // Users
-            if (!isSearching && widget.role != 'customer')
+            if (!isSearching)
               Padding(
                 padding: const EdgeInsets.only(right: 12.0),
                 child: GestureDetector(
@@ -851,25 +1019,13 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
             });
           }
         },
-        drawer: widget.role == 'customer'
-            ? null
-            : MyDrawer(
-                key: _drawerKey,
-                phoneNo: widget.phoneNo,
-                adminPhoneNo: adminUid,
-                role: widget.role,
-              ),
+        drawer: MyDrawer(
+          key: _drawerKey,
+          phoneNo: phoneNo,
+          adminPhoneNo: adminUid,
+        ),
         body: isLoading
-            ? Center(
-                child: SizedBox(
-                  width: 30,
-                  height: 30,
-                  child: CircularProgressIndicator(
-                    color: appbar1,
-                    strokeWidth: 3,
-                  ),
-                ),
-              )
+            ? const _RestaurantFullSkeleton()
             : Container(
                 color: Colors.grey.withOpacity(0.1),
                 width: double.infinity,
@@ -877,21 +1033,20 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                 child: Stack(children: [
                   Column(
                     children: [
-                      if (widget.role != 'customer') ...[
+                      if (businessCategory == 'Food')
                         Container(
                           height: 50,
                           margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 10),
                           width: double.infinity,
                           child: const OrderTypeSelector(),
                         ),
+                      if (businessCategory == 'Food')
                         Showcase(
                           key: TourKeys.tableSelectorKey,
-                          title: 'Select Table',
-                          description:
-                              'Choose a table to assign this order. Tables marked in red are already occupied.',
+                          title: AppLocale.tourTitleSelectTable.getString(context),
+                          description: AppLocale.tourDescSelectTable.getString(context),
                           child: _buildTableSelector(),
                         ),
-                      ],
                       Expanded(
                         child: Row(
                           children: [
@@ -900,15 +1055,17 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                                 width: 80,
                                 child: Showcase(
                                   key: TourKeys.categoryListKey,
-                                  title: 'Food Categories',
-                                  description: 'Quickly switch between departments like Fast Food or Desserts.',
+                                  title: businessCategory == 'Food' ? AppLocale.tourTitleFoodCategories.getString(context) : AppLocale.tourTitleCategories.getString(context),
+                                  description: businessCategory == 'Food' ? AppLocale.tourDescFoodCategories.getString(context) : AppLocale.tourDescCategories.getString(context),
                                   child: Container(
                                     decoration: const BoxDecoration(color: Colors.white),
                                     padding: const EdgeInsets.only(left: 5),
                                     child: FutureBuilder<List<Map<String, dynamic>>>(
                                       future: foodDepartmentsFuture,
                                       builder: (context, snapshot) {
-                                        if (snapshot.hasError) {
+                                        if (snapshot.connectionState == ConnectionState.waiting) {
+                                          return const _CategorySkeleton();
+                                        } else if (snapshot.hasError) {
                                           return Center(child: MyText(text: 'Error: ${snapshot.error}'));
                                         } else {
                                           List<Map<String, dynamic>> departments = snapshot.data ?? [];
@@ -1024,16 +1181,7 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                                 future: foodItemsFuture,
                                 builder: (context, AsyncSnapshot<List<Map<String, dynamic>>> snapshot) {
                                   if (snapshot.connectionState == ConnectionState.waiting) {
-                                    return const Center(
-                                      child: SizedBox(
-                                        width: 30,
-                                        height: 30,
-                                        child: CircularProgressIndicator(
-                                          color: primaryColor,
-                                          strokeWidth: 2,
-                                        ),
-                                      ),
-                                    );
+                                    return const _ProductGridSkeleton();
                                   } else if (snapshot.hasError) {
                                     return Center(child: MyText(text: 'Error: ${snapshot.error}'));
                                   } else {
@@ -1061,12 +1209,7 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                                               horizontal: 8,
                                               vertical: 8,
                                             ),
-                                            child: Showcase(
-                                              key: TourKeys.firstProductKey,
-                                              title: 'Add Items to Cart',
-                                              description:
-                                                  'Simply tap on any food item to add it to your current order.',
-                                              child: GridView.builder(
+                                            child: GridView.builder(
                                                 controller: _gridViewController,
                                                 gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
                                                   maxCrossAxisExtent: isContainerVisible ? 150 : 140,
@@ -1077,7 +1220,7 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                                                 itemCount: filteredFoodItems.length,
                                                 itemBuilder: (context, index) {
                                                   final item = filteredFoodItems[index];
-                                                  return MenuItem(
+                                                  final menuItem = MenuItem(
                                                     context: context,
                                                     imagePath: item['imagePath']?.toString() ?? '',
                                                     text: item['name']?.toString() ?? '',
@@ -1138,9 +1281,18 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                                                       });
                                                     },
                                                   );
+                                                  if (index == 0) {
+                                                    return Showcase(
+                                                      key: TourKeys.firstProductKey,
+                                                      title: businessCategory == 'Food' ? AppLocale.tourTitleAddToCart.getString(context) : AppLocale.tourTitleAddProducts.getString(context),
+                                                      description: businessCategory == 'Food' ? AppLocale.tourDescAddToCart.getString(context) : AppLocale.tourDescAddProducts.getString(context),
+                                                      child: menuItem,
+                                                    );
+                                                  }
+                                                  return menuItem;
                                                 },
                                               ),
-                                            ));
+                                            );
                                       },
                                     );
                                   }
@@ -1154,9 +1306,6 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                           ? BillCart(
                               isContainerVisible: isContainerVisible,
                               isRestaurantScreen: true,
-                              adminUid: adminUid,
-                              phoneNo: widget.phoneNo,
-                              role: widget.role,
                               onCartCleared: () {
                                 setState(() {
                                   selectedItemsDetails.clear();
@@ -1169,23 +1318,7 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                                   subtotal = updatedTotal;
                                 });
                               },
-                              onPlaceOrder: widget.role == 'customer'
-                                  ? () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) => CustomerOrderSummary(
-                                            items: List.from(selectedItemsDetails),
-                                            totalAmount: subtotal,
-                                            adminId: adminUid,
-                                            customerId: customerId,
-                                            customerName: userNameController.text,
-                                            customerPhone: userPhoneController.text,
-                                          ),
-                                        ),
-                                      );
-                                    }
-                                  : null,
+                              onPlaceOrder: null,
                               orderBottomSheet: () {
                                 showSaveOrderBottomSheet(
                                   context: context,
@@ -1228,10 +1361,10 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
               children: [
                 TextFormField(
                   controller: userNameController,
-                  decoration: const InputDecoration(labelText: 'User Name'),
+                  decoration: InputDecoration(labelText: AppLocale.userName.getString(context)),
                   validator: (value) {
                     if (value!.isEmpty) {
-                      return 'Please enter a user name';
+                      return AppLocale.pleaseEnterUserName.getString(context);
                     }
                     return null;
                   },
@@ -1245,7 +1378,7 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                       userNameController.clear();
                     }
                   },
-                  child: const MyText(text: 'Submit'),
+                  child: MyText(text: AppLocale.submit.getString(context)),
                 ),
               ],
             ),
@@ -1261,7 +1394,7 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
       'userName': userNameController.text,
       'details': selectedItemsDetails,
       'totalAmount': subtotal,
-      'customerId': customerId ?? (widget.role == 'customer' ? widget.phoneNo : null),
+      'customerId': customerId,
       'adminId': adminUid,
       'timestamp': DateTime.now().toIso8601String(),
     };
@@ -1298,32 +1431,20 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
 
         OrderModel resultOrder;
 
-        if (widget.role == 'customer') {
-          resultOrder = await orderService.createGuestOrder(
-            adminId: adminUid,
-            customerName: userNameController.text,
-            customerPhone: userPhoneController.text,
-            items: formattedItems,
-            orderType: 'Pickup',
-            tableNumber: tableNumber,
-            billNumber: existingOrderId, // Reuse ID if available
-          );
-        } else {
-          resultOrder = await orderService.createOrder(
-            adminId: adminUid,
-            // If we have an existing ID, use it. Otherwise, generate a new one.
-            billNumber: existingOrderId ?? 'POS-RS-${DateTime.now().millisecondsSinceEpoch}',
-            customerName: userNameController.text,
-            customerPhone: userPhoneController.text,
-            customerId: customerId ?? (widget.role == 'customer' ? widget.phoneNo : null),
-            items: formattedItems,
-            orderType: orderTypeProvider.orderType.toString().split('.').last,
-            paymentMethod: orderTypeProvider.paymentType.toString().split('.').last,
-            paymentStatus: 'Due',
-            tableNumber: tableNumber,
-            createKot: tableNumber == null,
-          );
-        }
+        resultOrder = await orderService.createOrder(
+          adminId: adminUid,
+          // If we have an existing ID, use it. Otherwise, generate a new one.
+          billNumber: existingOrderId ?? 'POS-RS-${DateTime.now().millisecondsSinceEpoch}',
+          customerName: userNameController.text,
+          customerPhone: userPhoneController.text,
+          customerId: customerId,
+          items: formattedItems,
+          orderType: orderTypeProvider.orderType.toString().split('.').last,
+          paymentMethod: orderTypeProvider.paymentType.toString().split('.').last,
+          paymentStatus: 'Due',
+          tableNumber: tableNumber,
+          createKot: businessCategory == 'Food' && tableNumber == null,
+        );
 
         // 3. Update the table with the order ID and customer info so it appears occupied
         if (tableNumber != null && tableProvider.selectedTableId != null) {
@@ -1352,25 +1473,112 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
     userPhoneController.clear();
 
     if (mounted) {
-      if (widget.role == 'customer') {
-        SnackBarUtils.showSuccess(context, 'Order placed successfully!');
-      } else {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const UsersScreen()),
-        );
-      }
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const UsersScreen()),
+      );
     }
   }
+}
+
+class _RestaurantFullSkeleton extends StatelessWidget {
+  const _RestaurantFullSkeleton();
 
   @override
-  void dispose() {
-    _connectionSubscription?.cancel();
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Container(
+          height: 50,
+          margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 10),
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: Colors.grey[200],
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
+        const Expanded(
+          child: Row(
+            children: [
+              SizedBox(width: 80, child: _CategorySkeleton()),
+              Expanded(child: _ProductGridSkeleton()),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
 
-    userNameController.dispose();
-    userPhoneController.dispose();
-    _listScrollController.dispose();
-    audioPlayer.dispose();
-    super.dispose();
+class _CategorySkeleton extends StatelessWidget {
+  const _CategorySkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      itemCount: 8,
+      physics: const NeverScrollableScrollPhysics(),
+      itemBuilder: (context, index) {
+        return Shimmer.fromColors(
+          baseColor: Colors.grey[300]!,
+          highlightColor: Colors.grey[100]!,
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 15, left: 10),
+            child: Column(
+              children: [
+                Container(
+                  height: 50,
+                  width: 50,
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Container(
+                  height: 10,
+                  width: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(5),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _ProductGridSkeleton extends StatelessWidget {
+  const _ProductGridSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return GridView.builder(
+      padding: const EdgeInsets.all(10),
+      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 170,
+        childAspectRatio: 0.75,
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 8,
+      ),
+      itemCount: 6,
+      physics: const NeverScrollableScrollPhysics(),
+      itemBuilder: (context, index) {
+        return Shimmer.fromColors(
+          baseColor: Colors.grey[300]!,
+          highlightColor: Colors.grey[100]!,
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+            ),
+          ),
+        );
+      },
+    );
   }
 }

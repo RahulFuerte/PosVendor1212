@@ -5,6 +5,7 @@ import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:pos/core/widgets/text.dart';
 import 'package:pos/view/home/widgets/mydrawer.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // Project imports:
 import '../../core/utils/price_utils.dart';
@@ -16,20 +17,16 @@ import '../../core/utils/snackbar_utils.dart';
 
 /// Enhanced offline bill status screen with complete bill viewing capability
 class OfflineBillStatusScreen extends StatefulWidget {
-  final String adminUid;
-  final String uid;
-
-  const OfflineBillStatusScreen({
-    Key? key,
-    required this.adminUid,
-    required this.uid,
-  }) : super(key: key);
+  const OfflineBillStatusScreen({Key? key}) : super(key: key);
 
   @override
   State<OfflineBillStatusScreen> createState() => _OfflineBillStatusScreenState();
 }
 
 class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
+  String adminUid = '';
+  String uid = '';
+
   final CompleteOfflineDataManager _offlineDataManager = CompleteOfflineDataManager();
   List<Map<String, dynamic>> _bills = [];
   bool _isLoading = true;
@@ -41,6 +38,15 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
   @override
   void initState() {
     super.initState();
+    _loadSessionData();
+  }
+
+  Future<void> _loadSessionData() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      uid = prefs.getString('phoneNumber') ?? prefs.getString('phoneNo') ?? '';
+      adminUid = prefs.getString('adminUid') ?? '';
+    });
     _initializeAndLoadBills();
   }
 
@@ -71,7 +77,7 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
       await _offlineDataManager.initialize();
 
       // Load all bills ensuring offline availability (force refresh to get latest data)
-      final bills = await _offlineDataManager.ensureBillsOfflineAvailability(widget.adminUid, forceRefresh: true);
+      final bills = await _offlineDataManager.ensureBillsOfflineAvailability(adminUid, forceRefresh: true);
 
       if (!mounted) return;
 
@@ -119,8 +125,8 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
         ],
       ),
       drawer: MyDrawer(
-        phoneNo: widget.uid,
-        adminPhoneNo: widget.adminUid,
+        phoneNo: uid,
+        adminPhoneNo: adminUid,
       ),
       body: Column(
         children: [
@@ -132,7 +138,7 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
                 children: [
                   // Offline Bill Status Widget
                   OfflineBillStatusWidget(
-                    adminUid: widget.adminUid,
+                    adminUid: adminUid,
                     onRefreshCallbackReady: (refreshCallback) {
                       _refreshSyncWidget = refreshCallback;
                     },
@@ -192,7 +198,7 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
                                   MyText(
                                     text: _errorMessage,
                                     color: Colors.red,
-                                    fontFamily: 'fontmain',
+                                    fontFamily: 'Outfit',
                                     textAlign: TextAlign.center,
                                   ),
                                   const SizedBox(height: 16),
@@ -218,7 +224,7 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
                                   MyText(
                                     text: 'No bills found',
                                     color: Colors.grey[500],
-                                    fontFamily: 'fontmain',
+                                    fontFamily: 'Outfit',
                                     fontSize: 16,
                                   ),
                                 ],
@@ -332,7 +338,7 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
             const SizedBox(height: 4),
             MyText(
               text: customerName,
-              fontFamily: 'fontmain',
+              fontFamily: 'Outfit',
               fontSize: 13,
               color: Colors.grey.shade700,
               maxLines: 1,
@@ -341,7 +347,7 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
             if (billDate != null)
               MyText(
                 text: _formatDate(billDate),
-                fontFamily: 'fontmain',
+                fontFamily: 'Outfit',
                 fontSize: 11,
                 color: Colors.grey.shade500,
                 maxLines: 1,
@@ -368,7 +374,7 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
               child: MyText(
                 text: syncStatusText,
                 fontSize: 10,
-                fontFamily: 'fontmain',
+                fontFamily: 'Outfit',
                 fontWeight: FontWeight.w600,
                 color: isPending ? Colors.orange : primaryColor,
               ),
@@ -435,7 +441,7 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
             width: 80,
             child: MyText(
               text: label,
-              fontFamily: 'fontmain',
+              fontFamily: 'Outfit',
               color: Colors.grey.shade600,
               fontSize: 13,
             ),
@@ -443,7 +449,7 @@ class _OfflineBillStatusScreenState extends State<OfflineBillStatusScreen> {
           Expanded(
             child: MyText(
               text: value,
-              fontFamily: 'fontmain',
+              fontFamily: 'Outfit',
               fontWeight: FontWeight.w500,
               fontSize: 13,
             ),

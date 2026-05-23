@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:pos/core/widgets/text.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shimmer/shimmer.dart';
+import 'package:pos/view/home/reports/widgets/report_skeleton.dart';
 
 // Package imports:
 import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
@@ -22,27 +24,72 @@ import 'package:pos/view/home/printer_connectionDialog.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:pos/core/utils/price_utils.dart';
 import 'package:pos/core/utils/snackbar_utils.dart';
-import 'package:pos/view/home/reports/widgets/report_nav_bar.dart';
+import 'package:pos/view/home/reports/report_nav_bar.dart';
 
 class ItemwiseReportScreen extends StatefulWidget {
-  final String uid;
-  final String adminUid;
-
   const ItemwiseReportScreen(
-      {Key? key, required this.uid, required this.adminUid})
+      {Key? key})
       : super(key: key);
 
   @override
   State<ItemwiseReportScreen> createState() => _ItemwiseReportScreenState();
 }
 
+class _ReportSkeleton extends StatelessWidget {
+  const _ReportSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      itemCount: 5,
+      itemBuilder: (context, index) {
+        return Shimmer.fromColors(
+          baseColor: Colors.grey[300]!,
+          highlightColor: Colors.grey[100]!,
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 20),
+            height: 100,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(15),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
 class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
+  String uid = '';
+  String adminUid = '';
+
   DateTime? fromDate;
   DateTime? toDate;
   List<Map<String, dynamic>> itemsData = [];
   bool isLoading = false;
   double totalAmount = 0;
   double totalQuantity = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSessionData();
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
+
+  Future<void> _loadSessionData() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      uid = prefs.getString('phoneNumber') ?? prefs.getString('phoneNo') ?? '';
+      adminUid = prefs.getString('adminUid') ?? '';
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -61,15 +108,15 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
         ),
       ),
       drawer: MyDrawer(
-        phoneNo: widget.uid,
-        adminPhoneNo: widget.adminUid,
+        phoneNo: uid,
+        adminPhoneNo: adminUid,
       ),
       body: Column(
         children: [
           ReportNavBar(
             currentReport: 'Item-wise',
-            uid: widget.uid,
-            adminUid: widget.adminUid,
+            uid: uid,
+            adminUid: adminUid,
           ),
           // Premium Date Selection
           Container(
@@ -222,7 +269,7 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
 
           Expanded(
             child: isLoading
-                ? Center(child: CircularProgressIndicator(color: primaryColor))
+                ? const ReportSkeleton(height: 100, borderRadius: 15)
                 : itemsData.isEmpty
                     ? Center(
                         child: Column(
@@ -494,6 +541,11 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
   }
 
   Future<void> _printThermalReceipt() async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
     final printProvider = Provider.of<PrintProvider>(context, listen: false);
     final printerManager = PrinterManager.instance;
 
@@ -613,7 +665,20 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
 
       bytes += generator.text(separator);
 
-      bytes += generator.feed(2);
+      bytes += generator.emptyLines(1);
+
+      // Branding for free users
+      final prefs = await SharedPreferences.getInstance();
+      final String planType = prefs.getString('subscriptionPlanType') ?? 'free';
+      if (planType.toLowerCase() == 'free') {
+        bytes += generator.text('Powered by Billing Sphere', styles: const PosStyles(align: PosAlign.center));
+      }
+
+      bytes += generator.emptyLines(2);
+
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
 
       await printerManager.send(
         type: printProvider.selectedPrinter!.typePrinter,
@@ -622,6 +687,9 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
 
       SnackBarUtils.showSuccess(context, 'Report printed successfully!');
     } catch (e) {
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
       SnackBarUtils.showError(context, 'Print error: $e');
     }
   }
@@ -648,7 +716,7 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
       final regularFont = pw.Font.ttf(await rootBundle.load('fonts/NotoSans-Regular.ttf'));
       final boldFont = pw.Font.ttf(await rootBundle.load('fonts/NotoSans-Bold.ttf'));
 
-      if (mounted) Navigator.of(context).pop();
+      if (mounted) Navigator.of(context, rootNavigator: true).pop();
 
       await Printing.layoutPdf(
         name: 'ItemwiseReport_${DateFormat('ddMMyyyy_HHmmss').format(DateTime.now())}.pdf',

@@ -1,34 +1,52 @@
+// import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:pos/core/widgets/text.dart';
-import 'package:pos/data/services/unknown_customer_service.dart';
+import 'package:pos/data/services/user_service.dart';
+// import 'package:pos/view/home/navigation.dart';
 import 'package:pos/core/utils/snackbar_utils.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 
-class CustomerSignUp extends StatefulWidget {
-  const CustomerSignUp({super.key});
+class AdminSignUp extends StatefulWidget {
+  const AdminSignUp({super.key});
 
   @override
-  State<CustomerSignUp> createState() => _CustomerSignUpState();
+  State<AdminSignUp> createState() => _AdminSignUpState();
 }
 
-class _CustomerSignUpState extends State<CustomerSignUp> {
+class _AdminSignUpState extends State<AdminSignUp> {
   final _formKey = GlobalKey<FormState>();
 
   // Controllers
   final _nameCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
-  final _addressCtrl = TextEditingController();
+  final _passwordCtrl = TextEditingController();
+  final _confirmPasswordCtrl = TextEditingController();
+  final _shopCtrl = TextEditingController();
+  final _fssaiCtrl = TextEditingController();
+  final _gstCtrl = TextEditingController();
+  final _upiCtrl = TextEditingController();
   final _cityCtrl = TextEditingController();
+  final _addressCtrl = TextEditingController();
+  String _businessCategory = 'Food';
+  final List<String> _categories = ['Food', 'Retail'];
 
   bool _isLoading = false;
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
 
   @override
   void dispose() {
     _nameCtrl.dispose();
     _phoneCtrl.dispose();
-    _addressCtrl.dispose();
+    _passwordCtrl.dispose();
+    _confirmPasswordCtrl.dispose();
+    _shopCtrl.dispose();
+    _fssaiCtrl.dispose();
+    _gstCtrl.dispose();
+    _upiCtrl.dispose();
     _cityCtrl.dispose();
+    _addressCtrl.dispose();
     super.dispose();
   }
 
@@ -39,11 +57,18 @@ class _CustomerSignUpState extends State<CustomerSignUp> {
     final phone = _phoneCtrl.text.trim();
 
     try {
-      await UnknownCustomerService().register(
+      await UserService().registerAdmin(
         name: _nameCtrl.text.trim(),
         phoneNumber: phone,
-        address: _addressCtrl.text.trim(),
+        password: _passwordCtrl.text.trim(),
+        shopName: _shopCtrl.text.trim(),
+        fssaiNo: _fssaiCtrl.text.trim().isEmpty ? null : _fssaiCtrl.text.trim(),
+        gstNo: _gstCtrl.text.trim().isEmpty ? null : _gstCtrl.text.trim(),
+        upiId: _upiCtrl.text.trim().isEmpty ? null : _upiCtrl.text.trim(),
         city: _cityCtrl.text.trim(),
+        address: _addressCtrl.text.trim(),
+        businessCategory: _businessCategory,
+        businessIcon: _getDefaultIcon(_businessCategory),
       );
 
       if (mounted) {
@@ -79,7 +104,7 @@ class _CustomerSignUpState extends State<CustomerSignUp> {
           onPressed: () => Navigator.pop(context),
         ),
         title: const MyText(
-          text: 'Customer Registration',
+          text: 'Shop Owner Registration',
           fontSize: 18,
           fontWeight: FontWeight.bold,
           color: Colors.white,
@@ -102,13 +127,13 @@ class _CustomerSignUpState extends State<CustomerSignUp> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const MyText(
-                        text: 'Join Us',
+                        text: 'Business Details',
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
                       ),
                       const SizedBox(height: 8),
                       MyText(
-                        text: 'Create an account to track your orders',
+                        text: 'Setup your shop to start managing inventory',
                         color: Colors.grey.shade500,
                         fontSize: 14,
                       ),
@@ -116,7 +141,7 @@ class _CustomerSignUpState extends State<CustomerSignUp> {
                       _label('Full Name *'),
                       _textField(
                         controller: _nameCtrl,
-                        hint: 'e.g. John Doe',
+                        hint: 'e.g. Rahul Sharma',
                         icon: Icons.person_outline_rounded,
                         capitalization: TextCapitalization.words,
                         validator: (v) => v == null || v.trim().isEmpty ? 'Name is required' : null,
@@ -139,20 +164,99 @@ class _CustomerSignUpState extends State<CustomerSignUp> {
                         },
                       ),
                       const SizedBox(height: 16),
-                      _label('City'),
+                      _label('Password *'),
                       _textField(
-                        controller: _cityCtrl,
-                        hint: 'e.g. Mumbai',
-                        icon: Icons.location_city_rounded,
+                        controller: _passwordCtrl,
+                        hint: 'Choose a secure password (min 6 chars)',
+                        icon: Icons.lock_outlined,
+                        obscure: _obscurePassword,
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                            color: Colors.grey,
+                          ),
+                          onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                        ),
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) return 'Password is required';
+                          if (v.trim().length < 6) return 'Password must be at least 6 characters';
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      _label('Confirm Password *'),
+                      _textField(
+                        controller: _confirmPasswordCtrl,
+                        hint: 'Confirm your password',
+                        icon: Icons.lock_outlined,
+                        obscure: _obscureConfirmPassword,
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscureConfirmPassword ? Icons.visibility_off : Icons.visibility,
+                            color: Colors.grey,
+                          ),
+                          onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
+                        ),
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) return 'Confirm password is required';
+                          if (v.trim() != _passwordCtrl.text.trim()) return 'Passwords do not match';
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      _label('Shop / Restaurant Name'),
+                      _textField(
+                        controller: _shopCtrl,
+                        hint: 'e.g. Spice Garden',
+                        icon: Icons.storefront_outlined,
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) return 'Shop name is required';
+                          return null;
+                        },
                         capitalization: TextCapitalization.words,
                       ),
                       const SizedBox(height: 16),
-                      _label('Address'),
+                      _label('Business Category *'),
+                      _categoryDropdown(),
+                      const SizedBox(height: 16),
+                      _label('FSSAI No'),
+                      _textField(
+                        controller: _fssaiCtrl,
+                        hint: 'e.g. 12345678901234 (optional)',
+                        icon: Icons.assignment_outlined,
+                      ),
+                      const SizedBox(height: 16),
+                      _label('GST No'),
+                      _textField(
+                        controller: _gstCtrl,
+                        hint: 'e.g. 22AAAAA0000A1Z5 (optional)',
+                        icon: Icons.receipt_long_outlined,
+                        capitalization: TextCapitalization.characters,
+                      ),
+                      const SizedBox(height: 16),
+                      _label('UPI ID'),
+                      _textField(
+                        controller: _upiCtrl,
+                        hint: 'e.g. user@upi (optional)',
+                        icon: Icons.payment_outlined,
+                      ),
+                      const SizedBox(height: 16),
+                      _label('City *'),
+                      _textField(
+                        controller: _cityCtrl,
+                        hint: 'e.g. Rajkot',
+                        icon: Icons.location_city_rounded,
+                        capitalization: TextCapitalization.words,
+                        validator: (v) => v == null || v.trim().isEmpty ? 'City is required' : null,
+                      ),
+                      const SizedBox(height: 16),
+                      _label('Detailed Address *'),
                       _textField(
                         controller: _addressCtrl,
-                        hint: 'e.g. House No. 123, Street Name',
-                        icon: Icons.home_work_outlined,
-                        capitalization: TextCapitalization.sentences,
+                        hint: 'e.g. 2nd Floor, Royal Plaza, MG Road',
+                        icon: Icons.map_outlined,
+                        capitalization: TextCapitalization.words,
+                        validator: (v) => v == null || v.trim().isEmpty ? 'Address is required' : null,
                       ),
                       const SizedBox(height: 48),
                       SizedBox(
@@ -184,6 +288,39 @@ class _CustomerSignUpState extends State<CustomerSignUp> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _categoryDropdown() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: _businessCategory,
+          isExpanded: true,
+          icon: Icon(Icons.keyboard_arrow_down_rounded, color: primaryColor),
+          items: _categories.map((String category) {
+            return DropdownMenuItem(
+              value: category,
+              child: MyText(
+                text: category,
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+            );
+          }).toList(),
+          onChanged: (String? newValue) {
+            if (newValue != null) {
+              setState(() => _businessCategory = newValue);
+            }
+          },
+        ),
       ),
     );
   }
@@ -244,5 +381,14 @@ class _CustomerSignUpState extends State<CustomerSignUp> {
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
       ),
     );
+  }
+
+  String _getDefaultIcon(String category) {
+    switch (category) {
+      case 'Retail':
+        return 'shopping_bag';
+      default:
+        return 'restaurant';
+    }
   }
 }

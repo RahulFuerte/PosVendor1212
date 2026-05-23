@@ -25,6 +25,7 @@ class ProductModel {
   final bool? isVeg;
   final DateTime? createdAt;
   final DateTime? updatedAt;
+  final String? barcode;
 
   ProductModel({
     this.id,
@@ -51,6 +52,7 @@ class ProductModel {
     this.isVeg,
     this.createdAt,
     this.updatedAt,
+    this.barcode,
   });
 
   factory ProductModel.fromJson(Map<String, dynamic> json) {
@@ -79,6 +81,7 @@ class ProductModel {
       isVeg: json['isVeg'] as bool?,
       createdAt: json['createdAt'] != null ? DateTime.tryParse(json['createdAt'].toString()) : null,
       updatedAt: json['updatedAt'] != null ? DateTime.tryParse(json['updatedAt'].toString()) : null,
+      barcode: json['barcode'] as String?,
     );
   }
 
@@ -129,6 +132,7 @@ class ProductModel {
               ? DateTime.fromMillisecondsSinceEpoch(map['updated_at'] as int)
               : DateTime.tryParse(map['updated_at'].toString()))
           : null,
+      barcode: map['barcode']?.toString(),
     );
   }
 
@@ -159,6 +163,7 @@ class ProductModel {
       'isVeg': isVeg,
       'createdAt': createdAt?.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
+      'barcode': barcode,
     };
   }
 
@@ -184,6 +189,7 @@ class ProductModel {
       'baseVariant': baseVariant,
       'addons': jsonEncode(addons),
       'variants': jsonEncode(variants),
+      'barcode': barcode,
     };
   }
 
@@ -212,6 +218,7 @@ class ProductModel {
     bool? isVeg,
     DateTime? createdAt,
     DateTime? updatedAt,
+    String? barcode,
   }) {
     return ProductModel(
       id: id ?? this.id,
@@ -238,6 +245,7 @@ class ProductModel {
       isVeg: isVeg ?? this.isVeg,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      barcode: barcode ?? this.barcode,
     );
   }
 }

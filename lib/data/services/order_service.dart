@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/order_model.dart';
 import '../constants/api_constants.dart';
@@ -44,38 +45,16 @@ class OrderService {
     String? tableNumber,
     String? notes,
     String? paymentStatus,
+    String? employeeId, // Added
     bool createKot = true,
   }) async {
     final prefs = await SharedPreferences.getInstance();
-    if (prefs.getBool('isDemoMode') ?? false) {
-      final List<OrderItem> orderItems = items.map((item) {
-        return OrderItem(
-          productId: item['productId']?.toString() ?? '',
-          name: item['name']?.toString() ?? '',
-          price: (item['price'] as num?)?.toDouble() ?? 0.0,
-          quantity: (item['quantity'] as num?)?.toInt() ?? 0,
-          total: ((item['price'] as num?)?.toDouble() ?? 0.0) * ((item['quantity'] as num?)?.toInt() ?? 0),
-        );
-      }).toList();
-
-      final total = orderItems.fold(0.0, (sum, item) => sum + item.total);
-
-      return OrderModel(
-        id: "demo_order_${DateTime.now().millisecondsSinceEpoch}",
-        adminId: adminId,
-        billNumber: billNumber,
-        items: orderItems,
-        totalAmount: total,
-        finalAmount: total,
-        paymentMethod: paymentMethod ?? "Cash",
-        orderType: orderType ?? "DineIn",
-        createdAt: DateTime.now(),
-      );
-    }
-
     final token = await _getToken();
     final double total = items.fold(
         0.0, (sum, item) => sum + ((item['price'] as num).toDouble() * (item['quantity'] as num).toDouble()));
+
+    final businessCategory = prefs.getString('businessCategory') ?? 'Food';
+    final bool effectiveCreateKot = businessCategory == 'Food' && createKot;
 
     final response = await http.post(
       Uri.parse(baseUrl),
@@ -99,7 +78,8 @@ class OrderService {
         'tableNumber': tableNumber,
         'notes': notes,
         'paymentStatus': _normalize(paymentStatus),
-        'createKot': createKot,
+        'employeeId': employeeId, // Included
+        'createKot': effectiveCreateKot,
       }),
     );
 
@@ -150,6 +130,11 @@ class OrderService {
 
     final double effectiveTotal = totalAmount ?? calculatedTotal;
     final double effectiveFinal = finalAmount ?? (effectiveTotal - (discount ?? 0) + (tax ?? 0));
+
+    final prefs = await SharedPreferences.getInstance();
+    final businessCategory = prefs.getString('businessCategory') ?? 'Food';
+    final bool effectiveCreateKot = businessCategory == 'Food' && createKot;
+
     final response = await http.post(
       Uri.parse('$baseUrl/guest'),
       headers: {'Content-Type': 'application/json'},
@@ -170,7 +155,7 @@ class OrderService {
         'paymentStatus': _normalize(paymentStatus ?? "Paid"),
         'tableNumber': tableNumber ?? "",
         'notes': notes ?? "",
-        'createKot': createKot,
+        'createKot': effectiveCreateKot,
       }),
     );
 
@@ -195,8 +180,8 @@ class OrderService {
     final token = await _getToken();
 
     final queryParams = <String, String>{};
-    if (startDate != null) queryParams['startDate'] = startDate.toIso8601String();
-    if (endDate != null) queryParams['endDate'] = endDate.toIso8601String();
+    if (startDate != null) queryParams['startDate'] = DateFormat('yyyy-MM-dd').format(startDate);
+    if (endDate != null) queryParams['endDate'] = DateFormat('yyyy-MM-dd').format(endDate);
     if (paymentMethod != null) queryParams['paymentMethod'] = paymentMethod;
     if (orderType != null) queryParams['orderType'] = orderType;
     if (status != null) queryParams['status'] = status;
@@ -285,6 +270,25 @@ class OrderService {
       return OrderModel.fromJson(data['data'] ?? data);
     } else {
       throw Exception(data['message'] ?? 'Failed to update KOT status');
+    }
+  }
+
+  Future<OrderModel> cancelOrder(String id, String reason) async {
+    final token = await _getToken();
+    final response = await http.patch(
+      Uri.parse('$baseUrl/$id/cancel'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': token ?? "",
+      },
+      body: jsonEncode({'cancelReason': reason}),
+    );
+
+    final data = jsonDecode(response.body);
+    if (response.statusCode == 200) {
+      return OrderModel.fromJson(data['data'] ?? data);
+    } else {
+      throw Exception(data['message'] ?? 'Failed to cancel order');
     }
   }
 }

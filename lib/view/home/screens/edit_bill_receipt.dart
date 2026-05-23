@@ -3,8 +3,11 @@ import 'dart:io';
 
 // Flutter imports:
 import 'package:flutter/material.dart';
+import 'package:flutter_localization/flutter_localization.dart';
 import 'package:pos/core/widgets/text.dart';
+import 'package:pos/l10n/app_locale.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 
 // Package imports:
 import 'package:cached_network_image/cached_network_image.dart';
@@ -23,20 +26,16 @@ import 'package:pos/core/utils/price_utils.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class EditBillReceiptScreen extends StatefulWidget {
-  final String AdminUid;
-  final String phoneNo;
-
-  const EditBillReceiptScreen({
-    Key? key,
-    required this.AdminUid,
-    required this.phoneNo,
-  }) : super(key: key);
+  const EditBillReceiptScreen({Key? key}) : super(key: key);
 
   @override
   State<EditBillReceiptScreen> createState() => _EditBillReceiptScreenState();
 }
 
 class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
+  String phoneNo = '';
+  String adminUid = '';
+
   final _formKey = GlobalKey<FormState>();
   final _shopNameController = TextEditingController();
   final _contactController = TextEditingController();
@@ -44,6 +43,8 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
   final _gstNumberController = TextEditingController();
   final _fssaiNumberController = TextEditingController();
   final _upiIdController = TextEditingController();
+  final _passwordController = TextEditingController();
+  bool _obscurePassword = true;
   final ImagePicker _picker = ImagePicker();
   final CloudinaryService _storageService = CloudinaryService();
 
@@ -55,17 +56,29 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
   String? _city;
   double? _latitude;
   double? _longitude;
+  String _businessCategory = 'Food';
+  DateTime? _registerTime;
+  final List<String> _categories = ['Food', 'Retail'];
 
   @override
   void initState() {
     super.initState();
+    _loadSessionData();
+  }
+
+  Future<void> _loadSessionData() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      phoneNo = prefs.getString('phoneNumber') ?? prefs.getString('phoneNo') ?? '';
+      adminUid = prefs.getString('adminUid') ?? '';
+    });
     _loadSettings();
   }
 
   Future<void> _loadSettings() async {
     setState(() => _isLoading = true);
     try {
-      final sqliteData = await SQLiteHelper().getUserData(widget.phoneNo);
+      final sqliteData = await SQLiteHelper().getUserData(phoneNo);
       final prefs = await SharedPreferences.getInstance();
 
       if (sqliteData != null) {
@@ -79,6 +92,11 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
         _city = sqliteData['city'];
         _latitude = sqliteData['latitude'];
         _longitude = sqliteData['longitude'];
+        _businessCategory = _migrateCategory(sqliteData['businessCategory']);
+        final int? createdAt = sqliteData['createdAt'];
+        if (createdAt != null) {
+          _registerTime = DateTime.fromMillisecondsSinceEpoch(createdAt);
+        }
       } else {
         // Fallback to SharedPreferences if SQLite is empty
         _shopNameController.text = prefs.getString('shopName') ?? '';
@@ -91,6 +109,11 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
         _city = prefs.getString('city');
         _latitude = prefs.getDouble('latitude');
         _longitude = prefs.getDouble('longitude');
+        _businessCategory = _migrateCategory(prefs.getString('businessCategory'));
+        final int? createdAt = prefs.getInt('createdAt');
+        if (createdAt != null) {
+          _registerTime = DateTime.fromMillisecondsSinceEpoch(createdAt);
+        }
       }
     } catch (e) {
       debugPrint('Error loading settings: $e');
@@ -99,6 +122,16 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  String _migrateCategory(String? category) {
+    if (category == null || category == 'Food') return 'Food';
+    if (category == 'Retail') return 'Retail';
+    // Legacy categories go to Retail
+    if (['Clothing', 'Shoe', 'Multiple Category'].contains(category)) {
+      return 'Retail';
+    }
+    return 'Food'; // Default fallback
   }
 
   Future<void> _uploadImageAndSave() async {
@@ -172,13 +205,14 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
       await prefs.setString('fssaiNo', _fssaiNumberController.text.trim());
       await prefs.setString('upiId', _upiIdController.text.trim());
       await prefs.setString('logoUrl', _imageUrl ?? "");
+      await prefs.setString('businessCategory', _businessCategory);
       if (_latitude != null) await prefs.setDouble('latitude', _latitude!);
       if (_longitude != null) await prefs.setDouble('longitude', _longitude!);
 
       // 2. Save to SQLite
       await SQLiteHelper().saveUserData({
-        'phone_number': widget.phoneNo,
-        'admin_uid': widget.AdminUid,
+        'phone_number': phoneNo,
+        'admin_uid': adminUid,
         'shop_name': _shopNameController.text.trim(),
         'shop_contact': _contactController.text.trim(),
         'address': _addressController.text.trim(),
@@ -187,15 +221,17 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
         'upiId': _upiIdController.text.trim(),
         'city': _city ?? prefs.getString('city') ?? "",
         'shop_logo_url': _imageUrl ?? "",
+        'businessCategory': _businessCategory,
         'latitude': _latitude,
         'longitude': _longitude,
       });
 
       // 3. Save to MongoDB (Sync Profile)
       debugPrint('Syncing profile to MongoDB with Location: [$_longitude, $_latitude]');
-      await UserService().updateProfile({
+      
+      final Map<String, dynamic> profileUpdates = {
         'name': prefs.getString('name') ?? "",
-        'phoneNumber': widget.phoneNo,
+        'phoneNumber': phoneNo,
         'shopName': _shopNameController.text.trim(),
         'address': _addressController.text.trim(),
         'city': _city ?? prefs.getString('city') ?? "",
@@ -205,6 +241,7 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
         'logo_url': _imageUrl ?? "",
         'shopLogoUrl': _imageUrl ?? "",
         'upiId': _upiIdController.text.trim(),
+        'businessCategory': _businessCategory,
         'latitude': _latitude,
         'longitude': _longitude,
         if (_latitude != null && _longitude != null)
@@ -212,7 +249,13 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
             'type': 'Point',
             'coordinates': [_longitude, _latitude],
           },
-      });
+      };
+
+      if (_passwordController.text.trim().isNotEmpty) {
+        profileUpdates['password'] = _passwordController.text.trim();
+      }
+
+      await UserService().updateProfile(profileUpdates);
 
       if (mounted) {
         SnackBarUtils.showSuccess(context, 'Settings saved successfully');
@@ -359,6 +402,7 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
     _gstNumberController.dispose();
     _fssaiNumberController.dispose();
     _upiIdController.dispose();
+    _passwordController.dispose();
     super.dispose();
   }
 
@@ -367,13 +411,11 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
     return Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
-        title: const MyText(
-          text: 'Edit Bill Receipt',
-          fontWeight: FontWeight.w600,
-        ),
+        title: MyText(text: AppLocale.editBillReceipt.getString(context), fontSize: 17, color: Colors.black, fontWeight: FontWeight.w600),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black87,
         elevation: 0,
+        scrolledUnderElevation: 0,
         centerTitle: true,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios),
@@ -592,6 +634,30 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
                             ),
                             const SizedBox(height: 16),
 
+                            // Business Category Dropdown
+                            _buildDropdownField(
+                              label: 'Business Category',
+                              value: _businessCategory,
+                              items: _categories,
+                              icon: Icons.category,
+                              onChanged: (value) {
+                                if (value != null) {
+                                  setState(() => _businessCategory = value);
+                                }
+                              },
+                            ),
+                            const SizedBox(height: 16),
+
+                            // Register Time Field (Read Only)
+                            if (_registerTime != null) ...[
+                              _buildReadOnlyField(
+                                label: 'Registration Date',
+                                value: DateFormat('dd MMM yyyy, hh:mm a').format(_registerTime!),
+                                icon: Icons.calendar_today,
+                              ),
+                              const SizedBox(height: 16),
+                            ],
+
                             // Address Field
                             _buildTextField(
                               controller: _addressController,
@@ -798,6 +864,29 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
                                 );
                               },
                             ),
+
+                            const SizedBox(height: 24),
+
+                            // Security Settings Section
+                            const MyText(
+                              text: 'Security Settings',
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
+                            const SizedBox(height: 8),
+                            MyText(
+                              text: 'Update your password to secure your account',
+                              fontSize: 14,
+                              color: Colors.grey[600],
+                            ),
+                            const SizedBox(height: 16),
+                            _buildPasswordField(
+                              controller: _passwordController,
+                              label: 'New Password',
+                              hint: 'Enter new password to change (leave empty to keep current)',
+                              icon: Icons.lock_outline,
+                            ),
                           ],
                         ),
                       ),
@@ -941,6 +1030,92 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
     );
   }
 
+  Widget _buildDropdownField({
+    required String label,
+    required String value,
+    required List<String> items,
+    required Function(String?) onChanged,
+    required IconData icon,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        MyText(
+          text: label,
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          color: Colors.black87,
+        ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey[300]!),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: value,
+              isExpanded: true,
+              icon: const Icon(Icons.keyboard_arrow_down_rounded, color: primaryColor),
+              items: items.map((String category) {
+                return DropdownMenuItem(
+                  value: category,
+                  child: MyText(
+                    text: category,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                  ),
+                );
+              }).toList(),
+              onChanged: onChanged,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildReadOnlyField({
+    required String label,
+    required String value,
+    required IconData icon,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        MyText(
+          text: label,
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          color: Colors.black87,
+        ),
+        const SizedBox(height: 8),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          decoration: BoxDecoration(
+            color: Colors.grey[100],
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey[200]!),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, color: Colors.grey[400], size: 20),
+              const SizedBox(width: 12),
+              MyText(
+                text: value,
+                fontSize: 15,
+                color: Colors.grey[600],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildTaxRateField({
     required String label,
     required double value,
@@ -986,6 +1161,70 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
             ),
             onChanged: onChanged,
           ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPasswordField({
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    required IconData icon,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        MyText(
+          text: label,
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          color: Colors.black87,
+        ),
+        const SizedBox(height: 8),
+        TextFormField(
+          controller: controller,
+          obscureText: _obscurePassword,
+          style: const TextStyle(fontFamily: "Outfit", fontWeight: FontWeight.w600),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: TextStyle(fontFamily: "Outfit", fontWeight: FontWeight.w500, color: Colors.grey[400], fontSize: 13),
+            prefixIcon: Icon(icon, color: primaryColor),
+            suffixIcon: IconButton(
+              icon: Icon(
+                _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                color: Colors.grey,
+              ),
+              onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey[300]!),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey[300]!),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(
+                color: primaryColor,
+                width: 2,
+              ),
+            ),
+            filled: true,
+            fillColor: Colors.white,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 16,
+            ),
+          ),
+          validator: (value) {
+            if (value != null && value.isNotEmpty && value.length < 6) {
+              return 'Password must be at least 6 characters';
+            }
+            return null;
+          },
         ),
       ],
     );

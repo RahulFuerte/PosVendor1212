@@ -7,7 +7,8 @@ import 'package:pos/view/home/widgets/mydrawer.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:pos/core/utils/price_utils.dart';
 import 'package:pos/core/utils/snackbar_utils.dart';
-import 'package:pos/view/home/reports/widgets/report_nav_bar.dart';
+import 'package:pos/view/home/reports/report_nav_bar.dart';
+import 'package:pos/view/home/reports/widgets/report_skeleton.dart';
 import 'package:pos/data/models/user_model.dart';
 import 'package:provider/provider.dart';
 import 'package:pos/data/providers/print_provider.dart';
@@ -23,16 +24,16 @@ import 'package:shimmer/shimmer.dart';
 import 'package:lottie/lottie.dart';
 
 class StaffWiseReportScreen extends StatefulWidget {
-  final String uid;
-  final String adminUid;
-
-  const StaffWiseReportScreen({Key? key, required this.uid, required this.adminUid}) : super(key: key);
+  const StaffWiseReportScreen({Key? key}) : super(key: key);
 
   @override
   State<StaffWiseReportScreen> createState() => _StaffWiseReportScreenState();
 }
 
 class _StaffWiseReportScreenState extends State<StaffWiseReportScreen> {
+  String uid = '';
+  String adminUid = '';
+
   DateTime? fromDate = DateTime.now();
   DateTime? toDate = DateTime.now();
   List<dynamic> staffReport = [];
@@ -48,13 +49,27 @@ class _StaffWiseReportScreenState extends State<StaffWiseReportScreen> {
   @override
   void initState() {
     super.initState();
+    _loadSessionData();
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
+
+  Future<void> _loadSessionData() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      uid = prefs.getString('phoneNumber') ?? prefs.getString('phoneNo') ?? '';
+      adminUid = prefs.getString('adminUid') ?? '';
+    });
     _loadInitialData();
   }
 
   Future<void> _loadInitialData() async {
     setState(() => isInitialLoading = true);
     try {
-      final staff = await UserService().getStaff(widget.adminUid);
+      final staff = await UserService().getStaff(adminUid);
       setState(() {
         staffList = staff;
         isInitialLoading = false;
@@ -141,77 +156,68 @@ class _StaffWiseReportScreenState extends State<StaffWiseReportScreen> {
           const SizedBox(width: 8),
         ],
       ),
-      drawer: MyDrawer(phoneNo: widget.uid, adminPhoneNo: widget.adminUid),
+      drawer: MyDrawer(phoneNo: uid, adminPhoneNo: adminUid),
       body: Column(
         children: [
-          ReportNavBar(currentReport: 'Staff-wise', uid: widget.uid, adminUid: widget.adminUid),
+          ReportNavBar(currentReport: 'Staff-wise', uid: uid, adminUid: adminUid),
           Expanded(
-            child: CustomScrollView(
-              physics: const BouncingScrollPhysics(),
-              slivers: [
-                SliverToBoxAdapter(child: _buildFilterSection()),
-                if (!isInitialLoading && selectedStaffId != null) ...[
-                  SliverToBoxAdapter(
-                    child: isLoading ? _buildSummaryShimmer() : _buildSummaryCards(),
-                  ),
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const MyText(
-                            text: 'Order History',
-                            fontWeight: FontWeight.w700,
-                            fontSize: 18,
-                            color: Color(0xFF1E293B),
-                          ),
-                          if (!isLoading)
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: primaryColor.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: MyText(
-                                text: '${orders.length} Orders',
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: primaryColor,
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  if (isLoading)
-                    SliverList(
-                      delegate: SliverChildBuilderDelegate(
-                        (context, index) => _buildOrderShimmer(),
-                        childCount: 5,
-                      ),
-                    )
-                  else if (orders.isEmpty)
-                    SliverFillRemaining(hasScrollBody: false, child: _emptyState())
-                  else
-                    SliverPadding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      sliver: SliverList(
-                        delegate: SliverChildBuilderDelegate(
-                          (context, index) => _orderTile(orders[index]),
-                          childCount: orders.length,
+            child: isLoading
+                ? const ReportSkeleton(height: 100, borderRadius: 15)
+                : CustomScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    slivers: [
+                      SliverToBoxAdapter(child: _buildFilterSection()),
+                      if (!isInitialLoading && selectedStaffId != null) ...[
+                        SliverToBoxAdapter(
+                          child: _buildSummaryCards(),
                         ),
-                      ),
-                    ),
-                ] else if (selectedStaffId == null && !isInitialLoading)
-                  SliverFillRemaining(hasScrollBody: false, child: _noStaffSelectedState())
-                else if (isInitialLoading)
-                  SliverFillRemaining(
-                    child: Center(child: CircularProgressIndicator(color: primaryColor, strokeWidth: 3)),
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const MyText(
+                                  text: 'Order History',
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 18,
+                                  color: Color(0xFF1E293B),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: primaryColor.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: MyText(
+                                    text: '${orders.length} Orders',
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: primaryColor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        SliverPadding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          sliver: SliverList(
+                            delegate: SliverChildBuilderDelegate(
+                              (context, index) => _orderTile(orders[index]),
+                              childCount: orders.length,
+                            ),
+                          ),
+                        ),
+                      ] else if (selectedStaffId == null && !isInitialLoading)
+                        SliverFillRemaining(hasScrollBody: false, child: _noStaffSelectedState())
+                      else if (isInitialLoading)
+                        const SliverFillRemaining(
+                          child: ReportSkeleton(height: 100, borderRadius: 15),
+                        ),
+                      const SliverToBoxAdapter(child: SizedBox(height: 30)),
+                    ],
                   ),
-                const SliverToBoxAdapter(child: SizedBox(height: 30)),
-              ],
-            ),
           ),
         ],
       ),
@@ -708,7 +714,14 @@ class _StaffWiseReportScreenState extends State<StaffWiseReportScreen> {
       if (!printProvider.isConnected) return;
     }
 
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
     try {
+      final prefs = await SharedPreferences.getInstance();
       final profile = await CapabilityProfile.load();
       final generator = Generator(printProvider.selectedPaperSize, profile);
       List<int> bytes = [];
@@ -758,12 +771,27 @@ class _StaffWiseReportScreenState extends State<StaffWiseReportScreen> {
         ]);
       }
 
-      bytes += generator.feed(3);
+      bytes += generator.emptyLines(1);
+
+      // Branding for free users
+      final String planType = prefs.getString('subscriptionPlanType') ?? 'free';
+      if (planType.toLowerCase() == 'free') {
+        bytes += generator.text('Powered by Billing Sphere', styles: const PosStyles(align: PosAlign.center));
+      }
+
+      bytes += generator.feed(2);
       bytes += generator.cut();
+
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
 
       await PrinterManager.instance.send(type: printProvider.selectedPrinter!.typePrinter, bytes: bytes);
       SnackBarUtils.showSuccess(context, 'Report printed!');
     } catch (e) {
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
       SnackBarUtils.showError(context, 'Print error: $e');
     }
   }

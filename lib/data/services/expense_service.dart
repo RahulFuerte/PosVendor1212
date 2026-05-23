@@ -4,7 +4,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/expense_model.dart';
 import '../models/expense_category_model.dart';
 import '../constants/api_constants.dart';
-import 'demo_data.dart';
 
 class ExpenseService {
   static const String expenseBaseUrl = ApiConstants.expenses;
@@ -39,10 +38,6 @@ class ExpenseService {
   }
 
   Future<List<ExpenseCategoryModel>> getExpenseCategories() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (prefs.getBool('isDemoMode') ?? false) {
-      return DemoData.expenseCategories;
-    }
     final token = await _getToken();
     final response = await http.get(
       Uri.parse(categoryBaseUrl),
@@ -134,10 +129,6 @@ class ExpenseService {
     DateTime? endDate,
     String? expenseCategoryId,
   }) async {
-    final prefs = await SharedPreferences.getInstance();
-    if (prefs.getBool('isDemoMode') ?? false) {
-      return DemoData.expenses;
-    }
     final token = await _getToken();
 
     String query = '';

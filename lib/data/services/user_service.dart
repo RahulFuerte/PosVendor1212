@@ -4,7 +4,6 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_model.dart';
 import '../constants/api_constants.dart';
-import 'demo_data.dart';
 import '../datasources/local/sqlite_helper.dart';
 import '../datasources/shared_preferences.dart';
 
@@ -46,6 +45,8 @@ class UserService {
     String? city,
     double? latitude,
     double? longitude,
+    String? businessCategory,
+    String? businessIcon,
   }) async {
     try {
       final response = await http.post(
@@ -62,6 +63,8 @@ class UserService {
           if (logoUrl != null) 'logoUrl': logoUrl,
           if (upiId != null) 'upiId': upiId,
           if (city != null) 'city': city,
+          if (businessCategory != null) 'businessCategory': businessCategory,
+          if (businessIcon != null) 'businessIcon': businessIcon,
         }),
       );
 
@@ -78,6 +81,32 @@ class UserService {
       }
     } catch (e) {
       throw Exception('Registration error: ${e.toString()}');
+    }
+  }
+
+  /// Direct login using phone and password
+  static Future<Map<String, dynamic>> loginWithPassword({
+    required String phoneNumber,
+    required String password,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('${ApiConstants.users}/login-password'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'phoneNumber': phoneNumber,
+          'password': password,
+        }),
+      );
+
+      final data = jsonDecode(response.body);
+      if ((response.statusCode == 200 || response.statusCode == 201) && data['success'] != false) {
+        return {'success': true, 'token': data['token'], 'user': data['user']};
+      } else {
+        return {'success': false, 'message': data['message'] ?? 'Login failed'};
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Connection error: ${e.toString()}'};
     }
   }
 
@@ -111,10 +140,20 @@ class UserService {
 
     // 2. Save Session Flags
     await prefs.setBool('isLogged', true);
-    await prefs.setBool('isDemoMode', false);
+    final bool clickedTryDemo = prefs.getBool('clickedTryDemo') ?? false;
+    final bool isDemo = userModel.phoneNumber == '9999999999' || clickedTryDemo;
+    await prefs.setBool('isDemoMode', isDemo);
+    if (isDemo) {
+      await prefs.setBool('is_first_time_tutorial', true);
+      await prefs.setBool('is_first_time_main_tutorial', true);
+      await prefs.setBool('is_first_time_drawer_tutorial', true);
+      await prefs.setBool('is_first_time_detailed_tutorial', true);
+    }
+    // Reset the flag so that future logins are treated normally
+    await prefs.setBool('clickedTryDemo', false);
     await prefs.setString('myPhone', userModel.phoneNumber);
     await prefs.setString('phoneNumber', userModel.phoneNumber);
-    await prefs.setString('role', userModel.role ?? 'customer');
+    await prefs.setString('role', userModel.role ?? 'admin');
     await prefs.setString('_id', userModel.id ?? '');
     await prefs.setString('adminUid', userModel.id ?? '');
     await prefs.setBool('isAdmin', userModel.role == 'admin' || userModel.role == 'superAdmin');
@@ -130,6 +169,8 @@ class UserService {
     if (userModel.city != null) await prefs.setString('city', userModel.city!);
     if (userModel.location?.latitude != null) await prefs.setDouble('latitude', userModel.location!.latitude!);
     if (userModel.location?.longitude != null) await prefs.setDouble('longitude', userModel.location!.longitude!);
+    if (userModel.businessCategory != null) await prefs.setString('businessCategory', userModel.businessCategory!);
+    if (userModel.businessIcon != null) await prefs.setString('businessIcon', userModel.businessIcon!);
     await prefs.setString('contact', userModel.phoneNumber); // Save contact for receipt fallback
     await prefs.setBool('isShopOpen', userModel.isShopOpen ?? false);
 
@@ -160,39 +201,9 @@ class UserService {
       'longitude': userModel.location?.longitude,
       'shopContact': userModel.phoneNumber, // Map phoneNumber to shopContact
       'isShopOpen': userModel.isShopOpen ?? false,
+      'businessCategory': userModel.businessCategory ?? 'Food',
+      'businessIcon': userModel.businessIcon ?? '',
     });
-  }
-
-  Future<UserModel> registerCustomer({
-    required String name,
-    required String phoneNumber,
-    String? password,
-  }) async {
-    try {
-      final response = await http.post(
-        Uri.parse('${ApiConstants.users}/register-customer'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'name': name,
-          'phoneNumber': phoneNumber,
-          if (password != null) 'password': password,
-        }),
-      );
-
-      final data = jsonDecode(response.body);
-
-      if (response.statusCode == 201) {
-        final user = UserModel.fromJson(data);
-        if (user.token != null) {
-          await _saveToken(user.token!);
-        }
-        return user;
-      } else {
-        throw Exception(data['message'] ?? 'Failed to register customer');
-      }
-    } catch (e) {
-      throw Exception('Registration error: ${e.toString()}');
-    }
   }
 
   Future<List<UserModel>> getShops() async {
@@ -290,13 +301,6 @@ class UserService {
   }
 
   Future<UserModel> getProfile() async {
-    final prefs = await SharedPreferences.getInstance();
-    final isDemoMode = prefs.getBool('isDemoMode') ?? false;
-
-    if (isDemoMode) {
-      return DemoData.profile;
-    }
-
     try {
       final token = await _getToken();
       final response = await http.get(
@@ -346,6 +350,9 @@ class UserService {
         if (updates.containsKey('upiId')) await prefs.setString('upiId', updates['upiId']);
         if (updates.containsKey('isShopOpen')) await prefs.setBool('isShopOpen', updates['isShopOpen']);
         if (updates.containsKey('phoneNumber')) await prefs.setString('contact', updates['phoneNumber']);
+        if (updates.containsKey('businessCategory'))
+          await prefs.setString('businessCategory', updates['businessCategory']);
+        if (updates.containsKey('businessIcon')) await prefs.setString('businessIcon', updates['businessIcon']);
 
         // Sync with SQLite for secondary screens (like Edit Bill)
         await SQLiteHelper().saveUserData({
@@ -363,6 +370,8 @@ class UserService {
           'longitude': updatedUser.location?.longitude,
           'shopContact': updatedUser.phoneNumber,
           'isShopOpen': updatedUser.isShopOpen ?? false,
+          'businessCategory': updatedUser.businessCategory ?? 'Food',
+          'businessIcon': updatedUser.businessIcon ?? '',
         });
 
         return updatedUser;

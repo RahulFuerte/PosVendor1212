@@ -9,8 +9,9 @@ import 'package:flutter/material.dart';
 import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-// Project imports:
 import 'package:pos/view/tab_screen/view-model/widgets/printers/printer.dart';
+import 'package:pos/data/models/order_model.dart';
+import 'package:pos/core/utils/snackbar_utils.dart';
 
 class PrintProvider extends ChangeNotifier {
   List<Map<String, dynamic>> _posts = [];
@@ -25,7 +26,7 @@ class PrintProvider extends ChangeNotifier {
   String? _customerGst;
   String? _customerAddress;
   String? _customerNote;
-  bool _isCartExpanded = false;
+  bool _isCartExpanded = true;
 
   // Printer connection state
   bool _isConnected = false;
@@ -97,6 +98,40 @@ class PrintProvider extends ChangeNotifier {
 
   void changeBooleanValue() {
     _isValueTrue = !_isValueTrue;
+    notifyListeners();
+  }
+
+  void addToCart(dynamic product, {int quantity = 1, String? variant, List<dynamic>? selectedAddons}) {
+    // Determine the product ID (supports both Map and ProductModel)
+    final String productId = (product is Map)
+        ? (product['_id'] ?? product['id'] ?? product['productId'] ?? product['foodCode'] ?? "")
+        : (product.id ?? product.foodCode ?? "");
+
+    final String productName = (product is Map) ? product['name'] : product.name;
+    final double productPrice = (product is Map) ? (product['price'] as num).toDouble() : product.price;
+    final String productImageUrl = (product is Map)
+        ? (product['imageUrl'] ?? product['imagePath'] ?? "")
+        : (product.imageUrl ?? product.imagePath ?? "");
+
+    final existingIndex = _posts.indexWhere((item) => item['productId'] == productId && item['variant'] == variant);
+
+    if (existingIndex != -1) {
+      _posts[existingIndex]['quantity'] += quantity;
+    } else {
+      _posts.add({
+        'productId': productId,
+        'id': productId, // Keep 'id' for backward compatibility if needed
+        'name': productName,
+        'price': productPrice,
+        'quantity': quantity,
+        'variant': variant,
+        'addons': selectedAddons ?? [],
+        'image': productImageUrl,
+      });
+    }
+
+    // Recalculate total
+    _total = _posts.fold(0, (sum, item) => sum + (item['price'] * item['quantity']));
     notifyListeners();
   }
 
@@ -178,6 +213,52 @@ class PrintProvider extends ChangeNotifier {
     _isConnected = false;
     _selectedPrinter = null;
     notifyListeners();
+  }
+
+  Future<void> printOrder(BuildContext context, OrderModel order) async {
+    if (_selectedPrinter == null) {
+      SnackBarUtils.showWarning(context, 'Please connect a printer first');
+      return;
+    }
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final shopName = prefs.getString('shopName') ?? 'Shop Name';
+      final contact = prefs.getString('contact') ?? 'Contact';
+      final address = prefs.getString('address') ?? 'Address';
+      final upiId = prefs.getString('upiId') ?? "";
+      final logoUrl = prefs.getString('logoUrl') ?? "";
+
+      final items = order.items.map((e) => e.toJson()).toList();
+
+      await DirectPrintHelper().printReceipt(
+        context: context,
+        printer: _selectedPrinter!,
+        paperSize: _selectedPaperSize,
+        items: items,
+        subTotal: order.totalAmount,
+        shopName: shopName,
+        logoUrl: logoUrl,
+        contact: contact,
+        address: address,
+        adminUid: order.adminId,
+        upiId: upiId,
+        receiptNo: order.billNumber,
+        customerName: order.customerName,
+        customerPhone: order.customerPhone,
+        paymentType: order.paymentMethod ?? 'Cash',
+        orderType: order.orderType ?? 'Dine In',
+        taxEnabled: taxEnabled,
+        cgstPercent: cgstPercent,
+        sgstPercent: sgstPercent,
+        discountAmount: order.discount ?? 0.0,
+      );
+    } catch (e) {
+      debugPrint('PrintOrder error: $e');
+      if (context.mounted) {
+        SnackBarUtils.showError(context, 'Failed to print: $e');
+      }
+    }
   }
 
   void reset() {

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localization/flutter_localization.dart';
 import 'package:pos/core/widgets/text.dart';
 import 'package:pos/data/models/user_model.dart';
+import 'package:pos/l10n/app_locale.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 
 class StaffCard extends StatelessWidget {
@@ -39,7 +41,6 @@ class StaffCard extends StatelessWidget {
                 child: MyText(
                   text: staff.name.isNotEmpty ? staff.name.substring(0, 1).toUpperCase() : '?',
                   color: primaryColor,
-                  
                   fontWeight: FontWeight.bold,
                   fontSize: 18,
                 ),
@@ -54,7 +55,6 @@ class StaffCard extends StatelessWidget {
                         Expanded(
                           child: MyText(
                             text: staff.name,
-                            
                             fontWeight: FontWeight.bold,
                             fontSize: 16,
                             color: Colors.black87,
@@ -69,7 +69,7 @@ class StaffCard extends StatelessWidget {
                         const SizedBox(width: 6),
                         MyText(
                           text: staff.phoneNumber,
-                          fontFamily: 'fontmain',
+                          fontFamily: 'Outfit',
                           fontSize: 13,
                           color: Colors.grey[700],
                         ),
@@ -87,23 +87,23 @@ class StaffCard extends StatelessWidget {
                   }
                 },
                 itemBuilder: (context) => [
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'edit',
                     child: Row(
                       children: [
-                        Icon(Icons.edit, size: 18),
-                        SizedBox(width: 8),
-                        Text('Edit'),
+                        const Icon(Icons.edit, size: 18),
+                        const SizedBox(width: 8),
+                        Text(AppLocale.edit.getString(context)),
                       ],
                     ),
                   ),
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'delete',
                     child: Row(
                       children: [
-                        Icon(Icons.delete, color: Colors.red, size: 18),
-                        SizedBox(width: 8),
-                        Text('Delete', style: TextStyle(color: Colors.red)),
+                        const Icon(Icons.delete, color: Colors.red, size: 18),
+                        const SizedBox(width: 8),
+                        Text(AppLocale.delete.getString(context), style: const TextStyle(color: Colors.red)),
                       ],
                     ),
                   ),

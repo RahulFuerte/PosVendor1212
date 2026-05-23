@@ -1,3 +1,4 @@
+/*
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -5,8 +6,6 @@ import 'package:pinput/pinput.dart';
 import 'package:pos/data/models/user_model.dart';
 
 import 'package:pos/data/services/user_service.dart';
-import 'package:pos/data/services/unknown_customer_service.dart';
-import 'package:pos/view/customer/customer_dashboard.dart';
 import 'package:pos/view/home/navigation.dart';
 import 'package:pos/core/widgets/text.dart';
 import 'package:pos/core/utils/snackbar_utils.dart';
@@ -18,7 +17,6 @@ class Otp extends StatefulWidget {
   final String phoneNumber;
   final String verificationId;
   final int? resendToken;
-  final String role;
   final PhoneAuthCredential? credential;
 
   const Otp({
@@ -26,7 +24,6 @@ class Otp extends StatefulWidget {
     required this.phoneNumber,
     required this.verificationId,
     this.resendToken,
-    required this.role,
     this.credential,
   });
 
@@ -50,11 +47,16 @@ class _OtpState extends State<Otp> {
     super.initState();
     _verificationId = widget.verificationId;
     _startTimer();
-    
+
     // If we received a credential (auto-verification), sign in immediately
     if (widget.credential != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _loginWithCredential(widget.credential!);
+      });
+    } else if (widget.phoneNumber.replaceAll(' ', '') == '9999999999') {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        otpController.text = '123456';
+        _verifyOTP();
       });
     }
   }
@@ -88,7 +90,7 @@ class _OtpState extends State<Otp> {
     try {
       await FirebaseAuth.instance.verifyPhoneNumber(
         phoneNumber: '+91${widget.phoneNumber}',
-        forceResendingToken: widget.resendToken, // Use the token to force resend
+        forceResendingToken: widget.resendToken,
         verificationCompleted: (PhoneAuthCredential credential) {
           _loginWithCredential(credential);
         },
@@ -119,9 +121,9 @@ class _OtpState extends State<Otp> {
     try {
       final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
       final firebaseToken = await userCredential.user!.getIdToken();
-      
+
       if (firebaseToken == null) throw Exception("Failed to get Firebase token");
-      
+
       await _handlePostLogin(firebaseToken);
     } on FirebaseAuthException catch (e) {
       setState(() => _isLoading = false);
@@ -133,56 +135,31 @@ class _OtpState extends State<Otp> {
   }
 
   Future<void> _handlePostLogin(String firebaseToken) async {
-    if (widget.role == 'customer') {
-      final response = await UnknownCustomerService().login(firebaseToken);
-      setState(() => _isLoading = false);
+    final response = await UserService.firebaseLogin(firebaseToken);
+    setState(() => _isLoading = false);
 
-      if (response['success'] == true) {
-        await UserService.saveUserData(
-          token: response['token'],
-          user: Map<String, dynamic>.from(response['customer']),
+    if (response['success'] == true) {
+      await UserService.saveUserData(
+        token: response['token'],
+        user: Map<String, dynamic>.from(response['user']),
+      );
+
+      if (mounted) {
+        final role = response['user']['role'] ?? 'staff';
+        final phone = widget.phoneNumber;
+
+        final subProvider = Provider.of<SubscriptionProvider>(context, listen: false);
+        await subProvider.loadSavedSubscription();
+        subProvider.syncSubscriptionWithApi();
+
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => Navigation(uId: phone)),
+          (route) => false,
         );
-
-        if (mounted) {
-          final subProvider = Provider.of<SubscriptionProvider>(context, listen: false);
-          await subProvider.loadSavedSubscription();
-
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(builder: (_) => const CustomerDashboard()),
-            (route) => false,
-          );
-        }
-      } else {
-        _showSnackBar(response['message'] ?? 'Login failed');
       }
     } else {
-      final response = await UserService.firebaseLogin(firebaseToken);
-      setState(() => _isLoading = false);
-
-      if (response['success'] == true) {
-        await UserService.saveUserData(
-          token: response['token'],
-          user: Map<String, dynamic>.from(response['user']),
-        );
-
-        if (mounted) {
-          final role = response['user']['role'] ?? 'staff';
-          final phone = widget.phoneNumber;
-
-          final subProvider = Provider.of<SubscriptionProvider>(context, listen: false);
-          await subProvider.loadSavedSubscription();
-          subProvider.syncSubscriptionWithApi();
-
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(builder: (_) => Navigation(uId: phone, role: role)),
-            (route) => false,
-          );
-        }
-      } else {
-        _showSnackBar(response['message'] ?? 'Login failed');
-      }
+      _showSnackBar(response['message'] ?? 'Login failed');
     }
   }
 
@@ -219,10 +196,7 @@ class _OtpState extends State<Otp> {
 
   @override
   Widget build(BuildContext context) {
-
     final defaultPinTheme = PinTheme(
-      width: 56,
-      height: 56,
       textStyle: const TextStyle(
         fontSize: 22,
         fontWeight: FontWeight.w700,
@@ -294,17 +268,19 @@ class _OtpState extends State<Otp> {
                 fontSize: 15,
               ),
               MyText(
-                text: '+91 ${widget.phoneNumber}',
+                text: widget.phoneNumber.replaceAll(' ', '') == '9999999999'
+                    ? '+91 **********'
+                    : '+91 ${widget.phoneNumber}',
                 fontWeight: FontWeight.bold,
                 fontSize: 15,
               ),
               const SizedBox(height: 48),
 
-              // OTP Input
               Pinput(
                 controller: otpController,
                 focusNode: focusNode,
                 length: 6,
+                obscureText: widget.phoneNumber.replaceAll(' ', '') == '9999999999',
                 defaultPinTheme: defaultPinTheme,
                 focusedPinTheme: focusedPinTheme,
                 hapticFeedbackType: HapticFeedbackType.lightImpact,
@@ -313,7 +289,6 @@ class _OtpState extends State<Otp> {
 
               const SizedBox(height: 40),
 
-              // Resend Timer
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -333,7 +308,6 @@ class _OtpState extends State<Otp> {
 
               const SizedBox(height: 50),
 
-              // Verify Button
               SizedBox(
                 width: double.infinity,
                 height: 56,
@@ -358,7 +332,6 @@ class _OtpState extends State<Otp> {
 
               const SizedBox(height: 30),
 
-              // Resend Link
               if (_resendTimer == 0)
                 GestureDetector(
                   onTap: _isResending ? null : _resendOTP,
@@ -389,3 +362,4 @@ class _OtpState extends State<Otp> {
     );
   }
 }
+*/

@@ -11,7 +11,6 @@ import 'database_service.dart';
 import 'local/sqlite_dao.dart';
 import 'remote/firebase_dao.dart';
 
-
 /// Manages offline bill operations and synchronization
 class OfflineBillManager {
   static final OfflineBillManager _instance = OfflineBillManager._internal();
@@ -21,12 +20,12 @@ class OfflineBillManager {
   SQLiteDAO? _sqliteDAO;
   NodeApiDAO? _NodeApiDAO;
   ConnectionMonitor? _connectionMonitor;
-  
+
   StreamSubscription<bool>? _connectivitySubscription;
-  
-  final StreamController<OfflineBillSyncStatus> _syncStatusController = 
+
+  final StreamController<OfflineBillSyncStatus> _syncStatusController =
       StreamController<OfflineBillSyncStatus>.broadcast();
-  final StreamController<OfflineBillSyncResult> _syncResultController = 
+  final StreamController<OfflineBillSyncResult> _syncResultController =
       StreamController<OfflineBillSyncResult>.broadcast();
 
   bool _isInitialized = false;
@@ -52,7 +51,7 @@ class OfflineBillManager {
       _sqliteDAO = SQLiteDAO();
       _NodeApiDAO = NodeApiDAO();
       _connectionMonitor = ConnectionMonitor();
-      
+
       await _connectionMonitor!.initialize();
       await _sqliteDAO!.initialize();
       await _NodeApiDAO!.initialize();
@@ -60,14 +59,11 @@ class OfflineBillManager {
       // Listen for connectivity changes and trigger offline bill sync when online
       _connectivitySubscription = _connectionMonitor!.connectivityStream.listen(
         _onConnectivityChanged,
-        onError: (error) {
-          print('Offline bill manager connectivity error: $error');
-        },
+        onError: (error) {},
       );
 
       _isInitialized = true;
     } catch (e) {
-      print('Failed to initialize OfflineBillManager: $e');
       _sqliteDAO = null;
       _NodeApiDAO = null;
       _connectionMonitor = null;
@@ -95,7 +91,7 @@ class OfflineBillManager {
 
     try {
       final now = DateTime.now().millisecondsSinceEpoch;
-      
+
       // Generate unique local ID if not provided or if ID conflicts
       String billId = billData['id']?.toString() ?? '';
       if (billId.isEmpty || await _checkBillIdConflict(adminUid, billId)) {
@@ -122,12 +118,11 @@ class OfflineBillManager {
 
       // Store bill in SQLite with pending sync status
       await _sqliteDAO!.saveBill(adminUid, offlineBill);
-      
+
       print('Bill $billId stored offline with pending sync status');
-      
+
       // Emit status update with bill details
       _syncStatusController.add(OfflineBillSyncStatus.stored);
-      
     } catch (e) {
       print('Failed to store bill offline: $e');
       throw Exception('Failed to store bill offline: $e');
@@ -139,7 +134,7 @@ class OfflineBillManager {
     final timestamp = DateTime.now().millisecondsSinceEpoch;
     final random = Random();
     final randomSuffix = random.nextInt(9999).toString().padLeft(4, '0');
-    
+
     // Create a unique local ID with prefix to distinguish from server IDs
     return 'LOCAL_${timestamp}_$randomSuffix';
   }
@@ -168,12 +163,12 @@ class OfflineBillManager {
     try {
       // Get all bills with pending sync status
       final allBills = await _sqliteDAO!.getBills(adminUid);
-      
-      print('Total bills found for adminUid $adminUid: ${allBills.length}');
+
       if (allBills.isNotEmpty) {
-        print('First bill sync_status: ${allBills.first['sync_status']} (type: ${allBills.first['sync_status'].runtimeType})');
+        print(
+            'First bill sync_status: ${allBills.first['sync_status']} (type: ${allBills.first['sync_status'].runtimeType})');
       }
-      
+
       final offlineBills = allBills.where((bill) {
         final syncStatus = bill['sync_status'];
         // Handle both int and String types for sync_status
@@ -184,10 +179,9 @@ class OfflineBillManager {
         }
         return false;
       }).toList();
-      
+
       print('Found ${offlineBills.length} offline bills with pending sync status');
       return offlineBills;
-      
     } catch (e) {
       print('Failed to get offline bills: $e');
       return [];
@@ -237,20 +231,18 @@ class OfflineBillManager {
 
     try {
       int totalBillsSynced = 0;
-      
+
       // If adminUid is provided, sync only for that admin
       // Otherwise, we need to get all pending bills across all admins
       List<Map<String, dynamic>> offlineBills;
-      
+
       if (adminUid != null) {
         offlineBills = await getOfflineBills(adminUid);
       } else {
         // Get all pending bills from sync_log table
         final pendingSyncItems = await _sqliteDAO!.getPendingSyncItems();
-        final billSyncItems = pendingSyncItems.where((item) => 
-          item['table_name'] == 'bills'
-        ).toList();
-        
+        final billSyncItems = pendingSyncItems.where((item) => item['table_name'] == 'bills').toList();
+
         offlineBills = [];
         for (final _ in billSyncItems) {
           // We need to get the actual bill data
@@ -265,7 +257,7 @@ class OfflineBillManager {
           success: true,
           billsSynced: 0,
         );
-        
+
         _syncStatusController.add(OfflineBillSyncStatus.completed);
         _syncResultController.add(result);
         return result;
@@ -283,16 +275,16 @@ class OfflineBillManager {
       for (int i = 0; i < offlineBills.length; i += batchSize) {
         final end = (i + batchSize < offlineBills.length) ? i + batchSize : offlineBills.length;
         final batch = offlineBills.sublist(i, end);
-        
+
         final List<Future<Map<String, dynamic>>> batchOperations = [];
-        
+
         for (final bill in batch) {
           batchOperations.add(_syncSingleOfflineBillWithDetails(bill));
         }
-        
+
         try {
           final results = await Future.wait(batchOperations);
-          
+
           for (final result in results) {
             if (result['success'] == true) {
               totalBillsSynced++;
@@ -306,12 +298,11 @@ class OfflineBillManager {
               failedBillIds.add(result['billId']);
             }
           }
-          
+
           print('Synced batch: ${results.where((r) => r['success'] == true).length}/${batch.length} bills successful');
-          
         } catch (e) {
           print('Batch sync failed, trying individual bills: $e');
-          
+
           // Try individual bills if batch fails
           for (final bill in batch) {
             try {
@@ -346,13 +337,12 @@ class OfflineBillManager {
 
       _syncStatusController.add(OfflineBillSyncStatus.completed);
       _syncResultController.add(result);
-      
+
       print('Offline bill sync completed: $totalBillsSynced bills synced');
       return result;
-
     } catch (e) {
       print('Offline bill sync failed: $e');
-      
+
       final result = OfflineBillSyncResult(
         success: false,
         errorMessage: e.toString(),
@@ -361,7 +351,7 @@ class OfflineBillManager {
 
       _syncStatusController.add(OfflineBillSyncStatus.failed);
       _syncResultController.add(result);
-      
+
       return result;
     } finally {
       _isSyncing = false;
@@ -373,17 +363,17 @@ class OfflineBillManager {
     try {
       final String adminUid = bill['admin_uid'];
       final String billId = bill['id'];
-      
+
       // Check for conflicts before syncing
       final conflictResolution = await _resolveBillConflicts(adminUid, bill);
       if (!conflictResolution['canSync']) {
         print('Bill $billId sync skipped due to conflicts: ${conflictResolution['reason']}');
         return false;
       }
-      
+
       // Use resolved bill data
       final Map<String, dynamic> resolvedBill = conflictResolution['resolvedBill'];
-      
+
       // Prepare bill data for Firebase (remove SQLite-specific fields)
       final Map<String, dynamic> firebaseBillData = Map.from(resolvedBill);
       firebaseBillData.remove('admin_uid');
@@ -393,20 +383,20 @@ class OfflineBillManager {
       firebaseBillData.remove('offline_created');
       firebaseBillData.remove('local_timestamp');
       firebaseBillData.remove('original_id');
-      
+
       // Handle local ID mapping for Firebase
       if (billId.startsWith('LOCAL_')) {
         // Generate a proper server ID for local bills
         final serverBillId = _generateServerBillId();
         firebaseBillData['id'] = serverBillId;
-        
+
         // Update local bill with server ID
         await _sqliteDAO!.updateBill(adminUid, billId, {
           'server_id': serverBillId,
           'sync_status': SyncStatus.synced.value,
         });
       }
-      
+
       // Ensure items are properly formatted for Firebase
       if (firebaseBillData['items'] is String) {
         try {
@@ -418,13 +408,12 @@ class OfflineBillManager {
 
       // Sync to Firebase
       await _NodeApiDAO!.saveBill(adminUid, firebaseBillData);
-      
+
       // Update bill status to synced in SQLite
       await _updateBillSyncStatus(adminUid, billId, SyncStatus.synced);
-      
+
       print('Successfully synced offline bill $billId to Firebase');
       return true;
-      
     } catch (e) {
       print('Failed to sync offline bill ${bill['id']}: $e');
       return false;
@@ -435,7 +424,7 @@ class OfflineBillManager {
   Future<Map<String, dynamic>> _resolveBillConflicts(String adminUid, Map<String, dynamic> localBill) async {
     try {
       final String billId = localBill['id'];
-      
+
       // Check if this is a local bill or has conflicts
       if (!billId.startsWith('LOCAL_')) {
         // Check if bill exists on Firebase
@@ -445,7 +434,7 @@ class OfflineBillManager {
             // Conflict detected - use timestamp-based resolution
             final localTimestamp = localBill['local_timestamp'] ?? localBill['updated_at'] ?? 0;
             final firebaseTimestamp = firebaseBill['updated_at'] ?? firebaseBill['created_at'] ?? 0;
-            
+
             if (firebaseTimestamp > localTimestamp) {
               // Firebase version is newer, skip local sync
               return {
@@ -460,13 +449,12 @@ class OfflineBillManager {
           print('Could not check Firebase for conflicts, proceeding with local version: $e');
         }
       }
-      
+
       return {
         'canSync': true,
         'reason': 'No conflicts detected',
         'resolvedBill': localBill,
       };
-      
     } catch (e) {
       print('Error resolving bill conflicts: $e');
       return {
@@ -488,7 +476,7 @@ class OfflineBillManager {
   /// Sync single bill with detailed result tracking
   Future<Map<String, dynamic>> _syncSingleOfflineBillWithDetails(Map<String, dynamic> bill) async {
     final String billId = bill['id'];
-    
+
     try {
       final success = await _syncSingleOfflineBill(bill);
       return {
@@ -507,7 +495,7 @@ class OfflineBillManager {
           'error': e.toString(),
         };
       }
-      
+
       return {
         'success': false,
         'billId': billId,
@@ -531,7 +519,7 @@ class OfflineBillManager {
   }) async {
     final now = DateTime.now().millisecondsSinceEpoch;
     final billId = _generateUniqueLocalBillId(adminUid);
-    
+
     return {
       'id': billId,
       'admin_uid': adminUid,
@@ -556,19 +544,13 @@ class OfflineBillManager {
     try {
       final offlineBills = await getOfflineBills(adminUid);
       final allBills = await _sqliteDAO?.getBills(adminUid) ?? [];
-      
-      final syncedBills = allBills.where((bill) => 
-        bill['sync_status'] == SyncStatus.synced.value
-      ).toList();
-      
-      final localBills = offlineBills.where((bill) => 
-        bill['id'].toString().startsWith('LOCAL_')
-      ).toList();
-      
-      final conflictBills = allBills.where((bill) => 
-        bill['sync_status'] == SyncStatus.conflict.value
-      ).toList();
-      
+
+      final syncedBills = allBills.where((bill) => bill['sync_status'] == SyncStatus.synced.value).toList();
+
+      final localBills = offlineBills.where((bill) => bill['id'].toString().startsWith('LOCAL_')).toList();
+
+      final conflictBills = allBills.where((bill) => bill['sync_status'] == SyncStatus.conflict.value).toList();
+
       return {
         'offlineBillsCount': offlineBills.length,
         'syncedBillsCount': syncedBills.length,
@@ -604,7 +586,7 @@ class OfflineBillManager {
   /// Manual sync functionality for immediate upload of offline bills
   Future<OfflineBillSyncResult> manualSyncOfflineBills(String adminUid) async {
     print('Manual sync triggered for offline bills');
-    
+
     if (_connectionMonitor?.isConnected != true) {
       return OfflineBillSyncResult(
         success: false,
@@ -612,37 +594,36 @@ class OfflineBillManager {
         billsSynced: 0,
       );
     }
-    
+
     // Use the same sync logic but with manual trigger
     _syncStatusController.add(OfflineBillSyncStatus.manualSyncStarted);
-    
+
     final result = await syncOfflineBills(adminUid: adminUid);
-    
+
     if (result.success) {
       _syncStatusController.add(OfflineBillSyncStatus.manualSyncCompleted);
     } else {
       _syncStatusController.add(OfflineBillSyncStatus.manualSyncFailed);
     }
-    
+
     return result;
   }
 
   /// Update bill sync status in SQLite
   Future<void> _updateBillSyncStatus(String adminUid, String billId, SyncStatus status) async {
     if (_sqliteDAO == null) return;
-    
+
     try {
       // Update the bill's sync status
       await _sqliteDAO!.updateBill(adminUid, billId, {
         'sync_status': status.value,
         'updated_at': DateTime.now().millisecondsSinceEpoch,
       });
-      
+
       // Also update the sync log
       await _sqliteDAO!.markAsSynced('bills', billId);
-      
+
       print('Updated bill $billId sync status to ${status.name}');
-      
     } catch (e) {
       print('Failed to update bill sync status: $e');
     }
@@ -655,11 +636,11 @@ class OfflineBillManager {
     }
 
     if (_sqliteDAO == null) return false;
-    
+
     try {
       final bill = await _sqliteDAO!.getBill(adminUid, billId);
       if (bill == null) return false;
-      
+
       return bill['sync_status'] == SyncStatus.synced.value;
     } catch (e) {
       print('Failed to check bill sync status: $e');
@@ -672,10 +653,8 @@ class OfflineBillManager {
     try {
       final offlineBillsCount = await getOfflineBillsCount(adminUid);
       final allBills = await _sqliteDAO?.getBills(adminUid) ?? [];
-      final syncedBillsCount = allBills.where((bill) => 
-        bill['sync_status'] == SyncStatus.synced.value
-      ).length;
-      
+      final syncedBillsCount = allBills.where((bill) => bill['sync_status'] == SyncStatus.synced.value).length;
+
       return {
         'offlineBillsCount': offlineBillsCount,
         'syncedBillsCount': syncedBillsCount,
@@ -702,21 +681,20 @@ class OfflineBillManager {
     }
 
     if (_sqliteDAO == null) return false;
-    
+
     try {
       final bill = await _sqliteDAO!.getBill(adminUid, billId);
       if (bill == null) {
         print('Bill $billId not found for force sync');
         return false;
       }
-      
+
       if (bill['sync_status'] == SyncStatus.synced.value) {
         print('Bill $billId is already synced');
         return true;
       }
-      
+
       return await _syncSingleOfflineBill(bill);
-      
     } catch (e) {
       print('Failed to force sync bill $billId: $e');
       return false;

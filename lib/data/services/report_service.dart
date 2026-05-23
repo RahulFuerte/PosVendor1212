@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../constants/api_constants.dart';
-import 'demo_data.dart';
 
 class ReportService {
   static const String baseUrl = ApiConstants.reports;
@@ -13,10 +12,6 @@ class ReportService {
   }
 
   Future<Map<String, dynamic>> getSalesReport({DateTime? date, int? limit}) async {
-    final prefs = await SharedPreferences.getInstance();
-    if (prefs.getBool('isDemoMode') ?? false) {
-      return DemoData.salesReport;
-    }
     final token = await _getToken();
     String query = '';
     if (date != null) query += 'date=${date.toIso8601String().split('T')[0]}&';
@@ -39,10 +34,6 @@ class ReportService {
   }
 
   Future<List<dynamic>> getDateWiseReport({DateTime? startDate, DateTime? endDate}) async {
-    final prefs = await SharedPreferences.getInstance();
-    if (prefs.getBool('isDemoMode') ?? false) {
-      return DemoData.dateWiseReport;
-    }
     final token = await _getToken();
     String query = '';
     if (startDate != null) query += 'startDate=${startDate.toIso8601String().split('T')[0]}&';
@@ -135,10 +126,6 @@ class ReportService {
   }
 
   Future<Map<String, dynamic>> getDashboardReport({DateTime? date, String? orderType}) async {
-    final prefs = await SharedPreferences.getInstance();
-    if (prefs.getBool('isDemoMode') ?? false) {
-      return DemoData.dashboardReport;
-    }
     final token = await _getToken();
     String query = '';
     if (date != null) query += 'date=${date.toIso8601String().split('T')[0]}&';

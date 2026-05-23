@@ -6,6 +6,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class PdfHelper {
   static Future<void> generateAndShareBillPdf({
@@ -26,6 +27,9 @@ class PdfHelper {
     double cgstPercent = 0,
     double sgstPercent = 0,
   }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final String planType = prefs.getString('subscriptionPlanType') ?? 'free';
+
     final pdf = pw.Document();
 
     // Calculate taxes
@@ -150,7 +154,14 @@ class PdfHelper {
 
               // Footer
               pw.Center(
-                child: pw.Text("Thank you! Visit Again", style: const pw.TextStyle(fontSize: 10)),
+                child: pw.Column(
+                  children: [
+                    pw.Text("Thank you! Visit Again", style: const pw.TextStyle(fontSize: 10)),
+                    pw.SizedBox(height: 10),
+                    if (planType.toLowerCase() == 'free')
+                      pw.Text("Powered by Billing Sphere", style: pw.TextStyle(fontSize: 8, color: PdfColors.grey)),
+                  ],
+                ),
               ),
             ],
           );

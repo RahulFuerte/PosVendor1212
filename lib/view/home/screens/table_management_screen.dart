@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localization/flutter_localization.dart';
 import 'package:pos/core/widgets/text.dart';
+import 'package:pos/l10n/app_locale.dart';
+import 'package:shimmer/shimmer.dart';
 import 'package:pos/data/providers/table_provider.dart';
 import 'package:pos/view/home/navigation.dart';
 import 'package:pos/view/home/widgets/mydrawer.dart';
@@ -10,14 +13,34 @@ import 'package:pos/data/providers/print_provider.dart';
 import 'package:pos/core/utils/snackbar_utils.dart';
 import 'package:pos/data/providers/subscription_provider.dart';
 import 'package:pos/core/widgets/access_denied_widget.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-class TableManagementScreen extends StatelessWidget {
-  final String phoneNo;
-  final String? role;
-  final String? adminId;
+class TableManagementScreen extends StatefulWidget {
   final Future<void> Function(String tableId)? onTableSelected;
 
-  const TableManagementScreen({super.key, this.onTableSelected, required this.phoneNo, this.role, this.adminId});
+  const TableManagementScreen({super.key, this.onTableSelected});
+
+  @override
+  State<TableManagementScreen> createState() => _TableManagementScreenState();
+}
+
+class _TableManagementScreenState extends State<TableManagementScreen> {
+  String phoneNo = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSessionData();
+  }
+
+  Future<void> _loadSessionData() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        phoneNo = prefs.getString('phoneNumber') ?? prefs.getString('phoneNo') ?? '';
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -26,18 +49,13 @@ class TableManagementScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
-        title: const MyText(
-          text: 'Table Management',
-          fontSize: 20,
-          fontWeight: FontWeight.bold,
-          color: Colors.black,
-        ),
+        title: MyText(text: AppLocale.tableManagement.getString(context), fontSize: 17, color: Colors.black, fontWeight: FontWeight.w600),
         backgroundColor: Colors.white,
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: Builder(
           builder: (context) => IconButton(
-            icon: const Icon(Icons.menu, color: Color.fromARGB(255, 12, 107, 15)),
+            icon: const Icon(Icons.menu, color: Colors.black),
             onPressed: () => Scaffold.of(context).openDrawer(),
           ),
         ),
@@ -50,10 +68,10 @@ class TableManagementScreen extends StatelessWidget {
       ),
       drawer: MyDrawer(
         phoneNo: phoneNo,
-        adminPhoneNo: adminId ?? phoneNo,
+        adminPhoneNo: phoneNo,
       ),
       body: tableProvider.isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const _TableSkeleton()
           : Consumer<SubscriptionProvider>(
               builder: (context, subProvider, _) {
                 if (!subProvider.hasPermission("TableBooking", checkView: true)) {
@@ -283,9 +301,9 @@ class TableManagementScreen extends StatelessWidget {
         titlePadding: EdgeInsets.zero,
         title: Container(
           padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
+          decoration: const BoxDecoration(
             color: appbar1,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -439,8 +457,8 @@ class TableManagementScreen extends StatelessWidget {
     orderTypeProvider.setOrderType(OrderType.dineIn);
 
     // 4. If we have onTableSelected callback, call it, otherwise navigate back or to restaurant screen
-    if (onTableSelected != null) {
-      onTableSelected!(tableId);
+    if (widget.onTableSelected != null) {
+      widget.onTableSelected!(tableId);
     } else {
       // Find the Navigation state and switch to RestaurantScreen (index 1)
       final navigationState = context.findAncestorStateOfType<State<Navigation>>() as dynamic;
@@ -453,5 +471,58 @@ class TableManagementScreen extends StatelessWidget {
         Navigator.pop(context);
       }
     }
+  } // Close build
+} // Close _TableManagementScreenState
+
+class _TableSkeleton extends StatelessWidget {
+  const _TableSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Shimmer.fromColors(
+      baseColor: Colors.grey[300]!,
+      highlightColor: Colors.grey[100]!,
+      child: Column(
+        children: [
+          // Stats Row Skeleton
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              children: [
+                Expanded(child: _skeletonBox(height: 80)),
+                const SizedBox(width: 12),
+                Expanded(child: _skeletonBox(height: 80)),
+                const SizedBox(width: 12),
+                Expanded(child: _skeletonBox(height: 80)),
+              ],
+            ),
+          ),
+          // Grid Skeleton
+          Expanded(
+            child: GridView.builder(
+              padding: const EdgeInsets.all(16),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+                childAspectRatio: 0.75,
+              ),
+              itemCount: 12,
+              itemBuilder: (context, index) => _skeletonBox(height: 120),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _skeletonBox({required double height}) {
+    return Container(
+      height: height,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+      ),
+    );
   }
 }

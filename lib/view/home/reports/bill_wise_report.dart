@@ -13,9 +13,12 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:pos/data/services/report_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shimmer/shimmer.dart';
+import 'package:pos/core/utils/snackbar_utils.dart';
+import 'package:provider/provider.dart';
 import 'package:pos/view/home/widgets/mydrawer.dart';
 import 'package:printing/printing.dart';
-import 'package:provider/provider.dart';
 
 // Project imports:
 import 'package:pos/data/providers/print_provider.dart';
@@ -23,21 +26,48 @@ import 'package:pos/view/home/printer_connectionDialog.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:pos/view/tab_screen/view-model/widgets/printers/printer.dart';
 import 'package:pos/core/utils/price_utils.dart';
-import 'package:pos/core/utils/snackbar_utils.dart';
-import 'package:pos/view/home/reports/widgets/report_nav_bar.dart';
+import 'package:pos/view/home/reports/report_nav_bar.dart';
+import 'package:pos/view/home/reports/widgets/report_skeleton.dart';
 
 class BillwiseReportScreen extends StatefulWidget {
-  final String uid;
-  final String adminUid;
   const BillwiseReportScreen(
-      {Key? key, required this.uid, required this.adminUid})
+      {Key? key})
       : super(key: key);
 
   @override
   State<BillwiseReportScreen> createState() => _BillwiseReportScreenState();
 }
 
+class _ReportSkeleton extends StatelessWidget {
+  const _ReportSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      itemCount: 5,
+      itemBuilder: (context, index) {
+        return Shimmer.fromColors(
+          baseColor: Colors.grey[300]!,
+          highlightColor: Colors.grey[100]!,
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 20),
+            height: 150,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
 class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
+  String uid = '';
+  String adminUid = '';
+
   DateTime? fromDate;
   DateTime? toDate;
   List<Map<String, dynamic>> billsData = [];
@@ -48,9 +78,23 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
   final ReportService _reportService = ReportService();
 
   @override
+  void dispose() {
+    super.dispose();
+  }
+
+  @override
   void initState() {
     super.initState();
+    _loadSessionData();
     _initializePrinterFromHive();
+  }
+
+  Future<void> _loadSessionData() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      uid = prefs.getString('phoneNumber') ?? prefs.getString('phoneNo') ?? '';
+      adminUid = prefs.getString('adminUid') ?? '';
+    });
   }
 
   Future<void> _initializePrinterFromHive() async {
@@ -275,6 +319,11 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
   }
 
   Future<void> _printThermalReceipt() async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
     final printProvider = Provider.of<PrintProvider>(context, listen: false);
     final printerManager = PrinterManager.instance;
     final prefs = await SharedPreferences.getInstance();
@@ -410,7 +459,18 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
         ),
       ]);
 
-      bytes += generator.emptyLines(4);
+      bytes += generator.emptyLines(1);
+
+      // Branding for free users
+      final String planType = prefs.getString('subscriptionPlanType') ?? 'free';
+      if (planType.toLowerCase() == 'free') {
+        bytes += generator.text('Powered by Billing Sphere', styles: const PosStyles(align: PosAlign.center));
+      }
+
+      bytes += generator.emptyLines(3);
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
 
       // ================= SEND TO PRINTER =================
       await printerManager.send(
@@ -418,9 +478,12 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
         bytes: bytes,
       );
 
-        SnackBarUtils.showSuccess(context, 'Report printed successfully!');
+      SnackBarUtils.showSuccess(context, 'Report printed successfully!');
     } catch (e) {
-        SnackBarUtils.showError(context, 'Print error: $e');
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+      SnackBarUtils.showError(context, 'Print error: $e');
     }
   }
 
@@ -429,7 +492,6 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
       SnackBarUtils.showWarning(context, 'No data available. Please select dates and wait for data to load.');
       return;
     }
-
     try {
       showDialog(
         context: context,
@@ -446,7 +508,7 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
       final regularFont = pw.Font.ttf(await rootBundle.load('fonts/NotoSans-Regular.ttf'));
       final boldFont = pw.Font.ttf(await rootBundle.load('fonts/NotoSans-Bold.ttf'));
 
-      if (mounted) Navigator.of(context).pop();
+      if (mounted) Navigator.of(context, rootNavigator: true).pop();
 
       await Printing.layoutPdf(
         name: 'BillwiseReport_${DateFormat('ddMMyyyy_HHmmss').format(DateTime.now())}.pdf',
@@ -570,25 +632,17 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
                   ],
                 ),
 
-                pw.SizedBox(height: 15),
-                pw.Divider(),
+                pw.SizedBox(height: 20),
 
-                /// SUMMARY
+                /// TOTAL SUMMARY
                 pw.Container(
-                  padding: const pw.EdgeInsets.all(10),
-                  decoration: const pw.BoxDecoration(color: PdfColors.grey200),
+                  alignment: pw.Alignment.centerRight,
                   child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.end,
                     children: [
-                      pw.Row(
-                        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                        children: [
-                          pw.Text('Total Bills: ${billsData.length}',
-                              style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-                          pw.Text(
-                            'Total Items: ${billsData.fold<int>(0, (sum, bill) => sum + ((bill['totalItems'] ?? 0) as num).toInt())}',
-                            style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-                          ),
-                        ],
+                      pw.Text(
+                        'Total Bills: ${billsData.length}',
+                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
                       ),
                       pw.SizedBox(height: 8),
                       pw.Row(
@@ -658,7 +712,6 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
       appBar: AppBar(
         elevation: 0,
         scrolledUnderElevation: 0,
-
         backgroundColor: Colors.white,
         title: const MyText(
           text: 'Billwise report',
@@ -668,15 +721,15 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
         ),
       ),
       drawer: MyDrawer(
-        phoneNo: widget.uid,
-        adminPhoneNo: widget.adminUid,
+        phoneNo: uid,
+        adminPhoneNo: adminUid,
       ),
       body: Column(
         children: [
           ReportNavBar(
             currentReport: 'Bill-wise',
-            uid: widget.uid,
-            adminUid: widget.adminUid,
+            uid: uid,
+            adminUid: adminUid,
           ),
           Container(
             color: Colors.white,
@@ -797,7 +850,7 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
           ),
           Expanded(
             child: isLoading
-                ? Center(child: CircularProgressIndicator(color: primaryColor))
+                ? const ReportSkeleton(height: 150, borderRadius: 24)
                 : billsData.isEmpty
                     ? Center(
                         child: Column(
@@ -986,21 +1039,21 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
                   enabled: billsData.isNotEmpty,
                   onTap: _downloadAndShareReport,
                 ),
-                const SizedBox(width: 12),
-                _actionButton(
-                  icon: Icons.search,
-                  label: "SEARCH BILL",
-                  color: primaryColor,
-                  enabled: billsData.isNotEmpty,
-                  onTap: () {
-                    Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) => SearchReceiptScreen(
-                                  phoneNumber: widget.uid,
-                                )));
-                  },
-                ),
+                // const SizedBox(width: 12), 
+                // _actionButton(
+                //   icon: Icons.search,
+                //   label: "SEARCH BILL",
+                //   color: primaryColor,
+                //   enabled: billsData.isNotEmpty,
+                //   onTap: () {
+                //     Navigator.push(
+                //         context,
+                //         MaterialPageRoute(
+                //             builder: (context) => SearchReceiptScreen(
+                //                   phoneNumber: uid,
+                //                 )));
+                //   },
+                // ),
               ],
             ),
           ),

@@ -113,9 +113,11 @@ class DirectPrintHelper {
     String? paymentType,
     String? orderType,
     String? customerId,
+    String? employeeId,
     bool saveBill = false,
   }) async {
     try {
+      final prefs = await SharedPreferences.getInstance();
       // Use provided receipt number or generate a new one
       String finalReceiptNo = receiptNo ?? generateReceiptNumber();
 
@@ -139,6 +141,7 @@ class DirectPrintHelper {
           paymentType: paymentType,
           orderType: orderType,
           customerId: customerId,
+          employeeId: employeeId,
         );
       }
 
@@ -391,6 +394,14 @@ class DirectPrintHelper {
       // Footer
       bytes += generator.text(separator, styles: smallFontLeft);
       bytes += generator.text('Thank you! Visit Again', styles: smallFontCenter);
+
+      // Branding for free users
+      final String planType = prefs.getString('subscriptionPlanType') ?? 'free';
+      if (planType.toLowerCase() == 'free') {
+        bytes += generator.feed(1);
+        bytes += generator.text('Powered by Billing Sphere', styles: smallFontCenter);
+      }
+
       bytes += generator.feed(3);
       // bytes += generator.cut(mode: PosCutMode.partial);
 
@@ -434,13 +445,14 @@ class DirectPrintHelper {
     String? paymentType,
     String? orderType,
     String? customerId,
+    String? employeeId, // Added
   }) async {
     try {
       final now = DateTime.now();
 
       final List<Map<String, dynamic>> itemsData = items.map((item) {
         return {
-          'productId': item['productId'] ?? '',
+          'productId': item['productId'] ?? item['id'] ?? '',
           'name': item['name'] ?? '',
           'price': double.tryParse(item['price'].toString()) ?? 0.0,
           'quantity': int.tryParse(item['quantity'].toString()) ?? 1,
@@ -468,6 +480,9 @@ class DirectPrintHelper {
       try {
         final isOnlineStatus = await isOnline();
         if (isOnlineStatus) {
+          final prefs = await SharedPreferences.getInstance();
+          final businessCategory = prefs.getString('businessCategory') ?? 'Food';
+
           final order = await OrderService().createOrder(
             adminId: adminUid,
             billNumber: receiptNo,
@@ -482,7 +497,9 @@ class DirectPrintHelper {
             tableNumber: tableNumber,
             notes: customerNote,
             paymentStatus: 'Paid',
-            createKot: (tableNumber == null || tableNumber == 'N/A' || tableNumber == ''),
+            employeeId: employeeId, // Passed
+            createKot:
+                (businessCategory == 'Food' && (tableNumber == null || tableNumber == 'N/A' || tableNumber == '')),
           );
           if (order.billNumber.isNotEmpty) {
             finalReceiptNo = order.billNumber;
@@ -727,6 +744,7 @@ class DirectPrintHelper {
     required double totalDue,
   }) async {
     try {
+      final prefs = await SharedPreferences.getInstance();
       final profile = await CapabilityProfile.load(name: 'XP-N160I');
       final generator = Generator(paperSize, profile);
       List<int> bytes = [];
@@ -843,6 +861,14 @@ class DirectPrintHelper {
       bytes += generator.text(separator, styles: smallFontLeft);
 
       bytes += generator.text('Thank you!', styles: smallFontCenter);
+
+      // Branding for free users
+      final String planType = prefs.getString('subscriptionPlanType') ?? 'free';
+      if (planType.toLowerCase() == 'free') {
+        bytes += generator.feed(1);
+        bytes += generator.text('Powered by Billing Sphere', styles: smallFontCenter);
+      }
+
       bytes += generator.feed(4);
 
       // ===== PRINT =====

@@ -1,157 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../models/product_model.dart';
-import '../models/category_model.dart';
-import '../models/user_model.dart';
-import '../models/expense_model.dart';
-import '../models/expense_category_model.dart';
-import '../models/table_model.dart';
-
-class DemoData {
-  static List<CategoryModel> get categories => [
-        CategoryModel(id: 'cat1', name: 'Fast Food', imageUrl: '', adminId: 'demo_admin_123'),
-        CategoryModel(id: 'cat2', name: 'Main Course', imageUrl: '', adminId: 'demo_admin_123'),
-        CategoryModel(id: 'cat3', name: 'Beverages', imageUrl: '', adminId: 'demo_admin_123'),
-        CategoryModel(id: 'cat4', name: 'Desserts', imageUrl: '', adminId: 'demo_admin_123'),
-      ];
-
-  static List<ProductModel> get products => [
-        ProductModel(
-          id: 'p1',
-          name: 'Paneer Burger',
-          price: 120.0,
-          categoryId: 'cat1',
-          adminId: 'demo_admin_123',
-          description: 'Delicious paneer patty burger',
-          foodCode: 'FF001',
-          inStock: true,
-        ),
-        ProductModel(
-          id: 'p2',
-          name: 'Veg Pizza',
-          price: 250.0,
-          categoryId: 'cat1',
-          adminId: 'demo_admin_123',
-          description: 'Cheese and veggie loaded pizza',
-          foodCode: 'FF002',
-          inStock: true,
-        ),
-        ProductModel(
-          id: 'p3',
-          name: 'Dal Makhani',
-          price: 180.0,
-          categoryId: 'cat2',
-          adminId: 'demo_admin_123',
-          description: 'Classic buttery black lentils',
-          foodCode: 'MC001',
-          inStock: true,
-        ),
-        ProductModel(
-          id: 'p4',
-          name: 'Butter Naan',
-          price: 40.0,
-          categoryId: 'cat2',
-          adminId: 'demo_admin_123',
-          foodCode: 'MC002',
-          inStock: true,
-        ),
-        ProductModel(
-          id: 'p5',
-          name: 'Cold Coffee',
-          price: 80.0,
-          categoryId: 'cat3',
-          adminId: 'demo_admin_123',
-          foodCode: 'BV001',
-          inStock: true,
-        ),
-        ProductModel(
-          id: 'p6',
-          name: 'Gulab Jamun',
-          price: 50.0,
-          categoryId: 'cat4',
-          adminId: 'demo_admin_123',
-          foodCode: 'DS001',
-          inStock: true,
-        ),
-      ];
-
-  static UserModel get profile => UserModel(
-        id: 'demo_admin_123',
-        name: 'Demo Org',
-        phoneNumber: '9999999999',
-        role: 'admin',
-        shopName: 'Billing Spher',
-        address: 'MG Road, Bangalore',
-        gstNo: '29AAAAA0000A1Z5',
-        fssaiNo: '12345678901234',
-        upiId: 'merchant@upi',
-      );
-
-  static Map<String, dynamic> get salesReport => {
-        "revenue": 15000.0,
-        "orders": 45,
-        "averageOrderValue": 333.33,
-        "topProducts": [
-          {"name": "Paneer Burger", "quantity": 15, "revenue": 1800.0},
-          {"name": "Veg Pizza", "quantity": 10, "revenue": 2500.0}
-        ]
-      };
-
-  static List<dynamic> get dateWiseReport => [
-        {"date": "2026-03-01", "revenue": 5000.0, "orders": 25},
-        {"date": "2026-03-02", "revenue": 4500.0, "orders": 22},
-        {"date": "2026-03-03", "revenue": 6000.0, "orders": 30},
-        {"date": "2026-03-04", "revenue": 5500.0, "orders": 28},
-        {"date": "2026-03-05", "revenue": 7000.0, "orders": 35},
-      ];
-
-  static Map<String, dynamic> get dashboardReport => {
-        "totalSales": 25000.0,
-        "totalOrders": 150,
-        "totalExpenses": 8000.0,
-        "netProfit": 17000.0,
-        "orderTypeDistribution": {"DineIn": 80, "PickUp": 40, "Delivery": 30}
-      };
-
-  static List<ExpenseCategoryModel> get expenseCategories => [
-        ExpenseCategoryModel(id: 'ex1', name: 'Rent', adminId: 'demo_admin_123'),
-        ExpenseCategoryModel(id: 'ex2', name: 'Electricity', adminId: 'demo_admin_123'),
-        ExpenseCategoryModel(id: 'ex3', name: 'Raw Material', adminId: 'demo_admin_123'),
-      ];
-
-  static List<ExpenseModel> get expenses => [
-        ExpenseModel(
-          id: 'e1',
-          expenseCategoryId: 'ex1',
-          amount: 5000.0,
-          note: 'Monthly Rent',
-          date: DateTime.now().subtract(const Duration(days: 5)),
-          adminId: 'demo_admin_123',
-        ),
-        ExpenseModel(
-          id: 'e2',
-          expenseCategoryId: 'ex2',
-          amount: 1500.0,
-          note: 'Electricity Bill',
-          date: DateTime.now().subtract(const Duration(days: 2)),
-          adminId: 'demo_admin_123',
-        ),
-      ];
-
-  static List<TableModel> get tables => [
-        TableModel(id: 't1', tableNumber: '1', isOccupied: false, items: [], subtotal: 0.0),
-        TableModel(
-            id: 't2',
-            tableNumber: '2',
-            isOccupied: true,
-            items: [
-              {'name': 'Paneer Burger', 'quantity': 2, 'price': 120.0}
-            ],
-            subtotal: 240.0,
-            customerName: 'John Doe',
-            customerPhone: '9876543210'),
-      ];
-}
 
 class TourKeys {
   static final GlobalKey drawerProfileKey = GlobalKey();
@@ -170,4 +18,37 @@ class TourKeys {
   static final GlobalKey subtotalKey = GlobalKey();
   static final GlobalKey cartSaveKey = GlobalKey();
   static final GlobalKey cartPrintKey = GlobalKey();
+
+  // Splash Screen Keys
+  static final GlobalKey splashLogoKey = GlobalKey();
+  static final GlobalKey splashTitleKey = GlobalKey();
+  static final GlobalKey splashPartnerKey = GlobalKey();
+
+  // Login Screen Keys
+  static final GlobalKey loginPhoneKey = GlobalKey();
+  static final GlobalKey loginPasswordKey = GlobalKey();
+  static final GlobalKey loginButtonKey = GlobalKey();
+
+  // Navigation Keys
+  static final GlobalKey navHomeTabKey = GlobalKey();
+  static final GlobalKey navBillingTabKey = GlobalKey();
+  static final GlobalKey navTablesTabKey = GlobalKey();
+  static final GlobalKey navCalculatorTabKey = GlobalKey();
+
+  // Dashboard Keys
+  static final GlobalKey dashSalesCardKey = GlobalKey();
+  static final GlobalKey dashRecentOrdersKey = GlobalKey();
+
+  // Cart Keys
+  static final GlobalKey cartPayButtonKey = GlobalKey();
+
+  // Checkout Keys
+  static final GlobalKey checkoutPaymentMethodKey = GlobalKey();
+  static final GlobalKey checkoutConfirmPayKey = GlobalKey();
+
+  // Drawer Keys
+  static final GlobalKey drawerSettingsKey = GlobalKey();
+
+  // Settings Keys
+  static final GlobalKey settingsRestartTourKey = GlobalKey();
 }

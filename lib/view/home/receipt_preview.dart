@@ -7,6 +7,8 @@ import 'package:pos/data/models/customer_model.dart';
 import 'package:pos/data/providers/order_type_provider.dart';
 import 'package:pos/data/providers/print_provider.dart';
 import 'package:pos/data/services/customer_service.dart';
+import 'package:pos/data/services/user_service.dart';
+import 'package:pos/data/models/user_model.dart';
 import 'package:pos/view/home/navigation.dart';
 import 'package:pos/view/home/screens/order_type_selector.dart';
 import 'package:pos/view/home/widgets/my_choiceChip.dart';
@@ -17,6 +19,8 @@ import 'package:pos/core/utils/snackbar_utils.dart';
 import 'package:pos/data/providers/table_provider.dart';
 import 'package:provider/provider.dart';
 import 'dart:developer' as developer;
+
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ReceiptPreviewScreen extends StatefulWidget {
   final String shopName;
@@ -48,8 +52,11 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
   final SmartDatabaseService _databaseService = SmartDatabaseService();
   final SQLiteHelper _sqliteHelper = SQLiteHelper();
   final CustomerService _customerService = CustomerService();
+  final UserService _userService = UserService();
   List<CustomerModel> allCustomers = [];
+  List<UserModel> allStaff = [];
   String? customerId;
+  String? selectedStaffId;
   CustomerModel? selectedCustomer;
 
   final TextEditingController nameCtrl = TextEditingController();
@@ -59,6 +66,8 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
   final TextEditingController discountCtrl = TextEditingController();
   final TextEditingController discountRupeeCtrl = TextEditingController();
   final TextEditingController noteCtrl = TextEditingController();
+  String businessCategory = 'Food';
+  String userRole = 'admin';
 
   final FocusNode nameFocus = FocusNode();
   final FocusNode phoneFocus = FocusNode();
@@ -111,10 +120,35 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
     }
   }
 
+  Future<void> fetchStaff() async {
+    try {
+      final staff = await _userService.getStaff(widget.adminUid);
+      if (mounted) {
+        setState(() {
+          allStaff = staff;
+        });
+      }
+    } catch (e) {
+      developer.log('Failed to fetch staff: $e', name: 'ReceiptPreview');
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     fetchCustomers();
+    fetchStaff();
+    _loadBusinessCategory();
+  }
+
+  Future<void> _loadBusinessCategory() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        businessCategory = prefs.getString('businessCategory') ?? 'Food';
+        userRole = prefs.getString('role') ?? 'admin';
+      });
+    }
   }
 
   Future<String?> _resolveLocalCustomerId() async {
@@ -148,7 +182,6 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
         }
 
         fetchCustomers().catchError((_) {});
-        developer.log('Auto-created new customer: ${newCustomer.id}', name: 'ReceiptPreview');
         return newCustomer.id;
       } catch (e) {
         developer.log('Failed to auto-create customer natively: $e', name: 'ReceiptPreview');
@@ -156,6 +189,9 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
     }
     return customerId;
   }
+
+  bool _isSaving = false;
+  bool _isPrinting = false;
 
   /// Save bill with automatic online/offline handling
   /// Online: Saves to Firebase and local SQLite
@@ -166,56 +202,86 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
       context: context,
       barrierDismissible: false,
       builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: const Row(
-            children: [
-              Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
-              SizedBox(width: 12),
-              MyText(text: 'Confirm Action', fontSize: 20, fontWeight: FontWeight.bold),
-            ],
-          ),
-          content: const MyText(
-            text: 'Are you sure you want to save this bill without printing?',
-            fontSize: 16,
-            maxLines: 2,
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              style: TextButton.styleFrom(foregroundColor: Colors.grey[700]),
-              child: const MyText(text: 'Cancel', fontSize: 16),
+        bool localLoading = false;
+        return StatefulBuilder(builder: (context, setDialogState) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
             ),
-            ElevatedButton(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: appbar1,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            title: const Row(
+              children: [
+                Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
+                SizedBox(width: 12),
+                MyText(text: 'Confirm Action', fontSize: 20, fontWeight: FontWeight.bold),
+              ],
+            ),
+            content: const MyText(
+              text: 'Are you sure you want to save this bill without printing?',
+              fontSize: 16,
+              maxLines: 2,
+            ),
+            actions: [
+              TextButton(
+                onPressed: localLoading ? null : () => Navigator.of(dialogContext).pop(false),
+                style: TextButton.styleFrom(foregroundColor: Colors.grey[700]),
+                child: const MyText(text: 'Cancel', fontSize: 16),
               ),
-              child: const MyText(text: 'Yes, Save', fontSize: 16, color: Colors.white),
-            ),
-          ],
-        );
+              ElevatedButton(
+                onPressed: localLoading
+                    ? null
+                    : () async {
+                        setDialogState(() {
+                          localLoading = true;
+                        });
+                        // Perform the save operation right here to keep loader inside button
+                        final success = await _executeSaveOperation();
+                        if (success) {
+                          Navigator.of(dialogContext).pop(true);
+                        } else {
+                          setDialogState(() {
+                            localLoading = false;
+                          });
+                        }
+                      },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: appbar1,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  minimumSize: const Size(120, 45),
+                ),
+                child: localLoading
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : const MyText(text: 'Yes, Save', fontSize: 16, color: Colors.white),
+              ),
+            ],
+          );
+        });
       },
     );
 
-    if (confirmed != true || !mounted) return;
+    if (confirmed == true && mounted) {
+      // Screen is already popped by _executeSaveOperation if successful
+    }
+  }
 
+  Future<bool> _executeSaveOperation() async {
     final printProvider = Provider.of<PrintProvider>(context, listen: false);
 
-    // Generate sequential receipt number (returns 8-digit padded string like "00000001")
+    // Generate sequential receipt number
     String generatedReceiptNo = await _sqliteHelper.getNextReceiptNumber(widget.phoneNo);
 
     try {
-      // Get tax parameters (already have default values in PrintProvider)
       final bool taxEnabled = printProvider.taxEnabled;
       final double cgstPercent = printProvider.cgstPercent;
       final double sgstPercent = printProvider.sgstPercent;
 
-      // Get payment type from OrderTypeProvider
       final orderTypeProvider = Provider.of<OrderTypeProvider>(context, listen: false);
       String paymentType = orderTypeProvider.paymentType.toString().split('.').last;
       String orderType = orderTypeProvider.orderType.toString().split('.').last;
@@ -223,7 +289,7 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
       final int amount = finalTotal.round();
       final String amountInWords = numberToWords(amount);
 
-      final String actualReceiptNo = await DirectPrintHelper().saveBillData(
+      await DirectPrintHelper().saveBillData(
         adminUid: widget.phoneNo,
         receiptNo: generatedReceiptNo,
         items: printProvider.posts,
@@ -242,30 +308,30 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
         paymentType: paymentType,
         orderType: orderType,
         customerId: await _resolveLocalCustomerId() ?? "",
+        employeeId: selectedStaffId,
       );
 
-      await OfflineTTS.speak(
-        "$amountInWords rupees",
-      );
+      await OfflineTTS.speak("$amountInWords rupees");
 
       orderTypeProvider.reset();
 
-      if (!mounted) return;
-      SnackBarUtils.showSuccess(context, 'Bill Saved Successfully');
+      if (mounted) {
+        SnackBarUtils.showSuccess(context, 'Bill Saved Successfully');
+        printProvider.clearCart();
 
-      // Clear cart and table after successful save
-      printProvider.clearCart();
+        final tableProvider = Provider.of<TableProvider>(context, listen: false);
+        if (tableProvider.selectedTableId != null) {
+          await tableProvider.clearTable(tableProvider.selectedTableId!);
+        }
 
-      final tableProvider = Provider.of<TableProvider>(context, listen: false);
-      if (tableProvider.selectedTableId != null) {
-        await tableProvider.clearTable(tableProvider.selectedTableId!);
+        Navigator.pop(context); // Pop the screen
       }
-
-      // Navigate back to previous screen
-      Navigator.pop(context);
+      return true;
     } catch (e) {
-      if (!mounted) return;
-      SnackBarUtils.showError(context, 'Failed to save bill: $e');
+      if (mounted) {
+        SnackBarUtils.showError(context, 'Failed to save bill: $e');
+      }
+      return false;
     }
   }
 
@@ -387,14 +453,18 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
                         const SizedBox(width: 10),
                         _buildIconButton(
                           imagePath: "assets/images/save2.png",
+                          isLoading: _isPrinting,
                           onPressed: () async {
+                            if (_isPrinting) return;
                             final printProvider = Provider.of<PrintProvider>(context, listen: false);
 
                             // ✅ 1. Printer check FIRST
                             if (!printProvider.isConnected || printProvider.selectedPrinter == null) {
-                                SnackBarUtils.showWarning(context, 'Please connect a printer first');
+                              SnackBarUtils.showWarning(context, 'Please connect a printer first');
                               return;
                             }
+
+                            setState(() => _isPrinting = true);
 
                             // ✅ 2. Generate receipt number
                             final String generatedReceiptNo = await _sqliteHelper.getNextReceiptNumber(widget.phoneNo);
@@ -407,21 +477,13 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
                             // ✅ 4. Order & payment type
                             final orderTypeProvider = Provider.of<OrderTypeProvider>(context, listen: false);
 
-                            final String paymentType = orderTypeProvider.paymentType.name; // cleaner than split('.')
+                            final String paymentType = orderTypeProvider.paymentType.name;
                             final String orderType = orderTypeProvider.orderType.name;
                             final int amount = finalTotal.round();
                             final String amountInWords = numberToWords(amount);
 
-                            // ✅ 5. Show loader
-                            showDialog(
-                              context: context,
-                              barrierDismissible: false,
-                              builder: (_) => const Center(child: CircularProgressIndicator()),
-                            );
-
                             try {
                               // ✅ 6. Print + Save
-                              // ignore: use_build_context_synchronously
                               await DirectPrintHelper().printReceipt(
                                 adminUid: widget.phoneNo,
                                 context: context,
@@ -457,14 +519,13 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
                                 sgstPercent: sgstPercent,
                                 receiptNo: generatedReceiptNo,
                                 customerId: await _resolveLocalCustomerId() ?? "",
+                                employeeId: selectedStaffId, // Passed
                                 saveBill: true,
                               );
 
                               if (!mounted) return;
 
-                              await OfflineTTS.speak(
-                                "$amountInWords rupees",
-                              );
+                              await OfflineTTS.speak("$amountInWords rupees");
 
                               printProvider.clearCart();
 
@@ -474,6 +535,7 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
                               }
 
                               orderTypeProvider.reset();
+                              Navigator.pop(context); // Close screen after success
                             } catch (e) {
                               debugPrint('Printing failed: $e');
                               if (mounted) {
@@ -481,7 +543,7 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
                               }
                             } finally {
                               if (mounted) {
-                                Navigator.of(context, rootNavigator: true).pop(); // close loader
+                                setState(() => _isPrinting = false);
                               }
                             }
                           },
@@ -560,12 +622,13 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
                         ),
                         const SizedBox(height: 10),
 
-                        Container(
-                          height: 50,
-                          margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 10),
-                          width: double.infinity,
-                          child: const OrderTypeSelector(),
-                        ),
+                        if (businessCategory == 'Food')
+                          Container(
+                            height: 50,
+                            margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 10),
+                            width: double.infinity,
+                            child: const OrderTypeSelector(),
+                          ),
                         const SizedBox(height: 12),
 
                         Center(
@@ -630,6 +693,73 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
                         ),
 
                         const SizedBox(height: 20),
+
+                        // Staff Selection Dropdown - Enhanced Premium UI (Only for Admin)
+                        if (userRole == 'admin') ...[
+                          Container(
+                            width: double.infinity,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: appbar1.withOpacity(0.2), width: 1.5),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: appbar1.withOpacity(0.05),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(16),
+                              child: DropdownButtonFormField<String>(
+                                value: selectedStaffId,
+                                isExpanded: true,
+                                icon: const Icon(Icons.keyboard_arrow_down_rounded, color: appbar1),
+                                dropdownColor: Colors.white,
+                                elevation: 8,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.black87,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                decoration: InputDecoration(
+                                  labelText: 'Select Staff / Salesperson',
+                                  labelStyle: TextStyle(color: appbar1.withOpacity(0.8), fontSize: 14),
+                                  prefixIcon: Container(
+                                    margin: const EdgeInsets.all(8),
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: appbar1.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: const Icon(Icons.person_pin_rounded, color: appbar1, size: 24),
+                                  ),
+                                  border: InputBorder.none,
+                                  enabledBorder: InputBorder.none,
+                                  focusedBorder: InputBorder.none,
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+                                ),
+                                items: allStaff.map((staff) {
+                                  return DropdownMenuItem<String>(
+                                    value: staff.id,
+                                    child: MyText(
+                                      text: staff.name,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  );
+                                }).toList(),
+                                onChanged: (value) {
+                                  setState(() {
+                                    selectedStaffId = value;
+                                  });
+                                },
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                        ],
 
                         Center(
                           child: Row(
@@ -1098,8 +1228,11 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
   Widget _buildIconButton({
     required String imagePath,
     required VoidCallback onPressed,
+    bool isLoading = false,
   }) {
     return Container(
+      width: 55,
+      height: 55,
       decoration: BoxDecoration(
         color: appbar1,
         borderRadius: BorderRadius.circular(12),
@@ -1111,15 +1244,26 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
           )
         ],
       ),
-      child: IconButton(
-        onPressed: onPressed,
-        icon: Image.asset(
-          imagePath,
-          width: 35,
-          height: 35,
-          fit: BoxFit.contain,
-        ),
-      ),
+      child: isLoading
+          ? const Center(
+              child: SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2.5,
+                ),
+              ),
+            )
+          : IconButton(
+              onPressed: onPressed,
+              icon: Image.asset(
+                imagePath,
+                width: 35,
+                height: 35,
+                fit: BoxFit.contain,
+              ),
+            ),
     );
   }
 

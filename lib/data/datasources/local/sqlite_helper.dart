@@ -12,7 +12,7 @@ import '../shared_preferences.dart';
 class SQLiteHelper {
   static final SQLiteHelper _instance = SQLiteHelper._internal();
   static Database? _database;
-  static const int _currentVersion = 12; // Added is_shop_open to user_data
+  static const int _currentVersion = 13; // Added business_category to user_data
   static const String _migrationCompleteKey = 'initial_migration_complete';
 
   // Database maintenance service (lazy initialization to avoid circular dependency)
@@ -210,6 +210,7 @@ class SQLiteHelper {
         latitude REAL,
         longitude REAL,
         is_shop_open INTEGER DEFAULT 0,
+        business_category TEXT DEFAULT 'Food',
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL
       )
@@ -421,6 +422,9 @@ class SQLiteHelper {
       case 12:
         await _migrateToVersion12(db);
         break;
+      case 13:
+        await _migrateToVersion13(db);
+        break;
       // Add future migration cases here
       default:
         print('No migration needed for version $version');
@@ -446,6 +450,17 @@ class SQLiteHelper {
       print('Successfully migrated to version 12');
     } catch (e) {
       print('Error migrating to version 12: $e');
+    }
+  }
+
+  Future<void> _migrateToVersion13(Database db) async {
+    // Migration to version 13: Add business_category column to user_data table
+    try {
+      print('Migrating to version 13: Adding business_category column to user_data table...');
+      await db.execute('ALTER TABLE user_data ADD COLUMN business_category TEXT DEFAULT "Food"');
+      print('Successfully migrated to version 13');
+    } catch (e) {
+      print('Error migrating to version 13: $e');
     }
   }
 
@@ -1521,6 +1536,7 @@ class SQLiteHelper {
           'latitude': userData['latitude'],
           'longitude': userData['longitude'],
           'is_shop_open': (userData['isShopOpen'] == true || userData['is_shop_open'] == true) ? 1 : 0,
+          'business_category': userData['businessCategory'] ?? userData['business_category'] ?? 'Food',
           'created_at': userData['createdAt'] ?? userData['created_at'] ?? now,
           'updated_at': now,
         },
@@ -1587,6 +1603,7 @@ class SQLiteHelper {
           'latitude': row['latitude'],
           'longitude': row['longitude'],
           'isShopOpen': row['is_shop_open'] == 1,
+          'businessCategory': row['business_category'] ?? 'Food',
           'createdAt': row['created_at'],
           'updatedAt': row['updated_at'],
         };
@@ -1628,6 +1645,7 @@ class SQLiteHelper {
           'latitude': row['latitude'],
           'longitude': row['longitude'],
           'isShopOpen': row['is_shop_open'] == 1,
+          'businessCategory': row['business_category'] ?? 'Food',
           'createdAt': row['created_at'],
           'updatedAt': row['updated_at'],
         };

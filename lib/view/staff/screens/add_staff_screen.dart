@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_localization/flutter_localization.dart';
 import 'package:pos/core/utils/error_utils.dart';
 import 'package:pos/core/widgets/text.dart';
 import 'package:pos/data/services/user_service.dart';
 import 'package:pos/core/utils/snackbar_utils.dart';
+import 'package:pos/l10n/app_locale.dart';
 import 'package:pos/view/home/navigation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class AddStaffScreen extends StatefulWidget {
   const AddStaffScreen({super.key});
@@ -40,7 +41,7 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
       });
 
         if (mounted) {
-          SnackBarUtils.showSuccess(context, 'Staff added successfully');
+          SnackBarUtils.showSuccess(context, AppLocale.staffAddedSuccess.getString(context));
           Navigator.of(context).pop(true);
         }
     } catch (e) {
@@ -84,8 +85,8 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
     return Scaffold(
       backgroundColor: const Color(0xffF6F8FA),
       appBar: AppBar(
-        title: const MyText(
-          text: "Add Staff",
+        title: MyText(
+          text: AppLocale.addStaff.getString(context),
           fontWeight: FontWeight.w600,
         ),
         leading: IconButton(
@@ -103,24 +104,24 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
                 child: Column(
                   children: [
                     _cardField(
-                      label: "Full Name *",
+                      label: '${AppLocale.fullName.getString(context)} *',
                       child: TextFormField(
                         controller: _nameController,
                         decoration: InputDecoration(
-                          hintText: "Enter staff full name",
+                          hintText: AppLocale.enterStaffName.getString(context),
                           hintStyle: TextStyle(color: Colors.grey.shade400),
                           border: InputBorder.none,
                         ),
                         validator: (value) {
                           if (value == null || value.trim().isEmpty) {
-                            return 'Name is required';
+                            return AppLocale.nameRequired.getString(context);
                           }
                           return null;
                         },
                       ),
                     ),
                     _cardField(
-                      label: "Phone Number *",
+                      label: '${AppLocale.mobileNumber.getString(context)} *',
                       child: TextFormField(
                         controller: _phoneController,
                         keyboardType: TextInputType.phone,
@@ -129,16 +130,16 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
                           LengthLimitingTextInputFormatter(10),
                         ],
                         decoration: InputDecoration(
-                          hintText: "Enter 10-digit phone",
+                          hintText: AppLocale.enter10DigitPhone.getString(context),
                           hintStyle: TextStyle(color: Colors.grey.shade400),
                           border: InputBorder.none,
                         ),
                         validator: (value) {
                           if (value == null || value.trim().isEmpty) {
-                            return 'Phone number is required';
+                            return AppLocale.phoneRequired.getString(context);
                           }
                           if (value.trim().length != 10) {
-                            return 'Phone number must be 10 digits';
+                            return AppLocale.mobileNumberMustBe10Digits.getString(context);
                           }
                           return null;
                         },
@@ -170,8 +171,8 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
                             child: CircularProgressIndicator(color: Colors.white),
                           ),
                         )
-                      : const MyText(
-                          text: "Add Staff",
+                      : MyText(
+                          text: AppLocale.addStaff.getString(context),
                           fontSize: 16,
                           color: Colors.white,
                           fontWeight: FontWeight.w600,

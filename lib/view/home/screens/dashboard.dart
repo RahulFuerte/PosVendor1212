@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:pos/l10n/app_locale.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:pos/core/widgets/text.dart';
+import 'package:shimmer/shimmer.dart';
 import 'package:intl/intl.dart';
 import 'package:pos/data/datasources/local/sqlite_helper.dart';
 import 'package:pos/data/datasources/smart_database_service.dart';
@@ -11,6 +14,7 @@ import 'package:pos/view/home/printer_connectionDialog.dart';
 import 'package:pos/view/home/screens/receipt_data_screen.dart';
 import 'package:pos/view/home/widgets/mydrawer.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:pos/core/utils/price_utils.dart';
 import 'package:pos/core/utils/snackbar_utils.dart';
 import 'package:pos/view/tab_screen/view-model/widgets/printers/printer.dart';
@@ -22,19 +26,26 @@ import 'package:pos/core/utils/pdf_helper.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:pos/data/services/demo_data.dart';
+import 'package:pos/data/providers/tour_provider.dart';
+import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
+import 'package:flutter_localization/flutter_localization.dart';
+import 'package:pos/l10n/app_locale.dart';
+
 
 class Dashboard extends StatefulWidget {
-  final String name;
-  final String phoneNo;
-  final String adminUid;
-  final String? role;
-  const Dashboard({super.key, required this.phoneNo, required this.adminUid, required this.name, this.role});
+  const Dashboard({super.key});
 
   @override
   State<Dashboard> createState() => _DashboardState();
 }
 
 class _DashboardState extends State<Dashboard> {
+  String name = '';
+  String phoneNo = '';
+  String adminUid = '';
+  String businessCategory = 'Food';
+
   List<Map<String, dynamic>> orders = [];
   bool isLoading = false;
   int totalBills = 0;
@@ -57,6 +68,117 @@ class _DashboardState extends State<Dashboard> {
   final OrderService _orderService = OrderService();
   final SQLiteHelper _sqliteHelper = SQLiteHelper();
 
+  TutorialCoachMark? _tourMark;
+
+  void _checkTour() {
+    final tourProvider = context.read<TourProvider>();
+    if (tourProvider.isTourActive && tourProvider.currentStep == 11) {
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) _showTour();
+      });
+    }
+  }
+
+  void _showTour() {
+    final tourProvider = context.read<TourProvider>();
+    final targets = [
+      TargetFocus(
+        identify: "dash_drawer",
+        keyTarget: TourKeys.drawerIconKey,
+        alignSkip: Alignment.topRight,
+        contents: [
+          TargetContent(
+            align: ContentAlign.bottom,
+            builder: (context, controller) {
+              return tourProvider.buildTourTooltip(
+                context: context,
+                step: 11,
+                title: AppLocale.tourTitle11.getString(context),
+                description: AppLocale.tourDesc11.getString(context),
+                onNext: () => controller.next(),
+                onSkip: () {
+                  tourProvider.stopTour();
+                  controller.skip();
+                },
+              );
+            },
+          ),
+        ],
+      ),
+      TargetFocus(
+        identify: "dash_sales",
+        keyTarget: TourKeys.dashSalesCardKey,
+        alignSkip: Alignment.topRight,
+        contents: [
+          TargetContent(
+            align: ContentAlign.bottom,
+            builder: (context, controller) {
+              return tourProvider.buildTourTooltip(
+                context: context,
+                step: 12,
+                title: AppLocale.tourTitle12.getString(context),
+                description: AppLocale.tourDesc12.getString(context),
+                onNext: () => controller.next(),
+                onPrev: () => controller.previous(),
+                onSkip: () {
+                  tourProvider.stopTour();
+                  controller.skip();
+                },
+              );
+            },
+          ),
+        ],
+      ),
+      TargetFocus(
+        identify: "dash_recent_orders",
+        keyTarget: TourKeys.dashRecentOrdersKey,
+        alignSkip: Alignment.topRight,
+        contents: [
+          TargetContent(
+            align: ContentAlign.top,
+            builder: (context, controller) {
+              return tourProvider.buildTourTooltip(
+                context: context,
+                step: 13,
+                title: AppLocale.tourTitle13.getString(context),
+                description: AppLocale.tourDesc13.getString(context),
+                onNext: () => controller.next(),
+                onPrev: () => controller.previous(),
+                onSkip: () {
+                  tourProvider.stopTour();
+                  controller.skip();
+                },
+              );
+            },
+          ),
+        ],
+      ),
+    ];
+
+    _tourMark = TutorialCoachMark(
+      targets: targets,
+      colorShadow: Colors.black.withOpacity(0.85),
+      paddingFocus: 10,
+      opacityShadow: 0.85,
+      onFinish: () {
+        if (tourProvider.isTourActive) {
+          Navigator.of(context).pop();
+          tourProvider.setStep(14);
+        }
+      },
+      onSkip: () {
+        tourProvider.stopTour();
+        return true;
+      },
+    )..show(context: context);
+  }
+
+  @override
+  void dispose() {
+    _tourMark?.finish();
+    super.dispose();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -64,6 +186,21 @@ class _DashboardState extends State<Dashboard> {
     final now = DateTime.now();
     monthKey = DateFormat('yyyyMM').format(now);
     dateKey = DateFormat('yyyyMMdd').format(now);
+    _loadSessionData().then((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _checkTour();
+      });
+    });
+  }
+
+  Future<void> _loadSessionData() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      phoneNo = prefs.getString('phoneNumber') ?? prefs.getString('phoneNo') ?? '';
+      adminUid = prefs.getString('adminUid') ?? '';
+      name = prefs.getString('shopName') ?? prefs.getString('businessName') ?? 'Shop Name';
+      businessCategory = prefs.getString('businessCategory') ?? 'Food';
+    });
     _fetchShopStatus();
     fetchOrders();
   }
@@ -82,7 +219,7 @@ class _DashboardState extends State<Dashboard> {
         await prefs.setBool('isShopOpen', user.isShopOpen!);
       }
     } catch (e) {
-      debugPrint('Error fetching shop status: $e');
+      // Error fetching shop status
     }
   }
 
@@ -131,7 +268,6 @@ class _DashboardState extends State<Dashboard> {
           salesOverview = List<dynamic>.from(data['salesOverview'] ?? []);
         });
       } else {
-        debugPrint('Dashboard API returned success: false');
         setState(() {
           orders = [];
           totalBills = 0;
@@ -143,7 +279,6 @@ class _DashboardState extends State<Dashboard> {
         });
       }
     } catch (e) {
-      debugPrint('Dashboard Fetch Error: $e');
       if (mounted) {
         SnackBarUtils.showError(context, 'Failed to fetch dashboard data: $e');
       }
@@ -171,8 +306,12 @@ class _DashboardState extends State<Dashboard> {
 
   String _orderTypeText(String type) {
     String t = type.toLowerCase();
-    if (t == 'dinein') return 'DineIn';
-    if (t == 'pickup') return 'PickUp';
+    if (t == 'dinein') {
+      return businessCategory == 'Food' ? 'DineIn' : '';
+    }
+    if (t == 'pickup') {
+      return businessCategory == 'Food' ? 'PickUp' : '';
+    }
     if (t == 'delivery') return 'Delivery';
     return type;
   }
@@ -223,7 +362,7 @@ class _DashboardState extends State<Dashboard> {
 
     try {
       // Generate sequential receipt number (returns 8-digit padded string like "00000001")
-      String generatedReceiptNo = await _sqliteHelper.getNextReceiptNumber(widget.phoneNo);
+      String generatedReceiptNo = await _sqliteHelper.getNextReceiptNumber(phoneNo);
       final orderTypeProvider = Provider.of<OrderTypeProvider>(context, listen: false);
       String paymentType = orderTypeProvider.paymentType.toString().split('.').last;
       String orderType = orderTypeProvider.orderType.toString().split('.').last;
@@ -237,7 +376,7 @@ class _DashboardState extends State<Dashboard> {
       String upiId = prefs.getString('upiId') ?? "";
 
       await DirectPrintHelper().printReceipt(
-        adminUid: widget.phoneNo,
+        adminUid: phoneNo,
         context: context,
         printer: printProvider.selectedPrinter!,
         paperSize: printProvider.selectedPaperSize,
@@ -265,7 +404,6 @@ class _DashboardState extends State<Dashboard> {
       );
 
       if (!mounted) return;
-     
     } catch (e) {
       if (mounted) {
         SnackBarUtils.showError(context, 'Printing failed: $e');
@@ -289,408 +427,464 @@ class _DashboardState extends State<Dashboard> {
     required DateTime dateTime,
   }) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final printProvider = Provider.of<PrintProvider>(context, listen: false);
+      final String cleanPhone = customerPhone.replaceAll(RegExp(r'[^0-9]'), '');
 
-      await PdfHelper.generateAndShareBillPdf(
-        shopName: prefs.getString('shopName') ?? 'Shop Name',
-        address: prefs.getString('address') ?? 'Address',
-        contact: prefs.getString('contact') ?? 'Contact',
-        receiptNo: receiptNo,
-        dateTime: dateTime,
-        items: items,
-        subTotal: subTotal,
-        finalTotal: finalAmount,
-        paymentType: paymentType,
-        orderType: orderType,
-        customerName: customerName,
-        customerPhone: customerPhone,
-        taxEnabled: printProvider.taxEnabled,
-        cgstPercent: printProvider.cgstPercent,
-        sgstPercent: printProvider.sgstPercent,
-        discountAmount: subTotal - finalAmount,
-      );
+      final prefs = await SharedPreferences.getInstance();
+      final String shopName = prefs.getString('shopName') ?? 'Our Shop';
+
+      // Construct a professional message
+      String message = "🏪 *${shopName.toUpperCase()}* 🏪\n"
+          "✨ *Bill Summary: #$receiptNo* ✨\n\n"
+          "👤 *Customer:* ${customerName.isEmpty ? 'Guest' : customerName}\n"
+          "📅 *Date:* ${DateFormat('dd MMM yyyy, hh:mm a').format(dateTime)}\n"
+          "🍴 *Order Type:* $orderType\n"
+          "💳 *Payment:* $paymentType\n\n"
+          "*Items:*\n";
+
+      for (var item in items) {
+        message += "• ${item['name']} x ${item['quantity']} = ₹${item['price'] * item['quantity']}\n";
+      }
+
+      message += "\n💰 *Total Amount: ₹$finalAmount*\n\n"
+          "Thank you for visiting *$shopName*! 🙏";
+
+      if (cleanPhone.isNotEmpty) {
+        // Standardize phone number (assuming 10 digits means India +91)
+        String formattedPhone = cleanPhone;
+        if (formattedPhone.length == 10) {
+          formattedPhone = "91$formattedPhone";
+        }
+
+        final Uri whatsappUri = Uri.parse(
+          "https://wa.me/$formattedPhone?text=${Uri.encodeComponent(message)}",
+        );
+
+        if (await canLaunchUrl(whatsappUri)) {
+          await launchUrl(whatsappUri, mode: LaunchMode.externalApplication);
+        } else {
+          if (mounted) SnackBarUtils.showError(context, "Could not launch WhatsApp");
+        }
+      } else {
+        // No phone number, just open WhatsApp or share via PDF as fallback
+        final Uri generalWhatsappUri = Uri.parse("https://wa.me/?text=${Uri.encodeComponent(message)}");
+        if (await canLaunchUrl(generalWhatsappUri)) {
+          await launchUrl(generalWhatsappUri, mode: LaunchMode.externalApplication);
+        } else {
+          // Fallback to original PDF sharing if WhatsApp URI fails
+          final prefs = await SharedPreferences.getInstance();
+          final printProvider = Provider.of<PrintProvider>(context, listen: false);
+          await PdfHelper.generateAndShareBillPdf(
+            shopName: prefs.getString('shopName') ?? 'Shop Name',
+            address: prefs.getString('address') ?? 'Address',
+            contact: prefs.getString('contact') ?? 'Contact',
+            receiptNo: receiptNo,
+            dateTime: dateTime,
+            items: items,
+            subTotal: subTotal,
+            finalTotal: finalAmount,
+            paymentType: paymentType,
+            orderType: orderType,
+            customerName: customerName,
+            customerPhone: customerPhone,
+            taxEnabled: printProvider.taxEnabled,
+            cgstPercent: printProvider.cgstPercent,
+            sgstPercent: printProvider.sgstPercent,
+            discountAmount: subTotal - finalAmount,
+          );
+        }
+      }
     } catch (e) {
-      debugPrint('Error sharing via WhatsApp: $e');
+      if (mounted) SnackBarUtils.showError(context, "Error opening WhatsApp: $e");
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey.shade100,
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.pop(context);
-        },
-        backgroundColor: appbar1,
-        foregroundColor: Colors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(30),
+        backgroundColor: Colors.grey.shade100,
+        floatingActionButton: FloatingActionButton(
+          onPressed: () {
+            Navigator.pop(context);
+          },
+          backgroundColor: appbar1,
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(30),
+          ),
+          child: Icon(Icons.add_shopping_cart),
         ),
-        child: Icon(Icons.add_shopping_cart),
-      ),
-      appBar: AppBar(
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        backgroundColor: Colors.white,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            MyText(
-              text: widget.name,
-              color: Colors.black,
-              fontWeight: FontWeight.w600,
-              fontSize: 22,
+        appBar: AppBar(
+          leading: Builder(
+            builder: (context) => IconButton(
+              key: TourKeys.drawerIconKey,
+              icon: const Icon(Icons.menu),
+              onPressed: () => Scaffold.of(context).openDrawer(),
             ),
-            MyText(
-              text: widget.phoneNo,
-              fontSize: 14,
-              color: Colors.grey,
-            ),
+          ),
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          backgroundColor: Colors.white,
+          iconTheme: const IconThemeData(color: Colors.black),
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              MyText(
+                text: name,
+                color: Colors.black,
+                fontWeight: FontWeight.w600,
+                fontSize: 22,
+              ),
+              MyText(
+                text: phoneNo,
+                fontSize: 14,
+                color: Colors.grey,
+              ),
+            ],
+          ),
+          actions: [
+            _buildStatusToggle(),
+            const SizedBox(width: 8),
           ],
         ),
-        actions: [
-          _buildStatusToggle(),
-          const SizedBox(width: 8),
-        ],
-      ),
-      drawer: MyDrawer(
-        phoneNo: widget.phoneNo,
-        adminPhoneNo: widget.phoneNo,
-        role: widget.role,
-      ),
-      body: isLoading
-          ? Center(
-              child: CircularProgressIndicator(
-                color: appbar1,
-              ),
-            )
-          : SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              child: Column(
-                children: [
-                  Row(
+        drawer: MyDrawer(
+          phoneNo: phoneNo,
+          adminPhoneNo: phoneNo,
+        ),
+        body: isLoading
+            ? const _DashboardSkeleton()
+            : RefreshIndicator(
+                onRefresh: () async {
+                  await fetchOrders();
+                },
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  child: Column(
                     children: [
-                      _InfoCard(
-                        title: "Sales",
-                        value: PriceUtils.formatPrice(totalSales),
-                        icon: Icons.point_of_sale,
-                        color: Colors.teal,
-                      ),
-                      const SizedBox(width: 10),
-                      _InfoCard(
-                        title: "Net Profit",
-                        value: PriceUtils.formatPrice(netProfit),
-                        icon: Icons.account_balance_wallet,
-                        color: Colors.indigo,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(
-                    height: 10,
-                  ),
-                  Row(
-                    children: [
-                      _InfoCard(
-                        title: "Total Bills",
-                        value: numberFormat.format(totalBills),
-                        icon: Icons.receipt,
-                        color: appbar1,
+                      Row(
+                        children: [
+                          _InfoCard(
+                            key: TourKeys.dashSalesCardKey,
+                            title: AppLocale.sales.getString(context),
+                            value: PriceUtils.formatPrice(totalSales),
+                            icon: Icons.point_of_sale,
+                            color: Colors.teal,
+                          ),
+                          const SizedBox(width: 10),
+                          _InfoCard(
+                            title: AppLocale.netProfit.getString(context),
+                            value: PriceUtils.formatPrice(netProfit),
+                            icon: Icons.account_balance_wallet,
+                            color: Colors.indigo,
+                          ),
+                        ],
                       ),
                       const SizedBox(
-                        width: 10,
+                        height: 10,
                       ),
-                      _InfoCard(
-                        title: "Total Expenses",
-                        value: PriceUtils.formatPrice(totalExpenses),
-                        icon: Icons.trending_down,
-                        color: Colors.red.shade600,
+                      Row(
+                        children: [
+                          _InfoCard(
+                            title: AppLocale.totalBills.getString(context),
+                            value: numberFormat.format(totalBills),
+                            icon: Icons.receipt,
+                            color: appbar1,
+                          ),
+                          const SizedBox(
+                            width: 10,
+                          ),
+                          _InfoCard(
+                            title: AppLocale.totalExpenses.getString(context),
+                            value: PriceUtils.formatPrice(totalExpenses),
+                            icon: Icons.trending_down,
+                            color: Colors.red.shade600,
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 15),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(18),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
+                      const SizedBox(height: 15),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(18),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.05),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const MyText(
-                          text: 'Filter Orders',
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            /// 📅 DATE FILTER
-                            Expanded(
-                              child: InkWell(
-                                borderRadius: BorderRadius.circular(14),
-                                onTap: () async {
-                                  final picked = await showDatePicker(
-                                    context: context,
-                                    initialDate: selectedDate,
-                                    firstDate: DateTime(2023),
-                                    lastDate: DateTime.now(),
-                                  );
-                                  if (picked != null) {
-                                    setState(() => selectedDate = picked);
-                                    fetchOrders();
-                                  }
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
-                                  decoration: BoxDecoration(
-                                    color: appbar1.withOpacity(0.08),
+                            MyText(
+                              text: AppLocale.filterOrders.getString(context),
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                /// 📅 DATE FILTER
+                                Expanded(
+                                  child: InkWell(
                                     borderRadius: BorderRadius.circular(14),
-                                    border: Border.all(color: appbar1.withOpacity(0.25)),
+                                    onTap: () async {
+                                      final picked = await showDatePicker(
+                                        context: context,
+                                        initialDate: selectedDate,
+                                        firstDate: DateTime(2023),
+                                        lastDate: DateTime.now(),
+                                      );
+                                      if (picked != null) {
+                                        setState(() => selectedDate = picked);
+                                        fetchOrders();
+                                      }
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+                                      decoration: BoxDecoration(
+                                        color: appbar1.withOpacity(0.08),
+                                        borderRadius: BorderRadius.circular(14),
+                                        border: Border.all(color: appbar1.withOpacity(0.25)),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.calendar_month, color: appbar1),
+                                          const SizedBox(width: 10),
+                                          MyText(
+                                            text: DateFormat('dd MMM yyyy').format(selectedDate),
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 15,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                                   ),
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.calendar_month, color: appbar1),
-                                      const SizedBox(width: 10),
-                                      MyText(
-                                        text: DateFormat('dd MMM yyyy').format(selectedDate),
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 15,
+                                ),
+
+                                const SizedBox(width: 12),
+
+                                /// 🍽 ORDER TYPE FILTER
+                                Expanded(
+                                  child: DropdownButtonFormField<String>(
+                                    value: selectedOrderType,
+                                    isDense: true,
+                                    icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                                    decoration: InputDecoration(
+                                      filled: true,
+                                      fillColor: appbar1.withOpacity(0.08),
+                                      contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(14),
+                                        borderSide: BorderSide(color: appbar1.withOpacity(0.25)),
+                                      ),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(14),
+                                        borderSide: BorderSide(color: appbar1.withOpacity(0.25)),
+                                      ),
+                                    ),
+                                    items: [
+                                      DropdownMenuItem(
+                                        value: 'all',
+                                        child: MyText(text: AppLocale.allOrders.getString(context)),
+                                      ),
+                                      if (businessCategory == 'Food') ...[
+                                        DropdownMenuItem(
+                                          value: 'DineIn',
+                                          child: MyText(text: '🍽 ' + AppLocale.dineIn.getString(context)),
+                                        ),
+                                        DropdownMenuItem(
+                                          value: 'PickUp',
+                                          child: MyText(text: '🛍 ' + AppLocale.pickUp.getString(context)),
+                                        ),
+                                      ],
+                                      DropdownMenuItem(
+                                        value: 'Delivery',
+                                        child: MyText(text: '🚚 ' + AppLocale.delivery.getString(context)),
                                       ),
                                     ],
+                                    onChanged: (value) {
+                                      setState(() => selectedOrderType = value!);
+                                      fetchOrders();
+                                    },
                                   ),
                                 ),
-                              ),
+                              ],
                             ),
-
-                            const SizedBox(width: 12),
-
-                            /// 🍽 ORDER TYPE FILTER
-                            Expanded(
-                              child: DropdownButtonFormField<String>(
-                                value: selectedOrderType,
-                                isDense: true,
-                                icon: const Icon(Icons.keyboard_arrow_down_rounded),
-                                decoration: InputDecoration(
-                                  filled: true,
-                                  fillColor: appbar1.withOpacity(0.08),
-                                  contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(14),
-                                    borderSide: BorderSide(color: appbar1.withOpacity(0.25)),
+                            const SizedBox(height: 15),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 15),
+                      if (salesOverview.isNotEmpty) _SalesOverviewChart(data: salesOverview),
+                      const SizedBox(height: 15),
+                      if (orderDistribution.isNotEmpty && businessCategory == 'Food')
+                        _OrderDistributionChart(data: orderDistribution, businessCategory: businessCategory),
+                      if (businessCategory == 'Food') const SizedBox(height: 15),
+                       Padding(
+                        key: TourKeys.dashRecentOrdersKey,
+                        padding: const EdgeInsets.symmetric(vertical: 5.0),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            MyText(
+                              text: AppLocale.recentOrders.getString(context),
+                              fontSize: 20,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => OrderManagementScreen(),
                                   ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(14),
-                                    borderSide: BorderSide(color: appbar1.withOpacity(0.25)),
-                                  ),
-                                ),
-                                items: const [
-                                  DropdownMenuItem(
-                                    value: 'all',
-                                    child: MyText(text: 'All Orders'),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: 'DineIn',
-                                    child: MyText(text: '🍽 Dine In'),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: 'PickUp',
-                                    child: MyText(text: '🛍 Pick Up'),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: 'Delivery',
-                                    child: MyText(text: '🚚 Delivery'),
-                                  ),
-                                ],
-                                onChanged: (value) {
-                                  setState(() => selectedOrderType = value!);
-                                  fetchOrders();
-                                },
+                                );
+                              },
+                              child: MyText(
+                                text: AppLocale.viewAll.getString(context),
+                                color: Colors.blue,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 15),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 15),
-                  if (salesOverview.isNotEmpty) _SalesOverviewChart(data: salesOverview),
-                  const SizedBox(height: 15),
-                  if (orderDistribution.isNotEmpty) _OrderDistributionChart(data: orderDistribution),
-                  const SizedBox(height: 15),
-                  Padding(
-                    padding: EdgeInsets.symmetric(vertical: 5.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        MyText(
-                          text: "Recent Orders",
-                          fontSize: 20,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        TextButton(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => OrderManagementScreen(
-                                  phoneNo: widget.phoneNo,
-                                  adminUid: widget.adminUid,
-                                  role: widget.role,
-                                ),
-                              ),
-                            );
-                          },
-                          child: const MyText(
-                            text: "View All",
-                            color: Colors.blue,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 15),
-                  orders.isEmpty
-                      ? const Center(child: MyText(text: 'No Orders Found'))
-                      : Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            ListView.builder(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              itemCount: orders.length > 10 ? 10 : orders.length,
-                              itemBuilder: (context, index) {
-                                final data = orders[index];
-                                final dateData = data['orderDate'] ?? data['created_at'];
-                                DateTime dt = _parseToLocalDate(dateData);
-                                String timeStr = DateFormat('dd/MM/yy hh:mm a').format(dt);
+                      ),
+                      const SizedBox(height: 15),
+                      orders.isEmpty
+                          ? Center(child: MyText(text: AppLocale.noOrdersFound.getString(context)))
+                          : Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                ListView.builder(
+                                  shrinkWrap: true,
+                                  physics: const NeverScrollableScrollPhysics(),
+                            itemCount: orders.length > 10 ? 10 : orders.length,
+                                  itemBuilder: (context, index) {
+                                    final data = orders[index];
+                                    final dateData = data['orderDate'] ?? data['created_at'];
+                                    DateTime dt = _parseToLocalDate(dateData);
+                                    String timeStr = DateFormat('dd/MM/yy hh:mm a').format(dt);
 
-                                // Extract guest/customer name
-                                String customerName = data['customerName'] ?? data['customer_name'] ?? "";
-                                if (customerName.isEmpty && data['unknownCustomerId'] != null) {
-                                  customerName = data['unknownCustomerId']['name'] ?? "Guest User";
-                                }
-                                if (customerName.isEmpty) customerName = "Walk In";
+                                    // Extract guest/customer name
+                                    String customerName = data['customerName'] ?? data['customer_name'] ?? "";
+                                    if (customerName.isEmpty && data['unknownCustomerId'] != null) {
+                                      customerName = data['unknownCustomerId']['name'] ?? AppLocale.guestUser.getString(context);
+                                    }
+                                    if (customerName.isEmpty) customerName = AppLocale.walkIn.getString(context);
 
-                                return OrderTile(
-                                  bill: data['billNumber'] ?? data['id'] ?? '0',
-                                  amount:
-                                      ((data['finalAmount'] ?? data['final_total'] ?? data['sub_total'] ?? 0) as num)
+                                    return OrderTile(
+                                      bill: data['billNumber'] ?? data['id'] ?? '0',
+                                      amount: ((data['finalAmount'] ?? data['final_total'] ?? data['sub_total'] ?? 0)
+                                              as num)
                                           .toInt(),
-                                  time: timeStr,
-                                  customerName: customerName,
-                                  paymentStatus: data['paymentStatus'] ?? "Due",
-                                  status: data['status'] ?? "Pending",
-                                  typeText: _orderTypeText(data['orderType'] ?? data['order_type'] ?? 'all'),
-                                  typeColor: _orderTypeColor(data['orderType'] ?? data['order_type'] ?? 'all'),
-                                  onTap: () async {
-                                    final prefs = await SharedPreferences.getInstance();
-                                    final items = (data['items'] as List<dynamic>? ?? [])
-                                        .map((e) => Map<String, dynamic>.from(e as Map))
-                                        .toList();
-                                    // ignore: use_build_context_synchronously
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => ReceiptPreviewOnlyWidget(
-                                          orderId: (data['_id'] ?? data['id'] ?? '').toString(),
-                                          initialPaymentStatus: data['paymentStatus'] ?? 'Due',
-                                          isUnknownCustomer: data['unknownCustomerId'] != null,
-                                          userPhoneNumber: widget.phoneNo,
-                                          shopName: prefs.getString('shopName') ?? 'Shop Name',
-                                          address: prefs.getString('address') ?? 'Address',
-                                          contact: prefs.getString('contact') ?? 'Contact',
-                                          receiptNo: (data['billNumber'] ?? '').toString(),
-                                          dateTime: _parseToLocalDate(data['orderDate'] ?? data['created_at']),
+                                      time: timeStr,
+                                      customerName: customerName,
+                                      paymentStatus: data['paymentStatus'] ?? "Due",
+                                      status: data['status'] ?? "Pending",
+                                      typeText: _orderTypeText(data['orderType'] ?? data['order_type'] ?? 'all'),
+                                      typeColor: _orderTypeColor(data['orderType'] ?? data['order_type'] ?? 'all'),
+                                      onTap: () async {
+                                        final prefs = await SharedPreferences.getInstance();
+                                        final items = (data['items'] as List<dynamic>? ?? [])
+                                            .map((e) => Map<String, dynamic>.from(e as Map))
+                                            .toList();
+                                        // ignore: use_build_context_synchronously
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) => ReceiptPreviewOnlyWidget(
+                                              orderId: (data['_id'] ?? data['id'] ?? '').toString(),
+                                              initialPaymentStatus: data['paymentStatus'] ?? 'Due',
+                                              isUnknownCustomer: data['unknownCustomerId'] != null,
+                                              userPhoneNumber: phoneNo,
+                                              shopName: prefs.getString('shopName') ?? 'Shop Name',
+                                              address: prefs.getString('address') ?? 'Address',
+                                              contact: prefs.getString('contact') ?? 'Contact',
+                                              receiptNo: (data['billNumber'] ?? '').toString(),
+                                              dateTime: _parseToLocalDate(data['orderDate'] ?? data['created_at']),
+                                              items: items,
+                                              subTotal: ((data['totalAmount'] ??
+                                                      data['subTotal'] ??
+                                                      data['sub_total'] ??
+                                                      0) as num)
+                                                  .toDouble(),
+                                              finalTotal: ((data['finalAmount'] ??
+                                                      data['final_total'] ??
+                                                      data['sub_total'] ??
+                                                      0) as num)
+                                                  .toDouble(),
+                                              discountAmount:
+                                                  ((data['discount'] ?? data['discount_amount'] ?? 0) as num)
+                                                      .toDouble(),
+                                              roundOff: 0,
+                                              taxEnabled: (data['tax'] ?? 0) > 0 || data['tax_enabled'] == 1,
+                                              cgstPercent: ((data['cgst_percent'] ?? 0) as num).toDouble(),
+                                              sgstPercent: ((data['sgst_percent'] ?? 0) as num).toDouble(),
+                                              paymentType: data['payment_type'] ?? 'cash',
+                                              orderType: _orderTypeText(data['orderType'] ?? data['order_type'] ?? ''),
+                                              customerName: data['customerName'] ?? data['customer_name'],
+                                              customerPhone: data['customerPhone'] ?? data['customer_phone'],
+                                              customerGst: data['customerGst'] ?? data['customer_gst'],
+                                              customerAddress: data['customerAddress'] ?? data['customer_address'],
+                                              note: data['notes'] ?? data['customer_note'],
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                      onPrint: () {
+                                        final rawItems = data['items'] as List<dynamic>? ?? [];
+                                        final items = rawItems.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+                                        _handlePrint(
                                           items: items,
                                           subTotal: ((data['totalAmount'] ?? data['subTotal'] ?? data['sub_total'] ?? 0)
                                                   as num)
                                               .toDouble(),
-                                          finalTotal: ((data['finalAmount'] ??
+                                          customerName: data['customerName'] ?? data['customer_name'] ?? '',
+                                          customerPhone: data['customerPhone'] ?? data['customer_phone'] ?? '',
+                                          customerGst: data['customerGst'] ?? data['customer_gst'] ?? '',
+                                          customerNote: data['notes'] ?? data['customer_note'] ?? '',
+                                          customerAddress: data['customerAddress'] ?? data['customer_address'] ?? '',
+                                          discountAmount:
+                                              ((data['discount'] ?? data['discount_amount'] ?? 0) as num).toDouble(),
+                                          discountPercent: ((data['discount_percent'] ?? 0) as num).toDouble(),
+                                          receiptNo: data['billNumber']?.toString() ?? '',
+                                          orderType: data['orderType'] ?? data['order_type'] ?? '',
+                                          paymentType: data['payment_type'] ?? 'cash',
+                                        );
+                                      },
+                                      onWhatsapp: () {
+                                        final rawItems = data['items'] as List<dynamic>? ?? [];
+                                        final items = rawItems.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+                                        _handleWhatsapp(
+                                          items: items,
+                                          subTotal: ((data['totalAmount'] ?? data['subTotal'] ?? data['sub_total'] ?? 0)
+                                                  as num)
+                                              .toDouble(),
+                                          finalAmount: ((data['finalAmount'] ??
                                                   data['final_total'] ??
                                                   data['sub_total'] ??
                                                   0) as num)
                                               .toDouble(),
-                                          discountAmount:
-                                              ((data['discount'] ?? data['discount_amount'] ?? 0) as num).toDouble(),
-                                          roundOff: 0,
-                                          taxEnabled: (data['tax'] ?? 0) > 0 || data['tax_enabled'] == 1,
-                                          cgstPercent: ((data['cgst_percent'] ?? 0) as num).toDouble(),
-                                          sgstPercent: ((data['sgst_percent'] ?? 0) as num).toDouble(),
+                                          customerName: data['customerName'] ?? data['customer_name'] ?? '',
+                                          customerPhone: data['customerPhone'] ?? data['customer_phone'] ?? '',
+                                          receiptNo: data['billNumber']?.toString() ?? '',
+                                          orderType: data['orderType'] ?? data['order_type'] ?? '',
                                           paymentType: data['payment_type'] ?? 'cash',
-                                          orderType: _orderTypeText(data['orderType'] ?? data['order_type'] ?? ''),
-                                          customerName: data['customerName'] ?? data['customer_name'],
-                                          customerPhone: data['customerPhone'] ?? data['customer_phone'],
-                                          customerGst: data['customerGst'] ?? data['customer_gst'],
-                                          customerAddress: data['customerAddress'] ?? data['customer_address'],
-                                          note: data['notes'] ?? data['customer_note'],
-                                        ),
-                                      ),
+                                          dateTime: _parseToLocalDate(data['orderDate'] ?? data['created_at']),
+                                        );
+                                      },
                                     );
                                   },
-                                  onPrint: () {
-                                    final rawItems = data['items'] as List<dynamic>? ?? [];
-                                    final items = rawItems.map((e) => Map<String, dynamic>.from(e as Map)).toList();
-                                    _handlePrint(
-                                      items: items,
-                                      subTotal:
-                                          ((data['totalAmount'] ?? data['subTotal'] ?? data['sub_total'] ?? 0) as num)
-                                              .toDouble(),
-                                      customerName: data['customerName'] ?? data['customer_name'] ?? '',
-                                      customerPhone: data['customerPhone'] ?? data['customer_phone'] ?? '',
-                                      customerGst: data['customerGst'] ?? data['customer_gst'] ?? '',
-                                      customerNote: data['notes'] ?? data['customer_note'] ?? '',
-                                      customerAddress: data['customerAddress'] ?? data['customer_address'] ?? '',
-                                      discountAmount:
-                                          ((data['discount'] ?? data['discount_amount'] ?? 0) as num).toDouble(),
-                                      discountPercent: ((data['discount_percent'] ?? 0) as num).toDouble(),
-                                      receiptNo: data['billNumber']?.toString() ?? '',
-                                      orderType: data['orderType'] ?? data['order_type'] ?? '',
-                                      paymentType: data['payment_type'] ?? 'cash',
-                                    );
-                                  },
-                                  onWhatsapp: () {
-                                    final rawItems = data['items'] as List<dynamic>? ?? [];
-                                    final items = rawItems.map((e) => Map<String, dynamic>.from(e as Map)).toList();
-                                    _handleWhatsapp(
-                                      items: items,
-                                      subTotal: ((data['totalAmount'] ?? data['subTotal'] ?? data['sub_total'] ?? 0)
-                                              as num)
-                                          .toDouble(),
-                                      finalAmount: ((data['finalAmount'] ??
-                                              data['final_total'] ??
-                                              data['sub_total'] ??
-                                              0) as num)
-                                          .toDouble(),
-                                      customerName: data['customerName'] ?? data['customer_name'] ?? '',
-                                      customerPhone: data['customerPhone'] ?? data['customer_phone'] ?? '',
-                                      receiptNo: data['billNumber']?.toString() ?? '',
-                                      orderType: data['orderType'] ?? data['order_type'] ?? '',
-                                      paymentType: data['payment_type'] ?? 'cash',
-                                      dateTime: _parseToLocalDate(data['orderDate'] ?? data['created_at']),
-                                    );
-                                  },
-                                );
-                              },
-                            ),
-                            const SizedBox(height: 60),
-                          ],
-                        )
-                ],
-              ),
-            ),
-    );
+                                ),
+                                const SizedBox(height: 60),
+                              ],
+                            )
+                    ],
+                  ),
+                ),
+              ));
   }
 
   Widget _buildStatusToggle() {
@@ -821,6 +1015,7 @@ class _InfoCard extends StatelessWidget {
   final IconData icon;
 
   const _InfoCard({
+    super.key,
     required this.title,
     required this.value,
     required this.icon,
@@ -909,8 +1104,8 @@ class _SalesOverviewChartState extends State<_SalesOverviewChart> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const MyText(
-                    text: 'Revenue Analysis',
+                  MyText(
+                    text: AppLocale.revenueAnalysis.getString(context),
                     fontWeight: FontWeight.w700,
                     fontSize: 20,
                   ),
@@ -932,7 +1127,7 @@ class _SalesOverviewChartState extends State<_SalesOverviewChart> {
                       ),
                       const SizedBox(width: 8),
                       MyText(
-                        text: 'Total Period',
+                        text: AppLocale.totalPeriod.getString(context),
                         fontSize: 11,
                         color: Colors.grey.shade500,
                         fontWeight: FontWeight.w500,
@@ -979,7 +1174,7 @@ class _SalesOverviewChartState extends State<_SalesOverviewChart> {
   }
 
   Widget _buildBarChart() {
-    if (widget.data.isEmpty) return const Center(child: MyText(text: 'No data available'));
+    if (widget.data.isEmpty) return Center(child: MyText(text: AppLocale.noDataAvailable.getString(context)));
 
     final maxAmount = widget.data.map((e) => (e['amount'] as num).toDouble()).reduce((a, b) => a > b ? a : b);
     final maxY = (maxAmount * 1.2).clamp(1000.0, double.infinity);
@@ -1092,7 +1287,7 @@ class _SalesOverviewChartState extends State<_SalesOverviewChart> {
   }
 
   Widget _buildAreaChart() {
-    if (widget.data.isEmpty) return const Center(child: MyText(text: 'No data available'));
+    if (widget.data.isEmpty) return Center(child: MyText(text: AppLocale.noDataAvailable.getString(context)));
 
     final maxAmount = widget.data.map((e) => (e['amount'] as num).toDouble()).reduce((a, b) => a > b ? a : b);
     final maxY = (maxAmount * 1.2).clamp(1000.0, double.infinity);
@@ -1248,7 +1443,8 @@ class _ToggleIcon extends StatelessWidget {
 
 class _OrderDistributionChart extends StatelessWidget {
   final Map<String, dynamic> data;
-  const _OrderDistributionChart({required this.data});
+  final String businessCategory;
+  const _OrderDistributionChart({required this.data, required this.businessCategory});
 
   @override
   Widget build(BuildContext context) {
@@ -1282,22 +1478,24 @@ class _OrderDistributionChart extends StatelessWidget {
                     centerSpaceRadius: 45,
                     startDegreeOffset: -90,
                     sections: [
-                      PieChartSectionData(
-                        value: (data['DineIn'] ?? 0).toDouble(),
-                        title: '',
-                        color: Colors.teal.shade400,
-                        radius: 18,
-                        badgeWidget: _buildBadge(Icons.restaurant, Colors.teal),
-                        badgePositionPercentageOffset: 0.98,
-                      ),
-                      PieChartSectionData(
-                        value: (data['PickUp'] ?? 0).toDouble(),
-                        title: '',
-                        color: Colors.orange.shade400,
-                        radius: 18,
-                        badgeWidget: _buildBadge(Icons.shopping_bag, Colors.orange),
-                        badgePositionPercentageOffset: 0.98,
-                      ),
+                      if (businessCategory == 'Food')
+                        PieChartSectionData(
+                          value: (data['DineIn'] ?? 0).toDouble(),
+                          title: '',
+                          color: Colors.teal.shade400,
+                          radius: 18,
+                          badgeWidget: _buildBadge(Icons.restaurant, Colors.teal),
+                          badgePositionPercentageOffset: 0.98,
+                        ),
+                      if (businessCategory == 'Food')
+                        PieChartSectionData(
+                          value: (data['PickUp'] ?? 0).toDouble(),
+                          title: '',
+                          color: Colors.orange.shade400,
+                          radius: 18,
+                          badgeWidget: _buildBadge(Icons.shopping_bag, Colors.orange),
+                          badgePositionPercentageOffset: 0.98,
+                        ),
                       PieChartSectionData(
                         value: (data['Delivery'] ?? 0).toDouble(),
                         title: '',
@@ -1319,7 +1517,7 @@ class _OrderDistributionChart extends StatelessWidget {
                       color: Colors.black,
                     ),
                     MyText(
-                      text: 'Orders',
+                      text: AppLocale.ordersLabel.getString(context),
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                       color: Colors.grey.shade400,
@@ -1336,30 +1534,32 @@ class _OrderDistributionChart extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const MyText(
-                  text: 'Distribution',
+                MyText(
+                  text: AppLocale.distribution.getString(context),
                   fontWeight: FontWeight.w800,
                   fontSize: 16,
                   letterSpacing: -0.5,
                 ),
                 const SizedBox(height: 18),
+                if (businessCategory == 'Food')
+                  _DistributionLegend(
+                    label: AppLocale.dineIn.getString(context),
+                    count: (data['DineIn'] ?? 0).toInt(),
+                    color: Colors.teal.shade400,
+                    percent: total > 0 ? (data['DineIn'] ?? 0) / total : 0,
+                  ),
+                if (businessCategory == 'Food')
+                  _DistributionLegend(
+                    label: AppLocale.pickUp.getString(context),
+                    count: (data['PickUp'] ?? 0).toInt(),
+                    color: Colors.orange.shade400,
+                    percent: total > 0 ? (data['PickUp'] ?? 0) / total : 0,
+                  ),
                 _DistributionLegend(
-                  label: 'Dine-In',
-                  count: data['DineIn'] ?? 0,
-                  color: Colors.teal.shade400,
-                  percent: (data['DineIn'] ?? 0) / total,
-                ),
-                _DistributionLegend(
-                  label: 'Pick-Up',
-                  count: data['PickUp'] ?? 0,
-                  color: Colors.orange.shade400,
-                  percent: (data['PickUp'] ?? 0) / total,
-                ),
-                _DistributionLegend(
-                  label: 'Delivery',
-                  count: data['Delivery'] ?? 0,
+                  label: AppLocale.delivery.getString(context),
+                  count: (data['Delivery'] ?? 0).toInt(),
                   color: Colors.red.shade400,
-                  percent: (data['Delivery'] ?? 0) / total,
+                  percent: total > 0 ? (data['Delivery'] ?? 0) / total : 0,
                 ),
               ],
             ),
@@ -1446,6 +1646,67 @@ class _DistributionLegend extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _DashboardSkeleton extends StatelessWidget {
+  const _DashboardSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      child: Shimmer.fromColors(
+        baseColor: Colors.grey[300]!,
+        highlightColor: Colors.grey[100]!,
+        child: Column(
+          children: [
+            // Stats cards
+            Row(
+              children: [
+                Expanded(child: _skeletonCard(height: 100)),
+                const SizedBox(width: 10),
+                Expanded(child: _skeletonCard(height: 100)),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(child: _skeletonCard(height: 100)),
+                const SizedBox(width: 10),
+                Expanded(child: _skeletonCard(height: 100)),
+              ],
+            ),
+            const SizedBox(height: 15),
+            // Filter section
+            _skeletonCard(height: 120),
+            const SizedBox(height: 20),
+            // Chart section
+            _skeletonCard(height: 250),
+            const SizedBox(height: 20),
+            // Orders list
+            ...List.generate(
+              5,
+              (index) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _skeletonCard(height: 80),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _skeletonCard({required double height}) {
+    return Container(
+      height: height,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
       ),
     );
   }

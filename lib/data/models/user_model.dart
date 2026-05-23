@@ -95,6 +95,8 @@ class UserModel {
   final String? city;
   final bool? isShopOpen;
   final GeoLocation? location;
+  final String? businessCategory;
+  final String? businessIcon;
   final String? token;
 
   // ── Hive / UsersScreen compat ──────────────────────────────────────────────
@@ -126,6 +128,8 @@ class UserModel {
     this.city,
     this.isShopOpen,
     this.location,
+    this.businessCategory,
+    this.businessIcon,
     this.token,
     String? userName,
     this.details = const [],
@@ -170,6 +174,8 @@ class UserModel {
       location: json['location'] != null
           ? GeoLocation.fromJson(json['location'])
           : (json['shopDetails']?['location'] != null ? GeoLocation.fromJson(json['shopDetails']['location']) : null),
+      businessCategory: json['businessCategory'] as String? ?? json['shopDetails']?['businessCategory'] as String?,
+      businessIcon: json['businessIcon'] as String? ?? json['shopDetails']?['businessIcon'] as String?,
       token: json['token'] as String?,
     );
   }
@@ -192,6 +198,8 @@ class UserModel {
       'city': city,
       'isShopOpen': isShopOpen,
       'location': location?.toJson(),
+      'businessCategory': businessCategory,
+      'businessIcon': businessIcon,
       'token': token,
     };
   }

@@ -7,6 +7,25 @@
   "client": [
     {
       "client_info": {
+        "mobilesdk_app_id": "1:772150199713:android:f1c1ed9691fffb039af7e0",
+        "android_client_info": {
+          "package_name": "com.example.billingsphere_customer"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDmVxKwZ1Mw97bdlSzL_47Uedl1Iea8q8o"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
         "mobilesdk_app_id": "1:772150199713:android:6479ba5374bcb08f9af7e0",
         "android_client_info": {
           "package_name": "com.example.pos_admin"

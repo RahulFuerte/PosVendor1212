@@ -6,28 +6,27 @@ import 'package:pos/core/widgets/text.dart';
 import 'package:intl/intl.dart';
 import 'package:pos/data/services/report_service.dart';
 import 'package:pos/view/home/widgets/mydrawer.dart';
+import 'package:shimmer/shimmer.dart';
+import 'package:pos/view/home/reports/widgets/report_skeleton.dart';
 
 // Project imports:
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:pos/core/utils/price_utils.dart';
 import 'package:pos/core/utils/snackbar_utils.dart';
-import 'package:pos/view/home/reports/widgets/report_nav_bar.dart';
+import 'package:pos/view/home/reports/report_nav_bar.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class SalesReportScreen extends StatefulWidget {
-  final String adminUid;
-  final String uid;
-
-  const SalesReportScreen({
-    Key? key,
-    required this.adminUid,
-    required this.uid,
-  }) : super(key: key);
+  const SalesReportScreen({Key? key}) : super(key: key);
 
   @override
   State<SalesReportScreen> createState() => _SalesReportScreenState();
 }
 
 class _SalesReportScreenState extends State<SalesReportScreen> {
+  String adminUid = '';
+  String uid = '';
+
   DateTime selectedDate = DateTime.now();
   String selectedMonth = DateFormat('yyyyMM').format(DateTime.now());
   bool isLoading = true;
@@ -55,6 +54,20 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
   @override
   void initState() {
     super.initState();
+    _loadSessionData();
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
+
+  Future<void> _loadSessionData() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      uid = prefs.getString('phoneNumber') ?? prefs.getString('phoneNo') ?? '';
+      adminUid = prefs.getString('adminUid') ?? '';
+    });
     fetchSalesData();
   }
 
@@ -117,202 +130,214 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
         ),
       ),
       drawer: MyDrawer(
-        phoneNo: widget.uid,
-        adminPhoneNo: widget.adminUid,
+        phoneNo: uid,
+        adminPhoneNo: adminUid,
       ),
       body: Column(
         children: [
           ReportNavBar(
             currentReport: 'Sales',
-            uid: widget.uid,
-            adminUid: widget.adminUid,
+            uid: uid,
+            adminUid: adminUid,
           ),
-          // Date and Month Selector Card
-          Container(
-            margin: const EdgeInsets.all(16),
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    IconButton(
-                      onPressed: () => changeDate(-1),
-                      icon: const Icon(Icons.chevron_left, size: 28),
-                      color: primaryColor,
-                    ),
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 12,
-                        ),
-                        decoration: BoxDecoration(
-                          color: primaryColor.withOpacity(0.05),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: primaryColor.withOpacity(0.1)),
-                        ),
-                        child: Center(
-                          child: MyText(
-                            text: DateFormat('MMM dd, yyyy').format(selectedDate),
-                            color: primaryColor,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: fetchSalesData,
+              color: primaryColor,
+              child: CustomScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: Column(
+                      children: [
+                        // Date and Month Selector Card
+                        Container(
+                          margin: const EdgeInsets.all(16),
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.05),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              IconButton(
+                                onPressed: () => changeDate(-1),
+                                icon: const Icon(Icons.chevron_left, size: 28),
+                                color: primaryColor,
+                              ),
+                              Expanded(
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  decoration: BoxDecoration(
+                                    color: primaryColor.withOpacity(0.05),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: primaryColor.withOpacity(0.1)),
+                                  ),
+                                  child: Center(
+                                    child: MyText(
+                                      text: DateFormat('MMM dd, yyyy').format(selectedDate),
+                                      color: primaryColor,
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              IconButton(
+                                onPressed: selectedDate.isBefore(DateTime.now().subtract(const Duration(hours: 23)))
+                                    ? () => changeDate(1)
+                                    : null,
+                                icon: const Icon(Icons.chevron_right, size: 28),
+                                color: selectedDate.isBefore(DateTime.now().subtract(const Duration(hours: 23)))
+                                    ? primaryColor
+                                    : Colors.grey,
+                              ),
+                            ],
                           ),
                         ),
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: selectedDate.isBefore(DateTime.now().subtract(const Duration(hours: 23)))
-                          ? () => changeDate(1)
-                          : null,
-                      icon: const Icon(Icons.chevron_right, size: 28),
-                      color: selectedDate.isBefore(DateTime.now().subtract(const Duration(hours: 23)))
-                          ? primaryColor
-                          : Colors.grey,
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
 
-          // Total Sales Card
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16),
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Colors.green[400]!, primaryColor],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.green.withOpacity(0.4),
-                  blurRadius: 15,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-            ),
-            child: Column(
-              children: [
-                const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.account_balance_wallet,
-                      color: Colors.white,
-                      size: 28,
-                    ),
-                    SizedBox(width: 8),
-                    MyText(
-                      text: 'Total Sales',
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                isLoading
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: MyText(
-                          text: PriceUtils.formatPrice(totalSales),
-                          color: Colors.white,
-                          fontSize: 36,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.2,
+                        // Total Sales Card
+                        Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 16),
+                          padding: const EdgeInsets.all(24),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [Colors.green[400]!, primaryColor],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.green.withOpacity(0.4),
+                                blurRadius: 15,
+                                offset: const Offset(0, 6),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            children: [
+                              const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.account_balance_wallet, color: Colors.white, size: 28),
+                                  SizedBox(width: 8),
+                                  MyText(
+                                    text: 'Total Sales',
+                                    color: Colors.white,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              isLoading
+                                  ? Shimmer.fromColors(
+                                      baseColor: Colors.white.withOpacity(0.3),
+                                      highlightColor: Colors.white.withOpacity(0.1),
+                                      child: Container(
+                                        height: 40,
+                                        width: 150,
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                      ),
+                                    )
+                                  : FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: MyText(
+                                        text: PriceUtils.formatPrice(totalSales),
+                                        color: Colors.white,
+                                        fontSize: 36,
+                                        fontWeight: FontWeight.bold,
+                                        letterSpacing: 1.2,
+                                      ),
+                                    ),
+                            ],
+                          ),
                         ),
+
+                        // Summary Stats Row
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                          child: Row(
+                            children: [
+                              _buildSummaryCard(
+                                'Orders',
+                                totalOrders.toString(),
+                                Icons.shopping_bag_outlined,
+                                Colors.blue,
+                              ),
+                              const SizedBox(width: 8),
+                              _buildSummaryCard(
+                                'Discount',
+                                PriceUtils.formatPrice(totalDiscount),
+                                Icons.local_offer_outlined,
+                                Colors.orange,
+                              ),
+                              const SizedBox(width: 8),
+                              _buildSummaryCard(
+                                'Tax',
+                                PriceUtils.formatPrice(totalTax),
+                                Icons.receipt_long_outlined,
+                                Colors.purple,
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        // Products List Header
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.trending_up, color: Colors.blue, size: 24),
+                              const SizedBox(width: 8),
+                              const MyText(
+                                text: 'Product Sales',
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
+                              const Spacer(),
+                              if (!isLoading)
+                                MyText(
+                                  text: '${productSales.length} items',
+                                  fontSize: 14,
+                                  color: Colors.grey[600],
+                                  fontWeight: FontWeight.w500,
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  if (isLoading)
+                    const SliverPadding(
+                      padding: EdgeInsets.symmetric(horizontal: 16),
+                      sliver: SliverToBoxAdapter(
+                        child: ReportSkeleton(height: 100, borderRadius: 16),
                       ),
-              ],
-            ),
-          ),
-
-          // Summary Stats Row
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
-              children: [
-                _buildSummaryCard(
-                  'Orders',
-                  totalOrders.toString(),
-                  Icons.shopping_bag_outlined,
-                  Colors.blue,
-                ),
-                const SizedBox(width: 8),
-                _buildSummaryCard(
-                  'Discount',
-                  PriceUtils.formatPrice(totalDiscount),
-                  Icons.local_offer_outlined,
-                  Colors.orange,
-                ),
-                const SizedBox(width: 8),
-                _buildSummaryCard(
-                  'Tax',
-                  PriceUtils.formatPrice(totalTax),
-                  Icons.receipt_long_outlined,
-                  Colors.purple,
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // Products List Header
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                const Icon(Icons.trending_up, color: Colors.blue, size: 24),
-                const SizedBox(width: 8),
-                const MyText(
-                  text: 'Product Sales',
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
-                const Spacer(),
-                MyText(
-                  text: '${productSales.length} items',
-                  fontSize: 14,
-                  color: Colors.grey[600],
-                  fontWeight: FontWeight.w500,
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 12),
-
-          // Products List
-          Expanded(
-            child: isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : productSales.isEmpty
-                    ? Center(
+                    )
+                  else if (productSales.isEmpty)
+                    SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(
-                              Icons.inventory_2_outlined,
-                              size: 80,
-                              color: Colors.grey[400],
-                            ),
+                            Icon(Icons.inventory_2_outlined, size: 80, color: Colors.grey[400]),
                             const SizedBox(height: 16),
                             MyText(
                               text: 'No sales data available',
@@ -322,152 +347,158 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
                             ),
                           ],
                         ),
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        itemCount: productSales.length,
-                        itemBuilder: (context, index) {
-                          final product = productSales[index];
-                          final double maxQuantity = productSales.isNotEmpty
-                              ? productSales
-                                  .map((e) => (e['quantity'] as num).toDouble())
-                                  .reduce((a, b) => a > b ? a : b)
-                              : 1.0;
-                          final double quantity = (product['quantity'] as num).toDouble();
-                          final double percentage = (quantity / maxQuantity * 100).clamp(0, 100).toDouble();
+                      ),
+                    )
+                  else
+                    SliverPadding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      sliver: SliverList(
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) {
+                            final product = productSales[index];
+                            final double maxQuantity = productSales.isNotEmpty
+                                ? productSales
+                                    .map((e) => (e['quantity'] as num).toDouble())
+                                    .reduce((a, b) => a > b ? a : b)
+                                : 1.0;
+                            final double quantity = (product['quantity'] as num).toDouble();
+                            final double percentage = (quantity / maxQuantity * 100).clamp(0, 100).toDouble();
 
-                          return Container(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(16),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.05),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Container(
-                                      width: 40,
-                                      height: 40,
-                                      decoration: BoxDecoration(
-                                        gradient: LinearGradient(
-                                          colors: [Colors.green[300]!, Colors.green[800]!],
-                                        ),
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                      child: Center(
-                                        child: MyText(
-                                          text: '#${index + 1}',
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 16,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          MyText(
-                                            text: product['name'],
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.black87,
-                                            maxLines: 1,
-                                          ),
-                                          const SizedBox(height: 4),
-                                          MyText(
-                                            text: '${PriceUtils.formatPrice(product['price'])} per unit',
-                                            fontSize: 13,
-                                            color: Colors.grey[600],
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.end,
-                                      children: [
-                                        MyText(
-                                          text: PriceUtils.formatPrice(product['totalAmount']),
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.green,
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                            vertical: 4,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: Colors.blue[50],
-                                            borderRadius: BorderRadius.circular(8),
-                                          ),
-                                          child: MyText(
-                                            text: '${product['quantity']} sold',
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w600,
-                                            color: Colors.blue[700],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 12),
-                                // Progress Bar
-                                Stack(
-                                  children: [
-                                    Container(
-                                      height: 8,
-                                      decoration: BoxDecoration(
-                                        color: Colors.grey[200],
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                    ),
-                                    FractionallySizedBox(
-                                      widthFactor: percentage / 100,
-                                      child: Container(
-                                        height: 8,
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(16),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.05),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Container(
+                                        width: 40,
+                                        height: 40,
                                         decoration: BoxDecoration(
                                           gradient: LinearGradient(
-                                            colors: [Colors.green[400]!, Colors.green[800]!],
+                                            colors: [Colors.green[300]!, Colors.green[800]!],
                                           ),
-                                          borderRadius: BorderRadius.circular(4),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: Colors.green.withOpacity(0.2),
-                                              blurRadius: 4,
-                                              offset: const Offset(0, 2),
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                        child: Center(
+                                          child: MyText(
+                                            text: '#${index + 1}',
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 16,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            MyText(
+                                              text: product['name'],
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.black87,
+                                              maxLines: 1,
+                                            ),
+                                            const SizedBox(height: 4),
+                                            MyText(
+                                              text: '${PriceUtils.formatPrice(product['price'])} per unit',
+                                              fontSize: 13,
+                                              color: Colors.grey[600],
                                             ),
                                           ],
                                         ),
                                       ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 6),
-                                MyText(
-                                  text: '${percentage.toStringAsFixed(1)}% of top seller',
-                                  fontSize: 12,
-                                  color: Colors.grey[600],
-                                  fontStyle: FontStyle.italic,
-                                ),
-                              ],
-                            ),
-                          );
-                        },
+                                      Column(
+                                        crossAxisAlignment: CrossAxisAlignment.end,
+                                        children: [
+                                          MyText(
+                                            text: PriceUtils.formatPrice(product['totalAmount']),
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.green,
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                            decoration: BoxDecoration(
+                                              color: Colors.blue[50],
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                            child: MyText(
+                                              text: '${product['quantity']} sold',
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w600,
+                                              color: Colors.blue[700],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Stack(
+                                    children: [
+                                      Container(
+                                        height: 8,
+                                        decoration: BoxDecoration(
+                                          color: Colors.grey[200],
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                      ),
+                                      FractionallySizedBox(
+                                        widthFactor: percentage / 100,
+                                        child: Container(
+                                          height: 8,
+                                          decoration: BoxDecoration(
+                                            gradient: LinearGradient(
+                                              colors: [Colors.green[400]!, Colors.green[800]!],
+                                            ),
+                                            borderRadius: BorderRadius.circular(4),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: Colors.green.withOpacity(0.2),
+                                                blurRadius: 4,
+                                                offset: const Offset(0, 2),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 6),
+                                  MyText(
+                                    text: '${percentage.toStringAsFixed(1)}% of top seller',
+                                    fontSize: 12,
+                                    color: Colors.grey[600],
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                          childCount: productSales.length,
+                        ),
                       ),
+                    ),
+                  const SliverToBoxAdapter(child: SizedBox(height: 24)),
+                ],
+              ),
+            ),
           ),
         ],
       ),
