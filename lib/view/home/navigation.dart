@@ -18,7 +18,7 @@ class Navigation extends StatefulWidget {
   final String uId;
   final String? role;
   final String? adminId;
-  Navigation({required this.uId, this.role, this.adminId, this.resizableController, super.key});
+  const Navigation({required this.uId, this.role, this.adminId, this.resizableController, super.key});
 
   @override
   State<Navigation> createState() => _AdminDashboardState();
