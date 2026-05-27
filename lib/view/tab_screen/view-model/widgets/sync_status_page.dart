@@ -1,0 +1,535 @@
+// Dart imports:
+import 'dart:async';
+
+// Flutter imports:
+import 'package:flutter/material.dart';
+import 'package:pos/core/widgets/text.dart';
+import 'package:pos/view/home/widgets/mydrawer.dart';
+
+// Project imports:
+
+import '../../../../core/network/connection_monitor.dart';
+import '../../../../data/datasources/sync_manager.dart';
+import '../constants/constants.dart';
+import '../../../../core/utils/snackbar_utils.dart';
+import 'sync_progress_dialog.dart';
+
+/// Comprehensive sync status page for detailed sync management
+class SyncStatusPage extends StatefulWidget {
+  const SyncStatusPage({Key? key}) : super(key: key);
+
+  @override
+  State<SyncStatusPage> createState() => _SyncStatusPageState();
+}
+
+class _SyncStatusPageState extends State<SyncStatusPage> {
+  String adminUid = '';
+  String uid = '';
+
+  final SyncManager _syncManager = SyncManager();
+  final ConnectionMonitor _connectionMonitor = ConnectionMonitor();
+
+  StreamSubscription<SyncOperationStatus>? _syncStatusSubscription;
+  StreamSubscription<SyncResult>? _syncResultSubscription;
+  StreamSubscription<bool>? _connectivitySubscription;
+
+  SyncOperationStatus _currentStatus = SyncOperationStatus.idle;
+  SyncResult? _lastResult;
+  bool _isConnected = false;
+  Map<String, dynamic> _syncStatistics = {};
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeServices();
+    _setupListeners();
+    _loadData();
+  }
+
+  @override
+  void dispose() {
+    _syncStatusSubscription?.cancel();
+    _syncResultSubscription?.cancel();
+    _connectivitySubscription?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _initializeServices() async {
+    try {
+      await _syncManager.initialize();
+      await _connectionMonitor.initialize();
+    } catch (e) {
+      print('Failed to initialize sync services: $e');
+    }
+  }
+
+  void _setupListeners() {
+    // Listen to sync status changes
+    _syncStatusSubscription = _syncManager.syncStatusStream.listen(
+      (status) {
+        if (mounted) {
+          setState(() {
+            _currentStatus = status;
+          });
+        }
+      },
+    );
+
+    // Listen to sync results
+    _syncResultSubscription = _syncManager.syncResultStream.listen(
+      (result) {
+        if (mounted) {
+          setState(() {
+            _lastResult = result;
+          });
+          _loadSyncStatistics();
+        }
+      },
+    );
+
+    // Listen to connectivity changes
+    _connectivitySubscription = _connectionMonitor.connectivityStream.listen(
+      (isConnected) {
+        if (mounted) {
+          setState(() {
+            _isConnected = isConnected;
+          });
+        }
+      },
+    );
+  }
+
+  Future<void> _loadData() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    await Future.wait([
+      _loadConnectivityStatus(),
+      _loadSyncStatistics(),
+    ]);
+
+    setState(() {
+      _isLoading = false;
+    });
+  }
+
+  Future<void> _loadConnectivityStatus() async {
+    try {
+      final isConnected = _connectionMonitor.isConnected;
+      if (mounted) {
+        setState(() {
+          _isConnected = isConnected;
+        });
+      }
+    } catch (e) {
+      print('Failed to load connectivity status: $e');
+    }
+  }
+
+  Future<void> _loadSyncStatistics() async {
+    try {
+      final stats = await _syncManager.getSyncStatistics();
+      if (mounted) {
+        setState(() {
+          _syncStatistics = stats;
+        });
+      }
+    } catch (e) {
+      print('Failed to load sync statistics: $e');
+    }
+  }
+
+  Future<void> _performFullSync() async {
+    SyncProgressDialog.show(
+      context,
+      adminUid: adminUid,
+      onSyncCompleted: () {
+        _loadSyncStatistics();
+        SnackBarUtils.showSuccess(context, 'Full sync completed successfully');
+      },
+    );
+  }
+
+  Future<void> _performManualSync() async {
+    try {
+      await _syncManager.syncPendingData();
+    } catch (e) {
+      if (mounted) {
+        SnackBarUtils.showError(context, 'Manual sync failed: $e');
+      }
+    }
+  }
+
+  Widget _buildConnectionStatus() {
+    return Container(
+      decoration: BoxDecoration(
+        color: white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            spreadRadius: 1,
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.all(16),
+        leading: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: _isConnected ? primaryColor.withOpacity(0.1) : Colors.red.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(
+            _isConnected ? Icons.wifi : Icons.wifi_off,
+            color: _isConnected ? primaryColor : Colors.red,
+          ),
+        ),
+        title: MyText(
+          text: _isConnected ? 'Online' : 'Offline',
+          fontWeight: FontWeight.bold,
+          fontSize: 16,
+        ),
+        subtitle: MyText(
+          text: _isConnected ? 'Connected to internet' : 'No internet connection',
+          fontSize: 13,
+          color: Colors.grey[600],
+        ),
+        trailing: Icon(
+          _isConnected ? Icons.check_circle : Icons.error,
+          color: _isConnected ? primaryColor : Colors.red,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSyncStatus() {
+    String statusText;
+    Color statusColor;
+    IconData statusIcon;
+
+    switch (_currentStatus) {
+      case SyncOperationStatus.syncing:
+        statusText = 'Syncing';
+        statusColor = Colors.blue;
+        statusIcon = Icons.sync;
+        break;
+      case SyncOperationStatus.retrying:
+        statusText = 'Retrying';
+        statusColor = Colors.orange;
+        statusIcon = Icons.refresh;
+        break;
+      case SyncOperationStatus.completed:
+        statusText = 'Completed';
+        statusColor = primaryColor;
+        statusIcon = Icons.check_circle;
+        break;
+      case SyncOperationStatus.failed:
+        statusText = 'Failed';
+        statusColor = Colors.red;
+        statusIcon = Icons.error;
+        break;
+      case SyncOperationStatus.idle:
+      default:
+        statusText = 'Idle';
+        statusColor = Colors.grey;
+        statusIcon = Icons.pause_circle;
+        break;
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            spreadRadius: 1,
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.all(16),
+        leading: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: statusColor.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(statusIcon, color: statusColor),
+        ),
+        title: MyText(
+          text: 'Sync Status: $statusText',
+          fontWeight: FontWeight.bold,
+          fontSize: 16,
+        ),
+        subtitle: _lastResult?.errorMessage != null
+            ? MyText(
+                text: 'Error: ${_lastResult!.errorMessage}',
+                color: Colors.red,
+                fontSize: 13,
+              )
+            : _lastResult?.success == true
+                ? MyText(
+                    text: 'Last sync: ${_lastResult!.itemsSynced} items',
+                    fontSize: 13,
+                    color: Colors.grey[600],
+                  )
+                : MyText(
+                    text: 'Ready to sync',
+                    fontSize: 13,
+                    color: Colors.grey[600],
+                  ),
+        trailing: _currentStatus == SyncOperationStatus.syncing
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: primaryColor,
+                ),
+              )
+            : null,
+      ),
+    );
+  }
+
+  Widget _buildSyncStatistics() {
+    if (_syncStatistics.isEmpty) {
+      return Container(
+        decoration: BoxDecoration(
+          color: white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.1),
+              spreadRadius: 1,
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: ListTile(
+          contentPadding: const EdgeInsets.all(16),
+          leading: Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.grey.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.info, color: Colors.grey),
+          ),
+          title: const MyText(
+            text: 'Loading statistics...',
+            fontSize: 15,
+          ),
+        ),
+      );
+    }
+
+    final pendingCount = _syncStatistics['pendingItemsCount'] ?? 0;
+    final lastSyncTime = _syncStatistics['lastSyncTime'];
+    final isInitialized = _syncStatistics['isInitialized'] ?? false;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            spreadRadius: 1,
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.analytics, color: primaryColor),
+              SizedBox(width: 8),
+              MyText(
+                text: 'Sync Statistics',
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _buildStatRow('Pending Items', pendingCount.toString(), pendingCount > 0 ? Colors.orange : primaryColor),
+          _buildStatRow('Last Sync', lastSyncTime ?? 'Never', Colors.grey[700]!),
+          _buildStatRow('Sync Manager', isInitialized ? 'Initialized' : 'Not initialized',
+              isInitialized ? primaryColor : Colors.orange),
+          _buildStatRow('Connection', _isConnected ? 'Online' : 'Offline', _isConnected ? primaryColor : Colors.red),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatRow(String label, String value, Color valueColor) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          MyText(
+            text: label,
+            fontWeight: FontWeight.w500,
+            fontSize: 14,
+          ),
+          MyText(
+            text: value,
+            color: valueColor,
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionButtons() {
+    final pendingCount = _syncStatistics['pendingItemsCount'] ?? 0;
+    final canSync =
+        _isConnected && _currentStatus != SyncOperationStatus.syncing && _currentStatus != SyncOperationStatus.retrying;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            spreadRadius: 1,
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.touch_app, color: primaryColor),
+              SizedBox(width: 8),
+              MyText(
+                text: 'Sync Actions',
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton.icon(
+            onPressed: canSync && pendingCount > 0 ? _performManualSync : null,
+            icon: const Icon(Icons.sync),
+            label: MyText(
+              text: 'Sync Pending Items ($pendingCount)',
+              fontWeight: FontWeight.w600,
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primaryColor,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          ElevatedButton.icon(
+            onPressed: canSync ? _performFullSync : null,
+            icon: const Icon(Icons.sync_alt),
+            label: const MyText(
+              text: 'Full Sync',
+              fontWeight: FontWeight.w600,
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            onPressed: _loadData,
+            icon: const Icon(Icons.refresh, color: primaryColor),
+            label: const MyText(
+              text: 'Refresh Status',
+              fontWeight: FontWeight.w600,
+              color: primaryColor,
+            ),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              side: const BorderSide(color: primaryColor),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.green[50],
+      drawer: MyDrawer(
+        phoneNo: uid,
+        adminPhoneNo: adminUid,
+      ),
+      appBar: AppBar(
+        backgroundColor: white,
+        elevation: 0,
+        title: const MyText(
+          text: 'Sync Diagnostics',
+          color: Colors.black87,
+          fontWeight: FontWeight.w600,
+          fontSize: 18,
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh, color: primaryColor),
+            onPressed: _loadData,
+            tooltip: 'Refresh',
+          ),
+        ],
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: primaryColor))
+          : RefreshIndicator(
+              onRefresh: _loadData,
+              color: primaryColor,
+              child: ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  _buildConnectionStatus(),
+                  const SizedBox(height: 12),
+                  _buildSyncStatus(),
+                  const SizedBox(height: 12),
+                  _buildSyncStatistics(),
+                  const SizedBox(height: 12),
+                  _buildActionButtons(),
+                ],
+              ),
+            ),
+    );
+  }
+}
