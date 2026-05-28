@@ -370,8 +370,7 @@ class _SyncStatusPageState extends State<SyncStatusPage> {
           const SizedBox(height: 16),
           _buildStatRow('Pending Items', pendingCount.toString(), pendingCount > 0 ? Colors.orange : primaryColor),
           _buildStatRow('Last Sync', lastSyncTime ?? 'Never', Colors.grey[700]!),
-          _buildStatRow('Sync Manager', isInitialized ? 'Initialized' : 'Not initialized',
-              isInitialized ? primaryColor : Colors.orange),
+          _buildStatRow('Sync Manager', isInitialized ? 'Initialized' : 'Not initialized', isInitialized ? primaryColor : Colors.orange),
           _buildStatRow('Connection', _isConnected ? 'Online' : 'Offline', _isConnected ? primaryColor : Colors.red),
         ],
       ),
@@ -402,8 +401,7 @@ class _SyncStatusPageState extends State<SyncStatusPage> {
 
   Widget _buildActionButtons() {
     final pendingCount = _syncStatistics['pendingItemsCount'] ?? 0;
-    final canSync =
-        _isConnected && _currentStatus != SyncOperationStatus.syncing && _currentStatus != SyncOperationStatus.retrying;
+    final canSync = _isConnected && _currentStatus != SyncOperationStatus.syncing && _currentStatus != SyncOperationStatus.retrying;
 
     return Container(
       decoration: BoxDecoration(

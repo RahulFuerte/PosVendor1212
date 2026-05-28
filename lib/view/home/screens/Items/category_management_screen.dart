@@ -61,7 +61,6 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
     }
   }
 
-
   Future<void> _openForm({CategoryModel? category}) async {
     final result = await Navigator.push<bool>(
       context,
@@ -241,9 +240,7 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
       child: Row(
         children: [
           MyText(
-            text: _searchQuery.isEmpty
-                ? '$count ${count == 1 ? 'category' : 'categories'}'
-                : '$count result${count == 1 ? '' : 's'}',
+            text: _searchQuery.isEmpty ? '$count ${count == 1 ? 'category' : 'categories'}' : '$count result${count == 1 ? '' : 's'}',
             color: Colors.grey.shade500,
             fontSize: 12.5,
             fontWeight: FontWeight.w600,
@@ -424,7 +421,8 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 13),
                 ),
                 icon: const Icon(Icons.add_rounded),
-                label: MyText(text: AppLocale.addFirstCategory.getString(context),
+                label: MyText(
+                  text: AppLocale.addFirstCategory.getString(context),
                   fontWeight: FontWeight.bold,
                   fontSize: 14,
                   letterSpacing: 0.3,

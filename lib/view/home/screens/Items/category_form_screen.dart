@@ -190,7 +190,6 @@ class _CategoryFormScreenState extends State<CategoryFormScreen> {
     }
   }
 
-
   bool get _hasImage => _pickedImage != null || (_existingImageUrl != null && _existingImageUrl!.isNotEmpty);
 
   @override
@@ -244,9 +243,7 @@ class _CategoryFormScreenState extends State<CategoryFormScreen> {
                       decoration: BoxDecoration(
                         color: primaryColor,
                         shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(color: primaryColor.withOpacity(0.4), blurRadius: 12, offset: const Offset(0, 4))
-                        ],
+                        boxShadow: [BoxShadow(color: primaryColor.withOpacity(0.4), blurRadius: 12, offset: const Offset(0, 4))],
                       ),
                       child: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 24),
                     ),
@@ -269,16 +266,13 @@ class _CategoryFormScreenState extends State<CategoryFormScreen> {
                       fontWeight: FontWeight.bold,
                     ),
                     const SizedBox(height: 6),
-                    MyText(
-                        text: AppLocale.provideDistinctCategoryName.getString(context), color: Colors.grey.shade600, fontSize: 14),
+                    MyText(text: AppLocale.provideDistinctCategoryName.getString(context), color: Colors.grey.shade600, fontSize: 14),
                     const SizedBox(height: 24),
 
                     // Name field
                     Container(
                       decoration: BoxDecoration(
-                        boxShadow: [
-                          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 20, offset: const Offset(0, 4))
-                        ],
+                        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 20, offset: const Offset(0, 4))],
                       ),
                       child: TextFormField(
                         controller: _nameController,

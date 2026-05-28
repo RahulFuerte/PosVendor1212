@@ -157,8 +157,7 @@ class _AdminSignUpState extends State<AdminSignUp> {
                         hint: AppLocale.egRahulSharma.getString(context),
                         icon: Icons.person_outline_rounded,
                         capitalization: TextCapitalization.words,
-                        validator: (v) =>
-                            v == null || v.trim().isEmpty ? AppLocale.nameRequired.getString(context) : null,
+                        validator: (v) => v == null || v.trim().isEmpty ? AppLocale.nameRequired.getString(context) : null,
                       ),
                       const SizedBox(height: 16),
                       _label('${AppLocale.mobileNumber.getString(context)} *'),
@@ -265,8 +264,7 @@ class _AdminSignUpState extends State<AdminSignUp> {
                         hint: AppLocale.egRajkot.getString(context),
                         icon: Icons.location_city_rounded,
                         capitalization: TextCapitalization.words,
-                        validator: (v) =>
-                            v == null || v.trim().isEmpty ? AppLocale.cityIsRequired.getString(context) : null,
+                        validator: (v) => v == null || v.trim().isEmpty ? AppLocale.cityIsRequired.getString(context) : null,
                       ),
                       const SizedBox(height: 16),
                       _label('${AppLocale.detailedAddressLabel.getString(context)} *'),
@@ -275,8 +273,7 @@ class _AdminSignUpState extends State<AdminSignUp> {
                         hint: AppLocale.egAddress.getString(context),
                         icon: Icons.map_outlined,
                         capitalization: TextCapitalization.words,
-                        validator: (v) =>
-                            v == null || v.trim().isEmpty ? AppLocale.addressIsRequired.getString(context) : null,
+                        validator: (v) => v == null || v.trim().isEmpty ? AppLocale.addressIsRequired.getString(context) : null,
                       ),
                       const SizedBox(height: 48),
                       SizedBox(
@@ -375,8 +372,7 @@ class _AdminSignUpState extends State<AdminSignUp> {
       style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, fontFamily: 'Outfit'),
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle:
-            TextStyle(color: Colors.grey.shade400, fontSize: 13.5, fontWeight: FontWeight.w500, fontFamily: 'Outfit'),
+        hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13.5, fontWeight: FontWeight.w500, fontFamily: 'Outfit'),
         errorStyle: const TextStyle(fontFamily: 'Outfit', fontSize: 12),
         prefixIcon: Icon(icon, color: primaryColor, size: 20),
         suffixIcon: suffixIcon,

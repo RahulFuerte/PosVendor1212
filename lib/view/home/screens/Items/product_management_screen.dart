@@ -74,7 +74,6 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
     }
   }
 
-
   String _getCategoryName(String? id) {
     if (id == null || id.isEmpty) return 'Uncategorized';
     try {
@@ -409,8 +408,7 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
                               fontSize: 11.5,
                               fontWeight: FontWeight.w500,
                             ),
-                          if (p.foodCode != null && p.foodCode!.isNotEmpty && p.stocks != null)
-                            const SizedBox(width: 10),
+                          if (p.foodCode != null && p.foodCode!.isNotEmpty && p.stocks != null) const SizedBox(width: 10),
                           if (p.stocks != null)
                             Row(children: [
                               Icon(Icons.inventory_2_rounded, size: 11, color: Colors.grey.shade400),
@@ -537,7 +535,8 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 13),
                 ),
                 icon: const Icon(Icons.add_rounded),
-                label: MyText(text: AppLocale.addFirstProduct.getString(context),
+                label: MyText(
+                  text: AppLocale.addFirstProduct.getString(context),
                   fontWeight: FontWeight.bold,
                   fontSize: 14,
                 ),
