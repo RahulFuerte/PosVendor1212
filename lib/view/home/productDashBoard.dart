@@ -34,7 +34,6 @@ import 'package:pos/data/services/order_service.dart';
 import 'widgets/bill_cart_widget.dart';
 import 'widgets/show_save_order_bottom_sheet.dart';
 
-import 'package:pos/view/tab_screen/view-model/widgets/offline_status_banner.dart' as banner;
 
 class ProductDashBoard extends StatefulWidget {
   const ProductDashBoard({Key? key}) : super(key: key);
@@ -391,7 +390,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
       ),
       body: Column(
         children: [
-          banner.OfflineStatusBanner(adminUid: adminUid),
+          
           Expanded(
             child: FutureBuilder(
               future: foodItemsFuture,

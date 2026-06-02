@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:pos/core/widgets/text.dart';
 import 'package:flutter/services.dart';
-import 'package:pos/data/datasources/local/sqlite_helper.dart';
-import 'package:pos/data/datasources/smart_database_service.dart';
 import 'package:pos/view/home/navigation.dart';
 import 'package:pos/data/providers/print_provider.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
@@ -58,8 +56,6 @@ class SaveOrderBottomSheet extends StatefulWidget {
 
 class _SaveOrderBottomSheetState extends State<SaveOrderBottomSheet> {
   final ScrollController _listScrollController = ScrollController();
-  final SmartDatabaseService _databaseService = SmartDatabaseService();
-  final SQLiteHelper _sqliteHelper = SQLiteHelper();
   final CustomerService _customerService = CustomerService();
   List<Map<String, dynamic>> selectedItemsDetails = [];
   List<CustomerModel> _customers = [];

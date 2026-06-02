@@ -4,7 +4,6 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_model.dart';
 import '../constants/api_constants.dart';
-import '../datasources/local/sqlite_helper.dart';
 import '../datasources/shared_preferences.dart';
 
 class UserService {
@@ -24,11 +23,8 @@ class UserService {
     await prefs.setString('token', token);
   }
 
-  // Clear token and session data (Log out)
+  // Clear session data (Log out)
   Future<void> logout() async {
-    // 1. Clear all SQLite data
-    await SQLiteHelper().clearAllData();
-    // 2. Clear all SharedPreferences
     await MySharedPreferences().clear();
   }
 
@@ -184,26 +180,6 @@ class UserService {
         await prefs.setString('subscriptionEndDate', userModel.subscription!.endDate!.toIso8601String());
       }
     }
-
-    // 4. Sync with SQLite for secondary screens
-    await SQLiteHelper().saveUserData({
-      'phoneNumber': userModel.phoneNumber,
-      'adminUid': userModel.id ?? userModel.phoneNumber,
-      'name': userModel.name,
-      'shopName': userModel.shopName ?? '',
-      'address': userModel.address ?? '',
-      'logoUrl': userModel.logoUrl ?? '',
-      'gstNumber': userModel.gstNo ?? '',
-      'fssaiNo': userModel.fssaiNo ?? '',
-      'upiId': userModel.upiId ?? '',
-      'city': userModel.city ?? '',
-      'latitude': userModel.location?.latitude,
-      'longitude': userModel.location?.longitude,
-      'shopContact': userModel.phoneNumber, // Map phoneNumber to shopContact
-      'isShopOpen': userModel.isShopOpen ?? false,
-      'businessCategory': userModel.businessCategory ?? 'Food',
-      'businessIcon': userModel.businessIcon ?? '',
-    });
   }
 
   Future<List<UserModel>> getShops() async {
@@ -354,26 +330,6 @@ class UserService {
           await prefs.setString('businessCategory', updates['businessCategory']);
         }
         if (updates.containsKey('businessIcon')) await prefs.setString('businessIcon', updates['businessIcon']);
-
-        // Sync with SQLite for secondary screens (like Edit Bill)
-        await SQLiteHelper().saveUserData({
-          'phoneNumber': updatedUser.phoneNumber,
-          'adminUid': updatedUser.id ?? updatedUser.phoneNumber,
-          'name': updatedUser.name,
-          'shopName': updatedUser.shopName ?? '',
-          'address': updatedUser.address ?? '',
-          'logoUrl': updatedUser.logoUrl ?? '',
-          'gstNumber': updatedUser.gstNo ?? '',
-          'fssaiNo': updatedUser.fssaiNo ?? '',
-          'upiId': updatedUser.upiId ?? '',
-          'city': updatedUser.city ?? '',
-          'latitude': updatedUser.location?.latitude,
-          'longitude': updatedUser.location?.longitude,
-          'shopContact': updatedUser.phoneNumber,
-          'isShopOpen': updatedUser.isShopOpen ?? false,
-          'businessCategory': updatedUser.businessCategory ?? 'Food',
-          'businessIcon': updatedUser.businessIcon ?? '',
-        });
 
         return updatedUser;
       } else {

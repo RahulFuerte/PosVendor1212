@@ -4,8 +4,6 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:pos/core/widgets/text.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:intl/intl.dart';
-import 'package:pos/data/datasources/local/sqlite_helper.dart';
-import 'package:pos/data/datasources/smart_database_service.dart';
 import 'package:pos/data/providers/order_type_provider.dart';
 import 'package:pos/data/providers/print_provider.dart';
 import 'package:pos/data/services/report_service.dart';
@@ -61,10 +59,8 @@ class _DashboardState extends State<Dashboard> {
   DateTime selectedDate = DateTime.now();
   String selectedOrderType = 'all';
 
-  final SmartDatabaseService _databaseService = SmartDatabaseService();
   final ReportService _reportService = ReportService();
   final OrderService _orderService = OrderService();
-  final SQLiteHelper _sqliteHelper = SQLiteHelper();
 
   TutorialCoachMark? _tourMark;
 
@@ -379,7 +375,6 @@ class _DashboardState extends State<Dashboard> {
 
     try {
       // Generate sequential receipt number (returns 8-digit padded string like "00000001")
-      String generatedReceiptNo = await _sqliteHelper.getNextReceiptNumber(phoneNo);
       final orderTypeProvider = Provider.of<OrderTypeProvider>(context, listen: false);
       String paymentType = orderTypeProvider.paymentType.toString().split('.').last;
       String orderType = orderTypeProvider.orderType.toString().split('.').last;

@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localization/flutter_localization.dart';
 import 'package:pos/core/widgets/text.dart';
-import 'package:pos/core/utils/offline_tts.dart';
-import 'package:pos/data/datasources/local/sqlite_helper.dart';
-import 'package:pos/data/datasources/smart_database_service.dart';
 import 'package:pos/data/models/customer_model.dart';
 import 'package:pos/data/providers/order_type_provider.dart';
 import 'package:pos/data/providers/print_provider.dart';
@@ -18,6 +15,7 @@ import 'package:pos/view/tab_screen/view-model/widgets/printers/printer.dart';
 import 'package:pos/core/utils/price_utils.dart';
 import 'package:pos/core/utils/snackbar_utils.dart';
 import 'package:pos/data/providers/table_provider.dart';
+import 'package:pos/data/services/tts_service.dart';
 import 'package:provider/provider.dart';
 import 'dart:developer' as developer;
 import 'package:pos/l10n/app_locale.dart';
@@ -51,8 +49,6 @@ class ReceiptPreviewScreen extends StatefulWidget {
 }
 
 class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
-  final SmartDatabaseService _databaseService = SmartDatabaseService();
-  final SQLiteHelper _sqliteHelper = SQLiteHelper();
   final CustomerService _customerService = CustomerService();
   final UserService _userService = UserService();
   List<CustomerModel> allCustomers = [];
@@ -277,7 +273,6 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
     final printProvider = Provider.of<PrintProvider>(context, listen: false);
 
     // Generate sequential receipt number
-    String generatedReceiptNo = await _sqliteHelper.getNextReceiptNumber(widget.phoneNo);
 
     try {
       final bool taxEnabled = printProvider.taxEnabled;
@@ -293,7 +288,7 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
 
       await DirectPrintHelper().saveBillData(
         adminUid: widget.phoneNo,
-        receiptNo: generatedReceiptNo,
+        receiptNo: '',
         items: printProvider.posts,
         subTotal: printProvider.total,
         tableNumber: widget.tableNumber,
@@ -313,9 +308,10 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
         employeeId: selectedStaffId,
       );
 
-      await OfflineTTS.speak("$amountInWords rupees");
-
       orderTypeProvider.reset();
+
+      // Announce amount via TTS
+      TtsService.speak("$amountInWords rupees");
 
       if (mounted) {
         SnackBarUtils.showSuccess(context, 'Bill Saved Successfully');
@@ -469,7 +465,6 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
                             setState(() => _isPrinting = true);
 
                             // ✅ 2. Generate receipt number
-                            final String generatedReceiptNo = await _sqliteHelper.getNextReceiptNumber(widget.phoneNo);
 
                             // ✅ 3. Tax parameters
                             final bool taxEnabled = printProvider.taxEnabled;
@@ -519,7 +514,7 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
                                 taxEnabled: taxEnabled,
                                 cgstPercent: cgstPercent,
                                 sgstPercent: sgstPercent,
-                                receiptNo: generatedReceiptNo,
+                                receiptNo: null,
                                 customerId: await _resolveLocalCustomerId() ?? "",
                                 employeeId: selectedStaffId, // Passed
                                 saveBill: true,
@@ -527,7 +522,8 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
 
                               if (!mounted) return;
 
-                              await OfflineTTS.speak("$amountInWords rupees");
+                              // Announce amount via TTS
+                              TtsService.speak("$amountInWords rupees");
 
                               printProvider.clearCart();
 

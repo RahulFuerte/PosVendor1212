@@ -16,7 +16,7 @@ import 'package:flutter_localization/flutter_localization.dart';
 import 'package:pos/l10n/app_locale.dart';
 import 'package:pos/data/providers/tour_provider.dart';
 import 'package:pos/data/datasources/database_service.dart';
-import 'package:pos/data/datasources/unified_database_service.dart';
+import 'package:pos/data/datasources/online_database_service.dart';
 import 'package:pos/data/providers/print_provider.dart';
 import 'package:pos/core/utils/snackbar_utils.dart';
 import 'package:pos/data/providers/login_provider.dart';
@@ -91,7 +91,7 @@ class _MyAppState extends State<MyApp> {
         // DatabaseService - Core data access layer with SQLite
         Provider<DatabaseService>(
           create: (_) {
-            final service = UnifiedDatabaseService();
+            final service = OnlineDatabaseService();
             service.initialize();
             return service;
           },

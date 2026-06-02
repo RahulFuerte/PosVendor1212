@@ -1,10 +1,7 @@
 // Dart imports:
 import 'dart:async';
 import 'dart:io';
-
-// Package imports:
-import 'package:path/path.dart';
-import 'package:sqflite/sqflite.dart';
+import 'package:path_provider/path_provider.dart';
 
 /// Comprehensive error handling and logging service for sync operations
 class ErrorHandlingService {
@@ -40,15 +37,15 @@ class ErrorHandlingService {
   /// Initialize log file for persistent logging
   Future<void> _initializeLogFile() async {
     try {
-      final dbPath = await getDatabasesPath();
-      final logDir = Directory(join(dbPath, 'logs'));
+      final appDocDir = await getApplicationDocumentsDirectory();
+      final logDir = Directory('${appDocDir.path}${Platform.pathSeparator}logs');
 
       if (!await logDir.exists()) {
         await logDir.create(recursive: true);
       }
 
       final timestamp = DateTime.now().toIso8601String().split('T')[0];
-      _logFilePath = join(logDir.path, 'sync_log_$timestamp.txt');
+      _logFilePath = '${logDir.path}${Platform.pathSeparator}sync_log_$timestamp.txt';
 
       // Create log file if it doesn't exist
       final logFile = File(_logFilePath!);
@@ -186,8 +183,7 @@ class ErrorHandlingService {
       logLine += ' | Error: ${entry.error}';
     }
 
-    if (entry.stackTrace != null) {
-    }
+    if (entry.stackTrace != null) {}
   }
 
   /// Write log entry to file
@@ -238,8 +234,7 @@ class ErrorHandlingService {
 
   /// Get error statistics
   Map<String, dynamic> getErrorStatistics({Duration? timeWindow}) {
-    final cutoffTime =
-        timeWindow != null ? DateTime.now().subtract(timeWindow) : DateTime.now().subtract(const Duration(hours: 24));
+    final cutoffTime = timeWindow != null ? DateTime.now().subtract(timeWindow) : DateTime.now().subtract(const Duration(hours: 24));
 
     final recentLogs = _logBuffer.where((log) => log.timestamp.isAfter(cutoffTime)).toList();
 
@@ -259,8 +254,7 @@ class ErrorHandlingService {
       'warningCount': warningCount,
       'infoCount': infoCount,
       'componentErrors': componentErrors,
-      'mostProblematicComponent':
-          componentErrors.isNotEmpty ? componentErrors.entries.reduce((a, b) => a.value > b.value ? a : b).key : null,
+      'mostProblematicComponent': componentErrors.isNotEmpty ? componentErrors.entries.reduce((a, b) => a.value > b.value ? a : b).key : null,
     };
   }
 
@@ -286,15 +280,15 @@ class ErrorHandlingService {
   /// Export logs to a file
   Future<String?> exportLogs({DateTime? startDate, DateTime? endDate}) async {
     try {
-      final dbPath = await getDatabasesPath();
-      final exportDir = Directory(join(dbPath, 'exports'));
+      final appDocDir = await getApplicationDocumentsDirectory();
+      final exportDir = Directory('${appDocDir.path}${Platform.pathSeparator}exports');
 
       if (!await exportDir.exists()) {
         await exportDir.create(recursive: true);
       }
 
       final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-');
-      final exportPath = join(exportDir.path, 'sync_logs_export_$timestamp.txt');
+      final exportPath = '${exportDir.path}${Platform.pathSeparator}sync_logs_export_$timestamp.txt';
 
       var logsToExport = List<LogEntry>.from(_logBuffer);
 
@@ -342,8 +336,7 @@ class ErrorHandlingService {
 
       await exportFile.writeAsString(buffer.toString());
 
-      await logInfo('ErrorHandlingService', 'Logs exported successfully',
-          context: {'exportPath': exportPath, 'entryCount': logsToExport.length});
+      await logInfo('ErrorHandlingService', 'Logs exported successfully', context: {'exportPath': exportPath, 'entryCount': logsToExport.length});
 
       return exportPath;
     } catch (e) {

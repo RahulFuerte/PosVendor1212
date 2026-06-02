@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_pos_printer_platform_image_3/flutter_pos_printer_platform_image_3.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:pos/data/datasources/smart_database_service.dart';
 import 'package:image/image.dart' as img_lib;
 import 'package:http/http.dart' as http;
 import 'package:pos/core/utils/snackbar_utils.dart';
@@ -14,7 +13,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:pos/data/services/order_service.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 
-import '../../../../../data/datasources/offline_bill_manager.dart';
 
 class DirectPrintHelper {
   // Generate 8-digit random receipt number
@@ -24,7 +22,6 @@ class DirectPrintHelper {
     return (10000000 + random.nextInt(90000000)).toString();
   }
 
-  final SmartDatabaseService _databaseService = SmartDatabaseService();
   static Future<List<int>> loadLogoOfflineSafe(
     String logoUrl,
     Generator generator,
@@ -511,35 +508,7 @@ class DirectPrintHelper {
         // We don't rethrow here because we want to gracefully fallback to offline local saving
       }
 
-      // Prepare bill data for SmartDatabaseService
-      final billData = {
-        'id': finalReceiptNo,
-        'firebase_id': orderId,
-        'customer_id': (customerId == null || customerId.isEmpty) ? null : customerId,
-        'bill_date': now.millisecondsSinceEpoch,
-        'items': jsonEncode(itemsData),
-        'total_amount': finalTotal,
-        'sub_total': subTotal,
-        'table_number': tableNumber ?? 'N/A',
-        'tax_enabled': taxEnabled ? 1 : 0,
-        'cgst_percent': cgstPercent,
-        'sgst_percent': sgstPercent,
-        'cgst_amount': cgstAmount,
-        'sgst_amount': sgstAmount,
-        'customer_name': customerName ?? '',
-        'customer_phone': customerPhone ?? '',
-        'customer_gst': customerGst ?? '',
-        'customer_address': customerAddress ?? '',
-        'customer_note': customerNote ?? '',
-        'discount_percent': discountPercent,
-        'discount_amount': discountAmount,
-        'final_total': finalTotal,
-        'payment_type': paymentType ?? '',
-        'order_type': orderType ?? '',
-      };
-
-      // Save using SmartDatabaseService (handles online/offline automatically)
-      await _databaseService.saveBill(adminUid, billData);
+      // Bill data is already saved via OrderService above - no additional local save needed
 
       return finalReceiptNo;
     } catch (e) {
@@ -695,35 +664,35 @@ class DirectPrintHelper {
   // }
 
   /// Get offline bill statistics for display
-  static Future<Map<String, dynamic>> getOfflineBillStats(String adminUid) async {
-    try {
-      final offlineBillManager = OfflineBillManager();
-      await offlineBillManager.initialize();
-      return await offlineBillManager.getDetailedOfflineBillStatistics(adminUid);
-    } catch (e) {
-      debugPrint('Error getting offline bill stats: $e');
-      return {
-        'error': e.toString(),
-        'offlineBillsCount': 0,
-      };
-    }
-  }
+  // static Future<Map<String, dynamic>> getOfflineBillStats(String adminUid) async {
+  //   try {
+  //     final offlineBillManager = OfflineBillManager();
+  //     await offlineBillManager.initialize();
+  //     return await offlineBillManager.getDetailedOfflineBillStatistics(adminUid);
+  //   } catch (e) {
+  //     debugPrint('Error getting offline bill stats: $e');
+  //     return {
+  //       'error': e.toString(),
+  //       'offlineBillsCount': 0,
+  //     };
+  //   }
+  // }
 
   /// Manually trigger sync of offline bills
-  static Future<OfflineBillSyncResult> syncOfflineBills(String adminUid) async {
-    try {
-      final offlineBillManager = OfflineBillManager();
-      await offlineBillManager.initialize();
-      return await offlineBillManager.manualSyncOfflineBills(adminUid);
-    } catch (e) {
-      debugPrint('Error syncing offline bills: $e');
-      return OfflineBillSyncResult(
-        success: false,
-        errorMessage: e.toString(),
-        billsSynced: 0,
-      );
-    }
-  }
+  // static Future<OfflineBillSyncResult> syncOfflineBills(String adminUid) async {
+  //   try {
+  //     final offlineBillManager = OfflineBillManager();
+  //     await offlineBillManager.initialize();
+  //     return await offlineBillManager.manualSyncOfflineBills(adminUid);
+  //   } catch (e) {
+  //     debugPrint('Error syncing offline bills: $e');
+  //     return OfflineBillSyncResult(
+  //       success: false,
+  //       errorMessage: e.toString(),
+  //       billsSynced: 0,
+  //     );
+  //   }
+  // }
 
   static Future<void> printCustomerWiseReport({
     required BuildContext context,

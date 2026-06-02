@@ -15,7 +15,6 @@ import 'package:provider/provider.dart';
 import 'package:flutter_localization/flutter_localization.dart';
 import 'package:pos/l10n/app_locale.dart';
 import 'package:pos/core/utils/price_utils.dart';
-import 'package:pos/data/datasources/local/sqlite_helper.dart';
 import 'package:pos/data/services/product_service.dart';
 import 'package:pos/view/home/navigation.dart';
 import 'package:pos/data/providers/print_provider.dart';
@@ -362,55 +361,18 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
 
   Future<String> fetchAdminUid() async {
     try {
-      // Check connection status first
-      final sqliteHelper = SQLiteHelper();
-      // Try SQLite cache first for adminUid
-      final cachedUid = await sqliteHelper.getAdminUid(phoneNumber);
-      if (cachedUid != null && cachedUid.isNotEmpty) {
-        setState(() {
-          adminUid = cachedUid;
-        });
-        return cachedUid;
-      }
       // Fallback to phoneNumber as adminUid
       setState(() {
         adminUid = phoneNumber;
       });
       return phoneNumber;
     } catch (e) {
-      return await _getCachedAdminUid();
-    }
-  }
-
-  /// Get cached adminUid from SQLite for offline use
-  Future<String> _getCachedAdminUid() async {
-    try {
-      final sqliteHelper = SQLiteHelper();
-      final cachedAdminUid = await sqliteHelper.getAdminUid(phoneNumber);
-
-      if (cachedAdminUid != null && cachedAdminUid.isNotEmpty) {
-        developer.log('Using cached adminUid from SQLite: $cachedAdminUid', name: 'CalculatorScreen');
-        setState(() {
-          adminUid = cachedAdminUid;
-        });
-        return cachedAdminUid;
-      }
-
-      // Last resort: use phoneNumber as adminUid
-      developer.log('No cached adminUid found, using phoneNumber as fallback', name: 'CalculatorScreen');
-      setState(() {
-        adminUid = phoneNumber;
-      });
-      return phoneNumber;
-    } catch (e) {
-      developer.log('Error getting cached adminUid from SQLite: $e', name: 'CalculatorScreen');
       setState(() {
         adminUid = phoneNumber;
       });
       return phoneNumber;
     }
   }
-
   Future<List<Map<String, dynamic>>> fetchFoodItems() async {
     try {
       final products = await ProductService().getProducts();

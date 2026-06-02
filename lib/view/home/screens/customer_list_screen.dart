@@ -12,7 +12,6 @@ import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pos/data/services/customer_service.dart';
 
-import 'package:pos/data/datasources/local/sqlite_helper.dart';
 import 'package:pos/data/models/customer_model.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:pos/core/utils/snackbar_utils.dart';
@@ -61,41 +60,18 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
     setState(() => isLoading = true);
 
     try {
-      // 1. Fetch from API
+      // Fetch from API
       final apiCustomers = await CustomerService().getCustomers();
 
-      // 2. Load local SQLite customers
-      final rawLocalData = await SQLiteHelper().getAllCustomers();
-      final localCustomers = rawLocalData.map((map) => CustomerModel.fromMap(map)).toList();
-
-      // Index API customers by phone
-      final apiMap = {for (var c in apiCustomers) c.phoneNumber: c};
-      final List<CustomerModel> mergedList = [];
-      final List<CustomerModel> pendingSync = [];
-
-      // Merge local and API
-      for (final local in localCustomers) {
-        if (apiMap.containsKey(local.phoneNumber)) {
-          mergedList.add(apiMap[local.phoneNumber]!.copyWith(isUploaded: true));
-        } else {
-          mergedList.add(local.copyWith(isUploaded: false));
-          pendingSync.add(local);
-        }
-      }
-
-      // Add API-only customers
-      for (final api in apiCustomers) {
-        if (!mergedList.any((c) => c.phoneNumber == api.phoneNumber)) {
-          mergedList.add(api.copyWith(isUploaded: true));
-        }
-      }
+      // All customers come from the API in online-only mode
+      final List<CustomerModel> mergedList = apiCustomers.map((c) => c.copyWith(isUploaded: true)).toList();
 
       if (!mounted) return;
 
       setState(() {
         customers = mergedList;
         _filterCustomers(); // This updates filteredCustomers
-        notUploadedCustomers = pendingSync;
+        notUploadedCustomers = [];
         isLoading = false;
       });
     } catch (e) {
@@ -290,7 +266,6 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
         if (importedCustomers.isNotEmpty) {
           for (var customer in importedCustomers) {
             try {
-              await SQLiteHelper().saveCustomerData(customer.toMap());
             } catch (e) {
               errors.add('Failed to save customer ${customer.name}: $e');
               failedImports++;
@@ -848,7 +823,6 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
         }
 
         // 2️⃣ Delete from SQLite
-        await SQLiteHelper().deleteCustomerData(customer.phoneNumber);
 
         // 3️⃣ Update UI instantly
         setState(() {
@@ -988,7 +962,6 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                           );
 
                           // Depending on your sync model, might need local sqlite updates
-                          // await SQLiteHelper().updateCustomerData(updatedCustomer.toMap(), updatedCustomer.phoneNumber);
 
                           Navigator.pop(context); // Close loading dialog
                           Navigator.pop(context); // Close bottom sheet
@@ -1016,7 +989,6 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                                 isUploaded: false,
                               );
 
-                          await SQLiteHelper().saveCustomerData(customerToSave.toMap());
                           Navigator.pop(context); // Close loading dialog
                           Navigator.pop(context); // Close bottom sheet
                           SnackBarUtils.showSuccess(context, AppLocale.customerAddedSuccessfully.getString(context));

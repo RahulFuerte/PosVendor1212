@@ -3,7 +3,6 @@ import 'dart:async';
 
 // Project imports:
 import 'error_handling_service.dart';
-import 'error_recovery_service.dart';
 import 'user_error_service.dart';
 
 /// Comprehensive error handler that integrates all error handling services
@@ -14,7 +13,6 @@ class ComprehensiveErrorHandler {
 
   final ErrorHandlingService _errorService = ErrorHandlingService();
   final UserErrorService _userErrorService = UserErrorService();
-  final ErrorRecoveryService _recoveryService = ErrorRecoveryService();
 
   bool _isInitialized = false;
 
@@ -26,10 +24,9 @@ class ComprehensiveErrorHandler {
       // Initialize services in order
       await _errorService.initialize();
       await _userErrorService.initialize();
-      await _recoveryService.initialize();
 
       _isInitialized = true;
-      
+
       await _errorService.logInfo(
         'ComprehensiveErrorHandler',
         'Comprehensive error handling system initialized successfully',
@@ -47,7 +44,6 @@ class ComprehensiveErrorHandler {
   UserErrorService get userErrorService => _userErrorService;
 
   /// Get the error recovery service
-  ErrorRecoveryService get recoveryService => _recoveryService;
 
   /// Handle a critical error that requires immediate attention
   Future<void> handleCriticalError({
@@ -142,67 +138,66 @@ class ComprehensiveErrorHandler {
   }
 
   /// Execute a recovery action and handle the result
-  Future<RecoveryResult> executeRecovery({
-    required String actionId,
-    required UserErrorType errorType,
-    Map<String, dynamic>? parameters,
-  }) async {
-    try {
-      final result = await _recoveryService.executeRecoveryAction(
-        actionId,
-        errorType,
-        parameters: parameters,
-      );
+  // Future<RecoveryResult> executeRecovery({
+  //   required String actionId,
+  //   required UserErrorType errorType,
+  //   Map<String, dynamic>? parameters,
+  // }) async {
+  //   try {
+  //     final result = await _recoveryService.executeRecoveryAction(
+  //       actionId,
+  //       errorType,
+  //       parameters: parameters,
+  //     );
 
-      if (result.success) {
-        _userErrorService.showSuccess(
-          title: 'Recovery Successful',
-          message: result.message,
-        );
-      } else {
-        _userErrorService.showError(
-          title: 'Recovery Failed',
-          message: result.message,
-          severity: UserNotificationSeverity.warning,
-        );
-      }
+  //     if (result.success) {
+  //       _userErrorService.showSuccess(
+  //         title: 'Recovery Successful',
+  //         message: result.message,
+  //       );
+  //     } else {
+  //       _userErrorService.showError(
+  //         title: 'Recovery Failed',
+  //         message: result.message,
+  //         severity: UserNotificationSeverity.warning,
+  //       );
+  //     }
 
-      return result;
-    } catch (e) {
-      await _errorService.logError(
-        'ComprehensiveErrorHandler',
-        'Recovery execution failed',
-        error: e,
-        context: {'actionId': actionId, 'errorType': errorType.name},
-      );
+  //     return result;
+  //   } catch (e) {
+  //     await _errorService.logError(
+  //       'ComprehensiveErrorHandler',
+  //       'Recovery execution failed',
+  //       error: e,
+  //       context: {'actionId': actionId, 'errorType': errorType.name},
+  //     );
 
-      return RecoveryResult(
-        success: false,
-        message: 'Recovery execution failed: ${e.toString()}',
-        actionId: actionId,
-        timestamp: DateTime.now(),
-      );
-    }
-  }
+  //     return RecoveryResult(
+  //       success: false,
+  //       message: 'Recovery execution failed: ${e.toString()}',
+  //       actionId: actionId,
+  //       timestamp: DateTime.now(),
+  //     );
+  //   }
+  // }
 
   /// Get comprehensive error statistics
-  Future<Map<String, dynamic>> getErrorStatistics() async {
-    final errorStats = _errorService.getErrorStatistics();
-    final recoveryStats = _recoveryService.getRecoveryStatistics();
+  // Future<Map<String, dynamic>> getErrorStatistics() async {
+  //   final errorStats = _errorService.getErrorStatistics();
 
-    return {
-      'errorStatistics': errorStats,
-      'recoveryStatistics': recoveryStats,
-      'isHealthy': _isSystemHealthy(errorStats),
-      'recommendations': _getHealthRecommendations(errorStats),
-    };
-  }
+  //   return {
+  //     'errorStatistics': errorStats,
+  //     'recoveryStatistics': recoveryStats,
+  //     'isHealthy': _isSystemHealthy(errorStats),
+  //     'recommendations': _getHealthRecommendations(errorStats),
+  //   };
+  // }
 
   /// Check if the system is healthy based on error statistics
   bool _isSystemHealthy(Map<String, dynamic> errorStats) {
     final errorCount = errorStats['errorCount'] as int;
     final warningCount = errorStats['warningCount'] as int;
-    
+
     // System is considered unhealthy if there are more than 10 errors or 20 warnings in the last hour
     return errorCount <= 10 && warningCount <= 20;
   }
@@ -262,8 +257,8 @@ class ComprehensiveErrorHandler {
   Future<void> clearErrorData() async {
     try {
       await _errorService.clearLogs(clearFiles: true);
-      _recoveryService.cancelAllRecovery();
-      
+      // _recoveryService.cancelAllRecovery();
+
       await _errorService.logInfo(
         'ComprehensiveErrorHandler',
         'All error data cleared successfully',
@@ -282,7 +277,6 @@ class ComprehensiveErrorHandler {
 
   /// Dispose all resources
   void dispose() {
-    _recoveryService.dispose();
     _userErrorService.dispose();
     _errorService.dispose();
     _isInitialized = false;

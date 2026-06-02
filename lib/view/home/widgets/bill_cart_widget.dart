@@ -10,7 +10,6 @@ import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
 import 'package:pos/l10n/app_locale.dart';
 
 // Package imports:
-import 'package:pos/core/utils/offline_tts.dart';
 import 'package:pos/data/providers/order_type_provider.dart';
 import 'package:pos/data/providers/table_provider.dart';
 import 'package:pos/data/services/demo_data.dart';
@@ -20,12 +19,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 // Project imports:
 
-import '../../../data/datasources/local/sqlite_helper.dart';
-import '../../../data/datasources/smart_database_service.dart';
 import '../../tab_screen/view-model/widgets/printers/printer.dart';
 import '../navigation.dart';
 import '../../../data/providers/print_provider.dart';
 import '../../../core/utils/price_utils.dart';
+import '../../../data/services/tts_service.dart';
 import '../printer_connectionDialog.dart';
 import '../../../core/utils/snackbar_utils.dart';
 import '../receipt_preview.dart';
@@ -58,10 +56,9 @@ class _BillCartState extends State<BillCart> {
   String phoneNo = '';
   String adminUid = '';
   String businessCategory = 'Food';
+  TourProvider? _tourProvider;
 
   final ScrollController _listScrollController = ScrollController();
-  final SmartDatabaseService _databaseService = SmartDatabaseService();
-  final SQLiteHelper _sqliteHelper = SQLiteHelper();
 
   bool _tourShowing = false;
   TutorialCoachMark? _tourMark;
@@ -210,7 +207,9 @@ class _BillCartState extends State<BillCart> {
     if (widget.isRestaurantScreen == true) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        context.read<TourProvider>().addListener(_onTourStateChanged);
+        _tourProvider = context.read<TourProvider>();
+        _tourProvider!.addListener(_onTourStateChanged);
+
         _onTourStateChanged();
       });
     }
@@ -239,19 +238,10 @@ class _BillCartState extends State<BillCart> {
     }
   }
 
-  Future<void> _initializeDatabase() async {
-    try {
-      await _databaseService.initialize();
-      if (mounted) setState(() {});
-    } catch (e) {
-      debugPrint('Error initializing database: $e');
-    }
-  }
-
   @override
   void dispose() {
     if (widget.isRestaurantScreen == true) {
-      context.read<TourProvider>().removeListener(_onTourStateChanged);
+      _tourProvider?.removeListener(_onTourStateChanged);
     }
     _tourMark?.finish();
     _listScrollController.dispose();
@@ -445,7 +435,6 @@ class _BillCartState extends State<BillCart> {
 
     try {
       // Generate sequential receipt number (returns 8-digit padded string like "00000001")
-      String generatedReceiptNo = await _sqliteHelper.getNextReceiptNumber(phoneNo);
       // ignore: use_build_context_synchronously
       final orderTypeProvider = Provider.of<OrderTypeProvider>(context, listen: false);
       String paymentType = orderTypeProvider.paymentType.toString().split('.').last;
@@ -483,7 +472,7 @@ class _BillCartState extends State<BillCart> {
         discountPercent: 0,
         customerNote: printProvider.customerNote ?? "",
         customerAddress: printProvider.customerAddress ?? "",
-        receiptNo: generatedReceiptNo,
+        receiptNo: null,
         customerId: printProvider.customerId,
         taxEnabled: printProvider.taxEnabled,
         cgstPercent: printProvider.cgstPercent,
@@ -491,11 +480,10 @@ class _BillCartState extends State<BillCart> {
         saveBill: true,
       );
 
-      await OfflineTTS.speak(
-        "$amountInWords rupees",
-      );
-
       _clearCart(clearTableBackend: true);
+
+      // Announce the amount via TTS
+      TtsService.speak("$amountInWords rupees");
 
       orderTypeProvider.reset();
 
@@ -583,9 +571,7 @@ class _BillCartState extends State<BillCart> {
                                     ),
                                   ),
                                   Icon(
-                                    printProvider.isCartExpanded
-                                        ? Icons.keyboard_arrow_down_rounded
-                                        : Icons.keyboard_arrow_up_rounded,
+                                    printProvider.isCartExpanded ? Icons.keyboard_arrow_down_rounded : Icons.keyboard_arrow_up_rounded,
                                     color: Colors.grey.shade400,
                                     size: 18,
                                   ),
@@ -599,12 +585,8 @@ class _BillCartState extends State<BillCart> {
                     ),
                   ),
                   if (printProvider.isCartExpanded) ...[
-                    widget.isRestaurantScreen == true
-                        ? KeyedSubtree(key: TourKeys.cartItemsKey, child: _buildItemsList(printProvider))
-                        : _buildItemsList(printProvider),
-                    widget.isRestaurantScreen == true
-                        ? KeyedSubtree(key: TourKeys.subtotalKey, child: _buildFooter(printProvider))
-                        : _buildFooter(printProvider),
+                    widget.isRestaurantScreen == true ? KeyedSubtree(key: TourKeys.cartItemsKey, child: _buildItemsList(printProvider)) : _buildItemsList(printProvider),
+                    widget.isRestaurantScreen == true ? KeyedSubtree(key: TourKeys.subtotalKey, child: _buildFooter(printProvider)) : _buildFooter(printProvider),
                   ],
                 ],
               ),

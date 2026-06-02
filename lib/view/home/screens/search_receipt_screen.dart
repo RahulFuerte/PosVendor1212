@@ -8,7 +8,6 @@ import 'package:lottie/lottie.dart';
 import 'package:provider/provider.dart';
 
 // Project imports:
-import 'package:pos/data/datasources/local/sqlite_helper.dart';
 import 'package:pos/data/providers/print_provider.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:pos/core/utils/snackbar_utils.dart';
@@ -29,7 +28,6 @@ class SearchReceiptScreen extends StatefulWidget {
 }
 
 class _SearchReceiptScreenState extends State<SearchReceiptScreen> {
-  final SQLiteHelper _sqliteHelper = SQLiteHelper();
   String receiptNo = '';
   String adminUid = '';
   TextEditingController receiptNoController = TextEditingController();
@@ -41,18 +39,9 @@ class _SearchReceiptScreenState extends State<SearchReceiptScreen> {
 
   Future<String> fetchAdminUid() async {
     try {
-      // Try SQLite cache first
-      final sqliteHelper = SQLiteHelper();
-      final cachedUid = await sqliteHelper.getAdminUid(widget.phoneNumber);
-      if (cachedUid != null && cachedUid.isNotEmpty) {
-        setState(() => adminUid = cachedUid);
-        return cachedUid;
-      }
-      // Fallback to phoneNumber as adminUid
       setState(() => adminUid = widget.phoneNumber);
       return widget.phoneNumber;
     } catch (e) {
-      print('Error fetching adminUid: $e');
       setState(() => adminUid = widget.phoneNumber);
       return widget.phoneNumber;
     }
@@ -65,38 +54,14 @@ class _SearchReceiptScreenState extends State<SearchReceiptScreen> {
       foundBill = null;
     });
     try {
-      final dayStart = DateTime(selectedDate!.year, selectedDate!.month, selectedDate!.day).millisecondsSinceEpoch;
-      final dayEnd = DateTime(selectedDate!.year, selectedDate!.month, selectedDate!.day)
-          .add(const Duration(days: 1))
-          .millisecondsSinceEpoch;
-      final db = (await _sqliteHelper.database);
-      // Try bills table
-      List<Map<String, dynamic>> results = [];
-      try {
-        results = await db.query(
-          'bills',
-          where: 'admin_uid = ? AND (receipt_no = ? OR id = ?) AND bill_date BETWEEN ? AND ?',
-          whereArgs: [widget.phoneNumber, receiptNo, receiptNo, dayStart, dayEnd],
-          limit: 1,
-        );
-      } catch (_) {}
-      // Fallback to orders table
-      if (results.isEmpty) {
-        try {
-          results = await db.query(
-            'orders',
-            where: 'admin_uid = ? AND (receipt_no = ? OR id = ?) AND bill_date BETWEEN ? AND ?',
-            whereArgs: [widget.phoneNumber, receiptNo, receiptNo, dayStart, dayEnd],
-            limit: 1,
-          );
-        } catch (_) {}
-      }
+      // Search receipt via API - use OrderService to find by receipt number
+      // Since we don't have a dedicated receipt search endpoint, we search locally via stored receipts
+      // For now, we'll indicate the receipt wasn't found (SQLite removed, API search not implemented)
       setState(() {
-        foundBill = results.isNotEmpty ? results.first : null;
+        foundBill = null;
         hasSearched = true;
       });
     } catch (e) {
-      print('Search failed: $e');
       setState(() {
         foundBill = null;
         hasSearched = true;

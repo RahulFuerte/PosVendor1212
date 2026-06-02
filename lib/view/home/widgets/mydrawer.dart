@@ -8,7 +8,6 @@ import 'package:pos/data/providers/order_type_provider.dart';
 import 'package:pos/data/providers/subscription_provider.dart';
 import 'package:pos/data/providers/table_provider.dart';
 import 'package:pos/view/home/navigation.dart';
-import 'package:pos/view/home/offline_bill_status_screen.dart';
 import 'package:pos/data/providers/print_provider.dart';
 import 'package:pos/view/home/printer_connectionDialog.dart';
 import 'package:pos/view/home/reports/bill_wise_report.dart'; 
@@ -38,7 +37,6 @@ import 'package:pos/view/login/language_selection_screen.dart';
 import 'package:pos/view/staff/screens/staff_list_screen.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
 import 'package:pos/view/home/screens/Items/menu_screen.dart';
-import 'package:pos/view/tab_screen/view-model/widgets/sync_status_page.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:pos/view/home/screens/subscription_plans_screen.dart';
@@ -479,23 +477,6 @@ class _MyDrawerState extends State<MyDrawer> {
               },
             ),
           ),
-          ListTile(
-            leading: const Icon(Icons.sync, color: primaryColor),
-            title: MyText(fontWeight: FontWeight.w500, text: AppLocale.offlineStatusBills.getString(context)),
-            onTap: () {
-              _navigate(const OfflineBillStatusScreen());
-            },
-          ),
-          if (userRole != 'staff') ...[
-            ListTile(
-              leading: const Icon(Icons.sync_problem, color: primaryColor),
-              title: MyText(fontWeight: FontWeight.w500, text: AppLocale.syncDiagnostics.getString(context)),
-              onTap: () {
-                _navigate(const SyncStatusPage());
-              },
-            ),
-          ],
-
           if (userRole != 'staff') ...[
             Visibility(
               visible: sub.hasPermission('Reports', checkView: true),

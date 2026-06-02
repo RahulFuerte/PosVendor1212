@@ -16,7 +16,6 @@ import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
 
 // Project imports:
-import 'package:pos/data/datasources/local/sqlite_helper.dart';
 import 'package:pos/data/providers/print_provider.dart';
 import 'package:pos/data/services/cloudinary_service.dart';
 import 'package:pos/data/services/user_service.dart';
@@ -78,42 +77,23 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
   Future<void> _loadSettings() async {
     setState(() => _isLoading = true);
     try {
-      final sqliteData = await SQLiteHelper().getUserData(phoneNo);
       final prefs = await SharedPreferences.getInstance();
 
-      if (sqliteData != null) {
-        _shopNameController.text = sqliteData['shopName'] ?? '';
-        _contactController.text = sqliteData['shopContact'] ?? '';
-        _addressController.text = sqliteData['address'] ?? '';
-        _gstNumberController.text = sqliteData['gstNumber'] ?? '';
-        _fssaiNumberController.text = sqliteData['fssaiNo'] ?? '';
-        _upiIdController.text = sqliteData['upiId'] ?? '';
-        _imageUrl = sqliteData['shopLogoUrl'];
-        _city = sqliteData['city'];
-        _latitude = sqliteData['latitude'];
-        _longitude = sqliteData['longitude'];
-        _businessCategory = _migrateCategory(sqliteData['businessCategory']);
-        final int? createdAt = sqliteData['createdAt'];
-        if (createdAt != null) {
-          _registerTime = DateTime.fromMillisecondsSinceEpoch(createdAt);
-        }
-      } else {
-        // Fallback to SharedPreferences if SQLite is empty
-        _shopNameController.text = prefs.getString('shopName') ?? '';
-        _contactController.text = prefs.getString('contact') ?? prefs.getString('phoneNumber') ?? '';
-        _addressController.text = prefs.getString('address') ?? '';
-        _gstNumberController.text = prefs.getString('gstNumber') ?? '';
-        _fssaiNumberController.text = prefs.getString('fssaiNo') ?? '';
-        _upiIdController.text = prefs.getString('upiId') ?? '';
-        _imageUrl = prefs.getString('logoUrl');
-        _city = prefs.getString('city');
-        _latitude = prefs.getDouble('latitude');
-        _longitude = prefs.getDouble('longitude');
-        _businessCategory = _migrateCategory(prefs.getString('businessCategory'));
-        final int? createdAt = prefs.getInt('createdAt');
-        if (createdAt != null) {
-          _registerTime = DateTime.fromMillisecondsSinceEpoch(createdAt);
-        }
+      // Load from SharedPreferences
+      _shopNameController.text = prefs.getString('shopName') ?? '';
+      _contactController.text = prefs.getString('contact') ?? prefs.getString('phoneNumber') ?? '';
+      _addressController.text = prefs.getString('address') ?? '';
+      _gstNumberController.text = prefs.getString('gstNumber') ?? '';
+      _fssaiNumberController.text = prefs.getString('fssaiNo') ?? '';
+      _upiIdController.text = prefs.getString('upiId') ?? '';
+      _imageUrl = prefs.getString('logoUrl');
+      _city = prefs.getString('city');
+      _latitude = prefs.getDouble('latitude');
+      _longitude = prefs.getDouble('longitude');
+      _businessCategory = _migrateCategory(prefs.getString('businessCategory'));
+      final int? createdAt = prefs.getInt('createdAt');
+      if (createdAt != null) {
+        _registerTime = DateTime.fromMillisecondsSinceEpoch(createdAt);
       }
     } catch (e) {
       debugPrint('Error loading settings: $e');
@@ -197,7 +177,7 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
 
       final prefs = await SharedPreferences.getInstance();
 
-      // 1. Save to SharedPreferences
+      // Save to SharedPreferences
       await prefs.setString('shopName', _shopNameController.text.trim());
       await prefs.setString('contact', _contactController.text.trim());
       await prefs.setString('address', _addressController.text.trim());
@@ -209,24 +189,7 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
       if (_latitude != null) await prefs.setDouble('latitude', _latitude!);
       if (_longitude != null) await prefs.setDouble('longitude', _longitude!);
 
-      // 2. Save to SQLite
-      await SQLiteHelper().saveUserData({
-        'phone_number': phoneNo,
-        'admin_uid': adminUid,
-        'shop_name': _shopNameController.text.trim(),
-        'shop_contact': _contactController.text.trim(),
-        'address': _addressController.text.trim(),
-        'gst_number': _gstNumberController.text.trim(),
-        'fssaiNo': _fssaiNumberController.text.trim(),
-        'upiId': _upiIdController.text.trim(),
-        'city': _city ?? prefs.getString('city') ?? "",
-        'shop_logo_url': _imageUrl ?? "",
-        'businessCategory': _businessCategory,
-        'latitude': _latitude,
-        'longitude': _longitude,
-      });
-
-      // 3. Save to MongoDB (Sync Profile)
+      // Save to API (Sync Profile)
       debugPrint('Syncing profile to MongoDB with Location: [$_longitude, $_latitude]');
 
       final Map<String, dynamic> profileUpdates = {

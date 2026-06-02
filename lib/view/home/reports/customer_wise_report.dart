@@ -15,7 +15,6 @@ import 'package:pos/l10n/app_locale.dart';
 import 'package:pos/view/home/printer_connectionDialog.dart';
 import 'package:pos/view/home/widgets/mydrawer.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
-import 'package:pos/core/network/connection_monitor.dart';
 import 'package:pos/view/tab_screen/view-model/widgets/printers/printer.dart';
 import 'package:pos/core/utils/price_utils.dart';
 import 'package:pos/data/providers/print_provider.dart';
@@ -43,7 +42,6 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
   List<CustomerModel> allCustomers = [];
   CustomerModel? selectedCustomer;
 
-  final ConnectionMonitor _connectionMonitor = ConnectionMonitor();
 
   // Customer transaction data
   List<Map<String, dynamic>> customerBills = [];
@@ -55,7 +53,7 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
   void initState() {
     super.initState();
     _loadSessionData();
-    _initializeServices();
+
   }
 
   @override
@@ -72,9 +70,7 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
     fetchCustomers();
   }
 
-  Future<void> _initializeServices() async {
-    await _connectionMonitor.initialize();
-  }
+ 
 
   /// Fetch all customers from Node.js API
   Future<void> fetchCustomers() async {
@@ -1094,7 +1090,6 @@ class ProcessedBillData {
 
 //   // Data services
 //   final UnifiedDatabaseService _databaseService = UnifiedDatabaseService();
-//   final ConnectionMonitor _connectionMonitor = ConnectionMonitor();
 
 //   // Customer transaction data
 //   List<Map<String, dynamic>> customerBills = [];
