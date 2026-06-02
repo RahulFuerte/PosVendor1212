@@ -1,7 +1,6 @@
 // Flutter imports:
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:firebase_core/firebase_core.dart';
 
 // Package imports:
 import 'package:hive_flutter/adapters.dart';
@@ -31,14 +30,6 @@ void main() async {
   Hive.init(appDocumentDir.path);
   await Hive.openBox('userBox');
 
-  // Initialize Firebase for Image Uploads
-  try {
-    await Firebase.initializeApp();
-  } catch (e) {
-    debugPrint('Firebase initialization error: $e');
-  }
-
-  // Firebase initialization restored for Image Uploads
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
