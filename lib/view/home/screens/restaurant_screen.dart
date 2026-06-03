@@ -9,7 +9,7 @@ import 'package:pos/core/widgets/text.dart';
 // Package imports:
 import 'package:audioplayers/audioplayers.dart';
 import 'package:hive/hive.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:community_material_icon/community_material_icon.dart';
 import 'package:pos/view/home/screens/order_type_selector.dart';
 import 'package:pos/view/home/widgets/mydrawer.dart';
 import 'package:pos/view/tab_screen/view-model/widgets/cached_blob_image.dart';
@@ -815,7 +815,7 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
               Padding(
                 padding: const EdgeInsets.only(right: 12.0),
                 child: GestureDetector(
-                  child: Icon(isContainerVisible ? MdiIcons.fullscreen : MdiIcons.fullscreenExit),
+                  child: Icon(isContainerVisible ? CommunityMaterialIcons.fullscreen : CommunityMaterialIcons.fullscreen_exit),
                   onTap: () {
                     setState(() {
                       isContainerVisible = !isContainerVisible;

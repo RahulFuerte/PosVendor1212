@@ -3,7 +3,7 @@ import 'package:pos/core/utils/price_utils.dart';
 import 'package:pos/core/widgets/text.dart';
 import 'package:pos/view/home/navigation.dart';
 import 'package:pos/view/tab_screen/view-model/constants/constants.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:community_material_icon/community_material_icon.dart';
 
 class OrderTile extends StatelessWidget {
   final String bill;
@@ -126,7 +126,7 @@ class OrderTile extends StatelessWidget {
                               ),
                               child: InkWell(
                                 onTap: onWhatsapp,
-                                child: Icon(MdiIcons.whatsapp, color: Colors.green, size: 22),
+                                child: Icon(CommunityMaterialIcons.whatsapp, color: Colors.green, size: 22),
                               ),
                             ),
                             const SizedBox(width: 8),

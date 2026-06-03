@@ -4,11 +4,11 @@ import 'package:pos/core/widgets/text.dart';
 import 'package:pos/core/utils/snackbar_utils.dart';
 
 // Package imports:
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:community_material_icon/community_material_icon.dart';
 
 class TableNumberBottomSheet {
   /// Shows a bottom sheet to collect table number for dine-in orders
-  /// 
+  ///
   /// Parameters:
   /// - [context]: BuildContext for the bottom sheet
   /// - [title]: Title text (default: 'Dine-In Order')
@@ -35,7 +35,7 @@ class TableNumberBottomSheet {
       text: initialValue,
     );
     final Color effectivePrimaryColor = primaryColor ?? Theme.of(context).primaryColor;
-    final IconData effectiveIcon = icon ?? MdiIcons.tableChair;
+    final IconData effectiveIcon = icon ?? CommunityMaterialIcons.table_chair;
 
     return await showModalBottomSheet<String>(
       context: context,
@@ -64,7 +64,7 @@ class TableNumberBottomSheet {
                 ),
               ),
               const SizedBox(height: 20),
-              
+
               // Icon and Title
               Row(
                 children: [
@@ -82,7 +82,7 @@ class TableNumberBottomSheet {
                 ],
               ),
               const SizedBox(height: 20),
-              
+
               // Input Field
               TextField(
                 controller: controller,
@@ -91,7 +91,7 @@ class TableNumberBottomSheet {
                 decoration: InputDecoration(
                   labelText: labelText,
                   hintText: hintText,
-                  prefixIcon: Icon(MdiIcons.numeric, color: effectivePrimaryColor),
+                  prefixIcon: Icon(CommunityMaterialIcons.numeric, color: effectivePrimaryColor),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -102,7 +102,7 @@ class TableNumberBottomSheet {
                 ),
               ),
               const SizedBox(height: 20),
-              
+
               // Buttons
               Row(
                 children: [
@@ -207,7 +207,7 @@ class CustomInputBottomSheet {
                 ),
               ),
               const SizedBox(height: 20),
-              
+
               // Icon and Title
               Row(
                 children: [
@@ -224,14 +224,14 @@ class CustomInputBottomSheet {
                   ),
                 ],
               ),
-              
+
               if (subtitle != null) ...[
                 const SizedBox(height: 8),
                 subtitle,
               ],
-              
+
               const SizedBox(height: 20),
-              
+
               // Input Field
               TextField(
                 controller: controller,
@@ -252,7 +252,7 @@ class CustomInputBottomSheet {
                 ),
               ),
               const SizedBox(height: 20),
-              
+
               // Buttons
               Row(
                 children: [

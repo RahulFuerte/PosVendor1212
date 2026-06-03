@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localization/flutter_localization.dart';
 import 'package:pos/core/widgets/text.dart';
 import 'package:flutter_pos_printer_platform_image_3/flutter_pos_printer_platform_image_3.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:community_material_icon/community_material_icon.dart';
 import 'package:pos/data/providers/order_type_provider.dart';
 import 'package:pos/data/providers/subscription_provider.dart';
 import 'package:pos/data/providers/table_provider.dart';
@@ -483,14 +483,14 @@ class _MyDrawerState extends State<MyDrawer> {
               child: Theme(
                 data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
                 child: ExpansionTile(
-                  leading: Icon(MdiIcons.chartBoxOutline, color: primaryColor),
+                  leading: Icon(CommunityMaterialIcons.chart_box_outline, color: primaryColor),
                   childrenPadding: const EdgeInsets.only(left: 16),
                   title: MyText(
                     text: AppLocale.reports.getString(context),
                   ),
                   children: [
                     ListTile(
-                      leading: Icon(MdiIcons.chartBar, color: primaryColor),
+                      leading: Icon(CommunityMaterialIcons.chart_bar, color: primaryColor),
                       title: MyText(fontWeight: FontWeight.w500, text: AppLocale.salesReport.getString(context)),
                       onTap: () {
                         _navigate(const SalesReportScreen());
@@ -504,21 +504,21 @@ class _MyDrawerState extends State<MyDrawer> {
                       },
                     ),
                     ListTile(
-                      leading: Icon(MdiIcons.fileDocumentOutline, color: primaryColor),
+                      leading: Icon(CommunityMaterialIcons.file_document_outline, color: primaryColor),
                       title: MyText(fontWeight: FontWeight.w500, text: AppLocale.billwiseReport.getString(context)),
                       onTap: () {
                         _navigate(const BillwiseReportScreen());
                       },
                     ),
                     ListTile(
-                      leading: Icon(MdiIcons.foodOutline, color: primaryColor),
+                      leading: Icon(CommunityMaterialIcons.food, color: primaryColor),
                       title: MyText(fontWeight: FontWeight.w500, text: AppLocale.itemwiseReport.getString(context)),
                       onTap: () {
                         _navigate(const ItemwiseReportScreen());
                       },
                     ),
                     ListTile(
-                      leading: Icon(MdiIcons.calendarMonth, color: primaryColor),
+                      leading: Icon(CommunityMaterialIcons.calendar_month, color: primaryColor),
                       title: MyText(fontWeight: FontWeight.w500, text: AppLocale.datewiseReport.getString(context)),
                       onTap: () {
                         _navigate(const DatewiseReportScreen());
