@@ -149,7 +149,11 @@ class _EditBillReceiptScreenState extends State<EditBillReceiptScreen> {
         if (permission == LocationPermission.denied) throw 'Location permissions are denied';
       }
 
-      final position = await Geolocator.getCurrentPosition();
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
+      );
       setState(() {
         _latitude = position.latitude;
         _longitude = position.longitude;
