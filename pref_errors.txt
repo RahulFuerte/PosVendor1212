@@ -1,0 +1,6 @@
+
+06-04 15:17:41.832 W/miui.msa.global(16608): Long monitor contention with owner ad-plugin-urgent-8 (29610) at void com.xiaomi.ad.internal.common.SecuritySharedPreferencesWrapper.j()(SourceFile:61) waiters=0 in void com.xiaomi.ad.internal.common.SecuritySharedPreferencesWrapper.j() for 169ms
+06-04 15:17:42.003 W/miui.msa.global(16608): Long monitor contention with owner ad-plugin-urgent-7 (29605) at void com.xiaomi.ad.internal.common.SecuritySharedPreferencesWrapper.j()(SourceFile:61) waiters=0 in void com.xiaomi.ad.internal.common.SecuritySharedPreferencesWrapper.j() for 166ms
+06-04 15:17:48.403 E/GeneratedPluginsRegister(30051): Tried to automatically register plugins with FlutterEngine (io.flutter.embedding.engine.FlutterEngine@2228431) but could not find or invoke the GeneratedPluginRegistrant.
+06-04 15:17:48.414 E/GeneratedPluginsRegister(30051): 	at io.flutter.plugins.GeneratedPluginRegistrant.registerWith(GeneratedPluginRegistrant.java:114)
+

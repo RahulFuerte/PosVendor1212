@@ -365,10 +365,10 @@ packages:
     dependency: transitive
     description:
       name: dbus
-      sha256: d0c98dcd4f5169878b6cf8f6e0a52403a9dff371a3e2f019697accbf6f44a270
+      sha256: "0ce9b0a839e6dee59a37a623d2fc26a35bbbe6404213e419b0d6411023d62645"
       url: "https://pub.dev"
     source: hosted
-    version: "0.7.12"
+    version: "0.7.14"
   device_info_plus:
     dependency: "direct main"
     description:
@@ -409,14 +409,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.0.4"
-  eventify:
-    dependency: transitive
-    description:
-      name: eventify
-      sha256: b829429f08586cc2001c628e7499e3e3c2493a1d895fd73b00ecb23351aa5a66
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.0.1"
   excel:
     dependency: "direct main"
     description:
@@ -1357,14 +1349,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.0.2"
-  razorpay_flutter:
-    dependency: "direct main"
-    description:
-      name: razorpay_flutter
-      sha256: a9026acf004df802128be6996a9397f5e9c20f32dd12ab215fd1659e0233c9f0
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.4.5"
   record_use:
     dependency: transitive
     description:
@@ -1401,10 +1385,10 @@ packages:
     dependency: "direct main"
     description:
       name: shared_preferences
-      sha256: c3025c5534b01739267eb7d76959bbc25a6d10f6988e1c2a3036940133dd10bf
+      sha256: e25d615575e15af3b302ee72b1d21e8c2199d6e1f116fdaa42ecc700ed77ec01
       url: "https://pub.dev"
     source: hosted
-    version: "2.5.5"
+    version: "2.5.0"
   shared_preferences_android:
     dependency: transitive
     description:

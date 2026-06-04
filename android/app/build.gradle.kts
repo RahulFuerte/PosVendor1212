@@ -44,7 +44,4 @@ flutter {
     source = "../.."
 }
 
-configurations.all {
-    exclude(group = "com.razorpay", module = "standard-core")
-}
 
