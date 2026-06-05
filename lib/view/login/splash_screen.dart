@@ -48,10 +48,20 @@ class _SplashScreenState extends State<SplashScreen> {
     final isLogged = prefs.getBool('isLogged') ?? false;
 
     if (mounted) {
-      if (isLogged) {
-        await context.read<SubscriptionProvider>().syncSubscriptionWithApi();
-      } else {
-        await context.read<SubscriptionProvider>().loadSavedSubscription();
+      try {
+        if (isLogged) {
+          await context
+              .read<SubscriptionProvider>()
+              .syncSubscriptionWithApi()
+              .timeout(const Duration(seconds: 8));
+        } else {
+          await context
+              .read<SubscriptionProvider>()
+              .loadSavedSubscription()
+              .timeout(const Duration(seconds: 8));
+        }
+      } catch (_) {
+        // Timeout or network error — proceed with cached/offline data
       }
     }
   }

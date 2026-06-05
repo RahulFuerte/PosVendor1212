@@ -108,7 +108,7 @@ class _MyAppState extends State<MyApp> {
         ),
         ChangeNotifierProvider(create: (_) => PrintProvider()),
         ChangeNotifierProvider(create: (_) => OrderTypeProvider()),
-        ChangeNotifierProvider(create: (_) => SubscriptionProvider()..loadSavedSubscription()),
+        ChangeNotifierProvider(create: (_) => SubscriptionProvider()),
         ChangeNotifierProvider(
           create: (context) => TableProvider(),
         ),
