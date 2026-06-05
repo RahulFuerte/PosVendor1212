@@ -49,9 +49,10 @@ app.*.map.json
 .kiro/
 .qoder/
 
-# Markdown files (except README.md)
+# Markdown files (except README.md and CLAUDE.md)
 *.md
 !README.md
+!CLAUDE.md
 
 lib/view/login/screens/auth_with_firebase_function/serviceAccountKey.json
 lib/view/login/screens/auth_with_firebase_function/make-me-admin.js
