@@ -133,7 +133,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
       });
 
       // Pick Excel file
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
+      FilePickerResult? result = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['xlsx', 'xls'],
         allowMultiple: false,

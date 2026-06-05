@@ -1199,8 +1199,8 @@ class _SalesOverviewChartState extends State<_SalesOverviewChart> {
         barTouchData: BarTouchData(
           enabled: true,
           touchTooltipData: BarTouchTooltipData(
-            tooltipBgColor: Colors.black87,
-            tooltipRoundedRadius: 10,
+            getTooltipColor: (_) => Colors.black87,
+            tooltipBorderRadius: BorderRadius.circular(10),
             tooltipPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             tooltipMargin: 10,
             getTooltipItem: (group, groupIndex, rod, rodIndex) {
@@ -1400,8 +1400,8 @@ class _SalesOverviewChartState extends State<_SalesOverviewChart> {
         ],
         lineTouchData: LineTouchData(
           touchTooltipData: LineTouchTooltipData(
-            tooltipBgColor: Colors.black87,
-            tooltipRoundedRadius: 10,
+            getTooltipColor: (_) => Colors.black87,
+            tooltipBorderRadius: BorderRadius.circular(10),
             getTooltipItems: (touchedSpots) {
               return touchedSpots.map((spot) {
                 return LineTooltipItem(
