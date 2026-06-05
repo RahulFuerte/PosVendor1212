@@ -281,6 +281,7 @@ class _SaveOrderBottomSheetState extends State<SaveOrderBottomSheet> {
     );
   }
 
+  // ignore: unused_element
   Widget _buildItemsList(PrintProvider printProvider) {
     return Container(
       height: MediaQuery.of(context).size.height * 0.15,
@@ -527,6 +528,7 @@ class _SaveOrderBottomSheetState extends State<SaveOrderBottomSheet> {
     );
   }
 
+  // ignore: unused_element
   Widget _nameField() {
     return TextFormField(
       controller: widget.nameController,

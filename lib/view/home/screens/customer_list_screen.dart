@@ -939,10 +939,9 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
 
                         if (isEdit) {
                           // Edit existing customer
-                          CustomerModel? updatedFromApi;
                           if (customer.id != null) {
                             try {
-                              updatedFromApi = await CustomerService().updateCustomer(
+                              await CustomerService().updateCustomer(
                                 id: customer.id!,
                                 name: nameController.text.trim(),
                                 phoneNumber: phoneController.text.trim(),
@@ -954,13 +953,6 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                             }
                           }
 
-                          final updatedCustomer = (updatedFromApi ?? customer).copyWith(
-                            name: nameController.text.trim(),
-                            phoneNumber: phoneController.text.trim(),
-                            gstNo: gstController.text.trim().isEmpty ? null : gstController.text.trim(),
-                            address: addressController.text.trim().isEmpty ? null : addressController.text.trim(),
-                          );
-
                           // Depending on your sync model, might need local sqlite updates
 
                           Navigator.pop(context); // Close loading dialog
@@ -968,9 +960,8 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                           SnackBarUtils.showSuccess(context, AppLocale.customerUpdatedSuccessfully.getString(context));
                         } else {
                           // Add new customer
-                          CustomerModel? newCustomer;
                           try {
-                            newCustomer = await CustomerService().createCustomer(
+                            await CustomerService().createCustomer(
                               name: nameController.text.trim(),
                               phoneNumber: phoneController.text.trim(),
                               address: addressController.text.trim().isEmpty ? null : addressController.text.trim(),
@@ -979,15 +970,6 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                           } catch (e) {
                             debugPrint('API creation failed, saving locally: $e');
                           }
-
-                          final customerToSave = newCustomer ??
-                              CustomerModel(
-                                name: nameController.text.trim(),
-                                phoneNumber: phoneController.text.trim(),
-                                address: addressController.text.trim().isEmpty ? null : addressController.text.trim(),
-                                gstNo: gstController.text.trim().isEmpty ? null : gstController.text.trim(),
-                                isUploaded: false,
-                              );
 
                           Navigator.pop(context); // Close loading dialog
                           Navigator.pop(context); // Close bottom sheet

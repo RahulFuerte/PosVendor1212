@@ -478,6 +478,7 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
       );
 
   // Connection status indicator widget
+  // ignore: unused_element
   Widget _buildConnectionStatusIndicator() {
     // Online-only mode - no offline status needed
     return const SizedBox.shrink();
@@ -1184,6 +1185,7 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
               ));
   }
 
+  // ignore: unused_element
   Future<void> _showSaveBottomSheet() async {
     final printprovider = Provider.of<PrintProvider>(context, listen: false);
 

@@ -5,7 +5,6 @@ import 'package:pos/core/widgets/text.dart';
 import 'package:pos/l10n/app_locale.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:shimmer/shimmer.dart';
 import 'package:pos/view/home/reports/widgets/report_skeleton.dart';
 
 // Package imports:
@@ -1042,6 +1041,7 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
     );
   }
 
+  // ignore: unused_element
   Widget _miniDetail(String label, String value, {bool isRed = false}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

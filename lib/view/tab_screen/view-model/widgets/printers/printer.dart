@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
@@ -400,7 +399,7 @@ class DirectPrintHelper {
       bytes += generator.feed(3);
       // bytes += generator.cut(mode: PosCutMode.partial);
 
-      final isConnected = await isOnline();
+      await isOnline();
 
       // Send to printer
       await PrinterManager.instance.send(
@@ -443,8 +442,6 @@ class DirectPrintHelper {
     String? employeeId, // Added
   }) async {
     try {
-      final now = DateTime.now();
-
       final List<Map<String, dynamic>> itemsData = items.map((item) {
         return {
           'productId': item['productId'] ?? item['id'] ?? '',
@@ -457,19 +454,12 @@ class DirectPrintHelper {
       // Calculate tax amounts if enabled
       double cgstAmount = 0.0;
       double sgstAmount = 0.0;
-      double totalWithTax = subTotal;
-
       if (taxEnabled) {
         cgstAmount = subTotal * (cgstPercent / 100);
         sgstAmount = subTotal * (sgstPercent / 100);
-        totalWithTax = subTotal + cgstAmount + sgstAmount;
       }
 
-      // Calculate final total with discount
-      double finalTotal = totalWithTax - discountAmount;
-
       String finalReceiptNo = receiptNo;
-      String? orderId;
 
       // 🔥 Try to create the order via OrderService first to get the backend-generated Bill Number
       try {
@@ -498,9 +488,6 @@ class DirectPrintHelper {
           );
           if (order.billNumber.isNotEmpty) {
             finalReceiptNo = order.billNumber;
-          }
-          if (order.id != null) {
-            orderId = order.id;
           }
         }
       } catch (e) {

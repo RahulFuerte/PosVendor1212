@@ -47,7 +47,7 @@ class _UsersScreenState extends State<UsersScreen> {
       );
     }
 
-    final sub = context.watch<SubscriptionProvider>();
+    context.watch<SubscriptionProvider>();
     return Scaffold(
       appBar: AppBar(
         title: MyText(text: AppLocale.savedOrders.getString(context), fontSize: 17, color: Colors.black, fontWeight: FontWeight.w600),

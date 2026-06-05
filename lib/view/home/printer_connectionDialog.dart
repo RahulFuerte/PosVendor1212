@@ -31,6 +31,7 @@ class _PrinterConnectionDialogState extends State<PrinterConnectionDialog> {
   var devices = <BluetoothPrinter>[];
   StreamSubscription<PrinterDevice>? _subscription;
   StreamSubscription<BTStatus>? _subscriptionBtStatus;
+  // ignore: unused_field
   BTStatus _currentStatus = BTStatus.none;
   BluetoothPrinter? selectedPrinter;
   PaperSize selectedPaperSize = PaperSize.mm58;
@@ -133,7 +134,6 @@ class _PrinterConnectionDialogState extends State<PrinterConnectionDialog> {
               type: selectedPrinter!.typePrinter, model: TcpPrinterInput(ipAddress: selectedPrinter!.address!));
           printProvider.setConnected(true);
           break;
-        default:
       }
 
       printProvider.setSelectedPrinter(selectedPrinter);

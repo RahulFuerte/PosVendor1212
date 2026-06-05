@@ -188,6 +188,7 @@ class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
     return customerId;
   }
 
+  // ignore: unused_field
   final bool _isSaving = false;
   bool _isPrinting = false;
 

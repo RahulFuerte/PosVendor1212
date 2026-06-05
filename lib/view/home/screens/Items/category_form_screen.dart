@@ -190,6 +190,7 @@ class _CategoryFormScreenState extends State<CategoryFormScreen> {
     }
   }
 
+  // ignore: unused_element
   bool get _hasImage => _pickedImage != null || (_existingImageUrl != null && _existingImageUrl!.isNotEmpty);
 
   @override

@@ -35,6 +35,7 @@ class ItemwiseReportScreen extends StatefulWidget {
   State<ItemwiseReportScreen> createState() => _ItemwiseReportScreenState();
 }
 
+// ignore: unused_element
 class _ReportSkeleton extends StatelessWidget {
   const _ReportSkeleton();
 
@@ -1037,6 +1038,7 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
     );
   }
 
+  // ignore: unused_element
   Widget _miniDetail(String label, String value, {bool isRed = false}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

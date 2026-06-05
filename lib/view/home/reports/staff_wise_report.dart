@@ -583,6 +583,7 @@ class _StaffWiseReportScreenState extends State<StaffWiseReportScreen> {
     );
   }
 
+  // ignore: unused_element
   Widget _buildSummaryShimmer() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -610,6 +611,7 @@ class _StaffWiseReportScreenState extends State<StaffWiseReportScreen> {
     );
   }
 
+  // ignore: unused_element
   Widget _buildOrderShimmer() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
@@ -625,6 +627,7 @@ class _StaffWiseReportScreenState extends State<StaffWiseReportScreen> {
     );
   }
 
+  // ignore: unused_element
   Widget _emptyState() {
     return Center(
       child: Column(
@@ -774,6 +777,7 @@ class _StaffWiseReportScreenState extends State<StaffWiseReportScreen> {
     }
   }
 
+  // ignore: unused_element
   Future<void> _printReport() async {
     final printProvider = Provider.of<PrintProvider>(context, listen: false);
     if (!printProvider.isConnected) {

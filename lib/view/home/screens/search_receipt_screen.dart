@@ -112,8 +112,7 @@ class _SearchReceiptScreenState extends State<SearchReceiptScreen> {
 
   @override
   Widget build(BuildContext context) {
-    PrintProvider printProvider = Provider.of<PrintProvider>(context, listen: false);
-    DateTime? currentBackPressTime;
+    Provider.of<PrintProvider>(context, listen: false);
 
     return Scaffold(
       backgroundColor: Colors.grey[50],

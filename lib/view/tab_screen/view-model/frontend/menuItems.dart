@@ -144,6 +144,7 @@ class MenuItem extends StatelessWidget {
   }
 
   /// STOCK BADGE
+  // ignore: unused_element
   Widget _stockBadge() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),

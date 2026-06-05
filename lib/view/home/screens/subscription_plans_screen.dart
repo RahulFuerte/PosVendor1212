@@ -27,6 +27,7 @@ class _SubscriptionPlansScreenState extends State<SubscriptionPlansScreen> {
   // Local User Subscription State
   String _currentStatus = 'inactive';
   String _currentPlanType = 'free';
+  // ignore: unused_field
   String? _currentPlanId;
   DateTime? _expiryDate;
 

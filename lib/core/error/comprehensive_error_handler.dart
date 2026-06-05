@@ -194,6 +194,7 @@ class ComprehensiveErrorHandler {
   // }
 
   /// Check if the system is healthy based on error statistics
+  // ignore: unused_element
   bool _isSystemHealthy(Map<String, dynamic> errorStats) {
     final errorCount = errorStats['errorCount'] as int;
     final warningCount = errorStats['warningCount'] as int;
@@ -203,6 +204,7 @@ class ComprehensiveErrorHandler {
   }
 
   /// Get health recommendations based on error statistics
+  // ignore: unused_element
   List<String> _getHealthRecommendations(Map<String, dynamic> errorStats) {
     final recommendations = <String>[];
     final errorCount = errorStats['errorCount'] as int;

@@ -168,21 +168,6 @@ class ErrorHandlingService {
 
   /// Write log entry to console with formatting
   void _writeToConsole(LogEntry entry) {
-    final timestamp = entry.timestamp.toIso8601String();
-    final level = entry.level.name.toUpperCase();
-    final component = entry.component;
-    final message = entry.message;
-
-    String logLine = '[$timestamp] [$level] [$component] $message';
-
-    if (entry.context != null && entry.context!.isNotEmpty) {
-      logLine += ' | Context: ${entry.context}';
-    }
-
-    if (entry.error != null) {
-      logLine += ' | Error: ${entry.error}';
-    }
-
     if (entry.stackTrace != null) {}
   }
 

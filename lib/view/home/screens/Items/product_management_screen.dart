@@ -448,6 +448,7 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
   // ── Helpers ───────────────────────────────────────────────────────────────────
 
   /// Rejects empty, example.com, and non-http URLs before Image.network is called.
+  // ignore: unused_element
   static bool _isValidImageUrl(String? url) {
     if (url == null || url.trim().isEmpty) return false;
     final uri = Uri.tryParse(url.trim());

@@ -37,6 +37,7 @@ class BillwiseReportScreen extends StatefulWidget {
   State<BillwiseReportScreen> createState() => _BillwiseReportScreenState();
 }
 
+// ignore: unused_element
 class _ReportSkeleton extends StatelessWidget {
   const _ReportSkeleton();
 
@@ -175,7 +176,6 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
           );
           printProvider.setConnected(true);
           break;
-        default:
       }
     } catch (e) {
       print('Error reconnecting printer: $e');
@@ -1192,6 +1192,7 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
     );
   }
 
+  // ignore: unused_element
   Widget _buildSummaryMiniCard(
       String title, String value, IconData icon, Color color) {
     return Expanded(

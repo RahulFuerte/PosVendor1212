@@ -288,7 +288,7 @@ class _OrderManagementScreenState extends State<OrderManagementScreen> {
                                   final prefs = await SharedPreferences.getInstance();
 
                                   if (!mounted) return;
-                                  final result = await Navigator.push(
+                                  await Navigator.push(
                                     context,
                                     MaterialPageRoute(
                                       builder: (context) => ReceiptPreviewOnlyWidget(

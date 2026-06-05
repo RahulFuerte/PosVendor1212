@@ -607,6 +607,7 @@ class _ReceiptPreviewOnlyWidgetState extends State<ReceiptPreviewOnlyWidget> {
     );
   }
 
+  // ignore: unused_element
   Widget _kotSection(KotModel kot) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),

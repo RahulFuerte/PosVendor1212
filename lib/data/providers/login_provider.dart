@@ -12,6 +12,7 @@ class LoginProvider extends ChangeNotifier {
 
   final bool _isLoading = false;
   bool get isLoading => _isLoading;
+  // ignore: unused_element
   bool get _isAdmin => isAdmin;
   bool _isProcessing = false, isAdmin = false;
   String? _phone, _smsCode = "", _employerName;

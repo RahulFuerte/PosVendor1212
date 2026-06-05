@@ -275,8 +275,6 @@ class PerformanceMonitor {
 
     _performanceAlerts.add(alert);
 
-    // Log the alert
-    final logLevel = level == AlertLevel.critical ? 'CRITICAL' : 'WARNING';
   }
 
   /// Capture memory usage snapshot

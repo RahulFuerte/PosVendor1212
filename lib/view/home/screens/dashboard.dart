@@ -60,6 +60,7 @@ class _DashboardState extends State<Dashboard> {
   String selectedOrderType = 'all';
 
   final ReportService _reportService = ReportService();
+  // ignore: unused_field
   final OrderService _orderService = OrderService();
 
   TutorialCoachMark? _tourMark;
@@ -1091,7 +1092,7 @@ class _SalesOverviewChartState extends State<_SalesOverviewChart> {
   @override
   Widget build(BuildContext context) {
     double totalRevenue = widget.data.fold(0.0, (sum, item) => sum + (item['amount'] as num).toDouble());
-    double avgRevenue = widget.data.isEmpty ? 0 : totalRevenue / widget.data.length;
+
 
     return Container(
       height: 320,
