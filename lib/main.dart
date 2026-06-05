@@ -42,6 +42,8 @@ void main() async {
     statusBarBrightness: Brightness.light,
   ));
 
+  await FlutterLocalization.instance.ensureInitialized();
+
   final prefs = await SharedPreferences.getInstance();
   final savedLang = prefs.getString('app_language') ?? 'en';
 
