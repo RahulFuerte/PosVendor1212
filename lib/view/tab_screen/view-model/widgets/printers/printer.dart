@@ -12,7 +12,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:pos/data/services/order_service.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 
-
 class DirectPrintHelper {
   // Generate 8-digit random receipt number
 
@@ -353,8 +352,7 @@ class DirectPrintHelper {
       // Grand Total
       bytes += generator.text(separator, styles: smallFontLeft);
 
-      bytes += generator.text('GRAND TOTAL'.padRight(totalCols - 8) + grandTotal.toStringAsFixed(1).padLeft(8),
-          styles: const PosStyles(bold: true));
+      bytes += generator.text('GRAND TOTAL'.padRight(totalCols - 8) + grandTotal.toStringAsFixed(1).padLeft(8), styles: const PosStyles(bold: true));
       bytes += generator.text(separator, styles: smallFontLeft);
 
       bytes += generator.text(
@@ -483,8 +481,7 @@ class DirectPrintHelper {
             notes: customerNote,
             paymentStatus: 'Paid',
             employeeId: employeeId, // Passed
-            createKot:
-                (businessCategory == 'Food' && (tableNumber == null || tableNumber == 'N/A' || tableNumber == '')),
+            createKot: (businessCategory == 'Food' && (tableNumber == null || tableNumber == 'N/A' || tableNumber == '')),
           );
           if (order.billNumber.isNotEmpty) {
             finalReceiptNo = order.billNumber;
@@ -842,7 +839,7 @@ class DirectPrintHelper {
     }
   }
 
-  /// Check if device is currently online
+  //  Check if device is currently online
   static Future<bool> isOnline() async {
     try {
       final connectivityResult = await Connectivity().checkConnectivity();
@@ -866,13 +863,5 @@ class BluetoothPrinter {
   PrinterType typePrinter;
   bool? state;
 
-  BluetoothPrinter(
-      {this.deviceName,
-      this.address,
-      this.port,
-      this.state,
-      this.vendorId,
-      this.productId,
-      this.typePrinter = PrinterType.bluetooth,
-      this.isBle = false});
+  BluetoothPrinter({this.deviceName, this.address, this.port, this.state, this.vendorId, this.productId, this.typePrinter = PrinterType.bluetooth, this.isBle = false});
 }
