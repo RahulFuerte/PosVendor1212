@@ -845,8 +845,8 @@ class DirectPrintHelper {
   /// Check if device is currently online
   static Future<bool> isOnline() async {
     try {
-      final results = await Connectivity().checkConnectivity();
-      return results.any((r) => r != ConnectivityResult.none);
+      final connectivityResult = await Connectivity().checkConnectivity();
+      return connectivityResult != ConnectivityResult.none;
     } catch (e) {
       debugPrint('Error checking connectivity status: $e');
       return false;

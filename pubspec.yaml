@@ -40,7 +40,7 @@ dependencies:
   shimmer: ^3.0.0
   url_launcher: ^6.3.0
   esc_pos_utils_plus: ^2.0.3
-  connectivity_plus: ^7.0.0
+  connectivity_plus: ^5.0.2
   flutter_pos_printer_platform_image_3: ^1.1.2
   image: ^4.3.0
   fl_chart: ^1.2.0
