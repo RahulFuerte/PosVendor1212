@@ -19,13 +19,19 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
 
   bool _isLoading = false;
+  bool _obscurePassword = true;
+  bool _obscureConfirm = true;
 
   @override
   void dispose() {
     _nameController.dispose();
     _phoneController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
@@ -38,12 +44,13 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
       await UserService().createStaff({
         'name': _nameController.text.trim(),
         'phoneNumber': _phoneController.text.trim(),
+        if (_passwordController.text.trim().isNotEmpty) 'password': _passwordController.text.trim(),
       });
 
-        if (mounted) {
-          SnackBarUtils.showSuccess(context, AppLocale.staffAddedSuccess.getString(context));
-          Navigator.of(context).pop(true);
-        }
+      if (mounted) {
+        SnackBarUtils.showSuccess(context, AppLocale.staffAddedSuccess.getString(context));
+        Navigator.of(context).pop(true);
+      }
     } catch (e) {
       if (mounted) {
         SnackBarUtils.showError(context, ErrorUtils.getCleanErrorMessage(e));
@@ -127,6 +134,7 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
                       child: TextFormField(
                         controller: _phoneController,
                         keyboardType: TextInputType.phone,
+                        onChanged: (_) => setState(() {}),
                         inputFormatters: [
                           FilteringTextInputFormatter.digitsOnly,
                           LengthLimitingTextInputFormatter(10),
@@ -147,6 +155,129 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
                         },
                       ),
                     ),
+                    // Login credentials section header
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 10),
+                      child: Row(
+                        children: [
+                          Icon(Icons.lock_outline, size: 15, color: appbar1),
+                          SizedBox(width: 6),
+                          MyText(
+                            text: 'Login Credentials (Optional)',
+                            fontSize: 13,
+                            color: appbar1,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ],
+                      ),
+                    ),
+                    _cardField(
+                      label: 'Password',
+                      child: TextFormField(
+                        controller: _passwordController,
+                        obscureText: _obscurePassword,
+                        onChanged: (_) => setState(() {}),
+                        decoration: InputDecoration(
+                          hintText: 'Set a password for this staff',
+                          hintStyle: TextStyle(color: Colors.grey.shade400),
+                          border: InputBorder.none,
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                              color: Colors.grey.shade500,
+                              size: 20,
+                            ),
+                            onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                          ),
+                        ),
+                        validator: (value) {
+                          if (value != null && value.isNotEmpty && value.trim().length < 6) {
+                            return 'Password must be at least 6 characters';
+                          }
+                          return null;
+                        },
+                      ),
+                    ),
+                    _cardField(
+                      label: 'Confirm Password',
+                      child: TextFormField(
+                        controller: _confirmPasswordController,
+                        obscureText: _obscureConfirm,
+                        decoration: InputDecoration(
+                          hintText: 'Re-enter the password',
+                          hintStyle: TextStyle(color: Colors.grey.shade400),
+                          border: InputBorder.none,
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscureConfirm ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                              color: Colors.grey.shade500,
+                              size: 20,
+                            ),
+                            onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
+                          ),
+                        ),
+                        validator: (value) {
+                          if (_passwordController.text.trim().isNotEmpty) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please confirm the password';
+                            }
+                            if (value != _passwordController.text) {
+                              return 'Passwords do not match';
+                            }
+                          }
+                          return null;
+                        },
+                      ),
+                    ),
+                    // Credential hint card
+                    if (_phoneController.text.isNotEmpty && _passwordController.text.isNotEmpty)
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 16),
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: appbar1.withValues(alpha: 0.06),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: appbar1.withValues(alpha: 0.2)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Row(
+                              children: [
+                                Icon(Icons.info_outline, size: 15, color: appbar1),
+                                SizedBox(width: 6),
+                                MyText(
+                                  text: 'Staff Login Details',
+                                  fontSize: 13,
+                                  color: appbar1,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                MyText(text: 'Phone: ', fontSize: 13, color: Colors.grey.shade600),
+                                MyText(text: _phoneController.text, fontSize: 13, fontWeight: FontWeight.w600),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                MyText(text: 'Password: ', fontSize: 13, color: Colors.grey.shade600),
+                                MyText(text: _passwordController.text, fontSize: 13, fontWeight: FontWeight.w600),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            MyText(
+                              text: 'Share these details with your staff member to log in.',
+                              fontSize: 11,
+                              color: Colors.grey.shade500,
+                              maxLines: 2,
+                            ),
+                          ],
+                        ),
+                      ),
                   ],
                 ),
               ),

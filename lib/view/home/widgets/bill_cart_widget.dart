@@ -571,7 +571,9 @@ class _BillCartState extends State<BillCart> {
                                     ),
                                   ),
                                   Icon(
-                                    printProvider.isCartExpanded ? Icons.keyboard_arrow_down_rounded : Icons.keyboard_arrow_up_rounded,
+                                    printProvider.isCartExpanded
+                                        ? Icons.keyboard_arrow_down_rounded
+                                        : Icons.keyboard_arrow_up_rounded,
                                     color: Colors.grey.shade400,
                                     size: 18,
                                   ),
@@ -585,8 +587,12 @@ class _BillCartState extends State<BillCart> {
                     ),
                   ),
                   if (printProvider.isCartExpanded) ...[
-                    widget.isRestaurantScreen == true ? KeyedSubtree(key: TourKeys.cartItemsKey, child: _buildItemsList(printProvider)) : _buildItemsList(printProvider),
-                    widget.isRestaurantScreen == true ? KeyedSubtree(key: TourKeys.subtotalKey, child: _buildFooter(printProvider)) : _buildFooter(printProvider),
+                    widget.isRestaurantScreen == true
+                        ? KeyedSubtree(key: TourKeys.cartItemsKey, child: _buildItemsList(printProvider))
+                        : _buildItemsList(printProvider),
+                    widget.isRestaurantScreen == true
+                        ? KeyedSubtree(key: TourKeys.subtotalKey, child: _buildFooter(printProvider))
+                        : _buildFooter(printProvider),
                   ],
                 ],
               ),
@@ -951,7 +957,8 @@ class _BillCartState extends State<BillCart> {
                       tableProvider.selectTable(null);
 
                       if (mounted) {
-                        SnackBarUtils.showSuccess(context, '${AppLocale.cartSavedToTable.getString(context)} $savedTableNumber ✓');
+                        SnackBarUtils.showSuccess(
+                            context, '${AppLocale.cartSavedToTable.getString(context)} $savedTableNumber ✓');
                         // Navigate to Table Management screen
                         final navigationState = context.findAncestorStateOfType<State<Navigation>>() as dynamic;
                         if (navigationState != null) {
@@ -963,21 +970,25 @@ class _BillCartState extends State<BillCart> {
                     },
                     iconColor: Colors.white,
                   ),
-                Container(
-                  key: widget.isRestaurantScreen == true ? TourKeys.cartPayButtonKey : null,
-                  child: _buildIconButton(
-                    icon: Icons.payment,
-                    onPressed: () {
-                      widget.orderBottomSheet();
-                    },
-                    iconColor: Colors.white,
-                  ),
-                ),
+                // Container(
+                //   key: widget.isRestaurantScreen == true ? TourKeys.cartPayButtonKey : null,
+                //   child: _buildIconButton(
+                //     icon: Icons.payment,
+                //     onPressed: () {
+                //       widget.orderBottomSheet();
+                //     },
+                //     iconColor: Colors.white,
+                //   ),
+                // ),
                 widget.isRestaurantScreen == true
-                    ? KeyedSubtree(key: TourKeys.cartSaveKey, child: _buildIconButton(imagePath: "assets/images/save.png", onPressed: _handlePreview))
+                    ? KeyedSubtree(
+                        key: TourKeys.cartSaveKey,
+                        child: _buildIconButton(imagePath: "assets/images/save.png", onPressed: _handlePreview))
                     : _buildIconButton(imagePath: "assets/images/save.png", onPressed: _handlePreview),
                 widget.isRestaurantScreen == true
-                    ? KeyedSubtree(key: TourKeys.cartPrintKey, child: _buildIconButton(imagePath: "assets/images/save2.png", onPressed: _handlePrint))
+                    ? KeyedSubtree(
+                        key: TourKeys.cartPrintKey,
+                        child: _buildIconButton(imagePath: "assets/images/save2.png", onPressed: _handlePrint))
                     : _buildIconButton(imagePath: "assets/images/save2.png", onPressed: _handlePrint),
               ],
             ),

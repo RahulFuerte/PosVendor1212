@@ -52,8 +52,7 @@ class TableProvider extends ChangeNotifier {
       final remoteTable = await _tableService.addTable(tableNumber);
       _tables.add(remoteTable);
       notifyListeners();
-    } catch (e) {
-      print('Error adding table: $e');
+    } catch (_) {
     }
   }
 
@@ -119,9 +118,7 @@ class TableProvider extends ChangeNotifier {
           createKot: createKot,
         );
         // No need to update local state again from response unless we want to sync IDs
-      } catch (e) {
-        print('Error syncing table cart: $e');
-        // Optionally: implement a retry mechanism or revert local state if crucial
+      } catch (_) {
       }
     }
   }
@@ -138,8 +135,7 @@ class TableProvider extends ChangeNotifier {
         final updatedTable = _tables[index].copyWith(lastOrderId: orderId);
         _tables[index] = updatedTable;
         notifyListeners();
-      } catch (e) {
-        print('Error syncing table order ID: $e');
+      } catch (_) {
       }
     }
   }
@@ -171,8 +167,7 @@ class TableProvider extends ChangeNotifier {
 
         _tables[index] = updatedTable;
         notifyListeners();
-      } catch (e) {
-        print('Error clearing table on remote: $e');
+      } catch (_) {
       }
     }
   }
@@ -196,8 +191,7 @@ class TableProvider extends ChangeNotifier {
 
         _tables[index] = updatedTable;
         notifyListeners();
-      } catch (e) {
-        print('Error assigning customer to table: $e');
+      } catch (_) {
       }
     }
   }

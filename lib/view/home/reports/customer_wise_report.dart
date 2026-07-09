@@ -139,7 +139,6 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
         totalOrders = processedBills.length;
       });
     } catch (e) {
-      print('ERROR: Fetching customer transactions from API: $e');
       SnackBarUtils.showError(
           context, '${AppLocale.errorLoadingData.getString(context)}: $e');
     } finally {
@@ -415,7 +414,6 @@ class _CustomerWiseReportState extends State<CustomerWiseReport> {
         Navigator.pop(context);
       }
 
-      print('PDF generation failed: $e');
       SnackBarUtils.showError(
           context, '${AppLocale.pdfGenerationFailed.getString(context)}: $e');
     }

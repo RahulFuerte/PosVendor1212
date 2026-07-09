@@ -136,8 +136,7 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
         // Try reconnecting
         await _reconnectPrinter(savedPrinter, printProvider);
       }
-    } catch (e) {
-      print('Error initializing printer from Hive: $e');
+    } catch (_) {
     }
   }
 
@@ -178,7 +177,6 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
           break;
       }
     } catch (e) {
-      print('Error reconnecting printer: $e');
       printProvider.setConnected(false);
     }
   }
@@ -275,7 +273,6 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
       });
     } catch (e) {
       if (mounted) {
-        print('Error fetching bills data: $e');
         SnackBarUtils.showError(
             context, '${AppLocale.errorFetchingData.getString(context)}: $e');
       }
@@ -321,8 +318,7 @@ class _BillwiseReportScreenState extends State<BillwiseReportScreen> {
         'paperSize':
             printProvider.selectedPaperSize.value, // Save as value, not index
       });
-    } catch (e) {
-      print('Error saving printer to Hive: $e');
+    } catch (_) {
     }
   }
 

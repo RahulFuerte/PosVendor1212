@@ -323,7 +323,6 @@ final tableNumber = await TableNumberBottomSheet.show(
 );
 
 if (tableNumber != null) {
-  print('Table number: $tableNumber');
 }
 
 // Example 2: Custom styling

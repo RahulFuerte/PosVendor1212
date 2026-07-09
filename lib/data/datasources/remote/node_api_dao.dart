@@ -332,5 +332,4 @@ class NodeApiDAO implements DatabaseService {
       rethrow;
     }
   }
-
 }

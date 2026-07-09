@@ -5,6 +5,8 @@ import 'package:pos/view/home/navigation.dart';
 import 'package:pos/core/utils/price_utils.dart';
 import 'package:pos/data/services/order_service.dart';
 import 'package:pos/data/models/kot_model.dart';
+import 'package:pos/data/models/user_model.dart';
+import 'package:pos/data/services/user_service.dart';
 import 'package:pos/core/utils/snackbar_utils.dart';
 
 class ReceiptPreviewOnlyWidget extends StatefulWidget {
@@ -38,6 +40,8 @@ class ReceiptPreviewOnlyWidget extends StatefulWidget {
   final String? orderId;
   final String? initialPaymentStatus;
   final bool? isUnknownCustomer;
+  final String? salesPersonName;
+  final String? salesPersonId;
 
   const ReceiptPreviewOnlyWidget({
     super.key,
@@ -65,6 +69,8 @@ class ReceiptPreviewOnlyWidget extends StatefulWidget {
     this.orderId,
     this.initialPaymentStatus,
     this.isUnknownCustomer,
+    this.salesPersonName,
+    this.salesPersonId,
   });
 
   @override
@@ -74,11 +80,19 @@ class ReceiptPreviewOnlyWidget extends StatefulWidget {
 class _ReceiptPreviewOnlyWidgetState extends State<ReceiptPreviewOnlyWidget> {
   late String _currentPaymentStatus;
   bool _isLoading = false;
+  bool _isChangingEmployee = false;
+  bool _isChangingDate = false;
+  String? _currentSalesPersonId;
+  String? _currentSalesPersonName;
+  late DateTime _currentDateTime;
 
   @override
   void initState() {
     super.initState();
     _currentPaymentStatus = widget.initialPaymentStatus ?? 'Due';
+    _currentSalesPersonId = widget.salesPersonId;
+    _currentSalesPersonName = widget.salesPersonName;
+    _currentDateTime = widget.dateTime;
   }
 
   Future<void> _updatePaymentStatus(String method) async {
@@ -120,6 +134,155 @@ class _ReceiptPreviewOnlyWidgetState extends State<ReceiptPreviewOnlyWidget> {
       setState(() => _isLoading = false);
       if (mounted) SnackBarUtils.showError(context, 'Failed to cancel order: $e');
     }
+  }
+
+  Future<void> _showDateUpdatePicker() async {
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: _currentDateTime,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(
+          colorScheme: ColorScheme.light(primary: appbar1),
+        ),
+        child: child!,
+      ),
+    );
+    if (pickedDate == null || !mounted) return;
+
+    final pickedTime = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(_currentDateTime),
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(
+          colorScheme: ColorScheme.light(primary: appbar1),
+        ),
+        child: child!,
+      ),
+    );
+    if (pickedTime == null || !mounted) return;
+
+    final newDt = DateTime(
+      pickedDate.year,
+      pickedDate.month,
+      pickedDate.day,
+      pickedTime.hour,
+      pickedTime.minute,
+    );
+    await _updateOrderDate(newDt);
+  }
+
+  Future<void> _updateOrderDate(DateTime newDt) async {
+    if (widget.orderId == null) return;
+    setState(() => _isChangingDate = true);
+    try {
+      await OrderService().updateOrderDate(widget.orderId!, newDt);
+      setState(() => _currentDateTime = newDt);
+      if (mounted) SnackBarUtils.showSuccess(context, 'Order date updated');
+    } catch (e) {
+      if (mounted) SnackBarUtils.showError(context, 'Failed to update date: $e');
+    } finally {
+      if (mounted) setState(() => _isChangingDate = false);
+    }
+  }
+
+  Future<void> _updateSalesPerson(String staffId, String staffName) async {
+    if (widget.orderId == null) return;
+    setState(() => _isChangingEmployee = true);
+    try {
+      await OrderService().updateEmployeeId(widget.orderId!, staffId);
+      setState(() {
+        _currentSalesPersonId = staffId;
+        _currentSalesPersonName = staffName;
+      });
+      if (mounted) SnackBarUtils.showSuccess(context, 'Sales person updated to $staffName');
+    } catch (e) {
+      if (mounted) SnackBarUtils.showError(context, 'Failed to update: $e');
+    } finally {
+      if (mounted) setState(() => _isChangingEmployee = false);
+    }
+  }
+
+  Future<void> _showChangeSalesPersonSheet() async {
+    setState(() => _isChangingEmployee = true);
+    List<UserModel> staff = [];
+    try {
+      staff = await UserService().getStaff('');
+    } catch (e) {
+      if (mounted) SnackBarUtils.showError(context, 'Failed to load staff: $e');
+      setState(() => _isChangingEmployee = false);
+      return;
+    }
+    if (mounted) setState(() => _isChangingEmployee = false);
+    if (!mounted) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => Container(
+        padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(ctx).viewInsets.bottom + 30),
+        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.6),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.badge_outlined, color: appbar1),
+                const SizedBox(width: 10),
+                const MyText(text: 'Select Sales Person', fontSize: 17, fontWeight: FontWeight.bold),
+              ],
+            ),
+            const SizedBox(height: 4),
+            MyText(
+              text: 'Tap a staff member to assign to this bill',
+              fontSize: 12,
+              color: Colors.grey.shade500,
+            ),
+            const SizedBox(height: 16),
+            if (staff.isEmpty)
+              const Padding(
+                padding: EdgeInsets.all(20),
+                child: Center(child: MyText(text: 'No staff members found')),
+              )
+            else
+              Flexible(
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: staff.length,
+                  separatorBuilder: (_, __) => Divider(color: Colors.grey.shade100, height: 1),
+                  itemBuilder: (_, i) {
+                    final s = staff[i];
+                    final isSelected = s.id == _currentSalesPersonId;
+                    return ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      leading: CircleAvatar(
+                        backgroundColor: appbar1.withOpacity(0.1),
+                        child: MyText(
+                          text: (s.name.isNotEmpty ? s.name[0] : '?').toUpperCase(),
+                          color: appbar1,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      title: MyText(text: s.name, fontWeight: FontWeight.w600),
+                      subtitle: MyText(text: s.phoneNumber, fontSize: 12, color: Colors.grey.shade500),
+                      trailing: isSelected ? const Icon(Icons.check_circle, color: appbar1) : null,
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        _updateSalesPerson(s.id ?? '', s.name);
+                      },
+                    );
+                  },
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _showCancelDialog() {
@@ -382,10 +545,35 @@ class _ReceiptPreviewOnlyWidgetState extends State<ReceiptPreviewOnlyWidget> {
                               fontWeight: FontWeight.bold,
                               fontSize: 18,
                             ),
-                            MyText(
-                              text: DateFormat('MMM dd, yyyy • hh:mm a').format(widget.dateTime),
-                              color: Colors.grey.shade500,
-                              fontSize: 12,
+                            Row(
+                              children: [
+                                MyText(
+                                  text: DateFormat('dd MMM yyyy • hh:mm a').format(_currentDateTime),
+                                  color: Colors.grey.shade500,
+                                  fontSize: 12,
+                                ),
+                                if (widget.orderId != null && _currentPaymentStatus != 'Cancelled') ...[
+                                  const SizedBox(width: 6),
+                                  _isChangingDate
+                                      ? const SizedBox(
+                                          width: 16,
+                                          height: 16,
+                                          child: CircularProgressIndicator(strokeWidth: 2, color: appbar1),
+                                        )
+                                      : InkWell(
+                                          onTap: _showDateUpdatePicker,
+                                          borderRadius: BorderRadius.circular(8),
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                            decoration: BoxDecoration(
+                                              color: appbar1.withValues(alpha: 0.08),
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                            child: const Icon(Icons.edit_calendar_outlined, size: 16, color: appbar1),
+                                          ),
+                                        ),
+                                ],
+                              ],
                             ),
                           ],
                         ),
@@ -422,7 +610,66 @@ class _ReceiptPreviewOnlyWidgetState extends State<ReceiptPreviewOnlyWidget> {
                     ),
                   ),
 
-                  const SizedBox(height: 25),
+                  const SizedBox(height: 20),
+
+                  /// SALES PERSON
+                  if (widget.orderId != null)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: InkWell(
+                        onTap: (_currentPaymentStatus != 'Cancelled' && !_isChangingEmployee)
+                            ? _showChangeSalesPersonSheet
+                            : null,
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade50,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.grey.shade200),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.badge_outlined, size: 18, color: appbar1),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const MyText(
+                                      text: 'Sales Person',
+                                      fontSize: 11,
+                                      color: Colors.grey,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    MyText(
+                                      text: (_currentSalesPersonName?.isNotEmpty == true)
+                                          ? _currentSalesPersonName!
+                                          : 'Not Assigned',
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 14,
+                                      color: (_currentSalesPersonName?.isNotEmpty == true)
+                                          ? Colors.black87
+                                          : Colors.grey.shade400,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (_currentPaymentStatus != 'Cancelled')
+                                _isChangingEmployee
+                                    ? const SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(strokeWidth: 2, color: appbar1),
+                                      )
+                                    : const Icon(Icons.edit_outlined, size: 18, color: appbar1),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+
+                  const SizedBox(height: 20),
 
                   /// CUSTOMER SECTION
                   if (widget.customerName != null && widget.customerName!.isNotEmpty) ...[

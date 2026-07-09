@@ -69,6 +69,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
   TextEditingController searchController = TextEditingController();
   bool _tourShowing = false;
   TutorialCoachMark? _tourMark;
+  TourProvider? _tourProvider;
 
   void _onTourStateChanged() {
     if (!mounted) return;
@@ -208,7 +209,9 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
     _loadSessionData();
     foodItemsFuture = _fetchProducts();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<TourProvider>().addListener(_onTourStateChanged);
+      if (!mounted) return;
+      _tourProvider = context.read<TourProvider>();
+      _tourProvider!.addListener(_onTourStateChanged);
       _onTourStateChanged();
     });
   }
@@ -634,9 +637,7 @@ class _ProductDashBoardState extends State<ProductDashBoard> {
 
   @override
   void dispose() {
-    try {
-      context.read<TourProvider>().removeListener(_onTourStateChanged);
-    } catch (_) {}
+    _tourProvider?.removeListener(_onTourStateChanged);
     _tourMark?.finish();
     search.dispose();
     nameController.dispose();

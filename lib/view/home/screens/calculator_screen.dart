@@ -46,6 +46,7 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
   bool isTapped = false;
   bool _tourShowing = false;
   TutorialCoachMark? _tourMark;
+  TourProvider? _tourProvider;
   String previousItemName = '';
   int previousItemPrice = 0;
 
@@ -99,7 +100,8 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
           totalSum = printprovider.total;
         });
       }
-      context.read<TourProvider>().addListener(_onTourStateChanged);
+      _tourProvider = context.read<TourProvider>();
+      _tourProvider!.addListener(_onTourStateChanged);
       _checkTour();
     });
   }
@@ -241,7 +243,7 @@ class _PLUPageState extends State<PLUCalculatorScreen> {
 
   @override
   void dispose() {
-    context.read<TourProvider>().removeListener(_onTourStateChanged);
+    _tourProvider?.removeListener(_onTourStateChanged);
     _tourMark?.finish();
     _textEditingController.dispose();
     userNameController.dispose();

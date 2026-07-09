@@ -538,7 +538,6 @@ class _DatewiseReportScreenState extends State<DatewiseReportScreen> {
       });
     } catch (e) {
       if (mounted) {
-        print('Error fetching date data from API: $e');
         SnackBarUtils.showError(
             context, '${AppLocale.errorFetchingData.getString(context)}: $e');
       }

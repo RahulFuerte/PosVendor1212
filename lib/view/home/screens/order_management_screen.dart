@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localization/flutter_localization.dart';
 import 'package:intl/intl.dart';
 import 'package:pos/l10n/app_locale.dart';
-import 'package:pos/core/utils/snackbar_utils.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:pos/core/utils/whatsapp_helper.dart';
 import 'package:pos/core/widgets/text.dart';
 import 'package:pos/data/providers/print_provider.dart';
 import 'package:pos/data/models/order_model.dart';
@@ -15,7 +14,6 @@ import 'package:pos/view/home/widgets/order_kot_widgets.dart';
 import 'package:pos/view/home/reports/widgets/report_skeleton.dart';
 import 'package:pos/view/tab_screen/view-model/widgets/printers/printer.dart';
 import 'package:pos/view/home/widgets/mydrawer.dart';
-import 'package:pos/core/utils/pdf_helper.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -169,69 +167,18 @@ class _OrderManagementScreenState extends State<OrderManagementScreen> {
     required String paymentType,
     required DateTime dateTime,
   }) async {
-    try {
-      final String cleanPhone = customerPhone.replaceAll(RegExp(r'[^0-9]'), '');
-      final prefs = await SharedPreferences.getInstance();
-      final String shopName = prefs.getString('shopName') ?? 'Our Shop';
-
-      // Construct a professional message
-      String message = "🏪 *${shopName.toUpperCase()}* 🏪\n"
-          "✨ *Bill Summary: #$receiptNo* ✨\n\n"
-          "👤 *Customer:* ${customerName.isEmpty ? 'Guest' : customerName}\n"
-          "📅 *Date:* ${DateFormat('dd MMM yyyy, hh:mm a').format(dateTime)}\n"
-          "🍴 *Order Type:* $orderType\n"
-          "💳 *Payment:* $paymentType\n\n"
-          "*Items:*\n";
-
-      for (var item in items) {
-        message += "• ${item['name']} x ${item['quantity']} = ₹${item['price'] * item['quantity']}\n";
-      }
-
-      message += "\n💰 *Total Amount: ₹$finalAmount*\n\n"
-          "Thank you for visiting *$shopName*! 🙏";
-
-      if (cleanPhone.isNotEmpty) {
-        String formattedPhone = cleanPhone;
-        if (formattedPhone.length == 10) formattedPhone = "91$formattedPhone";
-
-        final Uri whatsappUri = Uri.parse(
-          "https://wa.me/$formattedPhone?text=${Uri.encodeComponent(message)}",
-        );
-
-        if (await canLaunchUrl(whatsappUri)) {
-          await launchUrl(whatsappUri, mode: LaunchMode.externalApplication);
-        } else {
-          if (mounted) SnackBarUtils.showError(context, "Could not launch WhatsApp");
-        }
-      } else {
-        final Uri generalWhatsappUri = Uri.parse("https://wa.me/?text=${Uri.encodeComponent(message)}");
-        if (await canLaunchUrl(generalWhatsappUri)) {
-          await launchUrl(generalWhatsappUri, mode: LaunchMode.externalApplication);
-        } else {
-          final printProvider = Provider.of<PrintProvider>(context, listen: false);
-          await PdfHelper.generateAndShareBillPdf(
-            shopName: shopName,
-            address: prefs.getString('address') ?? 'Address',
-            contact: prefs.getString('contact') ?? 'Contact',
-            receiptNo: receiptNo,
-            dateTime: dateTime,
-            items: items,
-            subTotal: subTotal,
-            finalTotal: finalAmount,
-            paymentType: paymentType,
-            orderType: orderType,
-            customerName: customerName,
-            customerPhone: customerPhone,
-            taxEnabled: printProvider.taxEnabled,
-            cgstPercent: printProvider.cgstPercent,
-            sgstPercent: printProvider.sgstPercent,
-            discountAmount: subTotal - finalAmount,
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) SnackBarUtils.showError(context, "Error opening WhatsApp: $e");
-    }
+    await WhatsappHelper.sendWhatsapp(
+      context: context,
+      items: items,
+      subTotal: subTotal,
+      finalAmount: finalAmount,
+      customerName: customerName,
+      customerPhone: customerPhone,
+      receiptNo: receiptNo,
+      orderType: orderType,
+      paymentType: paymentType,
+      dateTime: dateTime,
+    );
   }
 
   @override
@@ -295,6 +242,8 @@ class _OrderManagementScreenState extends State<OrderManagementScreen> {
                                         orderId: order.id ?? '',
                                         initialPaymentStatus: order.paymentStatus ?? 'Due',
                                         isUnknownCustomer: order.unknownCustomerId != null,
+                                        salesPersonId: order.employeeId,
+                                        salesPersonName: order.employeeName,
                                         userPhoneNumber: phoneNo,
                                         shopName: prefs.getString('shopName') ?? 'Shop Name',
                                         address: prefs.getString('address') ?? 'Address',

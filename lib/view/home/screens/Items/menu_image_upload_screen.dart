@@ -53,7 +53,6 @@ class _MenuImageUploadScreenState extends State<MenuImageUploadScreen> {
         }
       }
     } catch (e) {
-      print(e);
       SnackBarUtils.showError(context, 'Upload failed: $e');
     } finally {
       if (mounted) setState(() => _isUploading = false);

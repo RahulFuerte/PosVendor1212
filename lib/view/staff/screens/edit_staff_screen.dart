@@ -22,8 +22,12 @@ class _EditStaffScreenState extends State<EditStaffScreen> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameController;
   late final TextEditingController _phoneController;
+  final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _confirmPasswordController = TextEditingController();
 
   bool _isLoading = false;
+  bool _obscurePassword = true;
+  bool _obscureConfirm = true;
 
   @override
   void initState() {
@@ -36,6 +40,8 @@ class _EditStaffScreenState extends State<EditStaffScreen> {
   void dispose() {
     _nameController.dispose();
     _phoneController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
@@ -48,6 +54,8 @@ class _EditStaffScreenState extends State<EditStaffScreen> {
       final updates = {
         'name': _nameController.text.trim(),
         'phoneNumber': _phoneController.text.trim(),
+        if (_passwordController.text.trim().isNotEmpty)
+          'password': _passwordController.text.trim(),
       };
 
       await UserService().updateStaff(widget.staff.id!, updates);
@@ -154,6 +162,78 @@ class _EditStaffScreenState extends State<EditStaffScreen> {
                           }
                           if (value.trim().length != 10) {
                             return AppLocale.mobileNumberMustBe10Digits.getString(context);
+                          }
+                          return null;
+                        },
+                      ),
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 10),
+                      child: Row(
+                        children: [
+                          Icon(Icons.lock_outline, size: 15, color: appbar1),
+                          SizedBox(width: 6),
+                          MyText(
+                            text: 'Update Password (Optional)',
+                            fontSize: 13,
+                            color: appbar1,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ],
+                      ),
+                    ),
+                    _cardField(
+                      label: 'New Password',
+                      child: TextFormField(
+                        controller: _passwordController,
+                        obscureText: _obscurePassword,
+                        decoration: InputDecoration(
+                          hintText: 'Leave blank to keep current password',
+                          hintStyle: TextStyle(color: Colors.grey.shade400),
+                          border: InputBorder.none,
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                              color: Colors.grey.shade500,
+                              size: 20,
+                            ),
+                            onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                          ),
+                        ),
+                        validator: (value) {
+                          if (value != null && value.isNotEmpty && value.trim().length < 6) {
+                            return 'Password must be at least 6 characters';
+                          }
+                          return null;
+                        },
+                      ),
+                    ),
+                    _cardField(
+                      label: 'Confirm New Password',
+                      child: TextFormField(
+                        controller: _confirmPasswordController,
+                        obscureText: _obscureConfirm,
+                        decoration: InputDecoration(
+                          hintText: 'Re-enter the new password',
+                          hintStyle: TextStyle(color: Colors.grey.shade400),
+                          border: InputBorder.none,
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscureConfirm ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                              color: Colors.grey.shade500,
+                              size: 20,
+                            ),
+                            onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
+                          ),
+                        ),
+                        validator: (value) {
+                          if (_passwordController.text.trim().isNotEmpty) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please confirm the new password';
+                            }
+                            if (value != _passwordController.text) {
+                              return 'Passwords do not match';
+                            }
                           }
                           return null;
                         },

@@ -50,15 +50,9 @@ class _SplashScreenState extends State<SplashScreen> {
     if (mounted) {
       try {
         if (isLogged) {
-          await context
-              .read<SubscriptionProvider>()
-              .syncSubscriptionWithApi()
-              .timeout(const Duration(seconds: 8));
+          await context.read<SubscriptionProvider>().syncSubscriptionWithApi().timeout(const Duration(seconds: 8));
         } else {
-          await context
-              .read<SubscriptionProvider>()
-              .loadSavedSubscription()
-              .timeout(const Duration(seconds: 8));
+          await context.read<SubscriptionProvider>().loadSavedSubscription().timeout(const Duration(seconds: 8));
         }
       } catch (_) {
         // Timeout or network error — proceed with cached/offline data
@@ -75,6 +69,24 @@ class _SplashScreenState extends State<SplashScreen> {
 
     if (!mounted) return;
 
+    // Logged-in users skip language/onboarding entirely.
+    if (isLogged) {
+      final resolvedPhone = phone.isNotEmpty ? phone : (prefs.getString('phoneNumber') ?? '');
+      if (isDemoMode) {
+        await prefs.setBool('is_first_time_tutorial', true);
+        await prefs.setBool('is_first_time_main_tutorial', true);
+        await prefs.setBool('is_first_time_drawer_tutorial', true);
+        await prefs.setBool('is_first_time_detailed_tutorial', true);
+      }
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => Navigation(uId: resolvedPhone)),
+      );
+      return;
+    }
+
+    // Not logged in — run first-launch flow.
     if (!isLangSelected) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const LanguageSelectionScreen(isFirstLaunch: true)),
@@ -82,18 +94,9 @@ class _SplashScreenState extends State<SplashScreen> {
       return;
     }
 
-    if (isLogged && phone.isNotEmpty) {
-      if (isDemoMode) {
-        await prefs.setBool('is_first_time_tutorial', true);
-        await prefs.setBool('is_first_time_main_tutorial', true);
-        await prefs.setBool('is_first_time_drawer_tutorial', true);
-        await prefs.setBool('is_first_time_detailed_tutorial', true);
-      }
-      final next = Navigation(uId: phone);
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => next));
-    } else {
-      Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const OnboardingScreen()));
-    }
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => const OnboardingScreen()),
+    );
   }
 
   @override

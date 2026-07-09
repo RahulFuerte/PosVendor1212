@@ -1,8 +1,7 @@
 class ApiConstants {
   // Base URL - Update this for production
-  // static const String baseUrl = 'http://192.168.1.8:5000/api';
+  // static const String baseUrl = 'http://192.168.0.117:5000/api';
   static const String baseUrl = 'https://api.billingsphere.com/api';
-  // static const String baseUrl = 'https://billing-pos-tvtw.onrender.com/api';
   // Endpoints
   static const String users = '$baseUrl/users';
   static const String customers = '$baseUrl/customers';
@@ -11,6 +10,7 @@ class ApiConstants {
   static const String orders = '$baseUrl/orders';
   static const String reports = '$baseUrl/reports';
   static const String expenses = '$baseUrl/expenses';
+  
   static const String expenseCategories = '$baseUrl/expense-categories';
   static const String subscriptions = '$baseUrl/subscriptions';
   static const String menuUpload = '$baseUrl/menu-images/upload';
@@ -18,6 +18,7 @@ class ApiConstants {
   static const String unknownCustomers = '$baseUrl/unknown-customers';
   static const String tables = '$baseUrl/tables';
   static const String kot = '$baseUrl/kots';
+  static const String whatsappTemplates = '$baseUrl/whatsapp-templates';
 
   // Cloudinary Config (User needs to provide these)
   static const String cloudinaryCloudName = 'djgziksj8';

@@ -32,6 +32,7 @@ class _AdminDashboardState extends State<Navigation> {
   String businessCategory = 'Food';
   TutorialCoachMark? _tourMark;
   bool _tourShowing = false;
+  TourProvider? _tourProvider;
 
   @override
   void initState() {
@@ -41,7 +42,8 @@ class _AdminDashboardState extends State<Navigation> {
       _checkAndReloadTables();
       _checkTour();
     });
-    context.read<TourProvider>().addListener(_onTourStateChanged);
+    _tourProvider = context.read<TourProvider>();
+    _tourProvider!.addListener(_onTourStateChanged);
   }
 
   void _onTourStateChanged() {
@@ -79,7 +81,7 @@ class _AdminDashboardState extends State<Navigation> {
 
   @override
   void dispose() {
-    context.read<TourProvider>().removeListener(_onTourStateChanged);
+    _tourProvider?.removeListener(_onTourStateChanged);
     _tourMark?.finish();
     super.dispose();
   }

@@ -13,6 +13,7 @@ class ZeroAppBar extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     return AppBar(
       toolbarHeight: 0,
+      
       elevation: 0,
       automaticallyImplyLeading: false,
       systemOverlayStyle: systemOverlayStyle ??

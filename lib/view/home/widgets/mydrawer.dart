@@ -62,22 +62,23 @@ class _MyDrawerState extends State<MyDrawer> {
   String userRole = '';
   bool _tourShowing = false;
   TutorialCoachMark? _tourMark;
+  TourProvider? _tourProvider;
 
   @override
   void initState() {
     super.initState();
     _loadUserData();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<TourProvider>().addListener(_onTourStateChanged);
+      if (!mounted) return;
+      _tourProvider = context.read<TourProvider>();
+      _tourProvider!.addListener(_onTourStateChanged);
       _onTourStateChanged();
     });
   }
 
   @override
   void dispose() {
-    try {
-      context.read<TourProvider>().removeListener(_onTourStateChanged);
-    } catch (_) {}
+    _tourProvider?.removeListener(_onTourStateChanged);
     _tourMark?.finish();
     super.dispose();
   }

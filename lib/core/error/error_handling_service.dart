@@ -29,8 +29,7 @@ class ErrorHandlingService {
 
       // Log initialization
       await logInfo('ErrorHandlingService', 'Error handling service initialized successfully');
-    } catch (e) {
-      print('Failed to initialize ErrorHandlingService: $e');
+    } catch (_) {
     }
   }
 
@@ -53,8 +52,7 @@ class ErrorHandlingService {
         await logFile.create();
         await logFile.writeAsString('=== Sync Log Started at ${DateTime.now().toIso8601String()} ===\n');
       }
-    } catch (e) {
-      print('Failed to initialize log file: $e');
+    } catch (_) {
     }
   }
 
@@ -197,8 +195,7 @@ class ErrorHandlingService {
       logLine += '\n';
 
       await logFile.writeAsString(logLine, mode: FileMode.append);
-    } catch (e) {
-      print('Failed to write to log file: $e');
+    } catch (_) {
     }
   }
 

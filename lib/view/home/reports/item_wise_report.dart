@@ -562,7 +562,6 @@ class _ItemwiseReportScreenState extends State<ItemwiseReportScreen> {
           (a, b) => (b['amount'] as double).compareTo(a['amount'] as double));
     } catch (e) {
       if (mounted) {
-        print('Error fetching items data from API: $e');
         SnackBarUtils.showError(
             context, '${AppLocale.errorFetchingData.getString(context)}: $e');
       }

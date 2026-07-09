@@ -64,6 +64,13 @@ class _LoginState extends State<Login> {
           user: Map<String, dynamic>.from(response['user']),
         );
 
+        // Guarantee myPhone is set — saveUserData reads it from the server response
+        // which can be null/empty if the DB field is missing. Override with the
+        // exact phone the user typed so the splash-screen check always passes.
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('myPhone', phone);
+        await prefs.setString('phoneNumber', phone);
+
         if (mounted) {
           final subProvider = Provider.of<SubscriptionProvider>(context, listen: false);
           await subProvider.loadSavedSubscription();
@@ -211,13 +218,16 @@ class _LoginState extends State<Login> {
                           FilteringTextInputFormatter.digitsOnly,
                         ],
                         onChanged: (_) => setState(() {}),
-                        style: const TextStyle(letterSpacing: 3.2, fontSize: 18, fontWeight: FontWeight.w600, fontFamily: 'Outfit'),
+                        style: const TextStyle(
+                            letterSpacing: 3.2, fontSize: 18, fontWeight: FontWeight.w600, fontFamily: 'Outfit'),
                         decoration: InputDecoration(
                           counterText: "",
                           hintText: AppLocale.enterYourMobile.getString(context),
                           hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 11.5),
                           prefixIcon: const Icon(Icons.phone_android_rounded, color: primaryColor, size: 22),
-                          suffixIcon: _phoneController.text.length == 10 ? const Icon(Icons.check_circle, color: primaryColor) : null,
+                          suffixIcon: _phoneController.text.length == 10
+                              ? const Icon(Icons.check_circle, color: primaryColor)
+                              : null,
                           filled: true,
                           fillColor: Colors.grey.shade50,
                           enabledBorder: OutlineInputBorder(
@@ -238,7 +248,8 @@ class _LoginState extends State<Login> {
                       TextFormField(
                         controller: _passwordController,
                         obscureText: _obscurePassword,
-                        style: const TextStyle(letterSpacing: 2.0, fontSize: 18, fontWeight: FontWeight.w600, fontFamily: 'Outfit'),
+                        style: const TextStyle(
+                            letterSpacing: 2.0, fontSize: 18, fontWeight: FontWeight.w600, fontFamily: 'Outfit'),
                         decoration: InputDecoration(
                           hintText: AppLocale.enterYourPassword.getString(context),
                           hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 11.5),

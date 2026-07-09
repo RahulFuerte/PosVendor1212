@@ -235,6 +235,38 @@ class OrderService {
     }
   }
 
+  Future<void> updateOrderDate(String orderId, DateTime newDate) async {
+    final token = await _getToken();
+    final response = await http.patch(
+      Uri.parse('$baseUrl/$orderId/status'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': token ?? "",
+      },
+      body: jsonEncode({'orderDate': newDate.toUtc().toIso8601String()}),
+    );
+    final data = jsonDecode(response.body);
+    if (response.statusCode != 200) {
+      throw Exception(data['message'] ?? 'Failed to update order date');
+    }
+  }
+
+  Future<void> updateEmployeeId(String orderId, String newEmployeeId) async {
+    final token = await _getToken();
+    final response = await http.patch(
+      Uri.parse('$baseUrl/$orderId/status'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': token ?? "",
+      },
+      body: jsonEncode({'employeeId': newEmployeeId}),
+    );
+    final data = jsonDecode(response.body);
+    if (response.statusCode != 200) {
+      throw Exception(data['message'] ?? 'Failed to update sales person');
+    }
+  }
+
   Future<List<OrderModel>> getKitchenOrders() async {
     final token = await _getToken();
     final response = await http.get(

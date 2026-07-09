@@ -31,13 +31,16 @@ class _TableManagementScreenState extends State<TableManagementScreen> {
   String phoneNo = '';
   bool _tourShowing = false;
   TutorialCoachMark? _tourMark;
+  TourProvider? _tourProvider;
 
   @override
   void initState() {
     super.initState();
     _loadSessionData();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<TourProvider>().addListener(_onTourStateChanged);
+      if (!mounted) return;
+      _tourProvider = context.read<TourProvider>();
+      _tourProvider!.addListener(_onTourStateChanged);
       _checkTour();
     });
   }
@@ -152,7 +155,7 @@ class _TableManagementScreenState extends State<TableManagementScreen> {
 
   @override
   void dispose() {
-    context.read<TourProvider>().removeListener(_onTourStateChanged);
+    _tourProvider?.removeListener(_onTourStateChanged);
     _tourMark?.finish();
     super.dispose();
   }
@@ -173,7 +176,11 @@ class _TableManagementScreenState extends State<TableManagementScreen> {
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
-        title: MyText(text: AppLocale.tableManagement.getString(context), fontSize: 17, color: Colors.black, fontWeight: FontWeight.w600),
+        title: MyText(
+            text: AppLocale.tableManagement.getString(context),
+            fontSize: 17,
+            color: Colors.black,
+            fontWeight: FontWeight.w600),
         backgroundColor: Colors.white,
         elevation: 0,
         scrolledUnderElevation: 0,
@@ -528,7 +535,8 @@ class _TableManagementScreenState extends State<TableManagementScreen> {
               Navigator.pop(context);
               _showClearTableConfirmation(context, table);
             },
-            child: MyText(text: AppLocale.clearTable.getString(context), color: Colors.red, fontWeight: FontWeight.bold),
+            child:
+                MyText(text: AppLocale.clearTable.getString(context), color: Colors.red, fontWeight: FontWeight.bold),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context),
@@ -545,9 +553,7 @@ class _TableManagementScreenState extends State<TableManagementScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: MyText(text: AppLocale.clearTableQ.getString(context), fontWeight: FontWeight.bold),
-        content: MyText(
-            text:
-                AppLocale.clearTableMsg.getString(context)),
+        content: MyText(text: AppLocale.clearTableMsg.getString(context)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),

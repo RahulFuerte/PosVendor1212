@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:pos/core/widgets/text.dart';
 import 'package:provider/provider.dart';
-import 'package:pos/data/providers/subscription_provider.dart';
 import 'package:pos/data/providers/tour_provider.dart';
 import 'package:pos/data/services/demo_data.dart';
 import 'package:pos/l10n/app_locale.dart';
 import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
 import 'package:flutter_localization/flutter_localization.dart';
 import 'package:pos/view/login/language_selection_screen.dart';
+import 'package:pos/view/home/screens/settings/whatsapp_templates_screen.dart';
 
 class Setting extends StatefulWidget {
   const Setting({super.key});
@@ -19,21 +19,22 @@ class Setting extends StatefulWidget {
 class _SettingState extends State<Setting> {
   bool _tourShowing = false;
   TutorialCoachMark? _tourMark;
+  TourProvider? _tourProvider;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<TourProvider>().addListener(_onTourStateChanged);
+      if (!mounted) return;
+      _tourProvider = context.read<TourProvider>();
+      _tourProvider!.addListener(_onTourStateChanged);
       _onTourStateChanged();
     });
   }
 
   @override
   void dispose() {
-    try {
-      context.read<TourProvider>().removeListener(_onTourStateChanged);
-    } catch (_) {}
+    _tourProvider?.removeListener(_onTourStateChanged);
     _tourMark?.finish();
     super.dispose();
   }
@@ -96,7 +97,7 @@ class _SettingState extends State<Setting> {
     _tourMark = TutorialCoachMark(
       targets: validTargets,
       hideSkip: true,
-      colorShadow: Colors.black.withOpacity(0.85),
+      colorShadow: Colors.black.withValues(alpha: 0.85),
       paddingFocus: 10,
       opacityShadow: 0.85,
       onFinish: () {
@@ -115,78 +116,84 @@ class _SettingState extends State<Setting> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<SubscriptionProvider>(
-      builder: (context, subProvider, _) {
-        final hasSettingsPermission = subProvider.hasPermission("Settings", checkView: true);
-
-        return Scaffold(
-          appBar: AppBar(
-            leading: IconButton(
-              icon: const Icon(Icons.arrow_back_ios, color: Colors.black),
-              onPressed: () => Navigator.of(context).pop(),
+    return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios, color: Colors.black),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: MyText(
+            text: AppLocale.settings.getString(context),
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
+            color: Colors.black),
+        centerTitle: true,
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          _sectionTitle(AppLocale.general.getString(context)),
+          // _settingTile(
+          //   icon: Icons.print_outlined,
+          //   title: AppLocale.printerSettings.getString(context),
+          //   onTap: () {
+          //     // Navigate to printer settings
+          //   },
+          // ),
+          // _settingTile(
+          //   icon: Icons.receipt,
+          //   title: AppLocale.billingSettings.getString(context),
+          //   onTap: () {
+          //     // Navigate to notification settings
+          //   },
+          // ),
+          _settingTile(
+            icon: Icons.message,
+            title: 'WhatsApp Templates',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const WhatsappTemplatesScreen(),
+              ),
             ),
-            title: MyText(text: AppLocale.settings.getString(context), fontSize: 17, fontWeight: FontWeight.w600, color: Colors.black),
-            centerTitle: true,
           ),
-          body: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              _sectionTitle(AppLocale.general.getString(context)),
-              if (hasSettingsPermission) ...[
-                _settingTile(
-                  icon: Icons.print_outlined,
-                  title: AppLocale.printerSettings.getString(context),
-                  onTap: () {
-                    // Navigate to printer settings
-                  },
-                ),
-                _settingTile(
-                  icon: Icons.receipt,
-                  title: AppLocale.billingSettings.getString(context),
-                  onTap: () {
-                    // Navigate to notification settings
-                  },
-                ),
-              ],
-              _settingTile(
-                key: TourKeys.settingsRestartTourKey,
-                icon: Icons.refresh_outlined,
-                title: AppLocale.restartTourGuide.getString(context),
-                onTap: () {
-                  final tourProvider = Provider.of<TourProvider>(context, listen: false);
-                  tourProvider.startTour(context);
-                },
-              ),
-              _settingTile(
-                icon: Icons.language_rounded,
-                title: AppLocale.selectLanguage.getString(context),
-                trailing: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF0C6B0F).withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: MyText(
-                    text: FlutterLocalization.instance.currentLocale?.languageCode.toUpperCase() ?? 'EN',
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: const Color(0xFF0C6B0F),
-                  ),
-                ),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const LanguageSelectionScreen(isFirstLaunch: false),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(height: 20),
-            ],
+          _settingTile(
+            key: TourKeys.settingsRestartTourKey,
+            icon: Icons.refresh_outlined,
+            title: AppLocale.restartTourGuide.getString(context),
+            onTap: () {
+              final tourProvider = Provider.of<TourProvider>(context, listen: false);
+              tourProvider.startTour(context);
+            },
           ),
-        );
-      },
+          _settingTile(
+            icon: Icons.language_rounded,
+            title: AppLocale.selectLanguage.getString(context),
+            trailing: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0C6B0F).withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: MyText(
+                text: FlutterLocalization.instance.currentLocale?.languageCode.toUpperCase() ?? 'EN',
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: const Color(0xFF0C6B0F),
+              ),
+            ),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const LanguageSelectionScreen(isFirstLaunch: false),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 20),
+        ],
+      ),
     );
   }
 

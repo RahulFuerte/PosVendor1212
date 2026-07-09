@@ -49,6 +49,7 @@ class OrderModel {
   final String adminId;
   final String? shopName;
   final String? employeeId;
+  final String? employeeName;
   final String billNumber;
   final DateTime? orderDate;
   final String? orderType;
@@ -81,6 +82,7 @@ class OrderModel {
     this.id,
     required this.adminId,
     this.employeeId,
+    this.employeeName,
     required this.billNumber,
     this.orderDate,
     this.orderType,
@@ -126,7 +128,12 @@ class OrderModel {
       id: json['_id']?.toString(),
       adminId: adminId,
       shopName: shopName,
-      employeeId: json['employeeId']?.toString(),
+      employeeId: json['employeeId'] is Map
+          ? json['employeeId']['_id']?.toString()
+          : json['employeeId']?.toString(),
+      employeeName: json['employeeId'] is Map
+          ? json['employeeId']['name']?.toString()
+          : null,
       billNumber: json['billNumber']?.toString() ?? '',
       orderDate: json['orderDate'] != null ? DateTime.tryParse(json['orderDate'].toString()) : null,
       orderType: json['orderType']?.toString(),

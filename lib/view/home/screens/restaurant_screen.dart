@@ -91,6 +91,7 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   bool _tourShowing = false;
   TutorialCoachMark? _tourMark;
+  TourProvider? _tourProvider;
 
   void _onTourStateChanged() {
     if (!mounted) return;
@@ -257,12 +258,13 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
   void initState() {
     super.initState();
     _loadSessionData();
-    context.read<TourProvider>().addListener(_onTourStateChanged);
+    _tourProvider = context.read<TourProvider>();
+    _tourProvider!.addListener(_onTourStateChanged);
   }
 
   @override
   void dispose() {
-    context.read<TourProvider>().removeListener(_onTourStateChanged);
+    _tourProvider?.removeListener(_onTourStateChanged);
     audioPlayer.dispose();
     userNameController.dispose();
     userPhoneController.dispose();

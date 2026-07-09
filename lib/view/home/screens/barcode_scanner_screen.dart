@@ -130,8 +130,7 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
           paymentMethod: 'Cash',
           paymentStatus: 'Due',
         );
-      } catch (e) {
-        print(e);
+      } catch (_) {
       }
     }
 

@@ -32,7 +32,6 @@ class ComprehensiveErrorHandler {
         'Comprehensive error handling system initialized successfully',
       );
     } catch (e) {
-      print('Failed to initialize comprehensive error handler: $e');
       rethrow;
     }
   }
